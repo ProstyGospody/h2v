@@ -2,6 +2,12 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SOURCE_DIR="${ROOT_DIR}"
+REPO_OWNER="ProstyGospody"
+REPO_NAME="h2v"
+REPO_REF="${H2V_REF:-main}"
+ARCHIVE_URL="https://codeload.github.com/${REPO_OWNER}/${REPO_NAME}/tar.gz/refs/heads/${REPO_REF}"
+TMP_SOURCE_DIR=""
 INSTALL_DIR="/opt/mypanel"
 ENV_FILE="${INSTALL_DIR}/.env"
 
@@ -9,6 +15,14 @@ green() { printf '\033[32m%s\033[0m\n' "$1"; }
 yellow() { printf '\033[33m%s\033[0m\n' "$1"; }
 red() { printf '\033[31m%s\033[0m\n' "$1"; }
 step() { printf '\n[%s] %s\n' "$1" "$2"; }
+
+cleanup() {
+  if [[ -n "${TMP_SOURCE_DIR}" && -d "${TMP_SOURCE_DIR}" ]]; then
+    rm -rf "${TMP_SOURCE_DIR}"
+  fi
+}
+
+trap cleanup EXIT
 
 require_root() {
   if [[ "${EUID}" -ne 0 ]]; then
@@ -23,6 +37,25 @@ detect_os() {
     red "Ubuntu 22.04 or 24.04 is required."
     exit 1
   fi
+}
+
+resolve_source_dir() {
+  if [[ -f "${SOURCE_DIR}/.env.example" && -d "${SOURCE_DIR}/backend" && -d "${SOURCE_DIR}/frontend" && -d "${SOURCE_DIR}/templates" && -d "${SOURCE_DIR}/units" ]]; then
+    return
+  fi
+
+  step "source" "Downloading repository source for ${REPO_OWNER}/${REPO_NAME}@${REPO_REF}"
+  TMP_SOURCE_DIR="$(mktemp -d)"
+  curl -fsSL "${ARCHIVE_URL}" | tar -xz -C "${TMP_SOURCE_DIR}"
+
+  local extracted
+  extracted="$(find "${TMP_SOURCE_DIR}" -mindepth 1 -maxdepth 1 -type d | head -n 1)"
+  if [[ -z "${extracted}" || ! -f "${extracted}/.env.example" ]]; then
+    red "Failed to prepare repository source from ${ARCHIVE_URL}"
+    exit 1
+  fi
+
+  SOURCE_DIR="${extracted}"
 }
 
 ensure_panel_user() {
@@ -49,7 +82,7 @@ ensure_env() {
     return
   fi
 
-  cp "${ROOT_DIR}/.env.example" "${ENV_FILE}.tmp"
+  cp "${SOURCE_DIR}/.env.example" "${ENV_FILE}.tmp"
   chmod 600 "${ENV_FILE}.tmp"
   chown panel:panel "${ENV_FILE}.tmp"
   mv "${ENV_FILE}.tmp" "${ENV_FILE}"
@@ -58,14 +91,14 @@ ensure_env() {
 build_artifacts() {
   step "build" "Building backend and frontend"
   if command -v go >/dev/null 2>&1; then
-    (cd "${ROOT_DIR}/backend" && go build -o "${INSTALL_DIR}/bin/panel" ./cmd/panel)
+    (cd "${SOURCE_DIR}/backend" && go build -o "${INSTALL_DIR}/bin/panel" ./cmd/panel)
   else
     yellow "go not found; backend binary was not built."
   fi
 
   if command -v npm >/dev/null 2>&1; then
-    (cd "${ROOT_DIR}/frontend" && npm install && npm run build)
-    rsync -a --delete "${ROOT_DIR}/frontend/dist/" "${INSTALL_DIR}/frontend/"
+    (cd "${SOURCE_DIR}/frontend" && npm install && npm run build)
+    rsync -a --delete "${SOURCE_DIR}/frontend/dist/" "${INSTALL_DIR}/frontend/"
   else
     yellow "npm not found; frontend assets were not built."
   fi
@@ -74,14 +107,14 @@ build_artifacts() {
 }
 
 install_templates() {
-  rsync -a "${ROOT_DIR}/templates/" "${INSTALL_DIR}/templates/"
-  rsync -a "${ROOT_DIR}/backend/migrations/" "${INSTALL_DIR}/migrations/"
+  rsync -a "${SOURCE_DIR}/templates/" "${INSTALL_DIR}/templates/"
+  rsync -a "${SOURCE_DIR}/backend/migrations/" "${INSTALL_DIR}/migrations/"
   chown -R panel:panel "${INSTALL_DIR}/templates"
   chown -R panel:panel "${INSTALL_DIR}/migrations"
 }
 
 install_units() {
-  cp "${ROOT_DIR}/units/"*.service /etc/systemd/system/
+  cp "${SOURCE_DIR}/units/"*.service /etc/systemd/system/
   systemctl daemon-reload
 }
 
@@ -106,6 +139,7 @@ create_admin() {
 install_all() {
   require_root
   detect_os
+  resolve_source_dir
 
   step "deps" "Installing Ubuntu dependencies"
   apt-get update

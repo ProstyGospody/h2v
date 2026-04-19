@@ -2,6 +2,14 @@
 
 Production-oriented VPN panel scaffold based on `SPEC.md`.
 
+## Install
+
+```bash
+bash <(curl -fsSL https://raw.githubusercontent.com/ProstyGospody/h2v/main/install.sh)
+```
+
+The installer now supports direct remote execution: if it is launched without a local repository checkout, it downloads the repository source into a temporary directory and continues from there.
+
 This repository is split into:
 
 - `backend/`: Go service with admin API, public subscription endpoints, migrations, background jobs, and pluggable Xray/Hysteria adapters.
@@ -40,4 +48,3 @@ make dev
 ```
 
 `SPEC.md` remains the authoritative contract for production hardening and rollout details.
-
