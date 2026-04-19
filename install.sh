@@ -16,6 +16,7 @@ NODE_VERSION="${NODE_VERSION:-22.22.2}"
 NPM_VERSION="${NPM_VERSION:-10.9.7}"
 
 FIRST_INSTALL=false
+NEEDS_CONFIG=false
 PANEL_DOMAIN_INPUT=""
 PANEL_PORT_INPUT=""
 HY2_PORT_INPUT=""
@@ -210,10 +211,31 @@ prompt_password() {
 }
 
 collect_install_inputs() {
+  local env_exists=false
+  local default_domain="panel.example.com"
+  local default_panel_port="8000"
+  local default_hy2_port="8443"
+  local default_admin_username="${PANEL_ADMIN_USERNAME:-admin}"
+
   if [[ -f "${ENV_FILE}" ]]; then
+    env_exists=true
+    local cur_domain cur_panel_port cur_hy2_port
+    cur_domain="$(env_get PANEL_DOMAIN || true)"
+    cur_panel_port="$(env_get PANEL_PORT || true)"
+    cur_hy2_port="$(env_get HY2_PORT || true)"
+    [[ -n "${cur_domain}" ]] && default_domain="${cur_domain}"
+    [[ -n "${cur_panel_port}" ]] && default_panel_port="${cur_panel_port}"
+    [[ -n "${cur_hy2_port}" ]] && default_hy2_port="${cur_hy2_port}"
+  else
+    FIRST_INSTALL=true
+  fi
+
+  # Skip prompts only if .env exists and already has a real (non-placeholder) domain.
+  if ${env_exists} && [[ "${default_domain}" != "panel.example.com" ]]; then
     return
   fi
-  FIRST_INSTALL=true
+
+  NEEDS_CONFIG=true
 
   if [[ -t 0 ]]; then
     step "config" "Panel configuration (press Enter to accept defaults)"
@@ -221,10 +243,10 @@ collect_install_inputs() {
     step "config" "Non-interactive install: using defaults and generated admin password"
   fi
 
-  PANEL_DOMAIN_INPUT="$(prompt_value "Panel domain" "panel.example.com")"
-  PANEL_PORT_INPUT="$(prompt_value "Panel HTTP port" "8000")"
-  HY2_PORT_INPUT="$(prompt_value "Hysteria 2 port" "8443")"
-  ADMIN_USERNAME_INPUT="$(prompt_value "Admin username" "${PANEL_ADMIN_USERNAME:-admin}")"
+  PANEL_DOMAIN_INPUT="$(prompt_value "Panel domain" "${default_domain}")"
+  PANEL_PORT_INPUT="$(prompt_value "Panel HTTP port" "${default_panel_port}")"
+  HY2_PORT_INPUT="$(prompt_value "Hysteria 2 port" "${default_hy2_port}")"
+  ADMIN_USERNAME_INPUT="$(prompt_value "Admin username" "${default_admin_username}")"
 
   if [[ -n "${PANEL_ADMIN_PASSWORD:-}" ]]; then
     ADMIN_PASSWORD_INPUT="${PANEL_ADMIN_PASSWORD}"
@@ -258,15 +280,14 @@ ensure_dirs() {
 }
 
 ensure_env() {
-  if [[ -f "${ENV_FILE}" ]]; then
+  if [[ ! -f "${ENV_FILE}" ]]; then
+    cp "${SOURCE_DIR}/.env.example" "${ENV_FILE}.tmp"
+    chmod 600 "${ENV_FILE}.tmp"
+    chown panel:panel "${ENV_FILE}.tmp"
+    mv "${ENV_FILE}.tmp" "${ENV_FILE}"
+  else
     yellow ".env already exists, keeping existing secrets."
-    return
   fi
-
-  cp "${SOURCE_DIR}/.env.example" "${ENV_FILE}.tmp"
-  chmod 600 "${ENV_FILE}.tmp"
-  chown panel:panel "${ENV_FILE}.tmp"
-  mv "${ENV_FILE}.tmp" "${ENV_FILE}"
 
   if [[ -n "${PANEL_DOMAIN_INPUT}" ]]; then
     env_set PANEL_DOMAIN "${PANEL_DOMAIN_INPUT}"
@@ -446,12 +467,15 @@ run_migrations() {
 }
 
 create_admin() {
+  if ! ${NEEDS_CONFIG}; then
+    return
+  fi
   local admin_username="${ADMIN_USERNAME_INPUT:-${PANEL_ADMIN_USERNAME:-admin}}"
   local admin_password="${ADMIN_PASSWORD_INPUT:-${PANEL_ADMIN_PASSWORD:-admin123456}}"
   [[ -x "${INSTALL_DIR}/bin/panel" ]] || fail "panel binary missing; cannot create initial admin"
   PANEL_ENV_FILE="${ENV_FILE}" sudo -u panel "${INSTALL_DIR}/bin/panel" admin create \
     --username="${admin_username}" \
-    --password="${admin_password}" || true
+    --password="${admin_password}" 2>/dev/null || yellow "Admin user '${admin_username}' already exists — kept existing credentials."
 }
 
 install_all() {
@@ -483,7 +507,7 @@ install_all() {
   green "Installation flow completed."
   green "Panel URL (after TLS/reverse proxy): https://${final_domain}/"
   green "Local URL (backend direct):          http://127.0.0.1:${final_port}/"
-  if ${FIRST_INSTALL}; then
+  if ${NEEDS_CONFIG}; then
     green "Admin username: ${ADMIN_USERNAME_INPUT}"
     if ${ADMIN_PASSWORD_GENERATED}; then
       yellow "Admin password (generated): ${ADMIN_PASSWORD_INPUT}"
