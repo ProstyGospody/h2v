@@ -9,6 +9,7 @@ bash <(curl -fsSL https://raw.githubusercontent.com/ProstyGospody/h2v/main/insta
 ```
 
 The installer now supports direct remote execution: if it is launched without a local repository checkout, it downloads the repository source into a temporary directory and continues from there.
+On a fresh Ubuntu host it also bootstraps the build toolchain it needs: Go `1.22.x` and Node.js `22.x`.
 
 This repository is split into:
 

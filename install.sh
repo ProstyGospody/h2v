@@ -10,11 +10,16 @@ ARCHIVE_URL="https://codeload.github.com/${REPO_OWNER}/${REPO_NAME}/tar.gz/refs/
 TMP_SOURCE_DIR=""
 INSTALL_DIR="/opt/mypanel"
 ENV_FILE="${INSTALL_DIR}/.env"
+GO_VERSION="${GO_VERSION:-1.22.12}"
+NODE_MAJOR="${NODE_MAJOR:-22}"
+export DEBIAN_FRONTEND=noninteractive
+export PATH="/usr/local/go/bin:${PATH}"
 
 green() { printf '\033[32m%s\033[0m\n' "$1"; }
 yellow() { printf '\033[33m%s\033[0m\n' "$1"; }
 red() { printf '\033[31m%s\033[0m\n' "$1"; }
 step() { printf '\n[%s] %s\n' "$1" "$2"; }
+log() { printf '%s\n' "$1"; }
 
 cleanup() {
   if [[ -n "${TMP_SOURCE_DIR}" && -d "${TMP_SOURCE_DIR}" ]]; then
@@ -37,6 +42,99 @@ detect_os() {
     red "Ubuntu 22.04 or 24.04 is required."
     exit 1
   fi
+}
+
+fail() {
+  red "$1"
+  exit 1
+}
+
+command_exists() {
+  command -v "$1" >/dev/null 2>&1
+}
+
+major_version() {
+  local raw="${1#v}"
+  printf '%s' "${raw%%.*}"
+}
+
+ensure_base_packages() {
+  step "deps" "Installing Ubuntu dependencies"
+  apt-get update
+  apt-get install -y \
+    bash \
+    ca-certificates \
+    curl \
+    wget \
+    openssl \
+    jq \
+    uuid-runtime \
+    certbot \
+    postgresql \
+    postgresql-contrib \
+    caddy \
+    rsync \
+    git \
+    tar \
+    gzip \
+    xz-utils \
+    build-essential \
+    sudo
+}
+
+install_go() {
+  local arch
+  case "$(uname -m)" in
+    x86_64) arch="amd64" ;;
+    aarch64|arm64) arch="arm64" ;;
+    *) fail "Unsupported architecture for Go install: $(uname -m)" ;;
+  esac
+
+  step "go" "Installing Go ${GO_VERSION}"
+  rm -rf /usr/local/go
+  curl -fsSL "https://go.dev/dl/go${GO_VERSION}.linux-${arch}.tar.gz" | tar -C /usr/local -xz
+  ln -sf /usr/local/go/bin/go /usr/local/bin/go
+  ln -sf /usr/local/go/bin/gofmt /usr/local/bin/gofmt
+}
+
+ensure_go() {
+  if command_exists go; then
+    local current
+    local go_major
+    local go_minor
+    current="$(go version | awk '{print $3}' | sed 's/^go//')"
+    IFS='.' read -r go_major go_minor _ <<< "${current}"
+    if [[ "${go_major:-0}" -gt 1 || ( "${go_major:-0}" -eq 1 && "${go_minor:-0}" -ge 22 ) ]]; then
+      log "Go already installed: ${current}"
+      return
+    fi
+  fi
+  install_go
+}
+
+install_node() {
+  step "node" "Installing Node.js ${NODE_MAJOR}.x"
+  curl -fsSL "https://deb.nodesource.com/setup_${NODE_MAJOR}.x" | bash -
+  apt-get install -y nodejs
+}
+
+ensure_node() {
+  if command_exists node && command_exists npm; then
+    local current
+    current="$(node -v)"
+    if [[ "$(major_version "${current}")" -ge "${NODE_MAJOR}" ]]; then
+      log "Node.js already installed: ${current}"
+      return
+    fi
+  fi
+  install_node
+}
+
+ensure_build_toolchain() {
+  ensure_go
+  ensure_node
+  command_exists go || fail "go is still unavailable after install"
+  command_exists npm || fail "npm is still unavailable after install"
 }
 
 resolve_source_dir() {
@@ -90,18 +188,12 @@ ensure_env() {
 
 build_artifacts() {
   step "build" "Building backend and frontend"
-  if command -v go >/dev/null 2>&1; then
-    (cd "${SOURCE_DIR}/backend" && go build -o "${INSTALL_DIR}/bin/panel" ./cmd/panel)
-  else
-    yellow "go not found; backend binary was not built."
-  fi
+  (cd "${SOURCE_DIR}/backend" && go build -o "${INSTALL_DIR}/bin/panel" ./cmd/panel)
+  (cd "${SOURCE_DIR}/frontend" && npm install && npm run build)
+  rsync -a --delete "${SOURCE_DIR}/frontend/dist/" "${INSTALL_DIR}/frontend/"
 
-  if command -v npm >/dev/null 2>&1; then
-    (cd "${SOURCE_DIR}/frontend" && npm install && npm run build)
-    rsync -a --delete "${SOURCE_DIR}/frontend/dist/" "${INSTALL_DIR}/frontend/"
-  else
-    yellow "npm not found; frontend assets were not built."
-  fi
+  [[ -x "${INSTALL_DIR}/bin/panel" ]] || fail "backend build completed without producing ${INSTALL_DIR}/bin/panel"
+  [[ -f "${INSTALL_DIR}/frontend/index.html" ]] || fail "frontend build completed without producing ${INSTALL_DIR}/frontend/index.html"
 
   chown -R panel:panel "${INSTALL_DIR}/bin" "${INSTALL_DIR}/frontend"
 }
@@ -119,21 +211,17 @@ install_units() {
 }
 
 run_migrations() {
-  if [[ -x "${INSTALL_DIR}/bin/panel" ]]; then
-    PANEL_ENV_FILE="${ENV_FILE}" sudo -u panel "${INSTALL_DIR}/bin/panel" migrate up
-  else
-    yellow "panel binary missing; migrations skipped."
-  fi
+  [[ -x "${INSTALL_DIR}/bin/panel" ]] || fail "panel binary missing; cannot run migrations"
+  PANEL_ENV_FILE="${ENV_FILE}" sudo -u panel "${INSTALL_DIR}/bin/panel" migrate up
 }
 
 create_admin() {
   local admin_username="${PANEL_ADMIN_USERNAME:-admin}"
   local admin_password="${PANEL_ADMIN_PASSWORD:-admin123456}"
-  if [[ -x "${INSTALL_DIR}/bin/panel" ]]; then
-    PANEL_ENV_FILE="${ENV_FILE}" sudo -u panel "${INSTALL_DIR}/bin/panel" admin create \
-      --username="${admin_username}" \
-      --password="${admin_password}" || true
-  fi
+  [[ -x "${INSTALL_DIR}/bin/panel" ]] || fail "panel binary missing; cannot create initial admin"
+  PANEL_ENV_FILE="${ENV_FILE}" sudo -u panel "${INSTALL_DIR}/bin/panel" admin create \
+    --username="${admin_username}" \
+    --password="${admin_password}" || true
 }
 
 install_all() {
@@ -141,9 +229,8 @@ install_all() {
   detect_os
   resolve_source_dir
 
-  step "deps" "Installing Ubuntu dependencies"
-  apt-get update
-  apt-get install -y curl wget openssl jq uuid-runtime certbot postgresql postgresql-contrib caddy rsync
+  ensure_base_packages
+  ensure_build_toolchain
 
   step "user" "Ensuring panel system user and directories"
   ensure_panel_user
@@ -157,6 +244,8 @@ install_all() {
 
   green "Installation flow completed."
   green "Review ${ENV_FILE} before enabling production services."
+  green "Go: $(go version)"
+  green "Node: $(node -v), npm: $(npm -v)"
 }
 
 backup_db() {
