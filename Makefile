@@ -5,7 +5,7 @@ SHELL := /bin/bash
 build: backend frontend
 
 backend:
-	cd backend && go build ./cmd/panel
+	cd backend && go mod download && go mod verify && go build -mod=readonly ./cmd/panel
 
 frontend:
 	cd frontend && if [ -f package-lock.json ]; then npm ci --no-fund --no-audit; else npm install --no-fund --no-audit; fi && npm run build

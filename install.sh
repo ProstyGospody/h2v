@@ -215,7 +215,7 @@ build_artifacts() {
   cached_lock="${BUILD_STATE_DIR}/frontend-package-lock.json"
 
   step "build" "Building backend and frontend"
-  (cd "${SOURCE_DIR}/backend" && go build -o "${INSTALL_DIR}/bin/panel" ./cmd/panel)
+  (cd "${SOURCE_DIR}/backend" && go mod download && go mod verify && go build -mod=readonly -o "${INSTALL_DIR}/bin/panel" ./cmd/panel)
 
   if [[ ! -f "${frontend_dir}/package-lock.json" && -f "${cached_lock}" ]]; then
     cp "${cached_lock}" "${frontend_dir}/package-lock.json"

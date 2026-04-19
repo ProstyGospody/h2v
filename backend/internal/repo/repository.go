@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"strings"
-	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -749,4 +748,3 @@ func rawJSONArray(values []string) json.RawMessage {
 	b, _ := json.Marshal(values)
 	return b
 }
-
