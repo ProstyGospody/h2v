@@ -9,7 +9,10 @@ bash <(curl -fsSL https://raw.githubusercontent.com/ProstyGospody/h2v/main/insta
 ```
 
 The installer now supports direct remote execution: if it is launched without a local repository checkout, it downloads the repository source into a temporary directory and continues from there.
-On a fresh Ubuntu host it also bootstraps the build toolchain it needs: Go `1.22.x` and Node.js `22.x`.
+On a fresh Ubuntu host it also bootstraps the exact build toolchain it needs: Go `1.22.12`, Node.js `22.22.2`, npm `10.9.7`.
+Frontend package versions are pinned exactly in [frontend/package.json](./frontend/package.json), and the Go toolchain is pinned in [backend/go.mod](./backend/go.mod).
+The installer also persists the generated frontend `package-lock.json` under `/opt/mypanel/build/` and reuses it on later rebuilds, so repeated installs on the same host keep the same npm dependency graph.
+For immutable source rebuilds, run the installer with an explicit tag or commit via `H2V_REF`; `main` remains mutable by definition.
 
 This repository is split into:
 

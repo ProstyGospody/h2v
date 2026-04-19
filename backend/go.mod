@@ -2,6 +2,8 @@ module github.com/prost/h2v/backend
 
 go 1.22
 
+toolchain go1.22.12
+
 require (
 	github.com/coreos/go-systemd/v22 v22.5.0
 	github.com/go-chi/chi/v5 v5.1.0
@@ -17,4 +19,3 @@ require (
 	golang.org/x/time v0.8.0
 	gopkg.in/yaml.v3 v3.0.1
 )
-

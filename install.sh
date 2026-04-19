@@ -6,12 +6,14 @@ SOURCE_DIR="${ROOT_DIR}"
 REPO_OWNER="ProstyGospody"
 REPO_NAME="h2v"
 REPO_REF="${H2V_REF:-main}"
-ARCHIVE_URL="https://codeload.github.com/${REPO_OWNER}/${REPO_NAME}/tar.gz/refs/heads/${REPO_REF}"
+ARCHIVE_URL="https://codeload.github.com/${REPO_OWNER}/${REPO_NAME}/tar.gz/${REPO_REF}"
 TMP_SOURCE_DIR=""
 INSTALL_DIR="/opt/mypanel"
 ENV_FILE="${INSTALL_DIR}/.env"
+BUILD_STATE_DIR="${INSTALL_DIR}/build"
 GO_VERSION="${GO_VERSION:-1.22.12}"
-NODE_MAJOR="${NODE_MAJOR:-22}"
+NODE_VERSION="${NODE_VERSION:-22.22.2}"
+NPM_VERSION="${NPM_VERSION:-10.9.7}"
 export DEBIAN_FRONTEND=noninteractive
 export PATH="/usr/local/go/bin:${PATH}"
 
@@ -53,9 +55,9 @@ command_exists() {
   command -v "$1" >/dev/null 2>&1
 }
 
-major_version() {
+normalize_version() {
   local raw="${1#v}"
-  printf '%s' "${raw%%.*}"
+  printf '%s' "${raw}"
 }
 
 ensure_base_packages() {
@@ -100,11 +102,8 @@ install_go() {
 ensure_go() {
   if command_exists go; then
     local current
-    local go_major
-    local go_minor
     current="$(go version | awk '{print $3}' | sed 's/^go//')"
-    IFS='.' read -r go_major go_minor _ <<< "${current}"
-    if [[ "${go_major:-0}" -gt 1 || ( "${go_major:-0}" -eq 1 && "${go_minor:-0}" -ge 22 ) ]]; then
+    if [[ "$(normalize_version "${current}")" == "${GO_VERSION}" ]]; then
       log "Go already installed: ${current}"
       return
     fi
@@ -113,17 +112,36 @@ ensure_go() {
 }
 
 install_node() {
-  step "node" "Installing Node.js ${NODE_MAJOR}.x"
-  curl -fsSL "https://deb.nodesource.com/setup_${NODE_MAJOR}.x" | bash -
-  apt-get install -y nodejs
+  local arch
+  local node_dir
+  case "$(uname -m)" in
+    x86_64) arch="x64" ;;
+    aarch64|arm64) arch="arm64" ;;
+    *) fail "Unsupported architecture for Node.js install: $(uname -m)" ;;
+  esac
+
+  step "node" "Installing Node.js ${NODE_VERSION}"
+  node_dir="/usr/local/lib/nodejs/node-v${NODE_VERSION}-linux-${arch}"
+  rm -rf /usr/local/lib/nodejs
+  mkdir -p /usr/local/lib/nodejs
+  curl -fsSL "https://nodejs.org/dist/v${NODE_VERSION}/node-v${NODE_VERSION}-linux-${arch}.tar.xz" | tar -xJ -C /usr/local/lib/nodejs
+  ln -sf "${node_dir}/bin/node" /usr/local/bin/node
+  ln -sf "${node_dir}/bin/npm" /usr/local/bin/npm
+  ln -sf "${node_dir}/bin/npx" /usr/local/bin/npx
+  if [[ -x "${node_dir}/bin/corepack" ]]; then
+    ln -sf "${node_dir}/bin/corepack" /usr/local/bin/corepack
+  fi
+  npm install -g "npm@${NPM_VERSION}"
 }
 
 ensure_node() {
   if command_exists node && command_exists npm; then
-    local current
-    current="$(node -v)"
-    if [[ "$(major_version "${current}")" -ge "${NODE_MAJOR}" ]]; then
-      log "Node.js already installed: ${current}"
+    local current_node
+    local current_npm
+    current_node="$(node -v)"
+    current_npm="$(npm -v)"
+    if [[ "$(normalize_version "${current_node}")" == "${NODE_VERSION}" && "$(normalize_version "${current_npm}")" == "${NPM_VERSION}" ]]; then
+      log "Node.js already installed: ${current_node}, npm ${current_npm}"
       return
     fi
   fi
@@ -135,6 +153,9 @@ ensure_build_toolchain() {
   ensure_node
   command_exists go || fail "go is still unavailable after install"
   command_exists npm || fail "npm is still unavailable after install"
+  [[ "$(go version | awk '{print $3}' | sed 's/^go//')" == "${GO_VERSION}" ]] || fail "unexpected Go version after install"
+  [[ "$(normalize_version "$(node -v)")" == "${NODE_VERSION}" ]] || fail "unexpected Node.js version after install"
+  [[ "$(normalize_version "$(npm -v)")" == "${NPM_VERSION}" ]] || fail "unexpected npm version after install"
 }
 
 resolve_source_dir() {
@@ -169,6 +190,7 @@ ensure_dirs() {
     "${INSTALL_DIR}/templates" \
     "${INSTALL_DIR}/migrations" \
     "${INSTALL_DIR}/frontend" \
+    "${BUILD_STATE_DIR}" \
     "${INSTALL_DIR}/data/backups" \
     "${INSTALL_DIR}/logs"
   chown -R panel:panel "${INSTALL_DIR}"
@@ -187,15 +209,32 @@ ensure_env() {
 }
 
 build_artifacts() {
+  local frontend_dir
+  local cached_lock
+  frontend_dir="${SOURCE_DIR}/frontend"
+  cached_lock="${BUILD_STATE_DIR}/frontend-package-lock.json"
+
   step "build" "Building backend and frontend"
   (cd "${SOURCE_DIR}/backend" && go build -o "${INSTALL_DIR}/bin/panel" ./cmd/panel)
-  (cd "${SOURCE_DIR}/frontend" && npm install && npm run build)
-  rsync -a --delete "${SOURCE_DIR}/frontend/dist/" "${INSTALL_DIR}/frontend/"
+
+  if [[ ! -f "${frontend_dir}/package-lock.json" && -f "${cached_lock}" ]]; then
+    cp "${cached_lock}" "${frontend_dir}/package-lock.json"
+  fi
+
+  if [[ -f "${frontend_dir}/package-lock.json" ]]; then
+    (cd "${frontend_dir}" && npm ci --no-fund --no-audit && npm run build)
+  else
+    (cd "${frontend_dir}" && npm install --no-fund --no-audit && npm run build)
+  fi
+
+  [[ -f "${frontend_dir}/package-lock.json" ]] || fail "frontend build did not produce package-lock.json"
+  cp "${frontend_dir}/package-lock.json" "${cached_lock}"
+  rsync -a --delete "${frontend_dir}/dist/" "${INSTALL_DIR}/frontend/"
 
   [[ -x "${INSTALL_DIR}/bin/panel" ]] || fail "backend build completed without producing ${INSTALL_DIR}/bin/panel"
   [[ -f "${INSTALL_DIR}/frontend/index.html" ]] || fail "frontend build completed without producing ${INSTALL_DIR}/frontend/index.html"
 
-  chown -R panel:panel "${INSTALL_DIR}/bin" "${INSTALL_DIR}/frontend"
+  chown -R panel:panel "${INSTALL_DIR}/bin" "${INSTALL_DIR}/frontend" "${BUILD_STATE_DIR}"
 }
 
 install_templates() {
@@ -246,6 +285,7 @@ install_all() {
   green "Review ${ENV_FILE} before enabling production services."
   green "Go: $(go version)"
   green "Node: $(node -v), npm: $(npm -v)"
+  yellow "Source ref: ${REPO_REF} (set H2V_REF to a tag or commit for immutable source rebuilds)"
 }
 
 backup_db() {
