@@ -672,14 +672,58 @@ uninstall_all() {
   green "Application files removed. Packages, certificates, and database objects were left in place."
 }
 
+reset_admin() {
+  require_root
+  [[ -x "${INSTALL_DIR}/bin/panel" ]] || fail "panel binary missing at ${INSTALL_DIR}/bin/panel — run install first"
+  [[ -f "${ENV_FILE}" ]] || fail "${ENV_FILE} not found"
+
+  local username password generated=false
+  username="${1:-}"
+  password="${2:-}"
+
+  if [[ -z "${username}" ]]; then
+    username="$(prompt_value "Admin username" "admin")"
+  fi
+
+  if [[ -z "${password}" ]]; then
+    if [[ -t 0 ]]; then
+      password="$(prompt_password "New password (blank to auto-generate)")"
+    fi
+    if [[ -z "${password}" ]]; then
+      password="$(openssl rand -base64 24 | tr -dc 'A-Za-z0-9' | cut -c1-20)"
+      generated=true
+    fi
+  fi
+
+  step "reset" "Setting new password for admin '${username}'"
+  local out status=0
+  out="$(PANEL_ENV_FILE="${ENV_FILE}" sudo -u panel "${INSTALL_DIR}/bin/panel" admin set-password \
+    --username="${username}" \
+    --password="${password}" 2>&1)" || status=$?
+
+  if [[ ${status} -ne 0 ]]; then
+    red "${out}"
+    fail "failed to reset admin password"
+  fi
+
+  green "Admin username: ${username}"
+  if ${generated}; then
+    yellow "Admin password (generated): ${password}"
+  else
+    yellow "Admin password: ${password}"
+  fi
+  yellow "Save this password — it will not be shown again."
+}
+
 case "${1:-install}" in
   install) install_all ;;
   update|reinstall) update_all ;;
   uninstall) uninstall_all ;;
+  reset-admin) reset_admin "${2:-}" "${3:-}" ;;
   backup) backup_db ;;
   restore) restore_db "${2:-}" ;;
   *)
-    red "Usage: $0 {install|update|reinstall|uninstall|backup|restore <file>}"
+    red "Usage: $0 {install|update|reinstall|uninstall|reset-admin [username] [password]|backup|restore <file>}"
     exit 1
     ;;
 esac

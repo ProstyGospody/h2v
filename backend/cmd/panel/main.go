@@ -41,7 +41,7 @@ func main() {
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{}))
 
 	if len(os.Args) < 2 {
-		fatal(logger, errors.New("expected subcommand: serve | migrate up | admin create | config render"))
+		fatal(logger, errors.New("expected subcommand: serve | migrate up | admin create | admin set-password | config render"))
 	}
 
 	switch os.Args[1] {
@@ -164,14 +164,25 @@ func runMigrate(cfg config.Config, logger *slog.Logger, args []string) {
 }
 
 func runAdmin(cfg config.Config, logger *slog.Logger, args []string) {
-	if len(args) == 0 || args[0] != "create" {
-		fatal(logger, errors.New("usage: panel admin create --username <name> --password <password>"))
+	if len(args) == 0 {
+		fatal(logger, errors.New("usage: panel admin <create|set-password> --username <name> --password <password>"))
 	}
+	switch args[0] {
+	case "create":
+		runAdminCreate(cfg, logger, args[1:])
+	case "set-password":
+		runAdminSetPassword(cfg, logger, args[1:])
+	default:
+		fatal(logger, fmt.Errorf("unknown admin subcommand %q (expected create|set-password)", args[0]))
+	}
+}
+
+func runAdminCreate(cfg config.Config, logger *slog.Logger, args []string) {
 	cmd := flag.NewFlagSet("admin create", flag.ExitOnError)
 	username := cmd.String("username", "admin", "")
 	password := cmd.String("password", "", "")
 	role := cmd.String("role", "admin", "")
-	_ = cmd.Parse(args[1:])
+	_ = cmd.Parse(args)
 	if *password == "" {
 		fatal(logger, errors.New("password is required"))
 	}
@@ -198,6 +209,36 @@ func runAdmin(cfg config.Config, logger *slog.Logger, args []string) {
 		fatal(logger, err)
 	}
 	logger.Info("admin created", "username", admin.Username)
+}
+
+func runAdminSetPassword(cfg config.Config, logger *slog.Logger, args []string) {
+	cmd := flag.NewFlagSet("admin set-password", flag.ExitOnError)
+	username := cmd.String("username", "admin", "")
+	password := cmd.String("password", "", "")
+	_ = cmd.Parse(args)
+	if *password == "" {
+		fatal(logger, errors.New("password is required"))
+	}
+
+	ctx := context.Background()
+	pool, err := db.Connect(ctx, cfg.DB)
+	if err != nil {
+		fatal(logger, err)
+	}
+	defer pool.Close()
+	repository := repo.New(pool)
+	admin, err := repository.GetAdminByUsername(ctx, *username)
+	if err != nil {
+		fatal(logger, err)
+	}
+	hash, err := util.HashPassword(*password)
+	if err != nil {
+		fatal(logger, err)
+	}
+	if err := repository.UpdateAdminPassword(ctx, admin.ID, hash, admin.TOTPSecret); err != nil {
+		fatal(logger, err)
+	}
+	logger.Info("admin password updated", "username", admin.Username)
 }
 
 func runConfig(cfg config.Config, logger *slog.Logger, args []string) {
