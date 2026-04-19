@@ -304,15 +304,10 @@ ensure_postgres() {
   sudo -u postgres psql -v ON_ERROR_STOP=1 --dbname=postgres \
     --set=db_user="${db_user}" \
     --set=db_password="${db_password}" <<'SQL'
-DO $$
-BEGIN
-  IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = :'db_user') THEN
-    EXECUTE format('CREATE ROLE %I LOGIN PASSWORD %L', :'db_user', :'db_password');
-  ELSE
-    EXECUTE format('ALTER ROLE %I WITH LOGIN PASSWORD %L', :'db_user', :'db_password');
-  END IF;
-END
-$$;
+SELECT format('CREATE ROLE %I LOGIN PASSWORD %L', :'db_user', :'db_password')
+WHERE NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = :'db_user') \gexec
+SELECT format('ALTER ROLE %I WITH LOGIN PASSWORD %L', :'db_user', :'db_password')
+WHERE EXISTS (SELECT 1 FROM pg_roles WHERE rolname = :'db_user') \gexec
 SQL
 
   if [[ -z "$(sudo -u postgres psql -tA --dbname=postgres --set=db_name="${db_name}" -c "SELECT 1 FROM pg_database WHERE datname = :'db_name'")" ]]; then
