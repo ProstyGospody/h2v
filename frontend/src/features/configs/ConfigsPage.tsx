@@ -52,7 +52,7 @@ export function ConfigsPage() {
         <Card className="p-0">
           <Editor
             height="70vh"
-            language={core === 'xray' ? 'json' : 'yaml'}
+            language="json"
             value={content}
             theme="vs-dark"
             onChange={(value) => setDraft(value ?? '')}

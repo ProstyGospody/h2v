@@ -186,11 +186,11 @@
 │   │   ├── config.json               # активный (рендерится из шаблона)
 │   │   └── config.json.bak           # предыдущая версия
 │   └── hysteria/
-│       ├── config.yaml
-│       └── config.yaml.bak
+│       ├── config.json
+│       └── config.json.bak
 ├── templates/
 │   ├── xray.config.json.tmpl
-│   └── hysteria.config.yaml.tmpl
+│   └── hysteria.config.json.tmpl
 ├── data/
 │   ├── backups/
 │   │   └── panel-YYYY-MM-DD.sql.gz   # ежедневные дампы
@@ -369,7 +369,7 @@ backend/
 │   │       ├── client.go             # HTTP клиент
 │   │       ├── traffic.go            # GetTraffic / Kick
 │   │       ├── authhook.go           # обработчик /hy2/auth
-│   │       └── config.go             # рендер config.yaml
+│   │       └── config.go             # рендер config.json
 │   ├── services/
 │   │   ├── users.go                  # UserService: координация БД + Xray + кэш
 │   │   ├── subscription.go           # SubService: /sub/<token>
@@ -413,7 +413,7 @@ backend/
 │       └── humanize.go               # formatBytes, formatDuration
 ├── templates/
 │   ├── xray.config.json.tmpl
-│   └── hysteria.config.yaml.tmpl
+│   └── hysteria.config.json.tmpl
 ├── migrations/
 │   ├── 001_init.sql
 │   ├── 002_seed_settings.sql
@@ -896,7 +896,7 @@ func AuthHandler(cache *cache.Cache, logger *slog.Logger) fiber.Handler {
 1. `SettingsService.Apply(changes)` — валидирует.
 2. Пишет в БД.
 3. `ConfigService.RenderXray()` — рендерит `configs/xray/config.json` из шаблона + БД.
-4. `ConfigService.RenderHysteria()` — рендерит `configs/hysteria/config.yaml`.
+4. `ConfigService.RenderHysteria()` — рендерит `configs/hysteria/config.json`.
 5. Делает бэкап старого конфига в `config.json.bak`.
 6. `systemctl.Restart("xray")` или `restart("hysteria")` в зависимости от того, что изменилось.
 7. Ждёт healthcheck до 10 секунд. Если не поднялось — восстанавливает `.bak` и рестартует обратно.
@@ -1425,41 +1425,44 @@ const links = {
 
 **Важно:** `"clients": []` — пустой массив. Все юзеры добавляются через gRPC `AddUser` при старте reconciler'ом.
 
-### Hysteria 2 (`templates/hysteria.config.yaml.tmpl`)
+### Hysteria 2 (`templates/hysteria.config.json.tmpl`)
 
-```yaml
-listen: :{{ .Hy2Port }}
-
-tls:
-  cert: /etc/letsencrypt/live/{{ .Hy2Domain }}/fullchain.pem
-  key: /etc/letsencrypt/live/{{ .Hy2Domain }}/privkey.pem
-
-auth:
-  type: http
-  http:
-    url: http://127.0.0.1:{{ .PanelPort }}/hy2/auth
-    insecure: false
-
-trafficStats:
-  listen: 127.0.0.1:7653
-  secret: {{ .Hy2TrafficSecret }}
-
-{{ if .Hy2ObfsEnabled }}
-obfs:
-  type: salamander
-  salamander:
-    password: {{ .Hy2ObfsPassword }}
-{{ end }}
-
-bandwidth:
-  up: {{ .Hy2BandwidthUp }}
-  down: {{ .Hy2BandwidthDown }}
-
-masquerade:
-  type: proxy
-  proxy:
-    url: {{ .Hy2MasqueradeURL }}
-    rewriteHost: true
+```json
+{
+  "listen": ":{{ .Hy2Port }}",
+  "tls": {
+    "cert": {{ .Hy2CertPath | json }},
+    "key": {{ .Hy2KeyPath | json }}
+  },
+  "auth": {
+    "type": "http",
+    "http": {
+      "url": "http://127.0.0.1:{{ .PanelPort }}/hy2/auth",
+      "insecure": false
+    }
+  },
+  "trafficStats": {
+    "listen": "127.0.0.1:7653",
+    "secret": {{ .Hy2TrafficSecret | json }}
+  },
+  "bandwidth": {
+    "up": {{ .Hy2BandwidthUp | json }},
+    "down": {{ .Hy2BandwidthDown | json }}
+  },
+  "masquerade": {
+    "type": "proxy",
+    "proxy": {
+      "url": {{ .Hy2MasqueradeURL | json }},
+      "rewriteHost": true
+    }
+  }{{ if .Hy2ObfsEnabled }},
+  "obfs": {
+    "type": "salamander",
+    "salamander": {
+      "password": {{ .Hy2ObfsPassword | json }}
+    }
+  }{{ end }}
+}
 ```
 
 Обратите внимание: **нет** секции `auth.password` или `auth.userpass`. Используется `auth.http` — пароли живут в БД панели, Hysteria при каждом подключении спрашивает панель.
@@ -1486,7 +1489,7 @@ func (s *ConfigService) ValidateXray(ctx context.Context, json []byte) error {
     return nil
 }
 
-// Hysteria — нативного --test нет, парсим YAML сами и проверяем обязательные поля
+// Hysteria — нативного --test нет, парсим JSON сами и проверяем обязательные поля
 ```
 
 ### Rollback при неудачном применении
@@ -2001,7 +2004,7 @@ REALITY_SHORT_IDS=,a1b2c3d4e5f60718  # comma-separated, "" first = optional
 
 # === Hysteria 2 ===
 HY2_BINARY=/usr/local/bin/hysteria
-HY2_CONFIG_PATH=/opt/mypanel/configs/hysteria/config.yaml
+HY2_CONFIG_PATH=/opt/mypanel/configs/hysteria/config.json
 HY2_TRAFFIC_URL=http://127.0.0.1:7653
 HY2_TRAFFIC_SECRET=                  # autogen
 
@@ -2072,7 +2075,7 @@ User=hysteria
 CapabilityBoundingSet=CAP_NET_BIND_SERVICE
 AmbientCapabilities=CAP_NET_BIND_SERVICE
 NoNewPrivileges=true
-ExecStart=/usr/local/bin/hysteria server -c /opt/mypanel/configs/hysteria/config.yaml
+ExecStart=/usr/local/bin/hysteria server -c /opt/mypanel/configs/hysteria/config.json
 Restart=on-failure
 RestartSec=5
 LimitNOFILE=1048576

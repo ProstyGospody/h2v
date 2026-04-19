@@ -12,12 +12,20 @@ import (
 	"text/template"
 	"time"
 
-	"gopkg.in/yaml.v3"
-
 	"github.com/prost/h2v/backend/internal/config"
 	"github.com/prost/h2v/backend/internal/domain"
 	"github.com/prost/h2v/backend/internal/repo"
 )
+
+var templateFuncs = template.FuncMap{
+	"json": func(v any) (string, error) {
+		b, err := json.Marshal(v)
+		if err != nil {
+			return "", err
+		}
+		return string(b), nil
+	},
+}
 
 type ConfigService struct {
 	cfg       config.Config
@@ -55,7 +63,7 @@ func (s *ConfigService) Render(ctx context.Context, core string) ([]byte, error)
 
 func (s *ConfigService) RenderWithRuntime(core string, runtime RuntimeSettings) ([]byte, error) {
 	templatePath := filepath.Join(s.cfg.Panel.TemplatesDir, templateName(core))
-	tmpl, err := template.ParseFiles(templatePath)
+	tmpl, err := template.New(filepath.Base(templatePath)).Funcs(templateFuncs).ParseFiles(templatePath)
 	if err != nil {
 		return nil, err
 	}
@@ -102,8 +110,8 @@ func (s *ConfigService) Validate(ctx context.Context, core string, content []byt
 		return nil
 	case "hysteria":
 		var payload map[string]any
-		if err := yaml.Unmarshal(content, &payload); err != nil {
-			return domain.NewError(400, "invalid_config", "Configuration contains YAML errors", err)
+		if err := json.Unmarshal(content, &payload); err != nil {
+			return domain.NewError(400, "invalid_config", "Configuration contains JSON errors", err)
 		}
 		if _, ok := payload["listen"]; !ok {
 			return domain.NewError(400, "invalid_config", "listen is required", nil)
@@ -199,7 +207,7 @@ func templateName(core string) string {
 	case "xray":
 		return "xray.config.json.tmpl"
 	default:
-		return "hysteria.config.yaml.tmpl"
+		return "hysteria.config.json.tmpl"
 	}
 }
 

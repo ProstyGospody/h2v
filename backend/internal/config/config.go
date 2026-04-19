@@ -127,7 +127,7 @@ func Load() Config {
 		},
 		Hysteria: HysteriaConfig{
 			Binary:        getenv("HY2_BINARY", "/usr/local/bin/hysteria"),
-			ConfigPath:    getenv("HY2_CONFIG_PATH", filepath.Join(rootDir, "configs", "hysteria", "config.yaml")),
+			ConfigPath:    getenv("HY2_CONFIG_PATH", filepath.Join(rootDir, "configs", "hysteria", "config.json")),
 			TrafficURL:    getenv("HY2_TRAFFIC_URL", "http://127.0.0.1:7653"),
 			TrafficSecret: getenv("HY2_TRAFFIC_SECRET", ""),
 			Domain:        getenv("HY2_DOMAIN", getenv("PANEL_DOMAIN", "panel.example.com")),

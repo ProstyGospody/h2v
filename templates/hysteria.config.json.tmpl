@@ -1,0 +1,35 @@
+{
+  "listen": ":{{ .Hy2Port }}",
+  "tls": {
+    "cert": {{ .Hy2CertPath | json }},
+    "key": {{ .Hy2KeyPath | json }}
+  },
+  "auth": {
+    "type": "http",
+    "http": {
+      "url": "http://127.0.0.1:{{ .PanelPort }}/hy2/auth",
+      "insecure": false
+    }
+  },
+  "trafficStats": {
+    "listen": "127.0.0.1:7653",
+    "secret": {{ .Hy2TrafficSecret | json }}
+  },
+  "bandwidth": {
+    "up": {{ .Hy2BandwidthUp | json }},
+    "down": {{ .Hy2BandwidthDown | json }}
+  },
+  "masquerade": {
+    "type": "proxy",
+    "proxy": {
+      "url": {{ .Hy2MasqueradeURL | json }},
+      "rewriteHost": true
+    }
+  }{{ if .Hy2ObfsEnabled }},
+  "obfs": {
+    "type": "salamander",
+    "salamander": {
+      "password": {{ .Hy2ObfsPassword | json }}
+    }
+  }{{ end }}
+}
