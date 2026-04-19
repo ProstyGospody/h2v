@@ -479,6 +479,59 @@ install_units() {
   systemctl daemon-reload
 }
 
+start_panel() {
+  step "service" "Enabling and starting panel.service"
+  systemctl enable panel.service >/dev/null 2>&1 || true
+  if ! systemctl restart panel.service; then
+    red "panel.service failed to start. Recent logs:"
+    journalctl -u panel.service -n 30 --no-pager || true
+    fail "panel.service is not running"
+  fi
+  sleep 1
+  if ! systemctl is-active --quiet panel.service; then
+    red "panel.service is not active after start. Recent logs:"
+    journalctl -u panel.service -n 30 --no-pager || true
+    fail "panel.service failed to come up"
+  fi
+}
+
+setup_reverse_proxy() {
+  local domain panel_port
+  domain="$(env_get PANEL_DOMAIN || true)"
+  panel_port="$(env_get PANEL_PORT || true)"
+  panel_port="${panel_port:-8000}"
+
+  if [[ -z "${domain}" || "${domain}" == "panel.example.com" ]]; then
+    yellow "Skipping Caddy configuration (no real PANEL_DOMAIN set)."
+    yellow "Panel is reachable locally at http://127.0.0.1:${panel_port}/ — configure a reverse proxy or set PANEL_HOST=0.0.0.0 for external access."
+    return
+  fi
+
+  step "proxy" "Writing /etc/caddy/Caddyfile for ${domain}"
+  mkdir -p /etc/caddy
+  cat >/etc/caddy/Caddyfile <<EOF
+{
+  admin off
+}
+
+${domain} {
+  encode zstd gzip
+  reverse_proxy 127.0.0.1:${panel_port}
+}
+EOF
+
+  systemctl enable caddy.service >/dev/null 2>&1 || true
+  if ! systemctl reload caddy.service 2>/dev/null; then
+    if ! systemctl restart caddy.service; then
+      red "caddy.service failed to start. Recent logs:"
+      journalctl -u caddy.service -n 30 --no-pager || true
+      yellow "Panel backend is up on 127.0.0.1:${panel_port}, but reverse proxy is not — fix Caddy separately."
+      return
+    fi
+  fi
+  green "Caddy configured for https://${domain}/ (auto-TLS via Let's Encrypt; requires DNS → this server and ports 80/443 open)."
+}
+
 run_migrations() {
   [[ -x "${INSTALL_DIR}/bin/panel" ]] || fail "panel binary missing; cannot run migrations"
   PANEL_ENV_FILE="${ENV_FILE}" sudo -u panel "${INSTALL_DIR}/bin/panel" migrate up
@@ -531,14 +584,21 @@ install_all() {
   install_units
   run_migrations
   create_admin
+  start_panel
+  setup_reverse_proxy
 
-  local final_domain final_port
+  local final_domain final_port access_url
   final_domain="$(env_get PANEL_DOMAIN || echo panel.example.com)"
   final_port="$(env_get PANEL_PORT || echo 8000)"
+  if [[ -n "${final_domain}" && "${final_domain}" != "panel.example.com" ]]; then
+    access_url="https://${final_domain}/"
+  else
+    access_url="http://127.0.0.1:${final_port}/"
+  fi
 
   green "Installation flow completed."
-  green "Panel URL (after TLS/reverse proxy): https://${final_domain}/"
-  green "Local URL (backend direct):          http://127.0.0.1:${final_port}/"
+  green "Panel URL:  ${access_url}"
+  green "Local URL:  http://127.0.0.1:${final_port}/"
   if ${NEEDS_CONFIG}; then
     green "Admin username: ${ADMIN_USERNAME_INPUT}"
     if ${ADMIN_PASSWORD_GENERATED}; then
@@ -599,7 +659,6 @@ restore_db() {
 
 update_all() {
   install_all
-  systemctl enable --now panel || true
 }
 
 uninstall_all() {
