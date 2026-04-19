@@ -71,7 +71,6 @@ const rootRoute = createRootRoute({
 const appRoute = createRoute({
   getParentRoute: () => rootRoute,
   id: 'app',
-  path: '/',
   component: ProtectedShell,
 });
 
