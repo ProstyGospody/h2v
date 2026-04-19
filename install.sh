@@ -273,7 +273,7 @@ collect_install_inputs() {
   fi
 
   if [[ -z "${ADMIN_PASSWORD_INPUT}" ]]; then
-    ADMIN_PASSWORD_INPUT="$(LC_ALL=C tr -dc 'A-Za-z0-9' </dev/urandom | head -c 20)"
+    ADMIN_PASSWORD_INPUT="$(openssl rand -base64 24 | tr -dc 'A-Za-z0-9' | cut -c1-20)"
     ADMIN_PASSWORD_GENERATED=true
   fi
 }
