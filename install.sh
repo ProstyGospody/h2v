@@ -603,8 +603,10 @@ install_all() {
     green "Admin username: ${ADMIN_USERNAME_INPUT}"
     if ${ADMIN_PASSWORD_GENERATED}; then
       yellow "Admin password (generated): ${ADMIN_PASSWORD_INPUT}"
-      yellow "Save this password — it will not be shown again."
+    else
+      yellow "Admin password: ${ADMIN_PASSWORD_INPUT}"
     fi
+    yellow "Save this password — it will not be shown again."
   fi
   green "Review ${ENV_FILE} before enabling production services."
   green "Go: $(go version)"
