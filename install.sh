@@ -237,13 +237,31 @@ collect_install_inputs() {
 
   NEEDS_CONFIG=true
 
-  if [[ -t 0 ]]; then
+  local is_tty=false
+  [[ -t 0 ]] && is_tty=true
+
+  if ${is_tty}; then
     step "config" "Panel configuration (press Enter to accept defaults)"
   else
     step "config" "Non-interactive install: using defaults and generated admin password"
   fi
 
-  PANEL_DOMAIN_INPUT="$(prompt_value "Panel domain" "${default_domain}")"
+  local domain_default="${default_domain}"
+  [[ "${domain_default}" == "panel.example.com" ]] && domain_default=""
+
+  while true; do
+    PANEL_DOMAIN_INPUT="$(prompt_value "Panel domain (e.g. vpn.example.com)" "${domain_default}")"
+    if [[ -n "${PANEL_DOMAIN_INPUT}" && "${PANEL_DOMAIN_INPUT}" != "panel.example.com" ]]; then
+      break
+    fi
+    if ! ${is_tty}; then
+      PANEL_DOMAIN_INPUT="${default_domain}"
+      yellow "No domain provided — keeping placeholder '${PANEL_DOMAIN_INPUT}'. Edit ${ENV_FILE} manually."
+      break
+    fi
+    red "A real domain is required."
+  done
+
   PANEL_PORT_INPUT="$(prompt_value "Panel HTTP port" "${default_panel_port}")"
   HY2_PORT_INPUT="$(prompt_value "Hysteria 2 port" "${default_hy2_port}")"
   ADMIN_USERNAME_INPUT="$(prompt_value "Admin username" "${default_admin_username}")"
@@ -473,9 +491,23 @@ create_admin() {
   local admin_username="${ADMIN_USERNAME_INPUT:-${PANEL_ADMIN_USERNAME:-admin}}"
   local admin_password="${ADMIN_PASSWORD_INPUT:-${PANEL_ADMIN_PASSWORD:-admin123456}}"
   [[ -x "${INSTALL_DIR}/bin/panel" ]] || fail "panel binary missing; cannot create initial admin"
-  PANEL_ENV_FILE="${ENV_FILE}" sudo -u panel "${INSTALL_DIR}/bin/panel" admin create \
+
+  local admin_output
+  local admin_status=0
+  admin_output="$(PANEL_ENV_FILE="${ENV_FILE}" sudo -u panel "${INSTALL_DIR}/bin/panel" admin create \
     --username="${admin_username}" \
-    --password="${admin_password}" 2>/dev/null || yellow "Admin user '${admin_username}' already exists — kept existing credentials."
+    --password="${admin_password}" 2>&1)" || admin_status=$?
+
+  if [[ ${admin_status} -eq 0 ]]; then
+    return
+  fi
+  if [[ "${admin_output}" == *"already taken"* ]]; then
+    yellow "Admin user '${admin_username}' already exists — keeping existing credentials."
+    ADMIN_PASSWORD_GENERATED=false
+    return
+  fi
+  red "${admin_output}"
+  fail "failed to create admin user"
 }
 
 install_all() {
