@@ -7,7 +7,7 @@ import { apiClient } from '@/shared/api/client';
 import { Button, Card, PageHeader, SecondaryButton } from '@/shared/ui/primitives';
 
 export function ConfigsPage() {
-  const { core } = useParams({ from: '/configs/$core' });
+  const { core } = useParams({ from: '/app/configs/$core' });
   const queryClient = useQueryClient();
   const config = useQuery({
     queryKey: ['configs', core],
@@ -74,4 +74,3 @@ export function ConfigsPage() {
     </div>
   );
 }
-
