@@ -1,0 +1,33 @@
+[Unit]
+Description=VPN Panel
+After=network.target postgresql.service xray.service hysteria.service
+Wants=postgresql.service
+
+[Service]
+Type=notify
+User=panel
+Group=panel
+WorkingDirectory=/opt/mypanel
+EnvironmentFile=/opt/mypanel/.env
+ExecStart=/opt/mypanel/bin/panel serve
+Restart=always
+RestartSec=5
+StartLimitInterval=60
+StartLimitBurst=5
+LimitNOFILE=1048576
+LimitNPROC=4096
+TasksMax=4096
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/mypanel/data /opt/mypanel/configs /opt/mypanel/logs
+PrivateTmp=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+KillSignal=SIGTERM
+TimeoutStopSec=30
+
+[Install]
+WantedBy=multi-user.target
+
