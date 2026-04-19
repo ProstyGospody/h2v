@@ -208,6 +208,128 @@ ensure_env() {
   mv "${ENV_FILE}.tmp" "${ENV_FILE}"
 }
 
+env_get() {
+  local key="${1}"
+  [[ -f "${ENV_FILE}" ]] || return 1
+  awk -F= -v key="${key}" '
+    $1 == key {
+      value = substr($0, index($0, "=") + 1)
+      gsub(/\r$/, "", value)
+      print value
+      exit
+    }
+  ' "${ENV_FILE}"
+}
+
+env_set() {
+  local key="${1}"
+  local value="${2}"
+  local tmp="${ENV_FILE}.tmp"
+
+  awk -v key="${key}" -v value="${value}" '
+    BEGIN { updated = 0 }
+    index($0, key "=") == 1 {
+      print key "=" value
+      updated = 1
+      next
+    }
+    { print }
+    END {
+      if (!updated) {
+        print key "=" value
+      }
+    }
+  ' "${ENV_FILE}" > "${tmp}"
+
+  chmod 600 "${tmp}"
+  chown panel:panel "${tmp}"
+  mv "${tmp}" "${ENV_FILE}"
+}
+
+ensure_secret_value() {
+  local key="${1}"
+  local value
+
+  value="$(env_get "${key}" || true)"
+  if [[ -n "${value}" ]]; then
+    return
+  fi
+
+  case "${key}" in
+    PANEL_JWT_SECRET) value="$(openssl rand -hex 64)" ;;
+    DB_PASSWORD) value="$(openssl rand -hex 24)" ;;
+    HY2_TRAFFIC_SECRET) value="$(openssl rand -hex 32)" ;;
+    HY2_OBFS_PASSWORD) value="$(openssl rand -base64 24 | tr -d '\n')" ;;
+    *)
+      fail "unknown secret key requested: ${key}"
+      ;;
+  esac
+
+  env_set "${key}" "${value}"
+}
+
+ensure_runtime_secrets() {
+  ensure_secret_value PANEL_JWT_SECRET
+  ensure_secret_value DB_PASSWORD
+  ensure_secret_value HY2_TRAFFIC_SECRET
+  ensure_secret_value HY2_OBFS_PASSWORD
+}
+
+ensure_postgres() {
+  local db_host db_port db_name db_user db_password
+  db_host="$(env_get DB_HOST || true)"
+  db_port="$(env_get DB_PORT || true)"
+  db_name="$(env_get DB_NAME || true)"
+  db_user="$(env_get DB_USER || true)"
+  db_password="$(env_get DB_PASSWORD || true)"
+
+  db_host="${db_host:-127.0.0.1}"
+  db_port="${db_port:-5432}"
+  db_name="${db_name:-mypanel}"
+  db_user="${db_user:-panel}"
+
+  if [[ -z "${db_password}" ]]; then
+    fail "DB_PASSWORD is empty after env initialization"
+  fi
+
+  if [[ "${db_host}" != "127.0.0.1" && "${db_host}" != "localhost" && "${db_host}" != "::1" ]]; then
+    yellow "Skipping local PostgreSQL setup because DB_HOST=${db_host}"
+    return
+  fi
+
+  step "db" "Ensuring PostgreSQL role, password, and database"
+  systemctl enable --now postgresql >/dev/null 2>&1 || true
+  systemctl start postgresql
+
+  sudo -u postgres psql -v ON_ERROR_STOP=1 --dbname=postgres \
+    --set=db_user="${db_user}" \
+    --set=db_password="${db_password}" <<'SQL'
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = :'db_user') THEN
+    EXECUTE format('CREATE ROLE %I LOGIN PASSWORD %L', :'db_user', :'db_password');
+  ELSE
+    EXECUTE format('ALTER ROLE %I WITH LOGIN PASSWORD %L', :'db_user', :'db_password');
+  END IF;
+END
+$$;
+SQL
+
+  if [[ -z "$(sudo -u postgres psql -tA --dbname=postgres --set=db_name="${db_name}" -c "SELECT 1 FROM pg_database WHERE datname = :'db_name'")" ]]; then
+    sudo -u postgres psql -v ON_ERROR_STOP=1 --dbname=postgres \
+      --set=db_name="${db_name}" \
+      --set=db_user="${db_user}" <<'SQL'
+SELECT format('CREATE DATABASE %I OWNER %I', :'db_name', :'db_user') \gexec
+SQL
+  fi
+
+  sudo -u postgres psql -v ON_ERROR_STOP=1 --dbname=postgres \
+    --set=db_name="${db_name}" \
+    --set=db_user="${db_user}" <<'SQL'
+SELECT format('ALTER DATABASE %I OWNER TO %I', :'db_name', :'db_user') \gexec
+SQL
+}
+
 build_artifacts() {
   local frontend_dir
   local cached_lock
@@ -275,6 +397,8 @@ install_all() {
   ensure_panel_user
   ensure_dirs
   ensure_env
+  ensure_runtime_secrets
+  ensure_postgres
   install_templates
   build_artifacts
   install_units
@@ -290,22 +414,46 @@ install_all() {
 
 backup_db() {
   require_root
-  source "${ENV_FILE}"
-  mkdir -p "${BACKUP_DIR}"
+  local db_host db_port db_name db_user db_password backup_dir
+  db_host="$(env_get DB_HOST || true)"
+  db_port="$(env_get DB_PORT || true)"
+  db_name="$(env_get DB_NAME || true)"
+  db_user="$(env_get DB_USER || true)"
+  db_password="$(env_get DB_PASSWORD || true)"
+  backup_dir="$(env_get BACKUP_DIR || true)"
+
+  db_host="${db_host:-127.0.0.1}"
+  db_port="${db_port:-5432}"
+  db_name="${db_name:-mypanel}"
+  db_user="${db_user:-panel}"
+  backup_dir="${backup_dir:-${INSTALL_DIR}/data/backups}"
+
+  mkdir -p "${backup_dir}"
   local name="panel-$(date -u +%F).sql.gz"
-  PGPASSWORD="${DB_PASSWORD}" pg_dump -h "${DB_HOST}" -p "${DB_PORT}" -U "${DB_USER}" "${DB_NAME}" | gzip > "${BACKUP_DIR}/${name}"
-  green "Backup written to ${BACKUP_DIR}/${name}"
+  PGPASSWORD="${db_password}" pg_dump -h "${db_host}" -p "${db_port}" -U "${db_user}" "${db_name}" | gzip > "${backup_dir}/${name}"
+  green "Backup written to ${backup_dir}/${name}"
 }
 
 restore_db() {
   require_root
-  source "${ENV_FILE}"
+  local db_host db_port db_name db_user db_password
+  db_host="$(env_get DB_HOST || true)"
+  db_port="$(env_get DB_PORT || true)"
+  db_name="$(env_get DB_NAME || true)"
+  db_user="$(env_get DB_USER || true)"
+  db_password="$(env_get DB_PASSWORD || true)"
+
+  db_host="${db_host:-127.0.0.1}"
+  db_port="${db_port:-5432}"
+  db_name="${db_name:-mypanel}"
+  db_user="${db_user:-panel}"
+
   local file="${1:-}"
   if [[ -z "${file}" || ! -f "${file}" ]]; then
     red "Provide a valid backup file."
     exit 1
   fi
-  gunzip -c "${file}" | PGPASSWORD="${DB_PASSWORD}" psql -h "${DB_HOST}" -p "${DB_PORT}" -U "${DB_USER}" "${DB_NAME}"
+  gunzip -c "${file}" | PGPASSWORD="${db_password}" psql -h "${db_host}" -p "${db_port}" -U "${db_user}" "${db_name}"
   green "Restore complete."
 }
 
