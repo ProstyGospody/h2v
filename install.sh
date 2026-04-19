@@ -14,6 +14,14 @@ BUILD_STATE_DIR="${INSTALL_DIR}/build"
 GO_VERSION="${GO_VERSION:-1.22.12}"
 NODE_VERSION="${NODE_VERSION:-22.22.2}"
 NPM_VERSION="${NPM_VERSION:-10.9.7}"
+
+FIRST_INSTALL=false
+PANEL_DOMAIN_INPUT=""
+PANEL_PORT_INPUT=""
+HY2_PORT_INPUT=""
+ADMIN_USERNAME_INPUT=""
+ADMIN_PASSWORD_INPUT=""
+ADMIN_PASSWORD_GENERATED=false
 export DEBIAN_FRONTEND=noninteractive
 export PATH="/usr/local/go/bin:${PATH}"
 
@@ -177,6 +185,59 @@ resolve_source_dir() {
   SOURCE_DIR="${extracted}"
 }
 
+prompt_value() {
+  local prompt="$1"
+  local default="$2"
+  local answer=""
+  if [[ -t 0 ]]; then
+    if [[ -n "${default}" ]]; then
+      read -r -p "${prompt} [${default}]: " answer </dev/tty
+    else
+      read -r -p "${prompt}: " answer </dev/tty
+    fi
+  fi
+  printf '%s' "${answer:-${default}}"
+}
+
+prompt_password() {
+  local prompt="$1"
+  local answer=""
+  if [[ -t 0 ]]; then
+    read -r -s -p "${prompt}: " answer </dev/tty
+    printf '\n' >&2
+  fi
+  printf '%s' "${answer}"
+}
+
+collect_install_inputs() {
+  if [[ -f "${ENV_FILE}" ]]; then
+    return
+  fi
+  FIRST_INSTALL=true
+
+  if [[ -t 0 ]]; then
+    step "config" "Panel configuration (press Enter to accept defaults)"
+  else
+    step "config" "Non-interactive install: using defaults and generated admin password"
+  fi
+
+  PANEL_DOMAIN_INPUT="$(prompt_value "Panel domain" "panel.example.com")"
+  PANEL_PORT_INPUT="$(prompt_value "Panel HTTP port" "8000")"
+  HY2_PORT_INPUT="$(prompt_value "Hysteria 2 port" "8443")"
+  ADMIN_USERNAME_INPUT="$(prompt_value "Admin username" "${PANEL_ADMIN_USERNAME:-admin}")"
+
+  if [[ -n "${PANEL_ADMIN_PASSWORD:-}" ]]; then
+    ADMIN_PASSWORD_INPUT="${PANEL_ADMIN_PASSWORD}"
+  elif [[ -t 0 ]]; then
+    ADMIN_PASSWORD_INPUT="$(prompt_password "Admin password (blank to auto-generate)")"
+  fi
+
+  if [[ -z "${ADMIN_PASSWORD_INPUT}" ]]; then
+    ADMIN_PASSWORD_INPUT="$(LC_ALL=C tr -dc 'A-Za-z0-9' </dev/urandom | head -c 20)"
+    ADMIN_PASSWORD_GENERATED=true
+  fi
+}
+
 ensure_panel_user() {
   if ! id -u panel >/dev/null 2>&1; then
     useradd -r -s /bin/false panel
@@ -206,6 +267,20 @@ ensure_env() {
   chmod 600 "${ENV_FILE}.tmp"
   chown panel:panel "${ENV_FILE}.tmp"
   mv "${ENV_FILE}.tmp" "${ENV_FILE}"
+
+  if [[ -n "${PANEL_DOMAIN_INPUT}" ]]; then
+    env_set PANEL_DOMAIN "${PANEL_DOMAIN_INPUT}"
+    env_set HY2_DOMAIN "${PANEL_DOMAIN_INPUT}"
+    env_set HY2_CERT_PATH "/etc/letsencrypt/live/${PANEL_DOMAIN_INPUT}/fullchain.pem"
+    env_set HY2_KEY_PATH "/etc/letsencrypt/live/${PANEL_DOMAIN_INPUT}/privkey.pem"
+    env_set SUB_URL_PREFIX "https://${PANEL_DOMAIN_INPUT}"
+  fi
+  if [[ -n "${PANEL_PORT_INPUT}" ]]; then
+    env_set PANEL_PORT "${PANEL_PORT_INPUT}"
+  fi
+  if [[ -n "${HY2_PORT_INPUT}" ]]; then
+    env_set HY2_PORT "${HY2_PORT_INPUT}"
+  fi
 }
 
 env_get() {
@@ -372,8 +447,8 @@ run_migrations() {
 }
 
 create_admin() {
-  local admin_username="${PANEL_ADMIN_USERNAME:-admin}"
-  local admin_password="${PANEL_ADMIN_PASSWORD:-admin123456}"
+  local admin_username="${ADMIN_USERNAME_INPUT:-${PANEL_ADMIN_USERNAME:-admin}}"
+  local admin_password="${ADMIN_PASSWORD_INPUT:-${PANEL_ADMIN_PASSWORD:-admin123456}}"
   [[ -x "${INSTALL_DIR}/bin/panel" ]] || fail "panel binary missing; cannot create initial admin"
   PANEL_ENV_FILE="${ENV_FILE}" sudo -u panel "${INSTALL_DIR}/bin/panel" admin create \
     --username="${admin_username}" \
@@ -384,6 +459,8 @@ install_all() {
   require_root
   detect_os
   resolve_source_dir
+
+  collect_install_inputs
 
   ensure_base_packages
   ensure_build_toolchain
@@ -400,7 +477,20 @@ install_all() {
   run_migrations
   create_admin
 
+  local final_domain final_port
+  final_domain="$(env_get PANEL_DOMAIN || echo panel.example.com)"
+  final_port="$(env_get PANEL_PORT || echo 8000)"
+
   green "Installation flow completed."
+  green "Panel URL (after TLS/reverse proxy): https://${final_domain}/"
+  green "Local URL (backend direct):          http://127.0.0.1:${final_port}/"
+  if ${FIRST_INSTALL}; then
+    green "Admin username: ${ADMIN_USERNAME_INPUT}"
+    if ${ADMIN_PASSWORD_GENERATED}; then
+      yellow "Admin password (generated): ${ADMIN_PASSWORD_INPUT}"
+      yellow "Save this password — it will not be shown again."
+    fi
+  fi
   green "Review ${ENV_FILE} before enabling production services."
   green "Go: $(go version)"
   green "Node: $(node -v), npm: $(npm -v)"
