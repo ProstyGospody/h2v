@@ -26,11 +26,76 @@ ADMIN_PASSWORD_GENERATED=false
 export DEBIAN_FRONTEND=noninteractive
 export PATH="/usr/local/go/bin:${PATH}"
 
-green() { printf '\033[32m%s\033[0m\n' "$1"; }
-yellow() { printf '\033[33m%s\033[0m\n' "$1"; }
-red() { printf '\033[31m%s\033[0m\n' "$1"; }
-step() { printf '\n[%s] %s\n' "$1" "$2"; }
-log() { printf '%s\n' "$1"; }
+if [[ -t 1 ]]; then
+  RESET=$'\033[0m'; BOLD=$'\033[1m'; DIM=$'\033[2m'
+  GREEN=$'\033[32m'; YELLOW=$'\033[33m'; RED=$'\033[31m'; CYAN=$'\033[36m'; MAGENTA=$'\033[35m'
+else
+  RESET=""; BOLD=""; DIM=""; GREEN=""; YELLOW=""; RED=""; CYAN=""; MAGENTA=""
+fi
+
+STAGE_INDEX=0
+STAGE_TOTAL=0
+
+green()   { printf '%s%s%s\n' "${GREEN}" "$1" "${RESET}"; }
+yellow()  { printf '%s%s%s\n' "${YELLOW}" "$1" "${RESET}"; }
+red()     { printf '%s%s%s\n' "${RED}" "$1" "${RESET}"; }
+log()     { printf '    %s\n' "$1"; }
+substep() { printf '  %s→%s %s\n' "${DIM}" "${RESET}" "$1"; }
+success() { printf '  %s✓%s %s\n' "${GREEN}" "${RESET}" "$1"; }
+warn()    { printf '  %s⚠%s %s\n' "${YELLOW}" "${RESET}" "$1"; }
+info()    { printf '  %si%s %s\n' "${CYAN}" "${RESET}" "$1"; }
+
+step() {
+  STAGE_INDEX=$((STAGE_INDEX + 1))
+  local counter=""
+  if (( STAGE_TOTAL > 0 )); then
+    counter=$(printf '[%d/%d]' "${STAGE_INDEX}" "${STAGE_TOTAL}")
+  else
+    counter=$(printf '[%s]' "$1")
+  fi
+  printf '\n%s▶%s %s%s%s %s%s%s\n' "${CYAN}" "${RESET}" "${DIM}" "${counter}" "${RESET}" "${BOLD}" "$2" "${RESET}"
+}
+
+banner() {
+  local title="$1"
+  local sub="${2:-}"
+  printf '\n'
+  printf '%s╔══════════════════════════════════════════════════════════════╗%s\n' "${CYAN}" "${RESET}"
+  printf '%s║%s %s%-60s%s %s║%s\n' "${CYAN}" "${RESET}" "${BOLD}" "${title}" "${RESET}" "${CYAN}" "${RESET}"
+  if [[ -n "${sub}" ]]; then
+    printf '%s║%s %s%-60s%s %s║%s\n' "${CYAN}" "${RESET}" "${DIM}" "${sub}" "${RESET}" "${CYAN}" "${RESET}"
+  fi
+  printf '%s╚══════════════════════════════════════════════════════════════╝%s\n' "${CYAN}" "${RESET}"
+}
+
+print_summary() {
+  local access_url="$1"
+  local local_url="$2"
+  printf '\n'
+  printf '%s╔══════════════════════════════════════════════════════════════╗%s\n' "${GREEN}" "${RESET}"
+  printf '%s║%s %s✓ h2v panel ready%s%44s%s║%s\n' "${GREEN}" "${RESET}" "${BOLD}${GREEN}" "${RESET}" "" "${GREEN}" "${RESET}"
+  printf '%s╚══════════════════════════════════════════════════════════════╝%s\n' "${GREEN}" "${RESET}"
+  printf '\n'
+  printf '  %sPanel URL%s   %s%s%s\n' "${BOLD}" "${RESET}" "${CYAN}" "${access_url}" "${RESET}"
+  printf '  %sLocal URL%s   %s%s%s\n' "${BOLD}" "${RESET}" "${DIM}" "${local_url}" "${RESET}"
+  if ${NEEDS_CONFIG}; then
+    printf '\n'
+    printf '  %sAdmin login%s    %s\n' "${BOLD}" "${RESET}" "${ADMIN_USERNAME_INPUT}"
+    if ${ADMIN_PASSWORD_GENERATED}; then
+      printf '  %sAdmin password%s %s%s%s %s(auto-generated)%s\n' "${BOLD}" "${RESET}" "${YELLOW}" "${ADMIN_PASSWORD_INPUT}" "${RESET}" "${DIM}" "${RESET}"
+    else
+      printf '  %sAdmin password%s %s%s%s\n' "${BOLD}" "${RESET}" "${YELLOW}" "${ADMIN_PASSWORD_INPUT}" "${RESET}"
+    fi
+    printf '  %s⚠ Save this password — it will not be shown again.%s\n' "${YELLOW}" "${RESET}"
+  fi
+  printf '\n'
+  printf '  %sEnv file%s     %s\n' "${DIM}" "${RESET}" "${ENV_FILE}"
+  printf '  %sSource ref%s   %s %s(set H2V_REF to pin to a tag/commit)%s\n' "${DIM}" "${RESET}" "${REPO_REF}" "${DIM}" "${RESET}"
+  printf '  %sToolchain%s    Go %s · Node %s · npm %s\n' "${DIM}" "${RESET}" "$(go version | awk '{print $3}')" "$(node -v)" "$(npm -v)"
+  printf '\n'
+  printf '  %sReset admin password:%s  %s/opt/mypanel/install.sh reset-admin%s\n' "${DIM}" "${RESET}" "${CYAN}" "${RESET}"
+  printf '\n'
+}
 
 cleanup() {
   if [[ -n "${TMP_SOURCE_DIR}" && -d "${TMP_SOURCE_DIR}" ]]; then
@@ -70,7 +135,6 @@ normalize_version() {
 }
 
 ensure_base_packages() {
-  step "deps" "Installing Ubuntu dependencies"
   apt-get update
   apt-get install -y \
     bash \
@@ -101,7 +165,7 @@ install_go() {
     *) fail "Unsupported architecture for Go install: $(uname -m)" ;;
   esac
 
-  step "go" "Installing Go ${GO_VERSION}"
+  substep "fetching Go ${GO_VERSION} (${arch})"
   rm -rf /usr/local/go
   curl -fsSL "https://go.dev/dl/go${GO_VERSION}.linux-${arch}.tar.gz" | tar -C /usr/local -xz
   ln -sf /usr/local/go/bin/go /usr/local/bin/go
@@ -113,7 +177,7 @@ ensure_go() {
     local current
     current="$(go version | awk '{print $3}' | sed 's/^go//')"
     if [[ "$(normalize_version "${current}")" == "${GO_VERSION}" ]]; then
-      log "Go already installed: ${current}"
+      substep "Go ${current} already installed"
       return
     fi
   fi
@@ -129,7 +193,7 @@ install_node() {
     *) fail "Unsupported architecture for Node.js install: $(uname -m)" ;;
   esac
 
-  step "node" "Installing Node.js ${NODE_VERSION}"
+  substep "fetching Node.js ${NODE_VERSION} (${arch})"
   node_dir="/usr/local/lib/nodejs/node-v${NODE_VERSION}-linux-${arch}"
   rm -rf /usr/local/lib/nodejs
   mkdir -p /usr/local/lib/nodejs
@@ -150,7 +214,7 @@ ensure_node() {
     current_node="$(node -v)"
     current_npm="$(npm -v)"
     if [[ "$(normalize_version "${current_node}")" == "${NODE_VERSION}" && "$(normalize_version "${current_npm}")" == "${NPM_VERSION}" ]]; then
-      log "Node.js already installed: ${current_node}, npm ${current_npm}"
+      substep "Node.js ${current_node} / npm ${current_npm} already installed"
       return
     fi
   fi
@@ -172,7 +236,7 @@ resolve_source_dir() {
     return
   fi
 
-  step "source" "Downloading repository source for ${REPO_OWNER}/${REPO_NAME}@${REPO_REF}"
+  substep "downloading repository source ${REPO_OWNER}/${REPO_NAME}@${REPO_REF}"
   TMP_SOURCE_DIR="$(mktemp -d)"
   curl -fsSL "${ARCHIVE_URL}" | tar -xz -C "${TMP_SOURCE_DIR}"
 
@@ -241,9 +305,10 @@ collect_install_inputs() {
   [[ -t 0 ]] && is_tty=true
 
   if ${is_tty}; then
-    step "config" "Panel configuration (press Enter to accept defaults)"
+    banner "Panel configuration" "press Enter to accept defaults"
   else
-    step "config" "Non-interactive install: using defaults and generated admin password"
+    printf '\n'
+    warn "non-interactive install: using defaults and generated admin password"
   fi
 
   local domain_default="${default_domain}"
@@ -303,8 +368,9 @@ ensure_env() {
     chmod 600 "${ENV_FILE}.tmp"
     chown panel:panel "${ENV_FILE}.tmp"
     mv "${ENV_FILE}.tmp" "${ENV_FILE}"
+    substep "${ENV_FILE} seeded from .env.example"
   else
-    yellow ".env already exists, keeping existing secrets."
+    substep "${ENV_FILE} already exists — preserving existing secrets"
   fi
 
   if [[ -n "${PANEL_DOMAIN_INPUT}" ]]; then
@@ -408,11 +474,11 @@ ensure_postgres() {
   fi
 
   if [[ "${db_host}" != "127.0.0.1" && "${db_host}" != "localhost" && "${db_host}" != "::1" ]]; then
-    yellow "Skipping local PostgreSQL setup because DB_HOST=${db_host}"
+    warn "skipping local PostgreSQL setup (DB_HOST=${db_host})"
     return
   fi
 
-  step "db" "Ensuring PostgreSQL role, password, and database"
+  substep "role=${db_user} db=${db_name} @ ${db_host}:${db_port}"
   systemctl enable --now postgresql >/dev/null 2>&1 || true
   systemctl start postgresql
 
@@ -445,17 +511,18 @@ build_artifacts() {
   frontend_dir="${SOURCE_DIR}/frontend"
   cached_lock="${BUILD_STATE_DIR}/frontend-package-lock.json"
 
-  step "build" "Building backend and frontend"
-  (cd "${SOURCE_DIR}/backend" && go mod download && go mod verify && go build -mod=readonly -o "${INSTALL_DIR}/bin/panel" ./cmd/panel)
+  substep "compiling backend (go build ./cmd/panel)"
+  (cd "${SOURCE_DIR}/backend" && go mod download && go mod verify && go build -mod=readonly -o "${INSTALL_DIR}/bin/panel" ./cmd/panel) >/dev/null
+  substep "building frontend bundle (vite)"
 
   if [[ ! -f "${frontend_dir}/package-lock.json" && -f "${cached_lock}" ]]; then
     cp "${cached_lock}" "${frontend_dir}/package-lock.json"
   fi
 
   if [[ -f "${frontend_dir}/package-lock.json" ]]; then
-    (cd "${frontend_dir}" && npm ci --no-fund --no-audit && npm run build)
+    (cd "${frontend_dir}" && npm ci --silent --no-fund --no-audit && npm run build --silent) >/dev/null
   else
-    (cd "${frontend_dir}" && npm install --no-fund --no-audit && npm run build)
+    (cd "${frontend_dir}" && npm install --silent --no-fund --no-audit && npm run build --silent) >/dev/null
   fi
 
   [[ -f "${frontend_dir}/package-lock.json" ]] || fail "frontend build did not produce package-lock.json"
@@ -481,7 +548,7 @@ install_units() {
 }
 
 start_panel() {
-  step "service" "Enabling and starting panel.service"
+  substep "enabling panel.service"
   systemctl enable panel.service >/dev/null 2>&1 || true
   if ! systemctl restart panel.service; then
     red "panel.service failed to start. Recent logs:"
@@ -503,12 +570,12 @@ setup_reverse_proxy() {
   panel_port="${panel_port:-8000}"
 
   if [[ -z "${domain}" || "${domain}" == "panel.example.com" ]]; then
-    yellow "Skipping Caddy configuration (no real PANEL_DOMAIN set)."
-    yellow "Panel is reachable locally at http://127.0.0.1:${panel_port}/ — configure a reverse proxy or set PANEL_HOST=0.0.0.0 for external access."
+    warn "skipping Caddy config (no real PANEL_DOMAIN set)"
+    info "panel is local-only at http://127.0.0.1:${panel_port}/ — set PANEL_DOMAIN and rerun for auto-TLS"
     return
   fi
 
-  step "proxy" "Writing /etc/caddy/Caddyfile for ${domain}"
+  substep "writing /etc/caddy/Caddyfile for ${domain}"
   mkdir -p /etc/caddy
   cat >/etc/caddy/Caddyfile <<EOF
 {
@@ -526,11 +593,12 @@ EOF
     if ! systemctl restart caddy.service; then
       red "caddy.service failed to start. Recent logs:"
       journalctl -u caddy.service -n 30 --no-pager || true
-      yellow "Panel backend is up on 127.0.0.1:${panel_port}, but reverse proxy is not — fix Caddy separately."
+      warn "backend up on 127.0.0.1:${panel_port}, reverse proxy is NOT — fix Caddy separately"
       return
     fi
   fi
-  green "Caddy configured for https://${domain}/ (auto-TLS via Let's Encrypt; requires DNS → this server and ports 80/443 open)."
+  substep "Caddy active for https://${domain}/ (auto-TLS via Let's Encrypt)"
+  info "DNS must point ${domain} at this server; ports 80/443 must be open"
 }
 
 run_migrations() {
@@ -556,7 +624,8 @@ create_admin() {
     return
   fi
   if [[ "${admin_output}" == *"already taken"* ]]; then
-    yellow "Admin user '${admin_username}' already exists — keeping existing credentials."
+    warn "admin '${admin_username}' already exists — keeping existing credentials"
+    NEEDS_CONFIG=false
     ADMIN_PASSWORD_GENERATED=false
     return
   fi
@@ -567,52 +636,78 @@ create_admin() {
 install_all() {
   require_root
   detect_os
+  banner "h2v panel installer" "VLESS Reality + Hysteria 2 · Ubuntu 22.04/24.04"
   resolve_source_dir
 
   collect_install_inputs
 
-  ensure_base_packages
-  ensure_build_toolchain
+  STAGE_INDEX=0
+  STAGE_TOTAL=10
 
-  step "user" "Ensuring panel system user and directories"
+  step "deps" "Installing Ubuntu dependencies"
+  ensure_base_packages
+  success "base packages ready"
+
+  step "toolchain" "Installing Go ${GO_VERSION} and Node ${NODE_VERSION}"
+  ensure_build_toolchain
+  success "Go $(go version | awk '{print $3}') · Node $(node -v) · npm $(npm -v)"
+
+  step "layout" "Creating panel user and directory layout"
   ensure_panel_user
   ensure_dirs
   ensure_env
   ensure_runtime_secrets
+  success "user/panel and ${INSTALL_DIR} prepared"
+
+  step "db" "Ensuring PostgreSQL role and database"
   ensure_postgres
+  success "PostgreSQL configured"
+
+  step "assets" "Installing templates and migrations"
   install_templates
+  success "templates and migrations synced"
+
+  step "build" "Building backend and frontend"
   build_artifacts
+  success "backend binary and frontend bundle built"
+
+  step "units" "Installing systemd units"
   install_units
-  run_migrations
+  success "systemd units installed"
+
+  step "migrate" "Running database migrations"
+  local migrate_out migrate_status=0
+  migrate_out="$(run_migrations 2>&1)" || migrate_status=$?
+  if [[ ${migrate_status} -ne 0 ]]; then
+    printf '%s\n' "${migrate_out}"
+    fail "migrations failed"
+  fi
+  success "migrations applied"
+
+  step "admin" "Ensuring initial admin account"
   create_admin
+  if ${NEEDS_CONFIG}; then
+    success "admin '${ADMIN_USERNAME_INPUT}' ready"
+  else
+    info "existing admin account preserved"
+  fi
+
+  step "service" "Starting panel and reverse proxy"
   start_panel
   setup_reverse_proxy
+  success "panel.service active"
 
-  local final_domain final_port access_url
+  local final_domain final_port access_url local_url
   final_domain="$(env_get PANEL_DOMAIN || echo panel.example.com)"
   final_port="$(env_get PANEL_PORT || echo 8000)"
+  local_url="http://127.0.0.1:${final_port}/"
   if [[ -n "${final_domain}" && "${final_domain}" != "panel.example.com" ]]; then
     access_url="https://${final_domain}/"
   else
-    access_url="http://127.0.0.1:${final_port}/"
+    access_url="${local_url}"
   fi
 
-  green "Installation flow completed."
-  green "Panel URL:  ${access_url}"
-  green "Local URL:  http://127.0.0.1:${final_port}/"
-  if ${NEEDS_CONFIG}; then
-    green "Admin username: ${ADMIN_USERNAME_INPUT}"
-    if ${ADMIN_PASSWORD_GENERATED}; then
-      yellow "Admin password (generated): ${ADMIN_PASSWORD_INPUT}"
-    else
-      yellow "Admin password: ${ADMIN_PASSWORD_INPUT}"
-    fi
-    yellow "Save this password — it will not be shown again."
-  fi
-  green "Review ${ENV_FILE} before enabling production services."
-  green "Go: $(go version)"
-  green "Node: $(node -v), npm: $(npm -v)"
-  yellow "Source ref: ${REPO_REF} (set H2V_REF to a tag or commit for immutable source rebuilds)"
+  print_summary "${access_url}" "${local_url}"
 }
 
 backup_db() {
@@ -666,17 +761,31 @@ update_all() {
 
 uninstall_all() {
   require_root
+  banner "h2v panel uninstaller" "stopping services and removing ${INSTALL_DIR}"
+  STAGE_INDEX=0
+  STAGE_TOTAL=2
+
+  step "stop" "Stopping and disabling services"
   systemctl disable --now panel hysteria xray 2>/dev/null || true
+  success "panel/hysteria/xray services stopped"
+
+  step "purge" "Removing application files and units"
   rm -rf "${INSTALL_DIR}"
   rm -f /etc/systemd/system/panel.service /etc/systemd/system/xray.service /etc/systemd/system/hysteria.service
   systemctl daemon-reload
-  green "Application files removed. Packages, certificates, and database objects were left in place."
+  success "${INSTALL_DIR} and systemd units removed"
+
+  printf '\n'
+  info "packages, Let's Encrypt certs, and database objects were left in place"
+  printf '\n'
 }
 
 reset_admin() {
   require_root
   [[ -x "${INSTALL_DIR}/bin/panel" ]] || fail "panel binary missing at ${INSTALL_DIR}/bin/panel — run install first"
   [[ -f "${ENV_FILE}" ]] || fail "${ENV_FILE} not found"
+
+  banner "Admin password reset" "panel admin set-password"
 
   local username password generated=false
   username="${1:-}"
@@ -696,7 +805,9 @@ reset_admin() {
     fi
   fi
 
-  step "reset" "Setting new password for admin '${username}'"
+  STAGE_INDEX=0
+  STAGE_TOTAL=1
+  step "reset" "Applying new password for admin '${username}'"
   local out status=0
   out="$(PANEL_ENV_FILE="${ENV_FILE}" sudo -u panel "${INSTALL_DIR}/bin/panel" admin set-password \
     --username="${username}" \
@@ -706,14 +817,16 @@ reset_admin() {
     red "${out}"
     fail "failed to reset admin password"
   fi
+  success "password updated"
 
-  green "Admin username: ${username}"
+  printf '\n'
+  printf '  %sAdmin login%s    %s\n' "${BOLD}" "${RESET}" "${username}"
   if ${generated}; then
-    yellow "Admin password (generated): ${password}"
+    printf '  %sAdmin password%s %s%s%s %s(auto-generated)%s\n' "${BOLD}" "${RESET}" "${YELLOW}" "${password}" "${RESET}" "${DIM}" "${RESET}"
   else
-    yellow "Admin password: ${password}"
+    printf '  %sAdmin password%s %s%s%s\n' "${BOLD}" "${RESET}" "${YELLOW}" "${password}" "${RESET}"
   fi
-  yellow "Save this password — it will not be shown again."
+  printf '  %s⚠ Save this password — it will not be shown again.%s\n\n' "${YELLOW}" "${RESET}"
 }
 
 case "${1:-install}" in
@@ -723,8 +836,26 @@ case "${1:-install}" in
   reset-admin) reset_admin "${2:-}" "${3:-}" ;;
   backup) backup_db ;;
   restore) restore_db "${2:-}" ;;
+  help|-h|--help)
+    cat <<'USAGE'
+h2v panel installer
+
+Usage:
+  install.sh install                         full install (interactive prompts)
+  install.sh update | reinstall              re-run install against existing .env
+  install.sh uninstall                       remove /opt/mypanel and systemd units
+  install.sh reset-admin [user] [pw]         reset admin password
+  install.sh backup                          dump database to data/backups
+  install.sh restore <file>                  restore database from a gzip dump
+
+Env overrides:
+  H2V_REF=<tag|commit>                       pin repository source
+  PANEL_ADMIN_USERNAME, PANEL_ADMIN_PASSWORD seed non-interactive admin
+
+USAGE
+    ;;
   *)
-    red "Usage: $0 {install|update|reinstall|uninstall|reset-admin [username] [password]|backup|restore <file>}"
+    red "Usage: $0 {install|update|reinstall|uninstall|reset-admin [username] [password]|backup|restore <file>|help}"
     exit 1
     ;;
 esac
