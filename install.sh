@@ -391,6 +391,7 @@ ensure_runtime_secrets() {
 
 ensure_postgres() {
   local db_host db_port db_name db_user db_password
+  local db_user_literal db_user_ident db_name_literal db_name_ident db_password_literal
   db_host="$(env_get DB_HOST || true)"
   db_port="$(env_get DB_PORT || true)"
   db_name="$(env_get DB_NAME || true)"
@@ -415,27 +416,27 @@ ensure_postgres() {
   systemctl enable --now postgresql >/dev/null 2>&1 || true
   systemctl start postgresql
 
-  sudo -u postgres psql -v ON_ERROR_STOP=1 --dbname=postgres \
-    --set=db_user="${db_user}" \
-    --set=db_password="${db_password}" <<'SQL'
-SELECT format('CREATE ROLE %I LOGIN PASSWORD %L', :'db_user', :'db_password')
-WHERE NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = :'db_user') \gexec
-SELECT format('ALTER ROLE %I WITH LOGIN PASSWORD %L', :'db_user', :'db_password')
-WHERE EXISTS (SELECT 1 FROM pg_roles WHERE rolname = :'db_user') \gexec
-SQL
+  db_user_literal="$(printf "%s" "${db_user}" | sed "s/'/''/g")"
+  db_user_ident="$(printf "%s" "${db_user}" | sed 's/"/""/g')"
+  db_name_literal="$(printf "%s" "${db_name}" | sed "s/'/''/g")"
+  db_name_ident="$(printf "%s" "${db_name}" | sed 's/"/""/g')"
+  db_password_literal="$(printf "%s" "${db_password}" | sed "s/'/''/g")"
 
-  sudo -u postgres psql -v ON_ERROR_STOP=1 --dbname=postgres \
-    --set=db_name="${db_name}" \
-    --set=db_user="${db_user}" <<'SQL'
-SELECT format('CREATE DATABASE %I OWNER %I', :'db_name', :'db_user')
-WHERE NOT EXISTS (SELECT 1 FROM pg_database WHERE datname = :'db_name') \gexec
-SQL
+  if [[ -z "$(sudo -u postgres psql -tA --dbname=postgres --port="${db_port}" -c "SELECT 1 FROM pg_roles WHERE rolname = '${db_user_literal}'")" ]]; then
+    sudo -u postgres psql -v ON_ERROR_STOP=1 --dbname=postgres --port="${db_port}" \
+      -c "CREATE ROLE \"${db_user_ident}\" LOGIN PASSWORD '${db_password_literal}'"
+  else
+    sudo -u postgres psql -v ON_ERROR_STOP=1 --dbname=postgres --port="${db_port}" \
+      -c "ALTER ROLE \"${db_user_ident}\" WITH LOGIN PASSWORD '${db_password_literal}'"
+  fi
 
-  sudo -u postgres psql -v ON_ERROR_STOP=1 --dbname=postgres \
-    --set=db_name="${db_name}" \
-    --set=db_user="${db_user}" <<'SQL'
-SELECT format('ALTER DATABASE %I OWNER TO %I', :'db_name', :'db_user') \gexec
-SQL
+  if [[ -z "$(sudo -u postgres psql -tA --dbname=postgres --port="${db_port}" -c "SELECT 1 FROM pg_database WHERE datname = '${db_name_literal}'")" ]]; then
+    sudo -u postgres psql -v ON_ERROR_STOP=1 --dbname=postgres --port="${db_port}" \
+      -c "CREATE DATABASE \"${db_name_ident}\" OWNER \"${db_user_ident}\""
+  fi
+
+  sudo -u postgres psql -v ON_ERROR_STOP=1 --dbname=postgres --port="${db_port}" \
+    -c "ALTER DATABASE \"${db_name_ident}\" OWNER TO \"${db_user_ident}\""
 }
 
 build_artifacts() {
