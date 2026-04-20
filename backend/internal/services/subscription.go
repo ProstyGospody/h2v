@@ -94,17 +94,20 @@ func (s *SubscriptionService) CheckPasswordCached(password string) (*domain.User
 	return s.cache.GetByPassword(password)
 }
 
-func (s *SubscriptionService) EncodedContent(ctx context.Context, token string) (string, *domain.SubscriptionLinks, error) {
+func (s *SubscriptionService) ResolveByToken(ctx context.Context, token string) (*domain.User, *domain.SubscriptionLinks, error) {
 	user, err := s.repo.GetUserByToken(ctx, token)
 	if err != nil {
-		return "", nil, err
+		return nil, nil, err
 	}
 	links, err := s.LinksForUser(ctx, user)
 	if err != nil {
-		return "", nil, err
+		return nil, nil, err
 	}
-	content := links.VLESS + "\n" + links.Hysteria2
-	return base64.StdEncoding.EncodeToString([]byte(content)), links, nil
+	return user, links, nil
+}
+
+func EncodedLinks(links *domain.SubscriptionLinks) string {
+	return base64.StdEncoding.EncodeToString([]byte(links.VLESS + "\n" + links.Hysteria2))
 }
 
 func (s *SubscriptionService) BuildClashYAML(links *domain.SubscriptionLinks) string {
@@ -168,7 +171,7 @@ func buildVLESS(runtime RuntimeSettings, user *domain.User) string {
 		query.Set("sid", shortID)
 	}
 	query.Set("spx", "/")
-	label := url.QueryEscape(user.Username + "-VLESS")
+	label := url.PathEscape(user.Username + "-VLESS")
 	return fmt.Sprintf("vless://%s@%s:%d?%s#%s", user.VlessUUID.String(), runtime.PanelDomain, runtime.VlessPort, query.Encode(), label)
 }
 
@@ -180,6 +183,6 @@ func buildHysteria2(runtime RuntimeSettings, user *domain.User) string {
 		query.Set("obfs", "salamander")
 		query.Set("obfs-password", runtime.Hy2ObfsPassword)
 	}
-	label := url.QueryEscape(user.Username + "-HY2")
+	label := url.PathEscape(user.Username + "-HY2")
 	return fmt.Sprintf("hysteria2://%s@%s:%d/?%s#%s", user.Hy2Password, runtime.Hy2Domain, runtime.Hy2Port, query.Encode(), label)
 }

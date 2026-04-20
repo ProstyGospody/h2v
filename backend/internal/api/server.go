@@ -602,12 +602,7 @@ func (s *Server) handleSubscription(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
 		return
 	}
-	encoded, links, err := s.services.Subscription.EncodedContent(r.Context(), token)
-	if err != nil {
-		http.NotFound(w, r)
-		return
-	}
-	user, err := s.services.Subscription.GetByToken(r.Context(), token)
+	user, links, err := s.services.Subscription.ResolveByToken(r.Context(), token)
 	if err != nil {
 		http.NotFound(w, r)
 		return
@@ -635,12 +630,16 @@ func (s *Server) handleSubscription(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Profile-Update-Interval", strconv.Itoa(s.cfg.Subscription.UpdateIntervalHours))
 		w.Header().Set("Subscription-Userinfo", s.services.Subscription.BuildUserInfoHeader(user))
 		w.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename="%s"`, user.Username))
-		_, _ = w.Write([]byte(encoded))
+		_, _ = w.Write([]byte(services.EncodedLinks(links)))
 	}
 }
 
 func (s *Server) handleSubscriptionRotate(w http.ResponseWriter, r *http.Request) {
 	token := chi.URLParam(r, "token")
+	if len(token) < 32 {
+		http.NotFound(w, r)
+		return
+	}
 	links, err := s.services.Subscription.RotateByToken(r.Context(), token)
 	if err != nil {
 		jsonError(w, err)
