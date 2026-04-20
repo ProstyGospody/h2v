@@ -66,13 +66,14 @@ export type Setting = {
 
 export type AuditEntry = {
   id: number;
+  admin_id?: string | null;
   action: string;
   target_type: string;
   target_id: string;
   ip: string;
   user_agent: string;
   created_at: string;
-  metadata: Record<string, unknown>;
+  metadata: unknown;
 };
 
 export type Admin = {
@@ -82,4 +83,3 @@ export type Admin = {
   created_at: string;
   last_login_at?: string | null;
 };
-

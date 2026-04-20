@@ -508,11 +508,26 @@ ensure_postgres() {
 build_artifacts() {
   local frontend_dir
   local cached_lock
+  local backend_log
+  local frontend_log
   frontend_dir="${SOURCE_DIR}/frontend"
   cached_lock="${BUILD_STATE_DIR}/frontend-package-lock.json"
+  backend_log="${BUILD_STATE_DIR}/backend-build.log"
+  frontend_log="${BUILD_STATE_DIR}/frontend-build.log"
 
   substep "compiling backend (go build ./cmd/panel)"
-  (cd "${SOURCE_DIR}/backend" && go mod download && go mod verify && go build -mod=readonly -o "${INSTALL_DIR}/bin/panel" ./cmd/panel) >/dev/null
+  if ! (
+    cd "${SOURCE_DIR}/backend" &&
+    go mod download &&
+    go mod verify &&
+    go build -mod=readonly -o "${INSTALL_DIR}/bin/panel" ./cmd/panel
+  ) >"${backend_log}" 2>&1; then
+    red "backend build failed"
+    printf '  %slog:%s %s\n' "${DIM}" "${RESET}" "${backend_log}"
+    tail -n 60 "${backend_log}" || true
+    fail "unable to compile backend"
+  fi
+
   substep "building frontend bundle (vite)"
 
   if [[ ! -f "${frontend_dir}/package-lock.json" && -f "${cached_lock}" ]]; then
@@ -520,9 +535,27 @@ build_artifacts() {
   fi
 
   if [[ -f "${frontend_dir}/package-lock.json" ]]; then
-    (cd "${frontend_dir}" && npm ci --silent --no-fund --no-audit && npm run build --silent) >/dev/null
+    if ! (
+      cd "${frontend_dir}" &&
+      npm ci --no-fund --no-audit &&
+      npm run build
+    ) >"${frontend_log}" 2>&1; then
+      red "frontend build failed"
+      printf '  %slog:%s %s\n' "${DIM}" "${RESET}" "${frontend_log}"
+      tail -n 80 "${frontend_log}" || true
+      fail "unable to build frontend bundle"
+    fi
   else
-    (cd "${frontend_dir}" && npm install --silent --no-fund --no-audit && npm run build --silent) >/dev/null
+    if ! (
+      cd "${frontend_dir}" &&
+      npm install --no-fund --no-audit &&
+      npm run build
+    ) >"${frontend_log}" 2>&1; then
+      red "frontend build failed"
+      printf '  %slog:%s %s\n' "${DIM}" "${RESET}" "${frontend_log}"
+      tail -n 80 "${frontend_log}" || true
+      fail "unable to build frontend bundle"
+    fi
   fi
 
   [[ -f "${frontend_dir}/package-lock.json" ]] || fail "frontend build did not produce package-lock.json"

@@ -1,9 +1,9 @@
 @import "tailwindcss";
 
 @theme inline {
-  --font-sans: var(--font-sans);
-  --font-serif: var(--font-serif);
-  --font-mono: var(--font-mono);
+  --font-sans: var(--font-app-sans);
+  --font-serif: var(--font-app-serif);
+  --font-mono: var(--font-app-mono);
 
   --color-background: hsl(var(--background));
   --color-surface: hsl(var(--surface));
@@ -29,9 +29,9 @@
   :root {
     color-scheme: dark;
 
-    --font-sans: "Geist", sans-serif;
-    --font-serif: "Instrument Serif", serif;
-    --font-mono: "JetBrains Mono", monospace;
+    --font-app-sans: "Geist", sans-serif;
+    --font-app-serif: "Instrument Serif", serif;
+    --font-app-mono: "JetBrains Mono", monospace;
 
     --background: 220 12% 5%;
     --surface: 220 10% 8%;
@@ -97,7 +97,7 @@
     min-width: 320px;
     background: hsl(var(--background));
     color: hsl(var(--foreground));
-    font-family: var(--font-sans);
+    font-family: var(--font-app-sans);
     font-size: 13px;
     line-height: 1.5;
     -webkit-font-smoothing: antialiased;
@@ -134,7 +134,7 @@
   code,
   pre,
   .mono {
-    font-family: var(--font-mono);
+    font-family: var(--font-app-mono);
     font-feature-settings: "liga" off;
   }
 
