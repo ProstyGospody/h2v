@@ -197,7 +197,7 @@ function buildGroups(items: Setting[]): SettingsGroup[] {
 function titleizeKey(key: string): string {
   return key
     .split('.')
-    .map((part) => part.replaceAll('_', ' '))
+    .map((part) => part.split('_').join(' '))
     .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
     .join(' / ');
 }
