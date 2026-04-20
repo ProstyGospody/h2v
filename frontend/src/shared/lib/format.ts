@@ -1,4 +1,4 @@
-import { formatDistanceToNowStrict } from 'date-fns';
+import { format, formatDistanceToNowStrict, isPast } from 'date-fns';
 
 export function formatBytes(value: number): string {
   if (!value) return '0 B';
@@ -12,8 +12,50 @@ export function formatBytes(value: number): string {
   return `${size.toFixed(size > 10 ? 0 : 1)} ${units[index]}`;
 }
 
-export function relativeExpiry(value: string | null): string {
-  if (!value) return 'No expiry';
-  return `${formatDistanceToNowStrict(new Date(value))} left`;
+export function formatNumber(value: number): string {
+  return new Intl.NumberFormat('en-US').format(value);
 }
 
+export function usagePercent(used: number, total: number): number {
+  if (total <= 0) {
+    return 0;
+  }
+  return Math.max(0, Math.min(100, (used / total) * 100));
+}
+
+export function formatPercent(value: number): string {
+  return `${Math.round(value)}%`;
+}
+
+export function relativeExpiry(value: string | null): string {
+  if (!value) return 'Never expires';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return 'Unknown expiry';
+  if (isPast(date)) {
+    return formatDistanceToNowStrict(date, { addSuffix: true });
+  }
+  return `${formatDistanceToNowStrict(date)} left`;
+}
+
+export function daysUntil(value: string | null): number | null {
+  if (!value) return null;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return null;
+  const diff = date.getTime() - Date.now();
+  return Math.ceil(diff / (24 * 60 * 60 * 1000));
+}
+
+export function formatDate(value: string | Date | null, pattern = 'MMM d, yyyy'): string {
+  if (!value) return 'N/A';
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return 'N/A';
+  return format(date, pattern);
+}
+
+export function formatDateTime(value: string | Date | null): string {
+  return formatDate(value, 'MMM d, yyyy HH:mm');
+}
+
+export function formatShortDateTime(value: string | Date | null): string {
+  return formatDate(value, 'MMM d  HH:mm');
+}

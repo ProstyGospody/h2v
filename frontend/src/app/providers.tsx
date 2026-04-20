@@ -16,7 +16,19 @@ export function AppProviders({ children }: PropsWithChildren) {
       }),
   );
 
-  const toaster = useMemo(() => <Toaster richColors position="top-right" />, []);
+  const toaster = useMemo(
+    () => (
+      <Toaster
+        position="top-right"
+        richColors
+        theme="dark"
+        toastOptions={{
+          className: 'border border-border bg-surface text-foreground',
+        }}
+      />
+    ),
+    [],
+  );
 
   return (
     <QueryClientProvider client={queryClient}>
@@ -27,4 +39,3 @@ export function AppProviders({ children }: PropsWithChildren) {
     </QueryClientProvider>
   );
 }
-
