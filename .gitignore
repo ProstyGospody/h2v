@@ -11,5 +11,5 @@ backend/.cache/
 frontend/dist/
 frontend/node_modules/
 *.log
-SPEC.md
+
 
