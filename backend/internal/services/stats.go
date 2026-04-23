@@ -3,6 +3,7 @@ package services
 import (
 	"context"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/google/uuid"
@@ -19,10 +20,12 @@ type StatsService struct {
 	cache     SubscriptionCache
 	version   string
 	startedAt time.Time
+	metricsMu sync.Mutex
+	prevCPU   *util.CPUSample
 }
 
 func NewStatsService(repository *repo.Repository, xray XrayAdapter, hysteria HysteriaAdapter, cache SubscriptionCache, version string, startedAt time.Time) *StatsService {
-	return &StatsService{
+	service := &StatsService{
 		repo:      repository,
 		xray:      xray,
 		hysteria:  hysteria,
@@ -30,6 +33,10 @@ func NewStatsService(repository *repo.Repository, xray XrayAdapter, hysteria Hys
 		version:   version,
 		startedAt: startedAt,
 	}
+	if sample, err := util.ReadCPUSample(); err == nil {
+		service.prevCPU = &sample
+	}
+	return service
 }
 
 func (s *StatsService) Overview(ctx context.Context) (*domain.OverviewStats, error) {
@@ -51,15 +58,33 @@ func (s *StatsService) Overview(ctx context.Context) (*domain.OverviewStats, err
 		hyStatus = "fail: " + err.Error()
 	}
 
+	cpuUsage := 0.0
+	if curr, err := util.ReadCPUSample(); err == nil {
+		s.metricsMu.Lock()
+		prev := s.prevCPU
+		s.prevCPU = &curr
+		s.metricsMu.Unlock()
+		if prev != nil {
+			cpuUsage = util.CPUUsagePercent(*prev, curr)
+		}
+	}
+
+	memoryUsage := 0.0
+	if value, err := util.MemoryUsagePercent(); err == nil {
+		memoryUsage = value
+	}
+
 	return &domain.OverviewStats{
-		ActiveUsers:    counts[string(domain.StatusActive)],
-		ExpiredUsers:   counts[string(domain.StatusExpired)],
-		LimitedUsers:   counts[string(domain.StatusLimited)],
-		DisabledUsers:  counts[string(domain.StatusDisabled)],
-		TodayTraffic:   todayTraffic,
-		XrayStatus:     xrayStatus,
-		HysteriaStatus: hyStatus,
-		OnlineUsers:    online,
+		ActiveUsers:         counts[string(domain.StatusActive)],
+		ExpiredUsers:        counts[string(domain.StatusExpired)],
+		LimitedUsers:        counts[string(domain.StatusLimited)],
+		DisabledUsers:       counts[string(domain.StatusDisabled)],
+		TodayTraffic:        todayTraffic,
+		CPUUsagePercent:     cpuUsage,
+		MemoryUsagePercent:  memoryUsage,
+		XrayStatus:          xrayStatus,
+		HysteriaStatus:      hyStatus,
+		OnlineUsers:         online,
 	}, nil
 }
 

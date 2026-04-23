@@ -1,8 +1,9 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Activity, ArrowDown, Ban, Radio, Users } from 'lucide-react';
-import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
+import { Activity, ArrowDown, Ban, Cpu, HardDrive, Radio, Users } from 'lucide-react';
+import { Area, AreaChart, CartesianGrid, XAxis, YAxis } from 'recharts';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from '@/components/ui/chart';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { cn } from '@/lib/utils';
@@ -12,6 +13,23 @@ import { formatBytes, formatNumber, formatShortDateTime } from '@/shared/lib/for
 
 const ranges = ['1', '7', '30'] as const;
 type Range = (typeof ranges)[number];
+
+const trafficChartConfig = {
+  downlink: {
+    label: 'Download',
+    color: 'hsl(var(--primary))',
+  },
+  uplink: {
+    label: 'Upload',
+    color: 'hsl(var(--success))',
+  },
+} satisfies ChartConfig;
+
+function formatPercent(value: number | undefined) {
+  if (typeof value !== 'number' || Number.isNaN(value)) return '--';
+  const clamped = Math.max(0, Math.min(100, value));
+  return `${clamped.toFixed(1)}%`;
+}
 
 export function DashboardPage() {
   const [days, setDays] = useState<Range>('7');
@@ -31,6 +49,8 @@ export function DashboardPage() {
   });
 
   const data = overview.data;
+  const cpuPercent = data?.cpu_usage_percent;
+  const memoryPercent = data?.memory_usage_percent;
   const kernelRows = [
     { label: 'Xray', value: data?.xray_status ?? 'Unknown' },
     { label: 'Hysteria', value: data?.hysteria_status ?? 'Unknown' },
@@ -58,7 +78,7 @@ export function DashboardPage() {
         </div>
       </header>
 
-      <div className="grid gap-4 px-5 pt-6 sm:px-8 md:grid-cols-2 xl:grid-cols-4">
+      <div className="grid gap-4 px-5 pt-6 sm:px-8 md:grid-cols-2 xl:grid-cols-6">
         <Card>
           <CardContent className="flex flex-col gap-3 p-5">
             <div className="flex items-center gap-2 text-muted-foreground">
@@ -96,6 +116,60 @@ export function DashboardPage() {
             ) : (
               <div className="text-xs text-muted-foreground">
                 {formatNumber(data?.limited_users ?? 0)} limited
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="flex flex-col gap-3 p-5">
+            <div className="flex items-center gap-2 text-muted-foreground">
+              <Cpu className="size-4" />
+              <span className="t-label">CPU</span>
+            </div>
+            {overview.isLoading ? (
+              <Skeleton className="h-7 w-24" />
+            ) : (
+              <div className="t-metric text-foreground">{formatPercent(cpuPercent)}</div>
+            )}
+            {overview.isLoading ? (
+              <Skeleton className="h-2 w-full" />
+            ) : (
+              <div className="h-1.5 overflow-hidden rounded-full bg-muted">
+                <div
+                  className={cn(
+                    'h-full rounded-full',
+                    (cpuPercent ?? 0) >= 85 ? 'bg-destructive' : (cpuPercent ?? 0) >= 70 ? 'bg-warning' : 'bg-primary',
+                  )}
+                  style={{ width: `${Math.max(0, Math.min(100, cpuPercent ?? 0))}%` }}
+                />
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="flex flex-col gap-3 p-5">
+            <div className="flex items-center gap-2 text-muted-foreground">
+              <HardDrive className="size-4" />
+              <span className="t-label">Memory</span>
+            </div>
+            {overview.isLoading ? (
+              <Skeleton className="h-7 w-24" />
+            ) : (
+              <div className="t-metric text-foreground">{formatPercent(memoryPercent)}</div>
+            )}
+            {overview.isLoading ? (
+              <Skeleton className="h-2 w-full" />
+            ) : (
+              <div className="h-1.5 overflow-hidden rounded-full bg-muted">
+                <div
+                  className={cn(
+                    'h-full rounded-full',
+                    (memoryPercent ?? 0) >= 85 ? 'bg-destructive' : (memoryPercent ?? 0) >= 70 ? 'bg-warning' : 'bg-primary',
+                  )}
+                  style={{ width: `${Math.max(0, Math.min(100, memoryPercent ?? 0))}%` }}
+                />
               </div>
             )}
           </CardContent>
@@ -152,16 +226,16 @@ export function DashboardPage() {
               {traffic.isLoading ? (
                 <Skeleton className="h-full w-full" />
               ) : (
-                <ResponsiveContainer width="100%" height="100%">
+                <ChartContainer className="h-full w-full aspect-auto" config={trafficChartConfig}>
                   <AreaChart data={traffic.data ?? []} margin={{ left: 0, right: 8, top: 8, bottom: 0 }}>
                     <defs>
                       <linearGradient id="trafficDown" x1="0" x2="0" y1="0" y2="1">
-                        <stop offset="0%" stopColor="hsl(var(--primary))" stopOpacity={0.38} />
-                        <stop offset="100%" stopColor="hsl(var(--primary))" stopOpacity={0} />
+                        <stop offset="0%" stopColor="var(--color-downlink)" stopOpacity={0.38} />
+                        <stop offset="100%" stopColor="var(--color-downlink)" stopOpacity={0} />
                       </linearGradient>
                       <linearGradient id="trafficUp" x1="0" x2="0" y1="0" y2="1">
-                        <stop offset="0%" stopColor="hsl(var(--success))" stopOpacity={0.28} />
-                        <stop offset="100%" stopColor="hsl(var(--success))" stopOpacity={0} />
+                        <stop offset="0%" stopColor="var(--color-uplink)" stopOpacity={0.28} />
+                        <stop offset="100%" stopColor="var(--color-uplink)" stopOpacity={0} />
                       </linearGradient>
                     </defs>
                     <CartesianGrid stroke="hsl(var(--border))" strokeDasharray="3 3" vertical={false} />
@@ -180,20 +254,22 @@ export function DashboardPage() {
                       tickLine={false}
                       width={72}
                     />
-                    <Tooltip
-                      contentStyle={{
-                        backgroundColor: 'hsl(var(--popover))',
-                        border: '1px solid hsl(var(--border))',
-                        borderRadius: '8px',
-                        fontSize: 12,
-                      }}
-                      formatter={(value, name) => [formatBytes(Number(value)), name === 'downlink' ? 'Download' : 'Upload']}
-                      labelFormatter={(v) => formatShortDateTime(v)}
+                    <ChartTooltip
+                      cursor={false}
+                      content={
+                        <ChartTooltipContent
+                          formatter={(value, name) => [
+                            formatBytes(Number(value)),
+                            name === 'downlink' ? 'Download' : 'Upload',
+                          ]}
+                          labelFormatter={(v) => formatShortDateTime(String(v))}
+                        />
+                      }
                     />
-                    <Area dataKey="downlink" fill="url(#trafficDown)" name="downlink" stroke="hsl(var(--primary))" strokeWidth={2} type="monotone" />
-                    <Area dataKey="uplink" fill="url(#trafficUp)" name="uplink" stroke="hsl(var(--success))" strokeWidth={2} type="monotone" />
+                    <Area dataKey="downlink" fill="url(#trafficDown)" name="downlink" stroke="var(--color-downlink)" strokeWidth={2} type="monotone" />
+                    <Area dataKey="uplink" fill="url(#trafficUp)" name="uplink" stroke="var(--color-uplink)" strokeWidth={2} type="monotone" />
                   </AreaChart>
-                </ResponsiveContainer>
+                </ChartContainer>
               )}
             </div>
           </CardContent>

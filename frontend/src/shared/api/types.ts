@@ -53,6 +53,8 @@ export type OverviewStats = {
   limited_users: number;
   disabled_users: number;
   today_traffic: number;
+  cpu_usage_percent: number;
+  memory_usage_percent: number;
   xray_status: string;
   hysteria_status: string;
   online_users: Array<{ username: string; recorded_at: string; bytes: number }>;

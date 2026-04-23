@@ -112,6 +112,8 @@ type OverviewStats struct {
 	LimitedUsers   int64        `json:"limited_users"`
 	DisabledUsers  int64        `json:"disabled_users"`
 	TodayTraffic   int64        `json:"today_traffic"`
+	CPUUsagePercent    float64      `json:"cpu_usage_percent"`
+	MemoryUsagePercent float64      `json:"memory_usage_percent"`
 	XrayStatus     string       `json:"xray_status"`
 	HysteriaStatus string       `json:"hysteria_status"`
 	OnlineUsers    []OnlineUser `json:"online_users"`
@@ -161,4 +163,3 @@ type Claims struct {
 	Role     string `json:"role"`
 	Kind     string `json:"kind"`
 }
-

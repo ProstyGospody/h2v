@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { addDays } from 'date-fns';
-import { Area, AreaChart, ResponsiveContainer, Tooltip } from 'recharts';
+import { Area, AreaChart } from 'recharts';
 import {
   AlertTriangle,
   ArrowRight,
@@ -17,6 +17,7 @@ import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
+import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from '@/components/ui/chart';
 import {
   Dialog,
   DialogContent,
@@ -64,6 +65,13 @@ const statusOptions: Array<{ label: string; value: 'all' | UserStatus }> = [
   { label: 'Expired', value: 'expired' },
   { label: 'Disabled', value: 'disabled' },
 ];
+
+const userTrafficChartConfig = {
+  total: {
+    label: 'Traffic',
+    color: 'hsl(var(--primary))',
+  },
+} satisfies ChartConfig;
 
 export function UsersPage() {
   const queryClient = useQueryClient();
@@ -660,33 +668,36 @@ export function UsersPage() {
                     {traffic.isLoading ? (
                       <Skeleton className="h-full w-full" />
                     ) : traffic.data?.length ? (
-                      <ResponsiveContainer width="100%" height="100%">
+                      <ChartContainer
+                        className="h-full w-full aspect-auto"
+                        config={userTrafficChartConfig}
+                      >
                         <AreaChart data={traffic.data}>
                           <defs>
                             <linearGradient id="userTraffic" x1="0" x2="0" y1="0" y2="1">
-                              <stop offset="0%" stopColor="hsl(var(--primary))" stopOpacity={0.35} />
-                              <stop offset="100%" stopColor="hsl(var(--primary))" stopOpacity={0} />
+                              <stop offset="0%" stopColor="var(--color-total)" stopOpacity={0.35} />
+                              <stop offset="100%" stopColor="var(--color-total)" stopOpacity={0} />
                             </linearGradient>
                           </defs>
-                          <Tooltip
-                            contentStyle={{
-                              backgroundColor: 'hsl(var(--popover))',
-                              border: '1px solid hsl(var(--border))',
-                              borderRadius: '8px',
-                              fontSize: 12,
-                            }}
-                            formatter={(v) => [formatBytes(Number(v)), 'Traffic']}
-                            labelFormatter={(v) => formatDate(v, 'MMM d')}
+                          <ChartTooltip
+                            cursor={false}
+                            content={
+                              <ChartTooltipContent
+                                formatter={(v) => [formatBytes(Number(v)), 'Traffic']}
+                                labelFormatter={(v) => formatDate(String(v), 'MMM d')}
+                              />
+                            }
                           />
                           <Area
                             dataKey={(p: TrafficPoint) => p.downlink + p.uplink}
                             fill="url(#userTraffic)"
-                            stroke="hsl(var(--primary))"
+                            name="total"
+                            stroke="var(--color-total)"
                             strokeWidth={2}
                             type="monotone"
                           />
                         </AreaChart>
-                      </ResponsiveContainer>
+                      </ChartContainer>
                     ) : (
                       <div className="flex h-full items-center justify-center text-xs text-muted-foreground">
                         No traffic samples yet.
