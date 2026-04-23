@@ -1,13 +1,23 @@
 import { useEffect, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useParams } from '@tanstack/react-router';
-import { ChevronRight, Link2, RotateCcw, Shield } from 'lucide-react';
+import { ChevronRight, Link2, RotateCcw, ShieldCheck } from 'lucide-react';
 import { toast } from 'sonner';
 import { apiClient } from '@/shared/api/client';
 import { UserLinks } from '@/shared/api/types';
 import { detectOS } from '@/shared/lib/detectOS';
-import { daysUntil, formatDate, relativeExpiry } from '@/shared/lib/format';
-import { Button, Card, CardContent, CopyButton, EmptyState, SecondaryButton, Skeleton, TrafficBar } from '@/shared/ui/primitives';
+import { daysUntil, formatBytes, formatDate, relativeExpiry, usagePercent } from '@/shared/lib/format';
+import {
+  Button,
+  Card,
+  CardContent,
+  CopyButton,
+  EmptyState,
+  SecondaryButton,
+  Skeleton,
+  TrafficBar,
+  cn,
+} from '@/shared/ui/primitives';
 
 const clientLinks = {
   ios: [
@@ -54,7 +64,12 @@ export function SubPage() {
   });
 
   const data = subscription.data;
-  const expiryDays = daysUntil(data?.usage.expires_at ?? null);
+  const usage = data?.usage;
+  const expiryDays = daysUntil(usage?.expires_at ?? null);
+  const unlimited = (usage?.traffic_limit ?? 0) <= 0;
+  const percent = unlimited ? 0 : usagePercent(usage?.traffic_used ?? 0, usage?.traffic_limit ?? 0);
+  const expiringSoon = expiryDays !== null && expiryDays >= 0 && expiryDays < 3;
+  const expired = expiryDays !== null && expiryDays < 0;
 
   if (subscription.isError) {
     return (
@@ -68,13 +83,14 @@ export function SubPage() {
 
   return (
     <div className="min-h-screen bg-background text-foreground" data-theme={theme}>
-      <div className="min-h-screen bg-grid px-4 py-8 sm:py-10">
-        <div className="mx-auto w-full max-w-[480px] space-y-6">
-          <header className="space-y-4 text-center">
-            <div className="mx-auto flex size-10 items-center justify-center rounded-md border border-primary/25 bg-primary/10 text-primary">
-              <Shield className="size-5" />
+      <div className="relative min-h-screen">
+        <div aria-hidden className="absolute inset-0 bg-grid opacity-40" />
+        <div className="relative mx-auto w-full max-w-[480px] space-y-6 px-4 py-10 sm:py-14">
+          <header className="space-y-5 text-center">
+            <div className="mx-auto flex size-12 items-center justify-center rounded-md border border-primary/25 bg-primary/10 text-primary">
+              <ShieldCheck className="size-6" />
             </div>
-            <div className="space-y-2">
+            <div className="space-y-1">
               <div className="t-hero">MyVPN</div>
               <p className="text-sm text-muted-foreground">Your secure connection</p>
             </div>
@@ -83,9 +99,13 @@ export function SubPage() {
           <Card>
             <CardContent className="flex flex-col items-center gap-5 p-6">
               {subscription.isLoading ? (
-                <Skeleton className="aspect-square w-full max-w-[260px]" />
+                <Skeleton className="aspect-square w-full max-w-[260px] rounded-md" />
               ) : (
-                <img alt="Subscription QR" className="w-full max-w-[260px] rounded-md border border-border bg-white p-4" src={data?.qr.subscription} />
+                <img
+                  alt="Subscription QR"
+                  className="w-full max-w-[260px] rounded-md border border-border bg-white p-4"
+                  src={data?.qr.subscription}
+                />
               )}
               <Button
                 className="w-full"
@@ -113,24 +133,23 @@ export function SubPage() {
                 </>
               ) : (
                 <>
-                  <TrafficBar animated total={data?.usage.traffic_limit ?? 0} used={data?.usage.traffic_used ?? 0} />
-                  <div className="grid gap-5 sm:grid-cols-2">
-                    <div className="space-y-2">
-                      <div className="t-label">Used</div>
-                      <div className="text-xl font-semibold text-foreground">{relativeExpiry(data?.usage.expires_at ?? null) === 'Never expires' ? 'Unlimited plan' : `${Math.round(((data?.usage.traffic_limit ?? 0) > 0 ? ((data?.usage.traffic_used ?? 0) / (data?.usage.traffic_limit ?? 1)) * 100 : 0))}%`}</div>
-                      <div className="text-sm text-muted-foreground">
-                        {(data?.usage.traffic_limit ?? 0) > 0
-                          ? `${new Intl.NumberFormat('en-US', { maximumFractionDigits: 1 }).format((data?.usage.traffic_used ?? 0) / 1024 / 1024 / 1024)} GB of ${new Intl.NumberFormat('en-US', { maximumFractionDigits: 1 }).format((data?.usage.traffic_limit ?? 0) / 1024 / 1024 / 1024)} GB`
-                          : 'No hard traffic cap'}
-                      </div>
-                    </div>
-                    <div className="space-y-2">
-                      <div className="t-label">Expires</div>
-                      <div className={expiryDays !== null && expiryDays < 3 ? 'text-xl font-semibold text-warning' : 'text-xl font-semibold text-foreground'}>
-                        {relativeExpiry(data?.usage.expires_at ?? null)}
-                      </div>
-                      <div className="text-sm text-muted-foreground">{data?.usage.expires_at ? formatDate(data.usage.expires_at) : 'No expiry date'}</div>
-                    </div>
+                  <TrafficBar animated total={usage?.traffic_limit ?? 0} used={usage?.traffic_used ?? 0} />
+                  <div className="grid gap-5 border-t border-border pt-5 sm:grid-cols-2">
+                    <Stat
+                      label="Used"
+                      primary={unlimited ? 'Unlimited' : `${Math.round(percent)}%`}
+                      secondary={
+                        unlimited
+                          ? 'No hard traffic cap'
+                          : `${formatBytes(usage?.traffic_used ?? 0)} of ${formatBytes(usage?.traffic_limit ?? 0)}`
+                      }
+                    />
+                    <Stat
+                      label="Expires"
+                      primary={relativeExpiry(usage?.expires_at ?? null)}
+                      primaryClass={cn(expired && 'text-destructive', expiringSoon && 'text-warning')}
+                      secondary={usage?.expires_at ? formatDate(usage.expires_at) : 'No expiry date'}
+                    />
                   </div>
                 </>
               )}
@@ -138,46 +157,49 @@ export function SubPage() {
           </Card>
 
           <Card>
-            <CardContent className="space-y-3 p-4">
-              <div className="t-label">Connect with one tap</div>
+            <CardContent className="space-y-2 p-4">
+              <div className="t-label px-2 pb-1">Connect with one tap</div>
               {clientLinks[os].map((client) => (
                 <a
-                  className="flex min-h-11 items-center gap-3 rounded-md border border-border bg-surface-elevated px-3 py-3 transition hover:border-border-strong hover:bg-[hsl(var(--hover-overlay))]"
+                  className="group flex min-h-12 items-center gap-3 rounded-md border border-border bg-surface-elevated px-3 py-3 transition hover:border-primary/30 hover:bg-[hsl(var(--primary)/0.06)]"
                   href={client.href}
                   key={client.label}
                   rel="noreferrer"
                   target="_blank"
                 >
-                  <img alt="" className="size-10 rounded-md" src={client.icon} />
+                  <img alt="" className="size-9 rounded-md" src={client.icon} />
                   <span className="flex-1 text-sm font-medium text-foreground">{client.label}</span>
-                  <ChevronRight className="size-4 text-muted-foreground" />
+                  <ChevronRight className="size-4 text-muted-foreground transition group-hover:translate-x-0.5 group-hover:text-foreground" />
                 </a>
               ))}
             </CardContent>
           </Card>
 
-          <details className="rounded-lg border border-border bg-surface">
-            <summary className="cursor-pointer list-none px-4 py-4 text-sm font-medium text-foreground">How to connect?</summary>
-            <div className="space-y-3 border-t border-border px-4 py-4">
+          <details className="group rounded-lg border border-border bg-surface">
+            <summary className="flex cursor-pointer list-none items-center justify-between px-5 py-4 text-sm font-medium text-foreground">
+              <span>How to connect</span>
+              <ChevronRight className="size-4 text-muted-foreground transition group-open:rotate-90" />
+            </summary>
+            <div className="space-y-3 border-t border-border px-5 py-5">
               <HelpSection
                 steps={[
-                  'Install a client such as Streisand, Karing, or Shadowrocket.',
-                  'Open the app and choose import by link or scan QR.',
-                  'Paste the subscription URL or scan the main QR above.',
+                  'Install Streisand, Karing, or Shadowrocket from the App Store.',
+                  'Open the app and choose "Import from clipboard" or scan a QR code.',
+                  'Paste the subscription URL or scan the QR above.',
                 ]}
                 title="iOS"
               />
               <HelpSection
                 steps={[
                   'Install v2rayNG, Hiddify, or Karing from a trusted release.',
-                  'Choose import from clipboard or scan QR code.',
-                  'Refresh the subscription inside the app when your link rotates.',
+                  'Choose "Import from clipboard" or scan the QR.',
+                  'Refresh the subscription if your link is ever rotated.',
                 ]}
                 title="Android"
               />
               <HelpSection
                 steps={[
-                  'Install Hiddify or sing-box on the desktop.',
+                  'Install Hiddify or sing-box on your desktop.',
                   'Import via subscription URL or scan the QR with the client camera.',
                   'Keep the subscription entry enabled for automatic updates.',
                 ]}
@@ -186,31 +208,32 @@ export function SubPage() {
             </div>
           </details>
 
-          <details className="rounded-lg border border-border bg-surface">
-            <summary className="cursor-pointer list-none px-4 py-4 text-sm font-medium text-foreground">Advanced</summary>
-            <div className="space-y-4 border-t border-border px-4 py-4">
+          <details className="group rounded-lg border border-border bg-surface">
+            <summary className="flex cursor-pointer list-none items-center justify-between px-5 py-4 text-sm font-medium text-foreground">
+              <span>Advanced · individual keys</span>
+              <ChevronRight className="size-4 text-muted-foreground transition group-open:rotate-90" />
+            </summary>
+            <div className="space-y-4 border-t border-border px-5 py-5">
               {subscription.isLoading ? (
                 <>
                   <Skeleton className="h-44 w-full" />
                   <Skeleton className="h-44 w-full" />
                 </>
               ) : (
-                <>
-                  <div className="grid gap-4 sm:grid-cols-2">
-                    <AdvancedCard image={data?.qr.vless} label="VLESS" value={data?.vless ?? ''} />
-                    <AdvancedCard image={data?.qr.hysteria2} label="Hysteria 2" value={data?.hysteria2 ?? ''} />
-                  </div>
-                  <AdvancedCard image={data?.qr.subscription} label="Subscription" value={data?.subscription ?? ''} />
-                </>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <AdvancedCard image={data?.qr.vless} label="VLESS · Reality" value={data?.vless ?? ''} />
+                  <AdvancedCard image={data?.qr.hysteria2} label="Hysteria 2" value={data?.hysteria2 ?? ''} />
+                </div>
               )}
             </div>
           </details>
 
-          <div className="flex justify-center">
+          <div className="flex justify-center pt-2">
             <SecondaryButton
               busy={rotateLink.isPending}
               leadingIcon={<RotateCcw className="size-4" />}
               onClick={() => rotateLink.mutate()}
+              size="sm"
               type="button"
             >
               Reset my link
@@ -222,11 +245,35 @@ export function SubPage() {
   );
 }
 
+function Stat({
+  label,
+  primary,
+  primaryClass,
+  secondary,
+}: {
+  label: string;
+  primary: string;
+  primaryClass?: string;
+  secondary: string;
+}) {
+  return (
+    <div className="space-y-1.5">
+      <div className="t-label">{label}</div>
+      <div className={cn('text-xl font-semibold text-foreground', primaryClass)}>{primary}</div>
+      <div className="text-xs text-muted-foreground">{secondary}</div>
+    </div>
+  );
+}
+
 function AdvancedCard({ image, label, value }: { image?: string; label: string; value: string }) {
   return (
     <div className="space-y-3 rounded-md border border-border bg-surface-elevated p-4">
       <div className="t-label">{label}</div>
-      {image ? <img alt={label} className="w-full rounded-sm bg-white p-3" src={image} /> : <div className="aspect-square rounded-sm border border-border bg-surface" />}
+      {image ? (
+        <img alt={label} className="w-full rounded-sm bg-white p-3" src={image} />
+      ) : (
+        <div className="aspect-square rounded-sm border border-border bg-surface" />
+      )}
       <div className="overflow-hidden text-ellipsis whitespace-nowrap font-mono text-xs text-foreground">{value}</div>
       <CopyButton className="w-full" value={value} />
     </div>
@@ -237,13 +284,16 @@ function HelpSection({ steps, title }: { steps: string[]; title: string }) {
   return (
     <div className="rounded-md border border-border bg-surface-elevated p-4">
       <div className="t-label mb-3">{title}</div>
-      <div className="space-y-2">
-        {steps.map((step) => (
-          <div className="text-sm text-muted-foreground" key={step}>
-            {step}
-          </div>
+      <ol className="space-y-2 text-sm text-muted-foreground">
+        {steps.map((step, index) => (
+          <li className="flex gap-3" key={step}>
+            <span className="mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full border border-border bg-surface font-mono text-[10px] text-muted-foreground">
+              {index + 1}
+            </span>
+            <span>{step}</span>
+          </li>
         ))}
-      </div>
+      </ol>
     </div>
   );
 }

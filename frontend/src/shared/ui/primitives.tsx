@@ -5,9 +5,10 @@ import {
   PropsWithChildren,
   ReactNode,
   TextareaHTMLAttributes,
+  useEffect,
   useState,
 } from 'react';
-import { Check, Copy, Loader2, Shield, Sparkles } from 'lucide-react';
+import { Check, Copy, Loader2, Shield, Sparkles, X } from 'lucide-react';
 import type { UserStatus } from '@/shared/api/types';
 import { daysUntil, formatBytes, formatDate, formatPercent, relativeExpiry, usagePercent } from '@/shared/lib/format';
 
@@ -142,7 +143,7 @@ export function StatusBadge({ status }: { status: UserStatus | string }) {
   if (status === 'active') {
     return (
       <span className="inline-flex items-center gap-2 rounded-md bg-success/10 px-2.5 py-1 text-[11px] font-medium uppercase tracking-[0.08em] text-success">
-        <span className="size-1.5 rounded-full bg-success shadow-[0_0_0_0_hsl(var(--success)/0.6)] [animation:pulse-ring_2s_ease-out_infinite]" />
+        <span className="size-1.5 rounded-full bg-success animate-[pulse-ring_2s_ease-out_infinite]" />
         Active
       </span>
     );
@@ -236,28 +237,36 @@ export function MonoField({ className, label, value }: { className?: string; lab
   );
 }
 
+type DeltaTone = 'neutral' | 'up' | 'down';
+
 export function MetricCard({
+  delta,
+  deltaTone = 'neutral',
   icon,
   label,
   note,
   value,
 }: {
+  delta?: ReactNode;
+  deltaTone?: DeltaTone;
   icon?: ReactNode;
   label: string;
   note?: ReactNode;
   value: ReactNode;
 }) {
+  const deltaClass =
+    deltaTone === 'up' ? 'text-success' : deltaTone === 'down' ? 'text-destructive' : 'text-muted-foreground';
+
   return (
     <Card className="h-full">
-      <CardContent className="flex h-full flex-col gap-5">
-        <div className="flex items-start justify-between gap-3">
-          <div className="t-label">{label}</div>
-          {icon ? <div className="rounded-md border border-border bg-surface-elevated p-2 text-primary">{icon}</div> : null}
+      <CardContent className="flex h-full flex-col gap-4 p-5">
+        <div className="flex items-center gap-2 text-muted-foreground">
+          {icon ? <span className="text-faint">{icon}</span> : null}
+          <span className="t-label">{label}</span>
         </div>
-        <div className="space-y-2">
-          <div className="t-metric">{value}</div>
-          {note ? <div className="text-sm text-muted-foreground">{note}</div> : null}
-        </div>
+        <div className="t-metric text-foreground">{value}</div>
+        {delta ? <div className={cn('text-xs', deltaClass)}>{delta}</div> : null}
+        {note ? <div className="text-xs text-muted-foreground">{note}</div> : null}
       </CardContent>
     </Card>
   );
@@ -277,16 +286,24 @@ export function DurationBadge({ value }: { value: string | null }) {
   return <Badge>{days}d left</Badge>;
 }
 
-export function PageHeader({ action, subtitle, title }: { action?: ReactNode; subtitle: string; title: string }) {
+export function PageHeader({
+  action,
+  eyebrow,
+  subtitle,
+  title,
+}: {
+  action?: ReactNode;
+  eyebrow?: ReactNode;
+  subtitle?: string;
+  title: string;
+}) {
   return (
-    <header className="border-b border-border px-5 py-5 sm:px-6">
-      <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
-        <div className="space-y-2">
-          <div className="t-label">Admin panel</div>
-          <div>
-            <h1 className="t-h1 text-foreground">{title}</h1>
-            <p className="mt-1 max-w-2xl text-sm text-muted-foreground">{subtitle}</p>
-          </div>
+    <header className="border-b border-border bg-background/60 px-5 py-6 sm:px-8">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+        <div className="min-w-0 space-y-1">
+          {eyebrow ? <div className="t-label">{eyebrow}</div> : null}
+          <h1 className="t-h1 text-foreground">{title}</h1>
+          {subtitle ? <p className="max-w-2xl text-sm text-muted-foreground">{subtitle}</p> : null}
         </div>
         {action ? <div className="flex flex-wrap items-center gap-2">{action}</div> : null}
       </div>
@@ -343,9 +360,87 @@ export function KernelIndicator({ label, value }: { label: string; value: string
         <div className="t-label">{label}</div>
         <div className="mt-1 text-sm text-foreground">{value}</div>
       </div>
-      <span className={cn('size-2 rounded-full', isRunning ? 'bg-success shadow-[0_0_0_0_hsl(var(--success)/0.6)] [animation:pulse-ring_2s_ease-out_infinite]' : 'bg-warning')} />
+      <span
+        className={cn(
+          'size-2 rounded-full',
+          isRunning ? 'bg-success animate-[pulse-ring_2s_ease-out_infinite]' : 'bg-warning',
+        )}
+      />
     </div>
   );
+}
+
+export function Modal({
+  children,
+  footer,
+  onClose,
+  size = 'md',
+  subtitle,
+  title,
+}: PropsWithChildren<{
+  footer?: ReactNode;
+  onClose: () => void;
+  size?: 'md' | 'lg' | 'xl';
+  subtitle?: string;
+  title: string;
+}>) {
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', onKey);
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      window.removeEventListener('keydown', onKey);
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [onClose]);
+
+  const widths: Record<'md' | 'lg' | 'xl', string> = {
+    md: 'max-w-lg',
+    lg: 'max-w-2xl',
+    xl: 'max-w-5xl',
+  };
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 animate-[modal-fade_150ms_ease-out]"
+      onClick={onClose}
+      role="presentation"
+    >
+      <div
+        className={cn(
+          'flex max-h-[90vh] w-full flex-col overflow-hidden rounded-lg border border-border bg-surface shadow-[0_24px_80px_-12px_rgba(0,0,0,0.6)] animate-[modal-scale_150ms_ease-out]',
+          widths[size],
+        )}
+        onClick={(event) => event.stopPropagation()}
+        role="dialog"
+        aria-modal="true"
+      >
+        <div className="flex items-start justify-between gap-4 border-b border-border px-6 py-4">
+          <div className="min-w-0 space-y-1">
+            <div className="t-h2 text-foreground">{title}</div>
+            {subtitle ? <div className="text-sm text-muted-foreground">{subtitle}</div> : null}
+          </div>
+          <button
+            aria-label="Close"
+            className="rounded-md border border-transparent p-1.5 text-muted-foreground transition hover:border-border hover:bg-[hsl(var(--hover-overlay))] hover:text-foreground"
+            onClick={onClose}
+            type="button"
+          >
+            <X className="size-4" />
+          </button>
+        </div>
+        <div className="flex-1 overflow-y-auto px-6 py-5">{children}</div>
+        {footer ? <div className="flex flex-wrap items-center justify-end gap-2 border-t border-border bg-surface-elevated px-6 py-4">{footer}</div> : null}
+      </div>
+    </div>
+  );
+}
+
+export function OnlineDot({ className }: { className?: string }) {
+  return <span className={cn('size-2 rounded-full bg-success animate-[pulse-ring_2s_ease-out_infinite]', className)} />;
 }
 
 export function DetailStat({ label, value }: { label: string; value: ReactNode }) {

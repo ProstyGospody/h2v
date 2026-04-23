@@ -97,33 +97,38 @@ export function SettingsPage() {
         }
       />
 
-      <div className="grid gap-6 px-5 pt-5 sm:px-6 lg:grid-cols-[240px_1fr]">
-        <Card className="h-fit">
-          <CardContent className="p-3">
-            <div className="space-y-1">
-              {groups.map((group) => (
+      <div className="grid gap-6 px-5 pt-6 sm:px-8 lg:grid-cols-[220px_1fr]">
+        <nav className="h-fit rounded-lg border border-border bg-surface p-2">
+          <div className="space-y-0.5">
+            {groups.map((group) => {
+              const active = group.key === currentGroup?.key;
+              return (
                 <button
                   key={group.key}
                   className={
-                    group.key === currentGroup?.key
-                      ? 'flex w-full items-start justify-between rounded-md border border-primary/20 bg-primary/10 px-3 py-3 text-left'
-                      : 'flex w-full items-start justify-between rounded-md border border-transparent px-3 py-3 text-left transition hover:border-border hover:bg-[hsl(var(--hover-overlay))]'
+                    active
+                      ? 'flex w-full items-center justify-between rounded-md bg-[hsl(var(--primary)/0.08)] px-3 py-2 text-left text-sm font-medium text-foreground shadow-[inset_2px_0_0_hsl(var(--primary))]'
+                      : 'flex w-full items-center justify-between rounded-md px-3 py-2 text-left text-sm text-muted-foreground transition hover:bg-[hsl(var(--hover-overlay))] hover:text-foreground'
                   }
                   onClick={() => setActiveGroup(group.key)}
                   type="button"
                 >
-                  <div>
-                    <div className="text-sm font-medium text-foreground">{group.label}</div>
-                    <div className="mt-1 text-xs text-muted-foreground">{group.description}</div>
-                  </div>
-                  <div className="t-label">{group.items.length}</div>
+                  <span>{group.label}</span>
+                  <span className="font-mono text-[10px] text-faint">{group.items.length}</span>
                 </button>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
+              );
+            })}
+          </div>
+        </nav>
 
         <div className="space-y-4">
+          {currentGroup ? (
+            <div className="space-y-1">
+              <div className="t-h2 text-foreground">{currentGroup.label}</div>
+              <p className="text-sm text-muted-foreground">{currentGroup.description}</p>
+            </div>
+          ) : null}
+
           {settings.isLoading ? (
             Array.from({ length: 4 }).map((_, index) => (
               <Card key={index}>
@@ -137,18 +142,19 @@ export function SettingsPage() {
             currentGroup.items.map((setting) => (
               <Card key={setting.key}>
                 <CardContent className="space-y-4">
-                  <div className="space-y-2">
-                    <div className="flex items-start justify-between gap-4">
-                      <div>
-                        <div className="text-base font-semibold text-foreground">{titleizeKey(setting.key)}</div>
-                        <div className="mt-1 text-sm text-muted-foreground">{describeSetting(setting.key)}</div>
-                      </div>
-                      <div className="t-label">{setting.key}</div>
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                    <div className="min-w-0">
+                      <div className="text-sm font-semibold text-foreground">{titleizeKey(setting.key)}</div>
+                      <div className="mt-1 text-xs text-muted-foreground">{describeSetting(setting.key)}</div>
                     </div>
-                    <div className="text-xs text-muted-foreground">Updated {new Date(setting.updated_at).toLocaleString()}</div>
+                    <div className="shrink-0 space-y-1 text-right">
+                      <div className="font-mono text-[11px] text-faint">{setting.key}</div>
+                      <div className="text-[10px] text-muted-foreground">Updated {new Date(setting.updated_at).toLocaleString()}</div>
+                    </div>
                   </div>
                   <Textarea
-                    rows={6}
+                    className="font-mono text-xs"
+                    rows={Math.min(10, Math.max(3, JSON.stringify(setting.value, null, 2).split('\n').length))}
                     value={draft[setting.key] ?? JSON.stringify(setting.value, null, 2)}
                     onChange={(event) => setDraft((current) => ({ ...current, [setting.key]: event.target.value }))}
                   />

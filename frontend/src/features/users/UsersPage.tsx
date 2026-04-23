@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { addDays } from 'date-fns';
 import { Area, AreaChart, ResponsiveContainer, Tooltip } from 'recharts';
-import { AlertTriangle, Plus, Search, Trash2 } from 'lucide-react';
+import { AlertTriangle, ArrowRight, Plus, RefreshCw, Search, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { apiClient, ApiError } from '@/shared/api/client';
 import { TrafficPoint, User, UserLinks, UserStatus } from '@/shared/api/types';
@@ -14,6 +14,7 @@ import {
   DurationBadge,
   EmptyState,
   Label,
+  Modal,
   MonoField,
   PageHeader,
   SecondaryButton,
@@ -22,6 +23,7 @@ import {
   Textarea,
   TrafficBar,
   Input,
+  cn,
 } from '@/shared/ui/primitives';
 import { formatBytes, formatDate, formatDateTime, relativeExpiry } from '@/shared/lib/format';
 
@@ -127,21 +129,21 @@ export function UsersPage() {
         }
       />
 
-      <div className="space-y-6 px-5 pt-5 sm:px-6">
-        <Card>
-          <CardContent className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-            <div className="relative w-full md:max-w-sm">
-              <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-              <Input className="pl-9" onChange={(event) => setSearch(event.target.value)} placeholder="Search by username" value={search} />
-            </div>
-            <div className="flex flex-wrap items-center gap-2">
+      <div className="space-y-5 px-5 pt-6 sm:px-8">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+          <div className="relative w-full lg:max-w-sm">
+            <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+            <Input className="pl-9" onChange={(event) => setSearch(event.target.value)} placeholder="Search by username..." value={search} />
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="flex items-center gap-0.5 rounded-md border border-border bg-surface-elevated p-0.5">
               {statusOptions.map((option) => (
                 <button
                   key={option.value}
                   className={
                     option.value === status
-                      ? 'rounded-md border border-primary/25 bg-primary/10 px-3 py-2 text-xs font-medium text-foreground'
-                      : 'rounded-md border border-border bg-surface-elevated px-3 py-2 text-xs font-medium text-muted-foreground'
+                      ? 'rounded-sm bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground'
+                      : 'rounded-sm px-3 py-1.5 text-xs font-medium text-muted-foreground transition hover:text-foreground'
                   }
                   onClick={() => setStatus(option.value)}
                   type="button"
@@ -149,25 +151,29 @@ export function UsersPage() {
                   {option.label}
                 </button>
               ))}
-              <button
-                className={
-                  nearExpiry
-                    ? 'rounded-md border border-warning/25 bg-warning/10 px-3 py-2 text-xs font-medium text-warning'
-                    : 'rounded-md border border-border bg-surface-elevated px-3 py-2 text-xs font-medium text-muted-foreground'
-                }
-                onClick={() => setNearExpiry((current) => !current)}
-                type="button"
-              >
-                Near expiry
-              </button>
             </div>
-          </CardContent>
-        </Card>
+            <button
+              className={cn(
+                'rounded-md border px-3 py-1.5 text-xs font-medium transition',
+                nearExpiry
+                  ? 'border-warning/30 bg-warning/10 text-warning'
+                  : 'border-border bg-surface-elevated text-muted-foreground hover:text-foreground',
+              )}
+              onClick={() => setNearExpiry((current) => !current)}
+              type="button"
+            >
+              Near expiry
+            </button>
+          </div>
+        </div>
 
         {selectedIds.length ? (
-          <Card>
-            <CardContent className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-              <div className="text-sm text-foreground">{selectedIds.length} selected</div>
+          <Card className="border-primary/25 bg-[hsl(var(--primary)/0.05)]">
+            <CardContent className="flex flex-col gap-3 py-4 md:flex-row md:items-center md:justify-between">
+              <div className="flex items-center gap-2 text-sm text-foreground">
+                <span className="rounded-md bg-primary/15 px-2 py-1 font-mono text-xs text-primary">{selectedIds.length}</span>
+                <span>selected</span>
+              </div>
               <div className="flex flex-wrap items-center gap-2">
                 <SecondaryButton
                   busy={busyAction === 'status'}
@@ -225,16 +231,16 @@ export function UsersPage() {
           <Card className="overflow-hidden">
             <div className="overflow-x-auto">
               {users.isLoading ? (
-                <div className="space-y-3 p-6">
+                <div className="space-y-2 p-5">
                   {Array.from({ length: 8 }).map((_, index) => (
-                    <Skeleton key={index} className="h-16 w-full" />
+                    <Skeleton key={index} className="h-14 w-full" />
                   ))}
                 </div>
               ) : users.data?.length ? (
                 <table className="min-w-full text-left text-sm">
-                  <thead className="bg-surface-elevated text-muted-foreground">
+                  <thead className="bg-surface-elevated">
                     <tr>
-                      <th className="px-4 py-3">
+                      <th className="px-4 py-3" style={{ width: 36 }}>
                         <input
                           checked={allSelected}
                           onChange={() => {
@@ -247,20 +253,26 @@ export function UsersPage() {
                           type="checkbox"
                         />
                       </th>
-                      <th className="px-4 py-3 font-medium">Username</th>
-                      <th className="px-4 py-3 font-medium">Status</th>
-                      <th className="px-4 py-3 font-medium">Traffic</th>
-                      <th className="hidden px-4 py-3 font-medium md:table-cell">Expires</th>
-                      <th className="hidden px-4 py-3 font-medium lg:table-cell">Created</th>
+                      <th className="t-label px-4 py-3 font-medium">Username</th>
+                      <th className="t-label px-4 py-3 font-medium">Status</th>
+                      <th className="t-label px-4 py-3 font-medium">Traffic</th>
+                      <th className="t-label hidden px-4 py-3 font-medium md:table-cell">Expires</th>
+                      <th className="t-label hidden px-4 py-3 font-medium lg:table-cell">Created</th>
                     </tr>
                   </thead>
                   <tbody>
                     {users.data.map((user) => {
                       const checked = selectedIds.includes(user.id);
+                      const isActive = user.id === activeUserId;
                       return (
                         <tr
                           key={user.id}
-                          className={user.id === activeUserId ? 'cursor-pointer border-t border-border bg-primary/6' : 'cursor-pointer border-t border-border hover:bg-[hsl(var(--hover-overlay))]'}
+                          className={cn(
+                            'cursor-pointer border-t border-border/70 transition',
+                            isActive
+                              ? 'bg-[hsl(var(--primary)/0.07)] shadow-[inset_2px_0_0_hsl(var(--primary))]'
+                              : 'hover:bg-[hsl(var(--hover-overlay))]',
+                          )}
                           onClick={() => setActiveUserId(user.id)}
                         >
                           <td className="px-4 py-4" onClick={(event) => event.stopPropagation()}>
@@ -274,23 +286,23 @@ export function UsersPage() {
                               type="checkbox"
                             />
                           </td>
-                          <td className="px-4 py-4">
+                          <td className="px-4 py-3.5">
                             <div className="font-medium text-foreground">{user.username}</div>
-                            <div className="mt-1 text-xs text-muted-foreground">{user.note || 'No note'}</div>
+                            {user.note ? <div className="mt-0.5 truncate text-xs text-muted-foreground">{user.note}</div> : null}
                           </td>
-                          <td className="px-4 py-4">
+                          <td className="px-4 py-3.5">
                             <StatusBadge status={user.status} />
                           </td>
-                          <td className="min-w-52 px-4 py-4">
+                          <td className="min-w-52 px-4 py-3.5">
                             <TrafficBar total={user.traffic_limit} used={user.traffic_used} />
                           </td>
-                          <td className="hidden px-4 py-4 md:table-cell">
-                            <div className="space-y-2">
+                          <td className="hidden px-4 py-3.5 md:table-cell">
+                            <div className="space-y-1">
                               <DurationBadge value={user.expires_at} />
                               <div className="text-xs text-muted-foreground">{relativeExpiry(user.expires_at)}</div>
                             </div>
                           </td>
-                          <td className="hidden px-4 py-4 text-muted-foreground lg:table-cell">{formatDate(user.created_at, 'MMM d')}</td>
+                          <td className="hidden px-4 py-3.5 text-xs text-muted-foreground lg:table-cell">{formatDate(user.created_at, 'MMM d')}</td>
                         </tr>
                       );
                     })}
@@ -487,92 +499,100 @@ function CreateUserDialog({ onClose, onCreated }: { onClose: () => void; onCreat
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
-      <Card className="w-full max-w-xl">
-        <CardContent className="space-y-6 p-6">
-          <div className="space-y-2">
-            <div className="t-h2">Create user</div>
-            <p className="text-sm text-muted-foreground">Generate a new subscription with preset traffic and expiry defaults.</p>
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="username">Username</Label>
-            <div className="flex gap-2">
-              <Input id="username" onChange={(event) => setUsername(event.target.value)} value={username} />
-              <SecondaryButton onClick={() => setUsername(generateUsername())} type="button">
-                Regenerate
-              </SecondaryButton>
-            </div>
-          </div>
-
-          <div className="space-y-3">
-            <Label>Traffic limit</Label>
-            <div className="flex flex-wrap gap-2">
-              {trafficPresets.map((preset) => (
-                <PresetChip key={preset} active={trafficGb === preset} label={`${preset} GB`} onClick={() => setTrafficGb(preset)} />
-              ))}
-              <PresetChip active={trafficGb === null} label="Unlimited" onClick={() => setTrafficGb(null)} />
-            </div>
+    <Modal
+      onClose={onClose}
+      size="lg"
+      subtitle="Generate a new subscription with preset traffic and expiry defaults."
+      title="Create user"
+      footer={
+        <>
+          <SecondaryButton onClick={onClose} type="button">
+            Cancel
+          </SecondaryButton>
+          <Button busy={busy} onClick={() => void submit()} trailingIcon={<ArrowRight className="size-4" />} type="button">
+            Create user
+          </Button>
+        </>
+      }
+    >
+      <div className="space-y-5">
+        <div className="space-y-2">
+          <Label htmlFor="username">Username</Label>
+          <div className="relative">
             <Input
-              min={1}
-              onChange={(event) => setTrafficGb(event.target.value ? Number(event.target.value) : null)}
-              placeholder="Custom GB"
-              type="number"
-              value={trafficGb ?? ''}
+              className="pr-11 font-mono"
+              id="username"
+              onChange={(event) => setUsername(event.target.value)}
+              value={username}
             />
+            <button
+              aria-label="Regenerate username"
+              className="absolute inset-y-0 right-0 flex w-10 items-center justify-center text-muted-foreground transition hover:text-primary"
+              onClick={() => setUsername(generateUsername())}
+              type="button"
+            >
+              <RefreshCw className="size-4" />
+            </button>
           </div>
+        </div>
 
-          <div className="space-y-3">
-            <Label>Expires in</Label>
-            <div className="flex flex-wrap gap-2">
-              {expiryPresets.map((preset) => (
-                <PresetChip key={preset} active={expiryDays === preset} label={`${preset} days`} onClick={() => setExpiryDays(preset)} />
-              ))}
-              <PresetChip active={expiryDays === null} label="Never" onClick={() => setExpiryDays(null)} />
-            </div>
-            <Input
-              min={1}
-              onChange={(event) => setExpiryDays(event.target.value ? Number(event.target.value) : null)}
-              placeholder="Custom days"
-              type="number"
-              value={expiryDays ?? ''}
-            />
+        <div className="space-y-2">
+          <Label>Traffic limit</Label>
+          <div className="flex flex-wrap gap-2">
+            {trafficPresets.map((preset) => (
+              <PresetChip key={preset} active={trafficGb === preset} label={`${preset} GB`} onClick={() => setTrafficGb(preset)} />
+            ))}
+            <PresetChip active={trafficGb === null} label="Unlimited" onClick={() => setTrafficGb(null)} />
           </div>
+          <Input
+            min={1}
+            onChange={(event) => setTrafficGb(event.target.value ? Number(event.target.value) : null)}
+            placeholder="Custom GB"
+            type="number"
+            value={trafficGb ?? ''}
+          />
+        </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="note">Note</Label>
-            <Textarea id="note" onChange={(event) => setNote(event.target.value)} rows={3} value={note} />
+        <div className="space-y-2">
+          <Label>Expires in</Label>
+          <div className="flex flex-wrap gap-2">
+            {expiryPresets.map((preset) => (
+              <PresetChip key={preset} active={expiryDays === preset} label={`${preset} days`} onClick={() => setExpiryDays(preset)} />
+            ))}
+            <PresetChip active={expiryDays === null} label="Never" onClick={() => setExpiryDays(null)} />
           </div>
+          <Input
+            min={1}
+            onChange={(event) => setExpiryDays(event.target.value ? Number(event.target.value) : null)}
+            placeholder="Custom days"
+            type="number"
+            value={expiryDays ?? ''}
+          />
+        </div>
 
-          <div className="flex items-center justify-between gap-3 rounded-md border border-warning/25 bg-warning/10 px-3 py-3 text-sm text-warning">
-            <div className="flex items-center gap-2">
-              <AlertTriangle className="size-4" />
-              Subscription links are generated immediately after creation.
-            </div>
-          </div>
+        <div className="space-y-2">
+          <Label htmlFor="note">Note <span className="text-[10px] font-normal uppercase tracking-[0.08em] text-faint">Optional</span></Label>
+          <Textarea id="note" onChange={(event) => setNote(event.target.value)} placeholder="Friend from Riga..." rows={3} value={note} />
+        </div>
 
-          <div className="flex justify-end gap-2">
-            <SecondaryButton onClick={onClose} type="button">
-              Cancel
-            </SecondaryButton>
-            <Button busy={busy} leadingIcon={<Plus className="size-4" />} onClick={() => void submit()} type="button">
-              Create user
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
-    </div>
+        <div className="flex items-start gap-2 rounded-md border border-warning/25 bg-warning/10 px-3 py-2.5 text-xs text-warning">
+          <AlertTriangle className="mt-0.5 size-4 shrink-0" />
+          <span>Subscription links are generated immediately after creation.</span>
+        </div>
+      </div>
+    </Modal>
   );
 }
 
 function PresetChip({ active, label, onClick }: { active: boolean; label: string; onClick: () => void }) {
   return (
     <button
-      className={
+      className={cn(
+        'rounded-md border px-3 py-1.5 text-xs font-medium transition',
         active
-          ? 'rounded-md border border-primary/25 bg-primary/10 px-3 py-2 text-xs font-medium text-foreground'
-          : 'rounded-md border border-border bg-surface-elevated px-3 py-2 text-xs font-medium text-muted-foreground'
-      }
+          ? 'border-primary/30 bg-primary/10 text-foreground'
+          : 'border-border bg-surface-elevated text-muted-foreground hover:border-border-strong hover:text-foreground',
+      )}
       onClick={onClick}
       type="button"
     >

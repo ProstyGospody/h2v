@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Activity, ArrowDown, ShieldCheck, Users } from 'lucide-react';
+import { Activity, ArrowDown, Ban, Radio, ShieldCheck, Users } from 'lucide-react';
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { apiClient } from '@/shared/api/client';
 import { AuditEntry, OverviewStats, TrafficPoint } from '@/shared/api/types';
@@ -13,14 +13,17 @@ import {
   CardTitle,
   KernelIndicator,
   MetricCard,
+  OnlineDot,
   PageHeader,
   Skeleton,
+  cn,
 } from '@/shared/ui/primitives';
 
 const ranges = [1, 7, 30] as const;
+type Range = (typeof ranges)[number];
 
 export function DashboardPage() {
-  const [days, setDays] = useState<(typeof ranges)[number]>(7);
+  const [days, setDays] = useState<Range>(7);
 
   const overview = useQuery({
     queryKey: ['stats', 'overview'],
@@ -37,6 +40,7 @@ export function DashboardPage() {
   });
 
   const data = overview.data;
+  const kernelRunning = (status?: string) => (status ?? '').toLowerCase().includes('run');
 
   return (
     <div className="pb-8">
@@ -45,70 +49,63 @@ export function DashboardPage() {
         subtitle="Panel, kernels, and user state in one place."
         action={
           <>
-            <div className="flex items-center gap-1 rounded-md border border-border bg-surface-elevated p-1">
-              {ranges.map((range) => (
-                <button
-                  key={range}
-                  className={
-                    range === days
-                      ? 'rounded-sm bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground'
-                      : 'rounded-sm px-3 py-1.5 text-xs font-medium text-muted-foreground transition hover:text-foreground'
-                  }
-                  onClick={() => setDays(range)}
-                  type="button"
-                >
-                  {range}D
-                </button>
-              ))}
-            </div>
-            <div className="text-xs text-muted-foreground">Refreshes every 10s</div>
+            <RangeToggle onChange={setDays} value={days} />
+            <div className="hidden text-xs text-muted-foreground sm:block">Refreshes every 10s</div>
           </>
         }
       />
 
-      <div className="grid gap-4 px-5 pt-5 sm:px-6 md:grid-cols-2 xl:grid-cols-4">
+      <div className="grid gap-4 px-5 pt-6 sm:px-8 md:grid-cols-2 xl:grid-cols-4">
         <MetricCard
           icon={<Users className="size-4" />}
           label="Active users"
           note={`${formatNumber(data?.expired_users ?? 0)} expired`}
-          value={overview.isLoading ? <Skeleton className="h-8 w-20" /> : formatNumber(data?.active_users ?? 0)}
+          value={overview.isLoading ? <Skeleton className="h-7 w-20" /> : formatNumber(data?.active_users ?? 0)}
         />
         <MetricCard
           icon={<Activity className="size-4" />}
           label="Today traffic"
           note={`${formatNumber(data?.limited_users ?? 0)} limited`}
-          value={overview.isLoading ? <Skeleton className="h-8 w-28" /> : formatBytes(data?.today_traffic ?? 0)}
+          value={overview.isLoading ? <Skeleton className="h-7 w-28" /> : formatBytes(data?.today_traffic ?? 0)}
         />
         <MetricCard
-          icon={<ShieldCheck className="size-4" />}
-          label="Xray"
-          note="Kernel status"
-          value={overview.isLoading ? <Skeleton className="h-8 w-24" /> : data?.xray_status ?? 'Unknown'}
+          icon={<Radio className="size-4" />}
+          label="Online now"
+          note="Last 60 seconds"
+          value={overview.isLoading ? <Skeleton className="h-7 w-16" /> : formatNumber(data?.online_users?.length ?? 0)}
         />
         <MetricCard
-          icon={<ShieldCheck className="size-4" />}
-          label="Hysteria"
-          note={`${formatNumber(data?.disabled_users ?? 0)} disabled`}
-          value={overview.isLoading ? <Skeleton className="h-8 w-24" /> : data?.hysteria_status ?? 'Unknown'}
+          icon={<Ban className="size-4" />}
+          label="Disabled"
+          note="Manually blocked"
+          value={overview.isLoading ? <Skeleton className="h-7 w-16" /> : formatNumber(data?.disabled_users ?? 0)}
         />
       </div>
 
-      <div className="grid gap-6 px-5 pt-6 sm:px-6 xl:grid-cols-[1.65fr_1fr]">
+      <div className="grid gap-6 px-5 pt-6 sm:px-8 xl:grid-cols-[1.75fr_1fr]">
         <Card>
           <CardHeader>
-            <CardTitle>Traffic</CardTitle>
-            <CardDescription>Upload and download over the last {days} days.</CardDescription>
+            <div className="flex items-center justify-between gap-4">
+              <div>
+                <CardTitle>Traffic</CardTitle>
+                <CardDescription>Upload and download over the last {days} day{days > 1 ? 's' : ''}.</CardDescription>
+              </div>
+              <div className="hidden items-center gap-4 text-xs md:flex">
+                <LegendSwatch color="hsl(var(--primary))" label="Download" />
+                <LegendSwatch color="hsl(var(--success))" label="Upload" />
+              </div>
+            </div>
           </CardHeader>
-          <CardContent>
-            <div className="h-[320px]">
+          <CardContent className="pt-0">
+            <div className="h-[300px]">
               {traffic.isLoading ? (
                 <Skeleton className="h-full w-full" />
               ) : (
                 <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={traffic.data ?? []} margin={{ left: 8, right: 8, top: 16, bottom: 0 }}>
+                  <AreaChart data={traffic.data ?? []} margin={{ left: 0, right: 8, top: 8, bottom: 0 }}>
                     <defs>
                       <linearGradient id="trafficDown" x1="0" x2="0" y1="0" y2="1">
-                        <stop offset="0%" stopColor="hsl(var(--primary))" stopOpacity={0.35} />
+                        <stop offset="0%" stopColor="hsl(var(--primary))" stopOpacity={0.38} />
                         <stop offset="100%" stopColor="hsl(var(--primary))" stopOpacity={0} />
                       </linearGradient>
                       <linearGradient id="trafficUp" x1="0" x2="0" y1="0" y2="1">
@@ -130,13 +127,14 @@ export function DashboardPage() {
                       tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 11 }}
                       tickFormatter={(value) => formatBytes(Number(value))}
                       tickLine={false}
-                      width={82}
+                      width={72}
                     />
                     <Tooltip
                       contentStyle={{
                         backgroundColor: 'hsl(var(--surface-elevated))',
                         border: '1px solid hsl(var(--border))',
                         borderRadius: '8px',
+                        fontSize: 12,
                       }}
                       formatter={(value, name) => [formatBytes(Number(value)), name === 'downlink' ? 'Download' : 'Upload']}
                       labelFormatter={(value) => formatShortDateTime(value)}
@@ -153,43 +151,60 @@ export function DashboardPage() {
         <Card>
           <CardHeader>
             <CardTitle>Online now</CardTitle>
-            <CardDescription>Recent active sessions and bandwidth snapshots.</CardDescription>
+            <CardDescription>Active sessions with recent bandwidth.</CardDescription>
           </CardHeader>
-          <CardContent className="space-y-3">
-            {overview.isLoading
-              ? Array.from({ length: 4 }).map((_, index) => <Skeleton key={index} className="h-16 w-full" />)
-              : (data?.online_users ?? []).map((entry) => (
-                  <div key={`${entry.username}-${entry.recorded_at}`} className="flex items-center justify-between rounded-md border border-border bg-surface-elevated px-3 py-3">
+          <CardContent className="space-y-2 pt-0">
+            {overview.isLoading ? (
+              Array.from({ length: 4 }).map((_, index) => <Skeleton key={index} className="h-14 w-full" />)
+            ) : data?.online_users?.length ? (
+              data.online_users.map((entry) => (
+                <div
+                  key={`${entry.username}-${entry.recorded_at}`}
+                  className="flex items-center justify-between rounded-md border border-border bg-surface-elevated px-3 py-3"
+                >
+                  <div className="flex min-w-0 items-center gap-3">
+                    <OnlineDot />
                     <div className="min-w-0">
-                      <div className="flex items-center gap-2">
-                        <span className="size-2 rounded-full bg-success shadow-[0_0_0_0_hsl(var(--success)/0.6)] [animation:pulse-ring_2s_ease-out_infinite]" />
-                        <span className="truncate text-sm font-medium text-foreground">{entry.username}</span>
-                      </div>
-                      <div className="mt-1 text-xs text-muted-foreground">{formatShortDateTime(entry.recorded_at)}</div>
-                    </div>
-                    <div className="text-right">
-                      <div className="flex items-center justify-end gap-1 text-sm text-foreground">
-                        <ArrowDown className="size-3.5 text-primary" />
-                        {formatBytes(entry.bytes)}
-                      </div>
+                      <div className="truncate text-sm font-medium text-foreground">{entry.username}</div>
+                      <div className="text-xs text-muted-foreground">{formatShortDateTime(entry.recorded_at)}</div>
                     </div>
                   </div>
-                ))}
-            {!overview.isLoading && !data?.online_users?.length ? <div className="text-sm text-muted-foreground">No recent active sessions.</div> : null}
+                  <div className="flex items-center gap-1 text-sm text-foreground">
+                    <ArrowDown className="size-3.5 text-primary" />
+                    <span className="font-mono text-xs">{formatBytes(entry.bytes)}</span>
+                  </div>
+                </div>
+              ))
+            ) : (
+              <div className="py-6 text-center text-sm text-muted-foreground">No active sessions.</div>
+            )}
           </CardContent>
         </Card>
       </div>
 
-      <div className="grid gap-6 px-5 pt-6 sm:px-6 xl:grid-cols-[1fr_1fr]">
+      <div className="grid gap-6 px-5 pt-6 sm:px-8 xl:grid-cols-2">
         <Card>
           <CardHeader>
             <CardTitle>Kernel status</CardTitle>
             <CardDescription>Core process health from the latest overview sample.</CardDescription>
           </CardHeader>
-          <CardContent className="grid gap-3">
+          <CardContent className="grid gap-3 pt-0">
             <KernelIndicator label="Xray" value={data?.xray_status ?? 'Unknown'} />
             <KernelIndicator label="Hysteria" value={data?.hysteria_status ?? 'Unknown'} />
             <KernelIndicator label="Traffic feed" value={traffic.data?.length ? 'Receiving samples' : 'Waiting for samples'} />
+            {overview.data ? (
+              <div className="mt-2 flex items-center gap-2 text-xs text-muted-foreground">
+                <ShieldCheck
+                  className={cn(
+                    'size-3.5',
+                    kernelRunning(data?.xray_status) && kernelRunning(data?.hysteria_status) ? 'text-success' : 'text-warning',
+                  )}
+                />
+                {kernelRunning(data?.xray_status) && kernelRunning(data?.hysteria_status)
+                  ? 'All kernels running normally'
+                  : 'One or more kernels need attention'}
+              </div>
+            ) : null}
           </CardContent>
         </Card>
 
@@ -198,25 +213,57 @@ export function DashboardPage() {
             <CardTitle>Recent activity</CardTitle>
             <CardDescription>Latest administrative actions touching the panel.</CardDescription>
           </CardHeader>
-          <CardContent className="space-y-3">
-            {recentActivity.isLoading
-              ? Array.from({ length: 4 }).map((_, index) => <Skeleton key={index} className="h-16 w-full" />)
-              : recentActivity.data?.map((entry) => (
-                  <div key={entry.id} className="rounded-md border border-border bg-surface-elevated px-3 py-3">
-                    <div className="flex items-center justify-between gap-3">
-                      <div className="min-w-0">
-                        <div className="truncate text-sm font-medium text-foreground">{entry.action}</div>
-                        <div className="mt-1 text-xs text-muted-foreground">
-                          {entry.target_type}:{entry.target_id || 'N/A'}
-                        </div>
-                      </div>
-                      <div className="text-right text-xs text-muted-foreground">{formatShortDateTime(entry.created_at)}</div>
+          <CardContent className="space-y-2 pt-0">
+            {recentActivity.isLoading ? (
+              Array.from({ length: 4 }).map((_, index) => <Skeleton key={index} className="h-14 w-full" />)
+            ) : recentActivity.data?.length ? (
+              recentActivity.data.map((entry) => (
+                <div key={entry.id} className="flex items-center justify-between gap-3 rounded-md border border-border bg-surface-elevated px-3 py-3">
+                  <div className="min-w-0">
+                    <div className="truncate font-mono text-xs text-foreground">{entry.action}</div>
+                    <div className="mt-1 text-xs text-muted-foreground">
+                      {entry.target_type}:{entry.target_id || '—'}
                     </div>
                   </div>
-                ))}
+                  <div className="shrink-0 text-right text-xs text-muted-foreground">{formatShortDateTime(entry.created_at)}</div>
+                </div>
+              ))
+            ) : (
+              <div className="py-6 text-center text-sm text-muted-foreground">No recent activity.</div>
+            )}
           </CardContent>
         </Card>
       </div>
     </div>
+  );
+}
+
+function RangeToggle({ onChange, value }: { onChange: (range: Range) => void; value: Range }) {
+  return (
+    <div className="flex items-center gap-0.5 rounded-md border border-border bg-surface-elevated p-0.5">
+      {ranges.map((range) => (
+        <button
+          key={range}
+          className={
+            range === value
+              ? 'rounded-sm bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground'
+              : 'rounded-sm px-3 py-1.5 text-xs font-medium text-muted-foreground transition hover:text-foreground'
+          }
+          onClick={() => onChange(range)}
+          type="button"
+        >
+          {range}D
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function LegendSwatch({ color, label }: { color: string; label: string }) {
+  return (
+    <span className="flex items-center gap-1.5 text-muted-foreground">
+      <span className="size-2 rounded-sm" style={{ backgroundColor: color }} />
+      {label}
+    </span>
   );
 }

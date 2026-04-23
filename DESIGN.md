@@ -1,6 +1,5 @@
 # VPN Panel — Design System
 
-> Visual specification accompanying SPEC.md. Everything needed for pixel-perfect frontend implementation: fonts, colors, blocks, components, icons, patterns.
 
 ---
 
