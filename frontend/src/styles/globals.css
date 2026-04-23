@@ -57,8 +57,8 @@
     --popover: 220 9% 11%;
     --popover-foreground: 210 17% 96%;
 
-    --primary: 74 100% 60%;
-    --primary-foreground: 220 14% 6%;
+    --primary: 202 100% 36%;
+    --primary-foreground: 0 0% 100%;
 
     --secondary: 220 9% 11%;
     --secondary-foreground: 210 17% 96%;
@@ -80,7 +80,7 @@
 
     --border: 220 8% 15%;
     --input: 220 8% 15%;
-    --ring: 74 100% 60%;
+    --ring: 202 100% 36%;
   }
 
   [data-theme="light"] {
@@ -91,7 +91,7 @@
     --card-foreground: 220 14% 8%;
     --popover: 0 0% 100%;
     --popover-foreground: 220 14% 8%;
-    --primary: 74 85% 42%;
+    --primary: 202 100% 36%;
     --primary-foreground: 0 0% 100%;
     --secondary: 45 20% 94%;
     --secondary-foreground: 220 14% 8%;
@@ -107,7 +107,7 @@
     --warning-foreground: 220 14% 8%;
     --border: 40 10% 88%;
     --input: 40 10% 88%;
-    --ring: 74 85% 42%;
+    --ring: 202 100% 36%;
   }
 
   * {
