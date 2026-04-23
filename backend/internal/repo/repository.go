@@ -544,50 +544,6 @@ func (r *Repository) GetConfigHistory(ctx context.Context, id int64) (*domain.Co
 	return &item, nil
 }
 
-func (r *Repository) AddAudit(ctx context.Context, entry domain.AuditEntry) error {
-	_, err := r.pool.Exec(ctx, `
-		INSERT INTO audit_log (admin_id, action, target_type, target_id, metadata, ip, user_agent)
-		VALUES ($1, $2, $3, $4, $5::jsonb, $6, $7)
-	`, entry.AdminID, entry.Action, entry.TargetType, entry.TargetID, string(entry.Metadata), entry.IP, entry.UserAgent)
-	return err
-}
-
-func (r *Repository) ListAudit(ctx context.Context, limit int) ([]domain.AuditEntry, error) {
-	if limit <= 0 {
-		limit = 50
-	}
-	rows, err := r.pool.Query(ctx, `
-		SELECT id, admin_id, action, target_type, target_id, metadata, ip, user_agent, created_at
-		FROM audit_log
-		ORDER BY created_at DESC
-		LIMIT $1
-	`, limit)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	entries := make([]domain.AuditEntry, 0, limit)
-	for rows.Next() {
-		var entry domain.AuditEntry
-		if err := rows.Scan(
-			&entry.ID,
-			&entry.AdminID,
-			&entry.Action,
-			&entry.TargetType,
-			&entry.TargetID,
-			&entry.Metadata,
-			&entry.IP,
-			&entry.UserAgent,
-			&entry.CreatedAt,
-		); err != nil {
-			return nil, err
-		}
-		entries = append(entries, entry)
-	}
-	return entries, rows.Err()
-}
-
 func (r *Repository) GetAdminByUsername(ctx context.Context, username string) (*domain.Admin, error) {
 	row := r.pool.QueryRow(ctx, `
 		SELECT id, username, password_hash, totp_secret, role, last_login_at, created_at

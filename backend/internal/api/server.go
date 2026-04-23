@@ -138,8 +138,6 @@ func (s *Server) routes(r chi.Router) {
 		api.Post("/admins", s.handleAdminsCreate)
 		api.Patch("/admins/{id}", s.handleAdminsUpdate)
 		api.Delete("/admins/{id}", s.handleAdminsDelete)
-
-		api.Get("/audit", s.handleAuditList)
 	})
 
 	s.mountFrontend(r)
@@ -587,15 +585,6 @@ func (s *Server) handleAdminsDelete(w http.ResponseWriter, r *http.Request) {
 	jsonData(w, http.StatusOK, map[string]any{"deleted": true}, nil)
 }
 
-func (s *Server) handleAuditList(w http.ResponseWriter, r *http.Request) {
-	entries, err := s.services.Audit.List(r.Context(), intQuery(r, "limit", 50))
-	if err != nil {
-		jsonError(w, err)
-		return
-	}
-	jsonData(w, http.StatusOK, entries, nil)
-}
-
 func (s *Server) handleSubscription(w http.ResponseWriter, r *http.Request) {
 	token := chi.URLParam(r, "token")
 	if len(token) < 32 {
@@ -828,11 +817,8 @@ func setRefreshCookie(w http.ResponseWriter, cfg config.Config, value string) {
 	})
 }
 
-func actorFromRequest(r *http.Request) services.AuditActor {
-	actor := services.AuditActor{
-		IP:        clientIP(r),
-		UserAgent: r.UserAgent(),
-	}
+func actorFromRequest(r *http.Request) services.Actor {
+	actor := services.Actor{}
 	claims, _ := r.Context().Value(claimsContextKey).(*domain.Claims)
 	if claims != nil && claims.AdminID != "" {
 		if id, err := uuid.Parse(claims.AdminID); err == nil {
@@ -878,3 +864,4 @@ func routePath(r *http.Request) string {
 	}
 	return r.URL.Path
 }
+

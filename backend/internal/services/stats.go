@@ -141,7 +141,7 @@ func (s *AdminService) List(ctx context.Context) ([]domain.Admin, error) {
 	return s.repo.ListAdmins(ctx)
 }
 
-func (s *AdminService) Create(ctx context.Context, req CreateAdminRequest, actor AuditActor) (*domain.Admin, error) {
+func (s *AdminService) Create(ctx context.Context, req CreateAdminRequest, _ Actor) (*domain.Admin, error) {
 	if strings.TrimSpace(req.Password) == "" {
 		return nil, domain.NewError(400, "invalid_admin", "Password is required", nil)
 	}
@@ -159,11 +159,10 @@ func (s *AdminService) Create(ctx context.Context, req CreateAdminRequest, actor
 	if err := s.repo.CreateAdmin(ctx, admin); err != nil {
 		return nil, err
 	}
-	recordAudit(ctx, s.repo, actor, "admin.create", "admin", admin.ID.String(), map[string]any{"username": admin.Username})
 	return admin, nil
 }
 
-func (s *AdminService) Update(ctx context.Context, id uuid.UUID, req UpdateAdminRequest, actor AuditActor) error {
+func (s *AdminService) Update(ctx context.Context, id uuid.UUID, req UpdateAdminRequest, _ Actor) error {
 	hash, err := util.HashPassword(req.Password)
 	if err != nil {
 		return err
@@ -171,11 +170,10 @@ func (s *AdminService) Update(ctx context.Context, id uuid.UUID, req UpdateAdmin
 	if err := s.repo.UpdateAdminPassword(ctx, id, hash, req.TOTP); err != nil {
 		return err
 	}
-	recordAudit(ctx, s.repo, actor, "admin.update", "admin", id.String(), nil)
 	return nil
 }
 
-func (s *AdminService) Delete(ctx context.Context, id uuid.UUID, actor AuditActor) error {
+func (s *AdminService) Delete(ctx context.Context, id uuid.UUID, _ Actor) error {
 	total, err := s.repo.CountAdmins(ctx)
 	if err != nil {
 		return err
@@ -186,7 +184,6 @@ func (s *AdminService) Delete(ctx context.Context, id uuid.UUID, actor AuditActo
 	if err := s.repo.DeleteAdmin(ctx, id); err != nil {
 		return err
 	}
-	recordAudit(ctx, s.repo, actor, "admin.delete", "admin", id.String(), nil)
 	return nil
 }
 
@@ -198,3 +195,4 @@ func firstNonEmpty(values ...string) string {
 	}
 	return ""
 }
+

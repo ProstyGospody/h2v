@@ -140,7 +140,7 @@ func (s *ConfigService) Validate(ctx context.Context, core string, content []byt
 	}
 }
 
-func (s *ConfigService) Apply(ctx context.Context, core string, content []byte, actor AuditActor) error {
+func (s *ConfigService) Apply(ctx context.Context, core string, content []byte, actor Actor) error {
 	if err := s.Validate(ctx, core, content); err != nil {
 		return err
 	}
@@ -177,9 +177,6 @@ func (s *ConfigService) Apply(ctx context.Context, core string, content []byte, 
 		return err
 	}
 
-	if s.repo != nil {
-		recordAudit(ctx, s.repo, actor, "config.apply", "config", core, map[string]any{"core": core})
-	}
 	return nil
 }
 
@@ -193,7 +190,7 @@ func (s *ConfigService) History(ctx context.Context, core string) ([]domain.Conf
 	return s.repo.ListConfigHistory(ctx, core, 20)
 }
 
-func (s *ConfigService) Restore(ctx context.Context, id int64, actor AuditActor) error {
+func (s *ConfigService) Restore(ctx context.Context, id int64, actor Actor) error {
 	if s.repo == nil {
 		return domain.NewError(500, "repository_unavailable", "Repository is not available", nil)
 	}
@@ -289,3 +286,4 @@ func restoreFile(src, dst string) error {
 	}
 	return os.WriteFile(dst, content, 0o640)
 }
+

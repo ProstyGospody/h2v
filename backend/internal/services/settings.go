@@ -40,12 +40,8 @@ func (s *SettingsService) List(ctx context.Context) ([]domain.Setting, error) {
 	return s.repo.ListSettings(ctx)
 }
 
-func (s *SettingsService) Update(ctx context.Context, values map[string]json.RawMessage, actor AuditActor) error {
-	if err := s.repo.UpsertSettings(ctx, values); err != nil {
-		return err
-	}
-	recordAudit(ctx, s.repo, actor, "settings.update", "settings", "", values)
-	return nil
+func (s *SettingsService) Update(ctx context.Context, values map[string]json.RawMessage, _ Actor) error {
+	return s.repo.UpsertSettings(ctx, values)
 }
 
 func (s *SettingsService) Runtime(ctx context.Context) (RuntimeSettings, error) {
@@ -149,3 +145,4 @@ func stringsOr(values map[string]json.RawMessage, key string, fallback []string)
 	}
 	return result
 }
+

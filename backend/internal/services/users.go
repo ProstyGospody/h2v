@@ -44,7 +44,7 @@ func (s *UserService) Get(ctx context.Context, id uuid.UUID) (*domain.User, erro
 	return s.repo.GetUserByID(ctx, id)
 }
 
-func (s *UserService) Create(ctx context.Context, req CreateUserRequest, actor AuditActor) (*domain.User, error) {
+func (s *UserService) Create(ctx context.Context, req CreateUserRequest, _ Actor) (*domain.User, error) {
 	username := req.Username
 	if username == "" {
 		suffix, err := util.RandomToken(4)
@@ -86,11 +86,10 @@ func (s *UserService) Create(ctx context.Context, req CreateUserRequest, actor A
 		return nil, fmt.Errorf("xray add user: %w", err)
 	}
 	s.cache.Set(user)
-	recordAudit(ctx, s.repo, actor, "user.create", "user", user.ID.String(), map[string]any{"username": user.Username})
 	return user, nil
 }
 
-func (s *UserService) Update(ctx context.Context, id uuid.UUID, req UpdateUserRequest, actor AuditActor) (*domain.User, error) {
+func (s *UserService) Update(ctx context.Context, id uuid.UUID, req UpdateUserRequest, _ Actor) (*domain.User, error) {
 	user, err := s.repo.GetUserByID(ctx, id)
 	if err != nil {
 		return nil, err
@@ -132,11 +131,10 @@ func (s *UserService) Update(ctx context.Context, id uuid.UUID, req UpdateUserRe
 		s.cache.Delete(user)
 	}
 
-	recordAudit(ctx, s.repo, actor, "user.update", "user", user.ID.String(), map[string]any{"username": user.Username, "status": user.Status})
 	return user, nil
 }
 
-func (s *UserService) Delete(ctx context.Context, id uuid.UUID, actor AuditActor) error {
+func (s *UserService) Delete(ctx context.Context, id uuid.UUID, _ Actor) error {
 	user, err := s.repo.GetUserByID(ctx, id)
 	if err != nil {
 		return err
@@ -147,11 +145,10 @@ func (s *UserService) Delete(ctx context.Context, id uuid.UUID, actor AuditActor
 	_ = s.xray.RemoveUser(ctx, user.Username)
 	_ = s.hysteria.Kick(ctx, []string{user.Username})
 	s.cache.Delete(user)
-	recordAudit(ctx, s.repo, actor, "user.delete", "user", user.ID.String(), map[string]any{"username": user.Username})
 	return nil
 }
 
-func (s *UserService) ResetSubscription(ctx context.Context, id uuid.UUID, actor AuditActor) (*domain.User, error) {
+func (s *UserService) ResetSubscription(ctx context.Context, id uuid.UUID, _ Actor) (*domain.User, error) {
 	user, err := s.repo.GetUserByID(ctx, id)
 	if err != nil {
 		return nil, err
@@ -166,11 +163,10 @@ func (s *UserService) ResetSubscription(ctx context.Context, id uuid.UUID, actor
 		return nil, err
 	}
 	s.cache.Set(user)
-	recordAudit(ctx, s.repo, actor, "user.reset_sub", "user", user.ID.String(), nil)
 	return user, nil
 }
 
-func (s *UserService) ResetTraffic(ctx context.Context, id uuid.UUID, actor AuditActor) (*domain.User, error) {
+func (s *UserService) ResetTraffic(ctx context.Context, id uuid.UUID, _ Actor) (*domain.User, error) {
 	user, err := s.repo.GetUserByID(ctx, id)
 	if err != nil {
 		return nil, err
@@ -180,7 +176,6 @@ func (s *UserService) ResetTraffic(ctx context.Context, id uuid.UUID, actor Audi
 	if err := s.repo.UpdateUser(ctx, user); err != nil {
 		return nil, err
 	}
-	recordAudit(ctx, s.repo, actor, "user.reset_traffic", "user", user.ID.String(), nil)
 	return user, nil
 }
 

@@ -2,7 +2,6 @@ package services
 
 import (
 	"context"
-	"encoding/json"
 	"log/slog"
 	"time"
 
@@ -41,7 +40,6 @@ type Services struct {
 	Configs      *ConfigService
 	Stats        *StatsService
 	Admins       *AdminService
-	Audit        *AuditService
 }
 
 type CreateUserRequest struct {
@@ -71,40 +69,8 @@ type UpdateAdminRequest struct {
 	TOTP     *string
 }
 
-type AuditActor struct {
-	AdminID   *uuid.UUID
-	IP        string
-	UserAgent string
-}
-
-func recordAudit(ctx context.Context, repository *repo.Repository, actor AuditActor, action, targetType, targetID string, metadata any) {
-	if repository == nil {
-		return
-	}
-	var raw []byte
-	if metadata == nil {
-		raw = []byte("{}")
-	} else {
-		encoded, err := jsonMarshal(metadata)
-		if err == nil {
-			raw = encoded
-		} else {
-			raw = []byte("{}")
-		}
-	}
-	_ = repository.AddAudit(ctx, domain.AuditEntry{
-		AdminID:    actor.AdminID,
-		Action:     action,
-		TargetType: targetType,
-		TargetID:   targetID,
-		Metadata:   raw,
-		IP:         actor.IP,
-		UserAgent:  actor.UserAgent,
-	})
-}
-
-func jsonMarshal(v any) ([]byte, error) {
-	return json.Marshal(v)
+type Actor struct {
+	AdminID *uuid.UUID
 }
 
 type ServiceDeps struct {
@@ -141,6 +107,6 @@ func New(deps ServiceDeps) *Services {
 		Configs:      NewConfigService(deps.Config, deps.Repo, settings, deps.Systemctl, deps.Xray, deps.Hysteria, deps.Logger),
 		Stats:        NewStatsService(deps.Repo, deps.Xray, deps.Hysteria, deps.Cache, deps.Version, deps.StartedAt),
 		Admins:       NewAdminService(deps.Repo, deps.Logger),
-		Audit:        NewAuditService(deps.Repo),
 	}
 }
+

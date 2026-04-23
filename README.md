@@ -27,7 +27,7 @@ This repository is split into:
 The repository is bootstrapped from an empty workspace, so the focus here is a coherent application foundation:
 
 - PostgreSQL-backed domain model and migrations
-- JWT auth, user CRUD, subscription rendering, settings/config/audit endpoints
+- JWT auth, user CRUD, subscription rendering, settings/config endpoints
 - background scheduler, health endpoint, metrics, backup task
 - frontend shell for admin and public token views
 - deployment assets from the specification

@@ -77,18 +77,6 @@ type ConfigHistory struct {
 	Note      string     `json:"note"`
 }
 
-type AuditEntry struct {
-	ID         int64           `json:"id"`
-	AdminID    *uuid.UUID      `json:"admin_id,omitempty"`
-	Action     string          `json:"action"`
-	TargetType string          `json:"target_type"`
-	TargetID   string          `json:"target_id"`
-	Metadata   json.RawMessage `json:"metadata"`
-	IP         string          `json:"ip"`
-	UserAgent  string          `json:"user_agent"`
-	CreatedAt  time.Time       `json:"created_at"`
-}
-
 type TrafficPoint struct {
 	RecordedAt time.Time `json:"recorded_at"`
 	Uplink     int64     `json:"uplink"`
