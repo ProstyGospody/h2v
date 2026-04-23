@@ -16,7 +16,6 @@ import {
 } from '@/components/ui/dialog';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { cn } from '@/lib/utils';
 import { apiClient, ApiError } from '@/shared/api/client';
 
 type ValidationState = 'idle' | 'valid' | 'invalid';
@@ -165,7 +164,27 @@ export function ConfigsPage() {
           <CardHeader>
             <div className="flex items-center justify-between">
               <CardTitle>Editor</CardTitle>
-              <ValidationIndicator dirty={dirty} state={validation} />
+              {!dirty ? (
+                <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                  <span className="size-1.5 rounded-full bg-muted-foreground/60" />
+                  No changes
+                </span>
+              ) : validation === 'valid' ? (
+                <span className="flex items-center gap-1.5 rounded-md bg-success/12 px-2 py-0.5 text-xs text-success">
+                  <span className="size-1.5 rounded-full bg-success" />
+                  Valid
+                </span>
+              ) : validation === 'invalid' ? (
+                <span className="flex items-center gap-1.5 rounded-md bg-destructive/12 px-2 py-0.5 text-xs text-destructive">
+                  <AlertTriangle className="size-3" />
+                  Invalid
+                </span>
+              ) : (
+                <span className="flex items-center gap-1.5 rounded-md bg-warning/12 px-2 py-0.5 text-xs text-warning">
+                  <span className="size-1.5 rounded-full bg-warning" />
+                  Validate before apply
+                </span>
+              )}
             </div>
           </CardHeader>
           <CardContent className="px-0 pb-0">
@@ -279,38 +298,5 @@ export function ConfigsPage() {
         </DialogContent>
       </Dialog>
     </div>
-  );
-}
-
-function ValidationIndicator({ dirty, state }: { dirty: boolean; state: ValidationState }) {
-  if (!dirty) {
-    return (
-      <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
-        <span className="size-1.5 rounded-full bg-muted-foreground/60" />
-        No changes
-      </span>
-    );
-  }
-  if (state === 'valid') {
-    return (
-      <span className="flex items-center gap-1.5 rounded-md bg-success/12 px-2 py-0.5 text-xs text-success">
-        <span className="size-1.5 rounded-full bg-success" />
-        Valid
-      </span>
-    );
-  }
-  if (state === 'invalid') {
-    return (
-      <span className="flex items-center gap-1.5 rounded-md bg-destructive/12 px-2 py-0.5 text-xs text-destructive">
-        <AlertTriangle className="size-3" />
-        Invalid
-      </span>
-    );
-  }
-  return (
-    <span className={cn('flex items-center gap-1.5 rounded-md bg-warning/12 px-2 py-0.5 text-xs text-warning')}>
-      <span className="size-1.5 rounded-full bg-warning" />
-      Validate before apply
-    </span>
   );
 }

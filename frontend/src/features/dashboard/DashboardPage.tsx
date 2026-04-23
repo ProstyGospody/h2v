@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react';
+import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Activity, ArrowDown, Ban, Radio, Users } from 'lucide-react';
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
@@ -31,6 +31,11 @@ export function DashboardPage() {
   });
 
   const data = overview.data;
+  const kernelRows = [
+    { label: 'Xray', value: data?.xray_status ?? 'Unknown' },
+    { label: 'Hysteria', value: data?.hysteria_status ?? 'Unknown' },
+    { label: 'Traffic feed', value: traffic.data?.length ? 'Receiving' : 'Waiting' },
+  ];
 
   return (
     <div className="pb-10">
@@ -54,32 +59,75 @@ export function DashboardPage() {
       </header>
 
       <div className="grid gap-4 px-5 pt-6 sm:px-8 md:grid-cols-2 xl:grid-cols-4">
-        <StatsCard
-          icon={<Users className="size-4" />}
-          label="Active users"
-          loading={overview.isLoading}
-          note={`${formatNumber(data?.expired_users ?? 0)} expired`}
-          value={formatNumber(data?.active_users ?? 0)}
-        />
-        <StatsCard
-          icon={<Activity className="size-4" />}
-          label="Today traffic"
-          loading={overview.isLoading}
-          note={`${formatNumber(data?.limited_users ?? 0)} limited`}
-          value={formatBytes(data?.today_traffic ?? 0)}
-        />
-        <StatsCard
-          icon={<Radio className="size-4" />}
-          label="Online"
-          loading={overview.isLoading}
-          value={formatNumber(data?.online_users?.length ?? 0)}
-        />
-        <StatsCard
-          icon={<Ban className="size-4" />}
-          label="Disabled"
-          loading={overview.isLoading}
-          value={formatNumber(data?.disabled_users ?? 0)}
-        />
+        <Card>
+          <CardContent className="flex flex-col gap-3 p-5">
+            <div className="flex items-center gap-2 text-muted-foreground">
+              <Users className="size-4" />
+              <span className="t-label">Active users</span>
+            </div>
+            {overview.isLoading ? (
+              <Skeleton className="h-7 w-24" />
+            ) : (
+              <div className="t-metric text-foreground">{formatNumber(data?.active_users ?? 0)}</div>
+            )}
+            {overview.isLoading ? (
+              <Skeleton className="h-3 w-28" />
+            ) : (
+              <div className="text-xs text-muted-foreground">
+                {formatNumber(data?.expired_users ?? 0)} expired
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="flex flex-col gap-3 p-5">
+            <div className="flex items-center gap-2 text-muted-foreground">
+              <Activity className="size-4" />
+              <span className="t-label">Today traffic</span>
+            </div>
+            {overview.isLoading ? (
+              <Skeleton className="h-7 w-24" />
+            ) : (
+              <div className="t-metric text-foreground">{formatBytes(data?.today_traffic ?? 0)}</div>
+            )}
+            {overview.isLoading ? (
+              <Skeleton className="h-3 w-28" />
+            ) : (
+              <div className="text-xs text-muted-foreground">
+                {formatNumber(data?.limited_users ?? 0)} limited
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="flex flex-col gap-3 p-5">
+            <div className="flex items-center gap-2 text-muted-foreground">
+              <Radio className="size-4" />
+              <span className="t-label">Online</span>
+            </div>
+            {overview.isLoading ? (
+              <Skeleton className="h-7 w-24" />
+            ) : (
+              <div className="t-metric text-foreground">{formatNumber(data?.online_users?.length ?? 0)}</div>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="flex flex-col gap-3 p-5">
+            <div className="flex items-center gap-2 text-muted-foreground">
+              <Ban className="size-4" />
+              <span className="t-label">Disabled</span>
+            </div>
+            {overview.isLoading ? (
+              <Skeleton className="h-7 w-24" />
+            ) : (
+              <div className="t-metric text-foreground">{formatNumber(data?.disabled_users ?? 0)}</div>
+            )}
+          </CardContent>
+        </Card>
       </div>
 
       <div className="grid gap-4 px-5 pt-4 sm:px-8 xl:grid-cols-[1.75fr_1fr]">
@@ -88,8 +136,14 @@ export function DashboardPage() {
             <div className="flex items-center justify-between gap-4">
               <CardTitle>Traffic</CardTitle>
               <div className="hidden items-center gap-4 text-xs md:flex">
-                <Legend color="hsl(var(--primary))" label="Download" />
-                <Legend color="hsl(var(--success))" label="Upload" />
+                <span className="flex items-center gap-1.5 text-muted-foreground">
+                  <span className="size-2 rounded-sm bg-primary" />
+                  Download
+                </span>
+                <span className="flex items-center gap-1.5 text-muted-foreground">
+                  <span className="size-2 rounded-sm bg-success" />
+                  Upload
+                </span>
               </div>
             </div>
           </CardHeader>
@@ -184,9 +238,24 @@ export function DashboardPage() {
             <CardTitle>Kernels</CardTitle>
           </CardHeader>
           <CardContent className="divide-y">
-            <KernelStatusRow label="Xray" value={data?.xray_status ?? 'Unknown'} />
-            <KernelStatusRow label="Hysteria" value={data?.hysteria_status ?? 'Unknown'} />
-            <KernelStatusRow label="Traffic feed" value={traffic.data?.length ? 'Receiving' : 'Waiting'} />
+            {kernelRows.map((row) => {
+              const running =
+                row.value.toLowerCase().includes('run') || row.value.toLowerCase().includes('ok');
+              return (
+                <div className="flex items-center justify-between py-2" key={row.label}>
+                  <div className="flex items-center gap-2.5">
+                    <span
+                      className={cn(
+                        'size-1.5 rounded-full',
+                        running ? 'bg-success animate-pulse-ring' : 'bg-warning',
+                      )}
+                    />
+                    <span className="text-sm text-foreground">{row.label}</span>
+                  </div>
+                  <span className="font-mono text-xs text-muted-foreground">{row.value}</span>
+                </div>
+              );
+            })}
           </CardContent>
         </Card>
 
@@ -222,64 +291,5 @@ export function DashboardPage() {
         </Card>
       </div>
     </div>
-  );
-}
-
-function StatsCard({
-  icon,
-  label,
-  loading,
-  note,
-  value,
-}: {
-  icon: ReactNode;
-  label: string;
-  loading: boolean;
-  note?: string;
-  value: string;
-}) {
-  return (
-    <Card>
-      <CardContent className="flex flex-col gap-3 p-5">
-        <div className="flex items-center gap-2 text-muted-foreground">
-          <span>{icon}</span>
-          <span className="t-label">{label}</span>
-        </div>
-        {loading ? <Skeleton className="h-7 w-24" /> : <div className="t-metric text-foreground">{value}</div>}
-        {loading ? (
-          <Skeleton className="h-3 w-28" />
-        ) : note ? (
-          <div className="text-xs text-muted-foreground">{note}</div>
-        ) : null}
-      </CardContent>
-    </Card>
-  );
-}
-
-function KernelStatusRow({ label, value }: { label: string; value: string }) {
-  const running = value.toLowerCase().includes('run') || value.toLowerCase().includes('ok');
-
-  return (
-    <div className="flex items-center justify-between py-2">
-      <div className="flex items-center gap-2.5">
-        <span
-          className={cn(
-            'size-1.5 rounded-full',
-            running ? 'bg-success animate-pulse-ring' : 'bg-warning',
-          )}
-        />
-        <span className="text-sm text-foreground">{label}</span>
-      </div>
-      <span className="font-mono text-xs text-muted-foreground">{value}</span>
-    </div>
-  );
-}
-
-function Legend({ color, label }: { color: string; label: string }) {
-  return (
-    <span className="flex items-center gap-1.5 text-muted-foreground">
-      <span className="size-2 rounded-sm" style={{ backgroundColor: color }} />
-      {label}
-    </span>
   );
 }

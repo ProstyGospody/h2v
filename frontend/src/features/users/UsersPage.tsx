@@ -1,4 +1,4 @@
-import { useMemo, useState, type ReactNode } from 'react';
+import { useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { addDays } from 'date-fns';
 import { Area, AreaChart, ResponsiveContainer, Tooltip } from 'recharts';
@@ -53,7 +53,6 @@ import {
 } from '@/components/ui/table';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
-import { cn } from '@/lib/utils';
 import { apiClient, ApiError } from '@/shared/api/client';
 import { TrafficPoint, User, UserLinks, UserStatus } from '@/shared/api/types';
 import { daysUntil, formatBytes, formatDate, formatDateTime, relativeExpiry, usagePercent } from '@/shared/lib/format';
@@ -271,6 +270,14 @@ export function UsersPage() {
               <TableBody>
                 {users.data.map((user) => {
                   const checked = selectedIds.includes(user.id);
+                  const trafficPercent = usagePercent(user.traffic_used, user.traffic_limit);
+                  const trafficFillClass =
+                    trafficPercent >= 90
+                      ? 'bg-destructive'
+                      : trafficPercent >= 70
+                        ? 'bg-warning'
+                        : 'bg-primary';
+                  const expiresInDays = daysUntil(user.expires_at);
                   return (
                     <TableRow
                       className="cursor-pointer"
@@ -294,12 +301,46 @@ export function UsersPage() {
                           <div className="mt-0.5 truncate text-xs text-muted-foreground">{user.note}</div>
                         ) : null}
                       </TableCell>
-                      <TableCell>{renderStatusBadge(user.status)}</TableCell>
+                      <TableCell>
+                        {user.status === 'active' ? (
+                          <Badge variant="success">
+                            <span className="size-1.5 rounded-full bg-success animate-pulse-ring" />
+                            Active
+                          </Badge>
+                        ) : user.status === 'limited' ? (
+                          <Badge variant="destructive">Limited</Badge>
+                        ) : user.status === 'expired' ? (
+                          <Badge variant="warning">Expired</Badge>
+                        ) : (
+                          <Badge variant="secondary">Disabled</Badge>
+                        )}
+                      </TableCell>
                       <TableCell className="min-w-52">
-                        <TrafficBar total={user.traffic_limit} used={user.traffic_used} />
+                        <div className="space-y-1.5">
+                          <div className="h-1.5 overflow-hidden rounded-full bg-muted">
+                            <div
+                              className={`h-full rounded-full ${trafficFillClass}`}
+                              style={{ width: `${trafficPercent}%` }}
+                            />
+                          </div>
+                          <div className="flex items-center justify-between text-xs text-muted-foreground">
+                            <span className="font-mono">{formatBytes(user.traffic_used)}</span>
+                            <span className="font-mono">
+                              {user.traffic_limit > 0 ? formatBytes(user.traffic_limit) : 'Unlimited'}
+                            </span>
+                          </div>
+                        </div>
                       </TableCell>
                       <TableCell className="hidden md:table-cell">
-                        <DurationBadge value={user.expires_at} />
+                        {expiresInDays === null ? (
+                          <Badge variant="secondary">Never</Badge>
+                        ) : expiresInDays < 0 ? (
+                          <Badge variant="warning">Expired</Badge>
+                        ) : expiresInDays < 3 ? (
+                          <Badge variant="warning">{expiresInDays}d left</Badge>
+                        ) : (
+                          <Badge variant="secondary">{expiresInDays}d left</Badge>
+                        )}
                       </TableCell>
                       <TableCell className="hidden text-xs text-muted-foreground lg:table-cell">
                         {formatDate(user.created_at, 'MMM d')}
@@ -435,6 +476,9 @@ function UserDrawer({ onClose, user }: { onClose: () => void; user: User | null 
   const queryClient = useQueryClient();
   const [busy, setBusy] = useState<string | null>(null);
   const open = Boolean(user);
+  const trafficPercent = user ? usagePercent(user.traffic_used, user.traffic_limit) : 0;
+  const trafficFillClass =
+    trafficPercent >= 90 ? 'bg-destructive' : trafficPercent >= 70 ? 'bg-warning' : 'bg-primary';
 
   const links = useQuery({
     enabled: open && Boolean(user?.id),
@@ -473,21 +517,66 @@ function UserDrawer({ onClose, user }: { onClose: () => void; user: User | null 
             <SheetHeader>
               <SheetTitle className="flex items-center gap-3">
                 {user.username}
-                {renderStatusBadge(user.status)}
+                {user.status === 'active' ? (
+                  <Badge variant="success">
+                    <span className="size-1.5 rounded-full bg-success animate-pulse-ring" />
+                    Active
+                  </Badge>
+                ) : user.status === 'limited' ? (
+                  <Badge variant="destructive">Limited</Badge>
+                ) : user.status === 'expired' ? (
+                  <Badge variant="warning">Expired</Badge>
+                ) : (
+                  <Badge variant="secondary">Disabled</Badge>
+                )}
               </SheetTitle>
               <SheetDescription>{user.note || 'No note attached.'}</SheetDescription>
             </SheetHeader>
 
             <div className="space-y-5 px-6 pb-6">
-              <TrafficBar animated total={user.traffic_limit} used={user.traffic_used} />
+              <div className="space-y-1.5">
+                <div className="h-1.5 overflow-hidden rounded-full bg-muted">
+                  <div
+                    className={`h-full rounded-full ${trafficFillClass}`}
+                    style={{ width: `${trafficPercent}%` }}
+                  />
+                </div>
+                <div className="flex items-center justify-between text-xs text-muted-foreground">
+                  <span className="font-mono">{formatBytes(user.traffic_used)}</span>
+                  <span className="font-mono">
+                    {user.traffic_limit > 0 ? formatBytes(user.traffic_limit) : 'Unlimited'}
+                  </span>
+                </div>
+              </div>
 
               <div className="divide-y">
-                <DetailRow label="Created" value={formatDateTime(user.created_at)} />
-                <DetailRow
-                  label="Expires"
-                  value={user.expires_at ? formatDateTime(user.expires_at) : 'Never'}
-                />
-                <DetailRow label="Status" value={renderStatusBadge(user.status)} />
+                <div className="flex items-center justify-between gap-3 py-2.5 text-sm">
+                  <span className="text-muted-foreground">Created</span>
+                  <span className="text-right text-foreground">{formatDateTime(user.created_at)}</span>
+                </div>
+                <div className="flex items-center justify-between gap-3 py-2.5 text-sm">
+                  <span className="text-muted-foreground">Expires</span>
+                  <span className="text-right text-foreground">
+                    {user.expires_at ? formatDateTime(user.expires_at) : 'Never'}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between gap-3 py-2.5 text-sm">
+                  <span className="text-muted-foreground">Status</span>
+                  <span className="text-right text-foreground">
+                    {user.status === 'active' ? (
+                      <Badge variant="success">
+                        <span className="size-1.5 rounded-full bg-success animate-pulse-ring" />
+                        Active
+                      </Badge>
+                    ) : user.status === 'limited' ? (
+                      <Badge variant="destructive">Limited</Badge>
+                    ) : user.status === 'expired' ? (
+                      <Badge variant="warning">Expired</Badge>
+                    ) : (
+                      <Badge variant="secondary">Disabled</Badge>
+                    )}
+                  </span>
+                </div>
               </div>
 
               <Separator />
@@ -508,11 +597,32 @@ function UserDrawer({ onClose, user }: { onClose: () => void; user: User | null 
                     <Skeleton className="h-16 w-full" />
                   </>
                 ) : links.data ? (
-                  <>
-                    <LinkField label="Subscription" value={links.data.subscription} />
-                    <LinkField label="VLESS" value={links.data.vless} />
-                    <LinkField label="Hysteria 2" value={links.data.hysteria2} />
-                  </>
+                  ([
+                    { label: 'Subscription', value: links.data.subscription },
+                    { label: 'VLESS', value: links.data.vless },
+                    { label: 'Hysteria 2', value: links.data.hysteria2 },
+                  ] as const).map((link) => (
+                    <div className="rounded-md bg-muted p-3" key={link.label}>
+                      <div className="mb-2 t-label">{link.label}</div>
+                      <div className="flex items-center gap-2">
+                        <div className="min-w-0 flex-1 truncate font-mono text-xs text-foreground">
+                          {link.value || '--'}
+                        </div>
+                        <Button
+                          onClick={async () => {
+                            if (!link.value) return;
+                            await navigator.clipboard.writeText(link.value);
+                            toast.success(`${link.label} copied`);
+                          }}
+                          size="icon"
+                          type="button"
+                          variant="ghost"
+                        >
+                          <Copy className="size-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  ))
                 ) : null}
               </div>
 
@@ -622,14 +732,16 @@ function CreateUserDialog({
                 onChange={(e) => setUsername(e.target.value)}
                 value={username}
               />
-              <button
+              <Button
                 aria-label="Regenerate"
-                className="absolute inset-y-0 right-0 flex w-10 items-center justify-center text-muted-foreground transition hover:text-primary"
+                className="absolute inset-y-0 right-0 h-full w-10 rounded-l-none"
                 onClick={() => setUsername(generateUsername())}
+                size="icon"
                 type="button"
+                variant="ghost"
               >
                 <RefreshCw className="size-4" />
-              </button>
+              </Button>
             </div>
           </div>
 
@@ -637,18 +749,26 @@ function CreateUserDialog({
             <Label>Traffic</Label>
             <div className="flex flex-wrap gap-1.5">
               {trafficPresets.map((p) => (
-                <PresetChip
-                  active={trafficGb === p}
+                <Button
+                  className="h-7 px-3 text-xs"
                   key={p}
-                  label={`${p} GB`}
                   onClick={() => setTrafficGb(p)}
-                />
+                  size="sm"
+                  type="button"
+                  variant={trafficGb === p ? 'default' : 'secondary'}
+                >
+                  {p} GB
+                </Button>
               ))}
-              <PresetChip
-                active={trafficGb === null}
-                label="Unlimited"
+              <Button
+                className="h-7 px-3 text-xs"
                 onClick={() => setTrafficGb(null)}
-              />
+                size="sm"
+                type="button"
+                variant={trafficGb === null ? 'default' : 'secondary'}
+              >
+                Unlimited
+              </Button>
             </div>
           </div>
 
@@ -656,18 +776,26 @@ function CreateUserDialog({
             <Label>Expires in</Label>
             <div className="flex flex-wrap gap-1.5">
               {expiryPresets.map((p) => (
-                <PresetChip
-                  active={expiryDays === p}
+                <Button
+                  className="h-7 px-3 text-xs"
                   key={p}
-                  label={`${p}d`}
                   onClick={() => setExpiryDays(p)}
-                />
+                  size="sm"
+                  type="button"
+                  variant={expiryDays === p ? 'default' : 'secondary'}
+                >
+                  {p}d
+                </Button>
               ))}
-              <PresetChip
-                active={expiryDays === null}
-                label="Never"
+              <Button
+                className="h-7 px-3 text-xs"
                 onClick={() => setExpiryDays(null)}
-              />
+                size="sm"
+                type="button"
+                variant={expiryDays === null ? 'default' : 'secondary'}
+              >
+                Never
+              </Button>
             </div>
           </div>
 
@@ -699,117 +827,6 @@ function CreateUserDialog({
         </DialogFooter>
       </DialogContent>
     </Dialog>
-  );
-}
-
-function renderStatusBadge(status: UserStatus | string) {
-  if (status === 'active') {
-    return (
-      <Badge variant="success">
-        <span className="size-1.5 rounded-full bg-success animate-pulse-ring" />
-        Active
-      </Badge>
-    );
-  }
-  if (status === 'limited') return <Badge variant="destructive">Limited</Badge>;
-  if (status === 'expired') return <Badge variant="warning">Expired</Badge>;
-  return <Badge variant="secondary">Disabled</Badge>;
-}
-
-function TrafficBar({
-  animated = false,
-  className,
-  total,
-  used,
-}: {
-  animated?: boolean;
-  className?: string;
-  total: number;
-  used: number;
-}) {
-  const percent = usagePercent(used, total);
-  const fillClass = percent >= 90 ? 'bg-destructive' : percent >= 70 ? 'bg-warning' : 'bg-primary';
-
-  return (
-    <div className={cn('space-y-1.5', className)}>
-      <div className="h-1.5 overflow-hidden rounded-full bg-muted">
-        <div
-          className={cn('h-full rounded-full', fillClass, animated && 'animate-traffic-fill')}
-          style={{ width: `${percent}%` }}
-        />
-      </div>
-      <div className="flex items-center justify-between text-xs text-muted-foreground">
-        <span className="font-mono">{formatBytes(used)}</span>
-        <span className="font-mono">{total > 0 ? formatBytes(total) : 'Unlimited'}</span>
-      </div>
-    </div>
-  );
-}
-
-function DurationBadge({ value }: { value: string | null }) {
-  const days = daysUntil(value);
-  if (days === null) return <Badge variant="secondary">Never</Badge>;
-  if (days < 0) return <Badge variant="warning">Expired</Badge>;
-  if (days < 3) return <Badge variant="warning">{days}d left</Badge>;
-  return <Badge variant="secondary">{days}d left</Badge>;
-}
-
-function DetailRow({ label, value }: { label: string; value: ReactNode }) {
-  return (
-    <div className="flex items-center justify-between gap-3 py-2.5 text-sm">
-      <span className="text-muted-foreground">{label}</span>
-      <span className="text-right text-foreground">{value}</span>
-    </div>
-  );
-}
-
-function LinkField({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-md bg-muted p-3">
-      <div className="t-label mb-2">{label}</div>
-      <div className="flex items-center gap-2">
-        <div className="min-w-0 flex-1 truncate font-mono text-xs text-foreground">
-          {value || '--'}
-        </div>
-        <Button
-          onClick={async () => {
-            if (!value) return;
-            await navigator.clipboard.writeText(value);
-            toast.success(`${label} copied`);
-          }}
-          size="icon"
-          type="button"
-          variant="ghost"
-        >
-          <Copy className="size-4" />
-        </Button>
-      </div>
-    </div>
-  );
-}
-
-function PresetChip({
-  active,
-  label,
-  onClick,
-}: {
-  active: boolean;
-  label: string;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      className={cn(
-        'rounded-md px-3 py-1.5 text-xs font-medium transition',
-        active
-          ? 'bg-primary/15 text-primary'
-          : 'bg-muted text-muted-foreground hover:text-foreground',
-      )}
-      onClick={onClick}
-      type="button"
-    >
-      {label}
-    </button>
   );
 }
 

@@ -57,6 +57,33 @@ const clientLinks = {
   ],
 } as const;
 
+const helpSections = [
+  {
+    title: 'iOS',
+    steps: [
+      'Install Streisand, Karing, or Shadowrocket from the App Store.',
+      'Open the app and choose "Import from clipboard" or scan a QR code.',
+      'Paste the subscription URL or scan the QR above.',
+    ],
+  },
+  {
+    title: 'Android',
+    steps: [
+      'Install v2rayNG, Hiddify, or Karing from a trusted release.',
+      'Choose "Import from clipboard" or scan the QR.',
+      'Refresh the subscription if your link is ever rotated.',
+    ],
+  },
+  {
+    title: 'Desktop',
+    steps: [
+      'Install Hiddify or sing-box on your desktop.',
+      'Import via subscription URL or scan the QR with the client camera.',
+      'Keep the subscription entry enabled for automatic updates.',
+    ],
+  },
+] as const;
+
 export function SubPage() {
   const { token } = useParams({ from: '/u/$token' });
   const queryClient = useQueryClient();
@@ -89,6 +116,7 @@ export function SubPage() {
   const expiryDays = daysUntil(usage?.expires_at ?? null);
   const unlimited = (usage?.traffic_limit ?? 0) <= 0;
   const percent = unlimited ? 0 : usagePercent(usage?.traffic_used ?? 0, usage?.traffic_limit ?? 0);
+  const usageFillClass = percent >= 90 ? 'bg-destructive' : percent >= 70 ? 'bg-warning' : 'bg-primary';
   const expiringSoon = expiryDays !== null && expiryDays >= 0 && expiryDays < 3;
   const expired = expiryDays !== null && expiryDays < 0;
 
@@ -165,26 +193,49 @@ export function SubPage() {
                 </>
               ) : (
                 <>
-                  <UsageBar total={usage?.traffic_limit ?? 0} used={usage?.traffic_used ?? 0} />
+                  <div className="space-y-1.5">
+                    <div className="h-1.5 overflow-hidden rounded-full bg-muted">
+                      <div
+                        className={cn('h-full rounded-full', usageFillClass)}
+                        style={{ width: `${percent}%` }}
+                      />
+                    </div>
+                    <div className="flex items-center justify-between text-xs text-muted-foreground">
+                      <span className="font-mono">{formatBytes(usage?.traffic_used ?? 0)}</span>
+                      <span className="font-mono">
+                        {(usage?.traffic_limit ?? 0) > 0
+                          ? formatBytes(usage?.traffic_limit ?? 0)
+                          : 'Unlimited'}
+                      </span>
+                    </div>
+                  </div>
                   <div className="grid gap-5 border-t border-border pt-5 sm:grid-cols-2">
-                    <Stat
-                      label="Used"
-                      primary={unlimited ? 'Unlimited' : `${Math.round(percent)}%`}
-                      secondary={
-                        unlimited
+                    <div className="space-y-1.5">
+                      <div className="t-label">Used</div>
+                      <div className="text-xl font-semibold text-foreground">
+                        {unlimited ? 'Unlimited' : `${Math.round(percent)}%`}
+                      </div>
+                      <div className="text-xs text-muted-foreground">
+                        {unlimited
                           ? 'No hard traffic cap'
-                          : `${formatBytes(usage?.traffic_used ?? 0)} of ${formatBytes(usage?.traffic_limit ?? 0)}`
-                      }
-                    />
-                    <Stat
-                      label="Expires"
-                      primary={relativeExpiry(usage?.expires_at ?? null)}
-                      primaryClass={cn(
-                        expired && 'text-destructive',
-                        expiringSoon && 'text-warning',
-                      )}
-                      secondary={usage?.expires_at ? formatDate(usage.expires_at) : 'No expiry date'}
-                    />
+                          : `${formatBytes(usage?.traffic_used ?? 0)} of ${formatBytes(usage?.traffic_limit ?? 0)}`}
+                      </div>
+                    </div>
+                    <div className="space-y-1.5">
+                      <div className="t-label">Expires</div>
+                      <div
+                        className={cn(
+                          'text-xl font-semibold text-foreground',
+                          expired && 'text-destructive',
+                          expiringSoon && 'text-warning',
+                        )}
+                      >
+                        {relativeExpiry(usage?.expires_at ?? null)}
+                      </div>
+                      <div className="text-xs text-muted-foreground">
+                        {usage?.expires_at ? formatDate(usage.expires_at) : 'No expiry date'}
+                      </div>
+                    </div>
                   </div>
                 </>
               )}
@@ -216,30 +267,24 @@ export function SubPage() {
               <ChevronRight className="size-4 text-muted-foreground transition group-open:rotate-90" />
             </summary>
             <div className="space-y-3 border-t border-border px-5 py-5">
-              <HelpSection
-                steps={[
-                  'Install Streisand, Karing, or Shadowrocket from the App Store.',
-                  'Open the app and choose "Import from clipboard" or scan a QR code.',
-                  'Paste the subscription URL or scan the QR above.',
-                ]}
-                title="iOS"
-              />
-              <HelpSection
-                steps={[
-                  'Install v2rayNG, Hiddify, or Karing from a trusted release.',
-                  'Choose "Import from clipboard" or scan the QR.',
-                  'Refresh the subscription if your link is ever rotated.',
-                ]}
-                title="Android"
-              />
-              <HelpSection
-                steps={[
-                  'Install Hiddify or sing-box on your desktop.',
-                  'Import via subscription URL or scan the QR with the client camera.',
-                  'Keep the subscription entry enabled for automatic updates.',
-                ]}
-                title="Desktop"
-              />
+              {helpSections.map((section) => (
+                <div
+                  className="rounded-md border border-border bg-surface-elevated p-4"
+                  key={section.title}
+                >
+                  <div className="mb-3 t-label">{section.title}</div>
+                  <ol className="space-y-2 text-sm text-muted-foreground">
+                    {section.steps.map((step, index) => (
+                      <li className="flex gap-3" key={step}>
+                        <span className="mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full border border-border bg-surface font-mono text-[10px] text-muted-foreground">
+                          {index + 1}
+                        </span>
+                        <span>{step}</span>
+                      </li>
+                    ))}
+                  </ol>
+                </div>
+              ))}
             </div>
           </details>
 
@@ -256,16 +301,38 @@ export function SubPage() {
                 </>
               ) : (
                 <div className="grid gap-4 sm:grid-cols-2">
-                  <AdvancedCard
-                    image={data?.qr.vless}
-                    label="VLESS - Reality"
-                    value={data?.vless ?? ''}
-                  />
-                  <AdvancedCard
-                    image={data?.qr.hysteria2}
-                    label="Hysteria 2"
-                    value={data?.hysteria2 ?? ''}
-                  />
+                  {[
+                    { image: data?.qr.vless, label: 'VLESS - Reality', value: data?.vless ?? '' },
+                    { image: data?.qr.hysteria2, label: 'Hysteria 2', value: data?.hysteria2 ?? '' },
+                  ].map((item) => (
+                    <div
+                      className="space-y-3 rounded-md border border-border bg-surface-elevated p-4"
+                      key={item.label}
+                    >
+                      <div className="t-label">{item.label}</div>
+                      {item.image ? (
+                        <img alt={item.label} className="w-full rounded-sm bg-white p-3" src={item.image} />
+                      ) : (
+                        <div className="aspect-square rounded-sm border border-border bg-surface" />
+                      )}
+                      <div className="overflow-hidden text-ellipsis whitespace-nowrap font-mono text-xs text-foreground">
+                        {item.value}
+                      </div>
+                      <Button
+                        className="w-full"
+                        onClick={async () => {
+                          if (!item.value) return;
+                          await navigator.clipboard.writeText(item.value);
+                          toast.success(`${item.label} copied`);
+                        }}
+                        type="button"
+                        variant="secondary"
+                      >
+                        <Copy className="size-4" />
+                        Copy
+                      </Button>
+                    </div>
+                  ))}
                 </div>
               )}
             </div>
@@ -285,90 +352,6 @@ export function SubPage() {
           </div>
         </div>
       </div>
-    </div>
-  );
-}
-
-function UsageBar({ total, used }: { total: number; used: number }) {
-  const percent = usagePercent(used, total);
-  const fillClass = percent >= 90 ? 'bg-destructive' : percent >= 70 ? 'bg-warning' : 'bg-primary';
-
-  return (
-    <div className="space-y-1.5">
-      <div className="h-1.5 overflow-hidden rounded-full bg-muted">
-        <div className={cn('h-full rounded-full', fillClass)} style={{ width: `${percent}%` }} />
-      </div>
-      <div className="flex items-center justify-between text-xs text-muted-foreground">
-        <span className="font-mono">{formatBytes(used)}</span>
-        <span className="font-mono">{total > 0 ? formatBytes(total) : 'Unlimited'}</span>
-      </div>
-    </div>
-  );
-}
-
-function Stat({
-  label,
-  primary,
-  primaryClass,
-  secondary,
-}: {
-  label: string;
-  primary: string;
-  primaryClass?: string;
-  secondary: string;
-}) {
-  return (
-    <div className="space-y-1.5">
-      <div className="t-label">{label}</div>
-      <div className={cn('text-xl font-semibold text-foreground', primaryClass)}>{primary}</div>
-      <div className="text-xs text-muted-foreground">{secondary}</div>
-    </div>
-  );
-}
-
-function AdvancedCard({ image, label, value }: { image?: string; label: string; value: string }) {
-  return (
-    <div className="space-y-3 rounded-md border border-border bg-surface-elevated p-4">
-      <div className="t-label">{label}</div>
-      {image ? (
-        <img alt={label} className="w-full rounded-sm bg-white p-3" src={image} />
-      ) : (
-        <div className="aspect-square rounded-sm border border-border bg-surface" />
-      )}
-      <div className="overflow-hidden text-ellipsis whitespace-nowrap font-mono text-xs text-foreground">
-        {value}
-      </div>
-      <Button
-        className="w-full"
-        onClick={async () => {
-          if (!value) return;
-          await navigator.clipboard.writeText(value);
-          toast.success(`${label} copied`);
-        }}
-        type="button"
-        variant="secondary"
-      >
-        <Copy className="size-4" />
-        Copy
-      </Button>
-    </div>
-  );
-}
-
-function HelpSection({ steps, title }: { steps: string[]; title: string }) {
-  return (
-    <div className="rounded-md border border-border bg-surface-elevated p-4">
-      <div className="t-label mb-3">{title}</div>
-      <ol className="space-y-2 text-sm text-muted-foreground">
-        {steps.map((step, index) => (
-          <li className="flex gap-3" key={step}>
-            <span className="mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full border border-border bg-surface font-mono text-[10px] text-muted-foreground">
-              {index + 1}
-            </span>
-            <span>{step}</span>
-          </li>
-        ))}
-      </ol>
     </div>
   );
 }
