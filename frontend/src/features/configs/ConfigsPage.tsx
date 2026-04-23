@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useState } from 'react';
-import Editor, { DiffEditor } from '@monaco-editor/react';
 import { useNavigate, useParams } from '@tanstack/react-router';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { AlertTriangle, CheckCircle2, History, PlayCircle, RotateCcw, Undo2 } from 'lucide-react';
@@ -16,19 +15,33 @@ import {
 } from '@/components/ui/dialog';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Textarea } from '@/components/ui/textarea';
 import { apiClient, ApiError } from '@/shared/api/client';
 
 type ValidationState = 'idle' | 'valid' | 'invalid';
+type Core = 'xray' | 'hysteria';
+
+function asCore(value: string): Core | null {
+  if (value === 'xray' || value === 'hysteria') {
+    return value;
+  }
+  return null;
+}
 
 export function ConfigsPage() {
-  const { core } = useParams({ from: '/app/configs/$core' });
+  const { core: rawCore } = useParams({ from: '/app/configs/$core' });
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const [draft, setDraft] = useState<string>('');
+
+  const core = asCore(rawCore);
+  const tabsValue: Core = core ?? 'xray';
+
+  const [draft, setDraft] = useState<string | null>(null);
   const [validation, setValidation] = useState<ValidationState>('idle');
   const [diffOpen, setDiffOpen] = useState(false);
 
   const config = useQuery({
+    enabled: Boolean(core),
     queryKey: ['configs', core],
     queryFn: () => apiClient.request<{ content: string }>(`/configs/${core}`),
   });
@@ -36,10 +49,13 @@ export function ConfigsPage() {
   useEffect(() => {
     setValidation('idle');
     setDiffOpen(false);
+    setDraft(null);
   }, [core]);
 
   useEffect(() => {
-    if (config.data?.content !== undefined) setDraft(config.data.content);
+    if (config.data?.content !== undefined) {
+      setDraft(config.data.content);
+    }
   }, [config.data?.content]);
 
   const content = useMemo(() => draft ?? config.data?.content ?? '', [draft, config.data?.content]);
@@ -68,6 +84,9 @@ export function ConfigsPage() {
         body: JSON.stringify({ content }),
         method: 'POST',
       }),
+    onError: (error) => {
+      toast.error(error instanceof ApiError ? error.message : 'Unable to apply configuration');
+    },
     onSuccess: async () => {
       toast.success('Configuration applied');
       setValidation('idle');
@@ -80,6 +99,7 @@ export function ConfigsPage() {
   });
 
   const history = useQuery({
+    enabled: Boolean(core),
     queryKey: ['configs', core, 'history'],
     queryFn: () =>
       apiClient.request<Array<{ id: number; applied_at: string; note: string }>>(
@@ -88,8 +108,10 @@ export function ConfigsPage() {
   });
 
   const restoreMutation = useMutation({
-    mutationFn: (id: number) =>
-      apiClient.request(`/configs/${core}/restore/${id}`, { method: 'POST' }),
+    mutationFn: (id: number) => apiClient.request(`/configs/${core}/restore/${id}`, { method: 'POST' }),
+    onError: (error) => {
+      toast.error(error instanceof ApiError ? error.message : 'Unable to restore version');
+    },
     onSuccess: async () => {
       toast.success('Previous version restored');
       await Promise.all([
@@ -98,6 +120,31 @@ export function ConfigsPage() {
       ]);
     },
   });
+
+  if (!core) {
+    return (
+      <div className="px-5 pb-10 pt-8 sm:px-8">
+        <Card>
+          <CardContent className="space-y-4 p-6">
+            <div className="text-base font-semibold">Unknown config core</div>
+            <p className="text-sm text-muted-foreground">Choose one of the available cores to continue.</p>
+            <div className="flex gap-2">
+              <Button onClick={() => navigate({ to: '/configs/$core', params: { core: 'xray' } })} size="sm">
+                Xray
+              </Button>
+              <Button
+                onClick={() => navigate({ to: '/configs/$core', params: { core: 'hysteria' } })}
+                size="sm"
+                variant="secondary"
+              >
+                Hysteria
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   const coreLabel = core === 'hysteria' ? 'Hysteria' : 'Xray';
   const readyToApply = dirty && validation === 'valid';
@@ -113,7 +160,10 @@ export function ConfigsPage() {
             </h1>
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            <Tabs onValueChange={(v) => navigate({ to: '/configs/$core', params: { core: v } })} value={core}>
+            <Tabs
+              onValueChange={(value) => navigate({ to: '/configs/$core', params: { core: value as Core } })}
+              value={tabsValue}
+            >
               <TabsList>
                 <TabsTrigger value="xray">Xray</TabsTrigger>
                 <TabsTrigger value="hysteria">Hysteria</TabsTrigger>
@@ -190,23 +240,24 @@ export function ConfigsPage() {
           <CardContent className="px-0 pb-0">
             {config.isLoading ? (
               <Skeleton className="h-[70vh] w-full rounded-none" />
+            ) : config.isError ? (
+              <div className="flex h-[70vh] flex-col items-center justify-center gap-3 px-6 text-center">
+                <div className="text-base font-semibold">Unable to load configuration</div>
+                <p className="max-w-xl text-sm text-muted-foreground">
+                  {config.error instanceof ApiError ? config.error.message : 'Request failed'}
+                </p>
+                <Button onClick={() => config.refetch()} size="sm" variant="secondary">
+                  Retry
+                </Button>
+              </div>
             ) : (
-              <Editor
-                height="70vh"
-                language="json"
-                onChange={(v) => {
-                  setDraft(v ?? '');
+              <Textarea
+                className="h-[70vh] resize-none rounded-none border-0 bg-transparent px-5 py-4 font-mono text-xs leading-5"
+                onChange={(event) => {
+                  setDraft(event.target.value);
                   setValidation('idle');
                 }}
-                options={{
-                  fontFamily: 'JetBrains Mono',
-                  fontLigatures: false,
-                  fontSize: 13,
-                  minimap: { enabled: false },
-                  padding: { top: 20, bottom: 20 },
-                  scrollBeyondLastLine: false,
-                }}
-                theme="vs-dark"
+                spellCheck={false}
                 value={content}
               />
             )}
@@ -222,7 +273,9 @@ export function ConfigsPage() {
           </CardHeader>
           <CardContent className="space-y-1.5">
             {history.isLoading ? (
-              Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-14 w-full" />)
+              Array.from({ length: 5 }).map((_, index) => <Skeleton key={index} className="h-14 w-full" />)
+            ) : history.isError ? (
+              <div className="py-6 text-center text-xs text-destructive">Failed to load history</div>
             ) : history.data?.length ? (
               history.data.map((entry) => (
                 <div
@@ -247,16 +300,14 @@ export function ConfigsPage() {
                 </div>
               ))
             ) : (
-              <div className="py-6 text-center text-xs text-muted-foreground">
-                No applied versions yet.
-              </div>
+              <div className="py-6 text-center text-xs text-muted-foreground">No applied versions yet.</div>
             )}
           </CardContent>
         </Card>
       </div>
 
       <Dialog onOpenChange={setDiffOpen} open={diffOpen}>
-        <DialogContent className="sm:max-w-5xl">
+        <DialogContent className="sm:max-w-6xl">
           <DialogHeader>
             <DialogTitle>Apply changes</DialogTitle>
             <DialogDescription>Review the diff before restarting {coreLabel}.</DialogDescription>
@@ -267,23 +318,9 @@ export function ConfigsPage() {
             <span>This will restart {coreLabel}. Active connections will briefly drop.</span>
           </div>
 
-          <div className="h-[60vh] overflow-hidden rounded-md">
-            <DiffEditor
-              height="100%"
-              language="json"
-              modified={content}
-              options={{
-                fontFamily: 'JetBrains Mono',
-                fontLigatures: false,
-                fontSize: 12,
-                minimap: { enabled: false },
-                readOnly: true,
-                renderSideBySide: true,
-                scrollBeyondLastLine: false,
-              }}
-              original={original}
-              theme="vs-dark"
-            />
+          <div className="grid h-[60vh] gap-3 overflow-hidden md:grid-cols-2">
+            <DiffPanel label="Current" value={original} />
+            <DiffPanel label="New" value={content} />
           </div>
 
           <DialogFooter>
@@ -297,6 +334,15 @@ export function ConfigsPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+    </div>
+  );
+}
+
+function DiffPanel({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-md border">
+      <div className="border-b px-3 py-2 text-xs font-medium text-muted-foreground">{label}</div>
+      <pre className="min-h-0 flex-1 overflow-auto p-3 font-mono text-xs leading-5">{value}</pre>
     </div>
   );
 }

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
 	"os"
@@ -49,11 +50,34 @@ func NewConfigService(cfg config.Config, repository *repo.Repository, settings *
 	}
 }
 
-func (s *ConfigService) Get(core string) ([]byte, error) {
-	return os.ReadFile(s.pathForCore(core))
+func (s *ConfigService) Get(ctx context.Context, core string) ([]byte, error) {
+	path, err := s.pathForCore(core)
+	if err != nil {
+		return nil, err
+	}
+
+	content, err := os.ReadFile(path)
+	if err == nil {
+		return content, nil
+	}
+	if !errors.Is(err, os.ErrNotExist) {
+		return nil, err
+	}
+
+	rendered, err := s.Render(ctx, core)
+	if err != nil {
+		return nil, err
+	}
+	if err := writeFileAtomic(path, rendered, 0o640); err != nil {
+		return nil, err
+	}
+	return rendered, nil
 }
 
 func (s *ConfigService) Render(ctx context.Context, core string) ([]byte, error) {
+	if s.settings == nil {
+		return nil, domain.NewError(500, "settings_unavailable", "Settings service is not available", nil)
+	}
 	runtime, err := s.settings.Runtime(ctx)
 	if err != nil {
 		return nil, err
@@ -62,24 +86,18 @@ func (s *ConfigService) Render(ctx context.Context, core string) ([]byte, error)
 }
 
 func (s *ConfigService) RenderWithRuntime(core string, runtime RuntimeSettings) ([]byte, error) {
-	templatePath := filepath.Join(s.cfg.Panel.TemplatesDir, templateName(core))
+	name, err := templateName(core)
+	if err != nil {
+		return nil, err
+	}
+	templatePath := filepath.Join(s.cfg.Panel.TemplatesDir, name)
 	tmpl, err := template.New(filepath.Base(templatePath)).Funcs(templateFuncs).ParseFiles(templatePath)
 	if err != nil {
 		return nil, err
 	}
 
-	var data any
-	switch core {
-	case "xray":
-		data = runtime
-	case "hysteria":
-		data = runtime
-	default:
-		return nil, domain.NewError(400, "invalid_core", "Core must be xray or hysteria", nil)
-	}
-
 	var out bytes.Buffer
-	if err := tmpl.Execute(&out, data); err != nil {
+	if err := tmpl.Execute(&out, runtime); err != nil {
 		return nil, err
 	}
 	return out.Bytes(), nil
@@ -126,19 +144,28 @@ func (s *ConfigService) Apply(ctx context.Context, core string, content []byte, 
 	if err := s.Validate(ctx, core, content); err != nil {
 		return err
 	}
-	path := s.pathForCore(core)
+	path, err := s.pathForCore(core)
+	if err != nil {
+		return err
+	}
+
 	bak := path + ".bak"
 	if current, err := os.ReadFile(path); err == nil {
 		if err := os.WriteFile(bak, current, 0o640); err != nil {
 			return err
 		}
 	}
+
 	if err := writeFileAtomic(path, content, 0o640); err != nil {
 		return err
 	}
-	if err := s.repo.SaveConfigHistory(ctx, core, string(content), actor.AdminID, "manual apply"); err != nil {
-		return err
+
+	if s.repo != nil {
+		if err := s.repo.SaveConfigHistory(ctx, core, string(content), actor.AdminID, "manual apply"); err != nil {
+			return err
+		}
 	}
+
 	if err := s.systemctl.Restart(ctx, core); err != nil {
 		_ = restoreFile(bak, path)
 		_ = s.systemctl.Restart(ctx, core)
@@ -149,15 +176,27 @@ func (s *ConfigService) Apply(ctx context.Context, core string, content []byte, 
 		_ = s.systemctl.Restart(ctx, core)
 		return err
 	}
-	recordAudit(ctx, s.repo, actor, "config.apply", "config", core, map[string]any{"core": core})
+
+	if s.repo != nil {
+		recordAudit(ctx, s.repo, actor, "config.apply", "config", core, map[string]any{"core": core})
+	}
 	return nil
 }
 
 func (s *ConfigService) History(ctx context.Context, core string) ([]domain.ConfigHistory, error) {
+	if _, err := s.pathForCore(core); err != nil {
+		return nil, err
+	}
+	if s.repo == nil {
+		return []domain.ConfigHistory{}, nil
+	}
 	return s.repo.ListConfigHistory(ctx, core, 20)
 }
 
 func (s *ConfigService) Restore(ctx context.Context, id int64, actor AuditActor) error {
+	if s.repo == nil {
+		return domain.NewError(500, "repository_unavailable", "Repository is not available", nil)
+	}
 	entry, err := s.repo.GetConfigHistory(ctx, id)
 	if err != nil {
 		return err
@@ -179,6 +218,8 @@ func (s *ConfigService) waitHealthy(ctx context.Context, core string) error {
 			err = s.xray.Health(deadline)
 		case "hysteria":
 			err = s.hysteria.Health(deadline)
+		default:
+			return domain.NewError(400, "invalid_core", "Core must be xray or hysteria", nil)
 		}
 		if err == nil {
 			return nil
@@ -191,27 +232,32 @@ func (s *ConfigService) waitHealthy(ctx context.Context, core string) error {
 	}
 }
 
-func (s *ConfigService) pathForCore(core string) string {
+func (s *ConfigService) pathForCore(core string) (string, error) {
 	switch core {
 	case "xray":
-		return s.cfg.Xray.ConfigPath
+		return s.cfg.Xray.ConfigPath, nil
 	case "hysteria":
-		return s.cfg.Hysteria.ConfigPath
+		return s.cfg.Hysteria.ConfigPath, nil
 	default:
-		return ""
+		return "", domain.NewError(400, "invalid_core", "Core must be xray or hysteria", nil)
 	}
 }
 
-func templateName(core string) string {
+func templateName(core string) (string, error) {
 	switch core {
 	case "xray":
-		return "xray.config.json.tmpl"
+		return "xray.config.json.tmpl", nil
+	case "hysteria":
+		return "hysteria.config.json.tmpl", nil
 	default:
-		return "hysteria.config.json.tmpl"
+		return "", domain.NewError(400, "invalid_core", "Core must be xray or hysteria", nil)
 	}
 }
 
 func writeFileAtomic(path string, content []byte, mode os.FileMode) error {
+	if err := ensureParentDir(path); err != nil {
+		return err
+	}
 	dir := filepath.Dir(path)
 	tmp, err := os.CreateTemp(dir, "cfg-*.tmp")
 	if err != nil {
@@ -230,6 +276,10 @@ func writeFileAtomic(path string, content []byte, mode os.FileMode) error {
 		return err
 	}
 	return os.Rename(tmp.Name(), path)
+}
+
+func ensureParentDir(path string) error {
+	return os.MkdirAll(filepath.Dir(path), 0o755)
 }
 
 func restoreFile(src, dst string) error {

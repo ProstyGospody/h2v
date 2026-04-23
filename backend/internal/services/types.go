@@ -78,6 +78,9 @@ type AuditActor struct {
 }
 
 func recordAudit(ctx context.Context, repository *repo.Repository, actor AuditActor, action, targetType, targetID string, metadata any) {
+	if repository == nil {
+		return
+	}
 	var raw []byte
 	if metadata == nil {
 		raw = []byte("{}")

@@ -40,18 +40,9 @@ func (s *SubscriptionService) LinksForUser(ctx context.Context, user *domain.Use
 	hy2 := buildHysteria2(runtime, user)
 	subURL := strings.TrimSuffix(runtime.SubURLPrefix, "/") + "/sub/" + user.SubToken
 
-	subQR, err := util.QRDataURI(subURL, 256)
-	if err != nil {
-		return nil, err
-	}
-	vlessQR, err := util.QRDataURI(vless, 256)
-	if err != nil {
-		return nil, err
-	}
-	hy2QR, err := util.QRDataURI(hy2, 256)
-	if err != nil {
-		return nil, err
-	}
+	subQR := safeQRDataURI(subURL, 256)
+	vlessQR := safeQRDataURI(vless, 256)
+	hy2QR := safeQRDataURI(hy2, 256)
 
 	return &domain.SubscriptionLinks{
 		Subscription: subURL,
@@ -70,6 +61,14 @@ func (s *SubscriptionService) LinksForUser(ctx context.Context, user *domain.Use
 		},
 		Username: user.Username,
 	}, nil
+}
+
+func safeQRDataURI(content string, size int) string {
+	qr, err := util.QRDataURI(content, size)
+	if err != nil {
+		return ""
+	}
+	return qr
 }
 
 func (s *SubscriptionService) RotateByToken(ctx context.Context, token string) (*domain.SubscriptionLinks, error) {

@@ -410,7 +410,7 @@ func (s *Server) handleUsersLinks(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleConfigGet(w http.ResponseWriter, r *http.Request) {
-	content, err := s.services.Configs.Get(chi.URLParam(r, "core"))
+	content, err := s.services.Configs.Get(r.Context(), chi.URLParam(r, "core"))
 	if err != nil {
 		jsonError(w, err)
 		return

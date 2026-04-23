@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useParams } from '@tanstack/react-router';
+import { QRCodeSVG } from 'qrcode.react';
 import { ChevronRight, Copy, Link2, RotateCcw, ShieldCheck } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
@@ -161,10 +162,11 @@ export function SubPage() {
               {subscription.isLoading ? (
                 <Skeleton className="aspect-square w-full max-w-[260px] rounded-md" />
               ) : (
-                <img
-                  alt="Subscription QR"
-                  className="w-full max-w-[260px] rounded-md border border-border bg-white p-4"
-                  src={data?.qr.subscription}
+                <QRCodePreview
+                  image={data?.qr.subscription}
+                  label="Subscription QR"
+                  maxWidthClassName="max-w-[260px]"
+                  value={data?.subscription ?? ''}
                 />
               )}
               <Button
@@ -310,11 +312,7 @@ export function SubPage() {
                       key={item.label}
                     >
                       <div className="t-label">{item.label}</div>
-                      {item.image ? (
-                        <img alt={item.label} className="w-full rounded-sm bg-white p-3" src={item.image} />
-                      ) : (
-                        <div className="aspect-square rounded-sm border border-border bg-surface" />
-                      )}
+                      <QRCodePreview image={item.image} label={item.label} value={item.value} />
                       <div className="overflow-hidden text-ellipsis whitespace-nowrap font-mono text-xs text-foreground">
                         {item.value}
                       </div>
@@ -361,4 +359,46 @@ function getPreferredTheme(): 'dark' | 'light' {
     return 'dark';
   }
   return window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+}
+
+function QRCodePreview({
+  image,
+  label,
+  value,
+  maxWidthClassName = '',
+}: {
+  image?: string;
+  label: string;
+  value: string;
+  maxWidthClassName?: string;
+}) {
+  if (image) {
+    return (
+      <img
+        alt={label}
+        className={`w-full rounded-md border border-border bg-white p-4 ${maxWidthClassName}`.trim()}
+        src={image}
+      />
+    );
+  }
+
+  if (value) {
+    return (
+      <div
+        className={`w-full rounded-md border border-border bg-white p-4 ${maxWidthClassName}`.trim()}
+      >
+        <QRCodeSVG
+          bgColor="#ffffff"
+          fgColor="#111111"
+          includeMargin={false}
+          level="M"
+          size={220}
+          title={label}
+          value={value}
+        />
+      </div>
+    );
+  }
+
+  return <div className="aspect-square rounded-sm border border-border bg-surface" />;
 }
