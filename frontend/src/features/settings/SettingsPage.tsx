@@ -9,7 +9,6 @@ import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
 import { apiClient } from '@/shared/api/client';
 import { Setting } from '@/shared/api/types';
-import { EmptyState, PageHeader } from '@/shared/ui/primitives';
 
 type GroupKey = 'protocols' | 'domains' | 'security' | 'misc';
 
@@ -70,21 +69,25 @@ export function SettingsPage() {
 
   return (
     <div className="pb-10">
-      <PageHeader
-        title="Settings"
-        action={
-          hasDraft ? (
-            <>
+      <header className="px-5 pb-2 pt-8 sm:px-8">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+          <div className="min-w-0 space-y-1">
+            <h1 className="text-[26px] font-semibold leading-none tracking-[-0.01em] text-foreground">
+              Settings
+            </h1>
+          </div>
+          {hasDraft ? (
+            <div className="flex flex-wrap items-center gap-2">
               <Button onClick={() => setDraft({})} size="sm" variant="ghost">
                 Discard
               </Button>
               <Button disabled={save.isPending} onClick={() => save.mutate()} size="sm">
                 Save
               </Button>
-            </>
-          ) : null
-        }
-      />
+            </div>
+          ) : null}
+        </div>
+      </header>
 
       <Tabs
         className="gap-6 px-5 pt-6 sm:px-8 lg:grid lg:grid-cols-[200px_1fr] lg:items-start"
@@ -157,10 +160,14 @@ export function SettingsPage() {
                 )
               : (
                   <Card>
-                    <EmptyState
-                      description="Settings bootstrap hasn't created any values yet."
-                      title="No settings"
-                    />
+                    <CardContent className="flex min-h-64 flex-col items-center justify-center gap-3 px-6 py-12 text-center">
+                      <div className="space-y-1">
+                        <div className="text-base font-semibold text-foreground">No settings</div>
+                        <p className="max-w-md text-sm text-muted-foreground">
+                          Settings bootstrap hasn&apos;t created any values yet.
+                        </p>
+                      </div>
+                    </CardContent>
                   </Card>
                 )}
         </div>

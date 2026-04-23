@@ -18,7 +18,6 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { cn } from '@/lib/utils';
 import { apiClient, ApiError } from '@/shared/api/client';
-import { PageHeader } from '@/shared/ui/primitives';
 
 type ValidationState = 'idle' | 'valid' | 'invalid';
 
@@ -106,11 +105,15 @@ export function ConfigsPage() {
 
   return (
     <div className="pb-10">
-      <PageHeader
-        eyebrow="Configs"
-        title={`${coreLabel}`}
-        action={
-          <>
+      <header className="px-5 pb-2 pt-8 sm:px-8">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+          <div className="min-w-0 space-y-1">
+            <div className="t-label">Configs</div>
+            <h1 className="text-[26px] font-semibold leading-none tracking-[-0.01em] text-foreground">
+              {coreLabel}
+            </h1>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
             <Tabs onValueChange={(v) => navigate({ to: '/configs/$core', params: { core: v } })} value={core}>
               <TabsList>
                 <TabsTrigger value="xray">Xray</TabsTrigger>
@@ -142,9 +145,9 @@ export function ConfigsPage() {
               <PlayCircle />
               Apply
             </Button>
-          </>
-        }
-      />
+          </div>
+        </div>
+      </header>
 
       <div className="px-5 pt-5 sm:px-8 md:hidden">
         <Card>

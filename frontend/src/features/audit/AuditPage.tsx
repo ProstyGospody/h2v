@@ -16,7 +16,6 @@ import { cn } from '@/lib/utils';
 import { apiClient } from '@/shared/api/client';
 import { AuditEntry } from '@/shared/api/types';
 import { formatDate, formatShortDateTime } from '@/shared/lib/format';
-import { EmptyState, PageHeader } from '@/shared/ui/primitives';
 
 export function AuditPage() {
   const [query, setQuery] = useState('');
@@ -41,18 +40,24 @@ export function AuditPage() {
 
   return (
     <div className="pb-8">
-      <PageHeader
-        title="Audit"
-        subtitle="Administrative actions, targets, and attached metadata."
-        action={
+      <header className="px-5 pb-2 pt-8 sm:px-8">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+          <div className="min-w-0 space-y-1">
+            <h1 className="text-[26px] font-semibold leading-none tracking-[-0.01em] text-foreground">
+              Audit
+            </h1>
+            <p className="text-sm text-muted-foreground">
+              Administrative actions, targets, and attached metadata.
+            </p>
+          </div>
           <Input
             className="w-full sm:w-72"
             onChange={(event) => setQuery(event.target.value)}
             placeholder="Filter by action, target..."
             value={query}
           />
-        }
-      />
+        </div>
+      </header>
 
       <div className="px-5 pt-6 sm:px-8">
         <Card className="overflow-hidden">
@@ -99,14 +104,18 @@ export function AuditPage() {
             </Table>
           ) : (
             <CardContent className="p-6">
-              <EmptyState
-                description={
-                  query
-                    ? 'No entries match that filter. Try a different action or target.'
-                    : 'Administrative activity will appear here once the panel starts processing changes.'
-                }
-                title={query ? 'Nothing matches' : 'No audit events yet'}
-              />
+              <div className="flex min-h-64 flex-col items-center justify-center gap-3 px-6 py-12 text-center">
+                <div className="space-y-1">
+                  <div className="text-base font-semibold text-foreground">
+                    {query ? 'Nothing matches' : 'No audit events yet'}
+                  </div>
+                  <p className="max-w-md text-sm text-muted-foreground">
+                    {query
+                      ? 'No entries match that filter. Try a different action or target.'
+                      : 'Administrative activity will appear here once the panel starts processing changes.'}
+                  </p>
+                </div>
+              </div>
             </CardContent>
           )}
         </Card>

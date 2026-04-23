@@ -1,10 +1,11 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, type ReactNode } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { addDays } from 'date-fns';
 import { Area, AreaChart, ResponsiveContainer, Tooltip } from 'recharts';
 import {
   AlertTriangle,
   ArrowRight,
+  Copy,
   MoreHorizontal,
   Plus,
   RefreshCw,
@@ -55,16 +56,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
 import { apiClient, ApiError } from '@/shared/api/client';
 import { TrafficPoint, User, UserLinks, UserStatus } from '@/shared/api/types';
-import { formatBytes, formatDate, formatDateTime, relativeExpiry } from '@/shared/lib/format';
-import {
-  DetailStat,
-  DurationBadge,
-  EmptyState,
-  MonoField,
-  PageHeader,
-  StatusBadge,
-  TrafficBar,
-} from '@/shared/ui/primitives';
+import { daysUntil, formatBytes, formatDate, formatDateTime, relativeExpiry, usagePercent } from '@/shared/lib/format';
 
 const statusOptions: Array<{ label: string; value: 'all' | UserStatus }> = [
   { label: 'All', value: 'all' },
@@ -128,20 +120,24 @@ export function UsersPage() {
 
   return (
     <div className="pb-10">
-      <PageHeader
-        title={
-          <span className="flex items-baseline gap-2.5">
-            Users
-            <span className="font-mono text-base text-muted-foreground">{users.data?.length ?? 0}</span>
-          </span>
-        }
-        action={
-          <Button onClick={() => setCreateOpen(true)}>
-            <Plus />
-            Create user
-          </Button>
-        }
-      />
+      <header className="px-5 pb-2 pt-8 sm:px-8">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+          <div className="min-w-0 space-y-1">
+            <h1 className="flex items-baseline gap-2.5 text-[26px] font-semibold leading-none tracking-[-0.01em] text-foreground">
+              <span>Users</span>
+              <span className="font-mono text-base text-muted-foreground">
+                {users.data?.length ?? 0}
+              </span>
+            </h1>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <Button onClick={() => setCreateOpen(true)}>
+              <Plus />
+              Create user
+            </Button>
+          </div>
+        </div>
+      </header>
 
       <div className="space-y-4 px-5 pt-6 sm:px-8">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
@@ -298,9 +294,7 @@ export function UsersPage() {
                           <div className="mt-0.5 truncate text-xs text-muted-foreground">{user.note}</div>
                         ) : null}
                       </TableCell>
-                      <TableCell>
-                        <StatusBadge status={user.status} />
-                      </TableCell>
+                      <TableCell>{renderStatusBadge(user.status)}</TableCell>
                       <TableCell className="min-w-52">
                         <TrafficBar total={user.traffic_limit} used={user.traffic_used} />
                       </TableCell>
@@ -319,16 +313,18 @@ export function UsersPage() {
               </TableBody>
             </Table>
           ) : (
-            <EmptyState
-              action={
-                <Button onClick={() => setCreateOpen(true)}>
-                  <Plus />
-                  Create user
-                </Button>
-              }
-              description="Create the first user to generate subscription links."
-              title="No users yet"
-            />
+            <CardContent className="flex min-h-64 flex-col items-center justify-center gap-3 px-6 py-12 text-center">
+              <div className="space-y-1">
+                <div className="text-base font-semibold text-foreground">No users yet</div>
+                <p className="max-w-md text-sm text-muted-foreground">
+                  Create the first user to generate subscription links.
+                </p>
+              </div>
+              <Button onClick={() => setCreateOpen(true)}>
+                <Plus />
+                Create user
+              </Button>
+            </CardContent>
           )}
         </Card>
       </div>
@@ -477,23 +473,21 @@ function UserDrawer({ onClose, user }: { onClose: () => void; user: User | null 
             <SheetHeader>
               <SheetTitle className="flex items-center gap-3">
                 {user.username}
-                <StatusBadge status={user.status} />
+                {renderStatusBadge(user.status)}
               </SheetTitle>
-              <SheetDescription>
-                {user.note || 'No note attached.'}
-              </SheetDescription>
+              <SheetDescription>{user.note || 'No note attached.'}</SheetDescription>
             </SheetHeader>
 
             <div className="space-y-5 px-6 pb-6">
               <TrafficBar animated total={user.traffic_limit} used={user.traffic_used} />
 
               <div className="divide-y">
-                <DetailStat label="Created" value={formatDateTime(user.created_at)} />
-                <DetailStat
+                <DetailRow label="Created" value={formatDateTime(user.created_at)} />
+                <DetailRow
                   label="Expires"
                   value={user.expires_at ? formatDateTime(user.expires_at) : 'Never'}
                 />
-                <DetailStat label="Status" value={<StatusBadge status={user.status} />} />
+                <DetailRow label="Status" value={renderStatusBadge(user.status)} />
               </div>
 
               <Separator />
@@ -515,15 +509,15 @@ function UserDrawer({ onClose, user }: { onClose: () => void; user: User | null 
                   </>
                 ) : links.data ? (
                   <>
-                    <MonoField label="Subscription" value={links.data.subscription} />
-                    <MonoField label="VLESS" value={links.data.vless} />
-                    <MonoField label="Hysteria 2" value={links.data.hysteria2} />
+                    <LinkField label="Subscription" value={links.data.subscription} />
+                    <LinkField label="VLESS" value={links.data.vless} />
+                    <LinkField label="Hysteria 2" value={links.data.hysteria2} />
                   </>
                 ) : null}
               </div>
 
               <div className="space-y-2">
-                <div className="t-label">Traffic · 7 days</div>
+                <div className="t-label">Traffic / 7 days</div>
                 <div className="h-32 rounded-md bg-muted p-2">
                   {traffic.isLoading ? (
                     <Skeleton className="h-full w-full" />
@@ -705,6 +699,92 @@ function CreateUserDialog({
         </DialogFooter>
       </DialogContent>
     </Dialog>
+  );
+}
+
+function renderStatusBadge(status: UserStatus | string) {
+  if (status === 'active') {
+    return (
+      <Badge variant="success">
+        <span className="size-1.5 rounded-full bg-success animate-pulse-ring" />
+        Active
+      </Badge>
+    );
+  }
+  if (status === 'limited') return <Badge variant="destructive">Limited</Badge>;
+  if (status === 'expired') return <Badge variant="warning">Expired</Badge>;
+  return <Badge variant="secondary">Disabled</Badge>;
+}
+
+function TrafficBar({
+  animated = false,
+  className,
+  total,
+  used,
+}: {
+  animated?: boolean;
+  className?: string;
+  total: number;
+  used: number;
+}) {
+  const percent = usagePercent(used, total);
+  const fillClass = percent >= 90 ? 'bg-destructive' : percent >= 70 ? 'bg-warning' : 'bg-primary';
+
+  return (
+    <div className={cn('space-y-1.5', className)}>
+      <div className="h-1.5 overflow-hidden rounded-full bg-muted">
+        <div
+          className={cn('h-full rounded-full', fillClass, animated && 'animate-traffic-fill')}
+          style={{ width: `${percent}%` }}
+        />
+      </div>
+      <div className="flex items-center justify-between text-xs text-muted-foreground">
+        <span className="font-mono">{formatBytes(used)}</span>
+        <span className="font-mono">{total > 0 ? formatBytes(total) : 'Unlimited'}</span>
+      </div>
+    </div>
+  );
+}
+
+function DurationBadge({ value }: { value: string | null }) {
+  const days = daysUntil(value);
+  if (days === null) return <Badge variant="secondary">Never</Badge>;
+  if (days < 0) return <Badge variant="warning">Expired</Badge>;
+  if (days < 3) return <Badge variant="warning">{days}d left</Badge>;
+  return <Badge variant="secondary">{days}d left</Badge>;
+}
+
+function DetailRow({ label, value }: { label: string; value: ReactNode }) {
+  return (
+    <div className="flex items-center justify-between gap-3 py-2.5 text-sm">
+      <span className="text-muted-foreground">{label}</span>
+      <span className="text-right text-foreground">{value}</span>
+    </div>
+  );
+}
+
+function LinkField({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-md bg-muted p-3">
+      <div className="t-label mb-2">{label}</div>
+      <div className="flex items-center gap-2">
+        <div className="min-w-0 flex-1 truncate font-mono text-xs text-foreground">
+          {value || '--'}
+        </div>
+        <Button
+          onClick={async () => {
+            if (!value) return;
+            await navigator.clipboard.writeText(value);
+            toast.success(`${label} copied`);
+          }}
+          size="icon"
+          type="button"
+          variant="ghost"
+        >
+          <Copy className="size-4" />
+        </Button>
+      </div>
+    </div>
   );
 }
 

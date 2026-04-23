@@ -1,14 +1,14 @@
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Activity, ArrowDown, Ban, Radio, Users } from 'lucide-react';
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { cn } from '@/lib/utils';
 import { apiClient } from '@/shared/api/client';
 import { AuditEntry, OverviewStats, TrafficPoint } from '@/shared/api/types';
 import { formatBytes, formatNumber, formatShortDateTime } from '@/shared/lib/format';
-import { KernelRow, MetricCard, OnlineDot, PageHeader } from '@/shared/ui/primitives';
 
 const ranges = ['1', '7', '30'] as const;
 type Range = (typeof ranges)[number];
@@ -34,9 +34,13 @@ export function DashboardPage() {
 
   return (
     <div className="pb-10">
-      <PageHeader
-        title="Overview"
-        action={
+      <header className="px-5 pb-2 pt-8 sm:px-8">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+          <div className="min-w-0 space-y-1">
+            <h1 className="text-[26px] font-semibold leading-none tracking-[-0.01em] text-foreground">
+              Overview
+            </h1>
+          </div>
           <Tabs onValueChange={(v) => setDays(v as Range)} value={days}>
             <TabsList>
               {ranges.map((r) => (
@@ -46,31 +50,31 @@ export function DashboardPage() {
               ))}
             </TabsList>
           </Tabs>
-        }
-      />
+        </div>
+      </header>
 
       <div className="grid gap-4 px-5 pt-6 sm:px-8 md:grid-cols-2 xl:grid-cols-4">
-        <MetricCard
+        <StatsCard
           icon={<Users className="size-4" />}
           label="Active users"
           loading={overview.isLoading}
           note={`${formatNumber(data?.expired_users ?? 0)} expired`}
           value={formatNumber(data?.active_users ?? 0)}
         />
-        <MetricCard
+        <StatsCard
           icon={<Activity className="size-4" />}
           label="Today traffic"
           loading={overview.isLoading}
           note={`${formatNumber(data?.limited_users ?? 0)} limited`}
           value={formatBytes(data?.today_traffic ?? 0)}
         />
-        <MetricCard
+        <StatsCard
           icon={<Radio className="size-4" />}
           label="Online"
           loading={overview.isLoading}
           value={formatNumber(data?.online_users?.length ?? 0)}
         />
-        <MetricCard
+        <StatsCard
           icon={<Ban className="size-4" />}
           label="Disabled"
           loading={overview.isLoading}
@@ -155,7 +159,7 @@ export function DashboardPage() {
                   className="flex items-center justify-between rounded-md px-2 py-2 transition hover:bg-accent"
                 >
                   <div className="flex min-w-0 items-center gap-2.5">
-                    <OnlineDot />
+                    <span className="size-1.5 rounded-full bg-success animate-pulse-ring" />
                     <div className="min-w-0">
                       <div className="truncate text-sm text-foreground">{entry.username}</div>
                       <div className="text-xs text-muted-foreground">{formatShortDateTime(entry.recorded_at)}</div>
@@ -180,9 +184,9 @@ export function DashboardPage() {
             <CardTitle>Kernels</CardTitle>
           </CardHeader>
           <CardContent className="divide-y">
-            <KernelRow label="Xray" value={data?.xray_status ?? 'Unknown'} />
-            <KernelRow label="Hysteria" value={data?.hysteria_status ?? 'Unknown'} />
-            <KernelRow label="Traffic feed" value={traffic.data?.length ? 'Receiving' : 'Waiting'} />
+            <KernelStatusRow label="Xray" value={data?.xray_status ?? 'Unknown'} />
+            <KernelStatusRow label="Hysteria" value={data?.hysteria_status ?? 'Unknown'} />
+            <KernelStatusRow label="Traffic feed" value={traffic.data?.length ? 'Receiving' : 'Waiting'} />
           </CardContent>
         </Card>
 
@@ -217,6 +221,56 @@ export function DashboardPage() {
           </CardContent>
         </Card>
       </div>
+    </div>
+  );
+}
+
+function StatsCard({
+  icon,
+  label,
+  loading,
+  note,
+  value,
+}: {
+  icon: ReactNode;
+  label: string;
+  loading: boolean;
+  note?: string;
+  value: string;
+}) {
+  return (
+    <Card>
+      <CardContent className="flex flex-col gap-3 p-5">
+        <div className="flex items-center gap-2 text-muted-foreground">
+          <span>{icon}</span>
+          <span className="t-label">{label}</span>
+        </div>
+        {loading ? <Skeleton className="h-7 w-24" /> : <div className="t-metric text-foreground">{value}</div>}
+        {loading ? (
+          <Skeleton className="h-3 w-28" />
+        ) : note ? (
+          <div className="text-xs text-muted-foreground">{note}</div>
+        ) : null}
+      </CardContent>
+    </Card>
+  );
+}
+
+function KernelStatusRow({ label, value }: { label: string; value: string }) {
+  const running = value.toLowerCase().includes('run') || value.toLowerCase().includes('ok');
+
+  return (
+    <div className="flex items-center justify-between py-2">
+      <div className="flex items-center gap-2.5">
+        <span
+          className={cn(
+            'size-1.5 rounded-full',
+            running ? 'bg-success animate-pulse-ring' : 'bg-warning',
+          )}
+        />
+        <span className="text-sm text-foreground">{label}</span>
+      </div>
+      <span className="font-mono text-xs text-muted-foreground">{value}</span>
     </div>
   );
 }

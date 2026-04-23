@@ -8,6 +8,7 @@ import {
   ScrollText,
   Search,
   Settings2,
+  ShieldCheck,
   Users,
   Zap,
 } from 'lucide-react';
@@ -23,11 +24,10 @@ import { NotFoundPage } from '@/features/errors/NotFoundPage';
 import { SettingsPage } from '@/features/settings/SettingsPage';
 import { SubPage } from '@/features/subscription/SubPage';
 import { UsersPage } from '@/features/users/UsersPage';
+import { cn } from '@/lib/utils';
 import { apiClient } from '@/shared/api/client';
 import { OverviewStats } from '@/shared/api/types';
-import { BrandMark } from '@/shared/ui/primitives';
 import { CommandPalette, useCommandPaletteShortcut } from '@/shared/ui/CommandPalette';
-import { cn } from '@/lib/utils';
 
 type LinkTo = '/' | '/users' | '/settings' | '/audit' | '/configs/$core';
 
@@ -71,7 +71,7 @@ function ProtectedShell() {
         <aside className="border-b lg:border-b-0 lg:border-r">
           <div className="flex h-full flex-col">
             <div className="flex h-14 items-center px-5">
-              <BrandMark compact />
+              <AppBrand compact />
             </div>
 
             <Separator />
@@ -84,7 +84,9 @@ function ProtectedShell() {
               >
                 <Search className="size-3.5" />
                 <span className="flex-1">Search...</span>
-                <kbd className="rounded bg-background px-1.5 py-0.5 font-mono text-[10px]">⌘K</kbd>
+                <kbd className="rounded bg-background px-1.5 py-0.5 font-mono text-[10px]">
+                  Ctrl K
+                </kbd>
               </button>
 
               <nav className="space-y-0.5">
@@ -135,7 +137,7 @@ function ProtectedShell() {
         <main className="min-w-0 bg-background">
           <div className="border-b px-4 py-3 lg:hidden">
             <div className="flex items-center justify-between gap-3">
-              <BrandMark compact />
+              <AppBrand compact />
               <Button
                 aria-label="Sign out"
                 onClick={async () => {
@@ -161,6 +163,24 @@ function ProtectedShell() {
         </main>
       </div>
       <CommandPalette onClose={() => setPaletteOpen(false)} open={paletteOpen} />
+    </div>
+  );
+}
+
+function AppBrand({ compact = false }: { compact?: boolean }) {
+  return (
+    <div className="flex items-center gap-2.5">
+      <div className="flex size-7 items-center justify-center rounded-md bg-primary/12 text-primary">
+        <ShieldCheck className="size-4" />
+      </div>
+      <span
+        className={cn(
+          'font-serif italic leading-none tracking-[-0.02em]',
+          compact ? 'text-xl' : 'text-2xl',
+        )}
+      >
+        MyPanel
+      </span>
     </div>
   );
 }
@@ -234,7 +254,13 @@ function KernelStatusPill() {
         <span
           className={cn(
             'size-1.5 rounded-full',
-            !overview.data ? 'bg-muted-foreground/50' : all ? 'bg-success animate-pulse-ring' : partial ? 'bg-warning' : 'bg-destructive',
+            !overview.data
+              ? 'bg-muted-foreground/50'
+              : all
+                ? 'bg-success animate-pulse-ring'
+                : partial
+                  ? 'bg-warning'
+                  : 'bg-destructive',
           )}
         />
         <span className="text-muted-foreground">
@@ -243,7 +269,7 @@ function KernelStatusPill() {
       </div>
       <span className="flex items-center gap-1 font-mono text-[10px]">
         <span className={xray ? 'text-success' : 'text-muted-foreground'}>xray</span>
-        <span className="text-muted-foreground/50">·</span>
+        <span className="text-muted-foreground/50">/</span>
         <span className={hy ? 'text-success' : 'text-muted-foreground'}>hy2</span>
       </span>
     </div>

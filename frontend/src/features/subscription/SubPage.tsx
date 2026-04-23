@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useParams } from '@tanstack/react-router';
-import { ChevronRight, Link2, RotateCcw, ShieldCheck } from 'lucide-react';
+import { ChevronRight, Copy, Link2, RotateCcw, ShieldCheck } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -11,7 +11,6 @@ import { apiClient } from '@/shared/api/client';
 import { UserLinks } from '@/shared/api/types';
 import { detectOS } from '@/shared/lib/detectOS';
 import { daysUntil, formatBytes, formatDate, relativeExpiry, usagePercent } from '@/shared/lib/format';
-import { CopyButton, EmptyState, TrafficBar } from '@/shared/ui/primitives';
 
 const clientLinks = {
   ios: [
@@ -97,10 +96,18 @@ export function SubPage() {
     return (
       <div className="min-h-screen bg-background px-4 py-10 text-foreground" data-theme={theme}>
         <div className="mx-auto flex min-h-screen max-w-[480px] items-center justify-center">
-          <EmptyState
-            description="This subscription link was rotated or is no longer available."
-            title="This link is no longer valid"
-          />
+          <Card className="w-full">
+            <CardContent className="flex min-h-64 flex-col items-center justify-center gap-3 px-6 py-12 text-center">
+              <div className="space-y-1">
+                <div className="text-base font-semibold text-foreground">
+                  This link is no longer valid
+                </div>
+                <p className="max-w-md text-sm text-muted-foreground">
+                  This subscription link was rotated or is no longer available.
+                </p>
+              </div>
+            </CardContent>
+          </Card>
         </div>
       </div>
     );
@@ -158,11 +165,7 @@ export function SubPage() {
                 </>
               ) : (
                 <>
-                  <TrafficBar
-                    animated
-                    total={usage?.traffic_limit ?? 0}
-                    used={usage?.traffic_used ?? 0}
-                  />
+                  <UsageBar total={usage?.traffic_limit ?? 0} used={usage?.traffic_used ?? 0} />
                   <div className="grid gap-5 border-t border-border pt-5 sm:grid-cols-2">
                     <Stat
                       label="Used"
@@ -286,6 +289,23 @@ export function SubPage() {
   );
 }
 
+function UsageBar({ total, used }: { total: number; used: number }) {
+  const percent = usagePercent(used, total);
+  const fillClass = percent >= 90 ? 'bg-destructive' : percent >= 70 ? 'bg-warning' : 'bg-primary';
+
+  return (
+    <div className="space-y-1.5">
+      <div className="h-1.5 overflow-hidden rounded-full bg-muted">
+        <div className={cn('h-full rounded-full', fillClass)} style={{ width: `${percent}%` }} />
+      </div>
+      <div className="flex items-center justify-between text-xs text-muted-foreground">
+        <span className="font-mono">{formatBytes(used)}</span>
+        <span className="font-mono">{total > 0 ? formatBytes(total) : 'Unlimited'}</span>
+      </div>
+    </div>
+  );
+}
+
 function Stat({
   label,
   primary,
@@ -318,7 +338,19 @@ function AdvancedCard({ image, label, value }: { image?: string; label: string; 
       <div className="overflow-hidden text-ellipsis whitespace-nowrap font-mono text-xs text-foreground">
         {value}
       </div>
-      <CopyButton className="w-full" value={value} />
+      <Button
+        className="w-full"
+        onClick={async () => {
+          if (!value) return;
+          await navigator.clipboard.writeText(value);
+          toast.success(`${label} copied`);
+        }}
+        type="button"
+        variant="secondary"
+      >
+        <Copy className="size-4" />
+        Copy
+      </Button>
     </div>
   );
 }

@@ -3,13 +3,12 @@ import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useNavigate } from '@tanstack/react-router';
-import { ArrowRight, Eye, EyeOff } from 'lucide-react';
+import { ArrowRight, Eye, EyeOff, ShieldCheck } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useAuth } from '@/features/auth/useAuth';
-import { BrandMark } from '@/shared/ui/primitives';
 
 const schema = z.object({
   username: z.string().min(1),
@@ -41,8 +40,13 @@ export function LoginPage() {
       />
 
       <div className="relative mx-auto flex min-h-screen w-full max-w-[400px] flex-col items-center justify-center">
-        <div className="mb-8">
-          <BrandMark />
+        <div className="mb-8 flex items-center gap-2.5">
+          <div className="flex size-8 items-center justify-center rounded-md bg-primary/12 text-primary">
+            <ShieldCheck className="size-4" />
+          </div>
+          <span className="font-serif text-2xl italic leading-none tracking-[-0.02em]">
+            MyPanel
+          </span>
         </div>
 
         <Card className="w-full">
