@@ -19,6 +19,7 @@ import { formatDate, formatShortDateTime } from '@/shared/lib/format';
 
 export function AuditPage() {
   const [query, setQuery] = useState('');
+  const [openRows, setOpenRows] = useState<Record<string, boolean>>({});
   const audit = useQuery({
     queryKey: ['audit'],
     queryFn: () => apiClient.request<AuditEntry[]>('/audit?limit=100'),
@@ -98,7 +99,108 @@ export function AuditPage() {
                       {group.label}
                     </TableCell>
                   </TableRow>,
-                  ...group.entries.map((entry) => <AuditRow entry={entry} key={entry.id} />),
+                  ...group.entries.flatMap((entry) => {
+                    const rowKey = String(entry.id);
+                    const open = Boolean(openRows[rowKey]);
+                    const actor = entry.admin_id ? 'admin' : 'system';
+                    const isSystem = actor === 'system';
+                    const hasDetails = Boolean(entry.metadata || entry.user_agent || entry.ip);
+                    const time = new Date(entry.created_at);
+                    return [
+                      <TableRow
+                        className={cn(
+                          'border-border/70 transition',
+                          hasDetails ? 'cursor-pointer hover:bg-[hsl(var(--hover-overlay))]' : '',
+                          open && 'bg-[hsl(var(--hover-overlay))]',
+                        )}
+                        key={`r-${rowKey}`}
+                        onClick={() =>
+                          hasDetails &&
+                          setOpenRows((current) => ({
+                            ...current,
+                            [rowKey]: !current[rowKey],
+                          }))
+                        }
+                      >
+                        <TableCell className="px-5 py-3 align-top">
+                          <div className="font-mono text-xs text-foreground">
+                            {time.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}
+                          </div>
+                        </TableCell>
+                        <TableCell className="px-5 py-3 align-top">
+                          <span
+                            className={cn(
+                              'text-xs',
+                              isSystem ? 'text-muted-foreground' : 'font-medium text-foreground',
+                            )}
+                          >
+                            {actor}
+                          </span>
+                        </TableCell>
+                        <TableCell className="px-5 py-3 align-top">
+                          <span className="font-mono text-xs text-foreground">{entry.action}</span>
+                        </TableCell>
+                        <TableCell className="px-5 py-3 align-top">
+                          <span className="text-sm text-muted-foreground">
+                            <span className="text-foreground">{entry.target_type}</span>
+                            {entry.target_id ? (
+                              <span className="ml-1 font-mono text-xs">:{entry.target_id}</span>
+                            ) : null}
+                          </span>
+                        </TableCell>
+                        <TableCell className="hidden px-5 py-3 align-top font-mono text-xs text-muted-foreground lg:table-cell">
+                          {entry.ip || '--'}
+                        </TableCell>
+                        <TableCell className="px-5 py-3 align-top text-muted-foreground">
+                          {hasDetails ? (
+                            open ? (
+                              <ChevronDown className="size-4" />
+                            ) : (
+                              <ChevronRight className="size-4" />
+                            )
+                          ) : null}
+                        </TableCell>
+                      </TableRow>,
+                      open && hasDetails ? (
+                        <TableRow className="bg-surface-sunken hover:bg-surface-sunken" key={`d-${rowKey}`}>
+                          <TableCell className="px-5 py-4" colSpan={6}>
+                            <div className="grid gap-3 lg:grid-cols-[200px_1fr]">
+                              <div className="space-y-2 text-xs text-muted-foreground">
+                                <div>
+                                  <div className="mb-1 t-label">Timestamp</div>
+                                  <div className="font-mono text-[11px] text-foreground">
+                                    {formatShortDateTime(entry.created_at)}
+                                  </div>
+                                </div>
+                                {entry.ip ? (
+                                  <div>
+                                    <div className="mb-1 t-label">IP address</div>
+                                    <div className="font-mono text-[11px] text-foreground">{entry.ip}</div>
+                                  </div>
+                                ) : null}
+                                {entry.user_agent ? (
+                                  <div>
+                                    <div className="mb-1 t-label">User agent</div>
+                                    <div className="break-all font-mono text-[11px] text-muted-foreground">
+                                      {entry.user_agent}
+                                    </div>
+                                  </div>
+                                ) : null}
+                              </div>
+                              {entry.metadata ? (
+                                <div className="space-y-1">
+                                  <div className="t-label">Metadata</div>
+                                  <pre className="overflow-x-auto rounded-md border border-border bg-surface-elevated p-3 font-mono text-[11px] text-foreground">
+                                    {JSON.stringify(entry.metadata, null, 2)}
+                                  </pre>
+                                </div>
+                              ) : null}
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ) : null,
+                    ];
+                  }),
                 ])}
               </TableBody>
             </Table>
@@ -121,104 +223,6 @@ export function AuditPage() {
         </Card>
       </div>
     </div>
-  );
-}
-
-function AuditRow({ entry }: { entry: AuditEntry }) {
-  const [open, setOpen] = useState(false);
-  const actor = entry.admin_id ? 'admin' : 'system';
-  const isSystem = actor === 'system';
-  const hasDetails = Boolean(entry.metadata || entry.user_agent || entry.ip);
-  const time = new Date(entry.created_at);
-
-  return (
-    <>
-      <TableRow
-        className={cn(
-          'border-border/70 transition',
-          hasDetails ? 'cursor-pointer hover:bg-[hsl(var(--hover-overlay))]' : '',
-          open && 'bg-[hsl(var(--hover-overlay))]',
-        )}
-        onClick={() => hasDetails && setOpen((value) => !value)}
-      >
-        <TableCell className="px-5 py-3 align-top">
-          <div className="font-mono text-xs text-foreground">
-            {time.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}
-          </div>
-        </TableCell>
-        <TableCell className="px-5 py-3 align-top">
-          <span
-            className={cn(
-              'text-xs',
-              isSystem ? 'text-muted-foreground' : 'font-medium text-foreground',
-            )}
-          >
-            {actor}
-          </span>
-        </TableCell>
-        <TableCell className="px-5 py-3 align-top">
-          <span className="font-mono text-xs text-foreground">{entry.action}</span>
-        </TableCell>
-        <TableCell className="px-5 py-3 align-top">
-          <span className="text-sm text-muted-foreground">
-            <span className="text-foreground">{entry.target_type}</span>
-            {entry.target_id ? (
-              <span className="ml-1 font-mono text-xs">:{entry.target_id}</span>
-            ) : null}
-          </span>
-        </TableCell>
-        <TableCell className="hidden px-5 py-3 align-top font-mono text-xs text-muted-foreground lg:table-cell">
-          {entry.ip || '--'}
-        </TableCell>
-        <TableCell className="px-5 py-3 align-top text-muted-foreground">
-          {hasDetails ? (
-            open ? (
-              <ChevronDown className="size-4" />
-            ) : (
-              <ChevronRight className="size-4" />
-            )
-          ) : null}
-        </TableCell>
-      </TableRow>
-      {open && hasDetails ? (
-        <TableRow className="bg-surface-sunken hover:bg-surface-sunken">
-          <TableCell className="px-5 py-4" colSpan={6}>
-            <div className="grid gap-3 lg:grid-cols-[200px_1fr]">
-              <div className="space-y-2 text-xs text-muted-foreground">
-                <div>
-                  <div className="t-label mb-1">Timestamp</div>
-                  <div className="font-mono text-[11px] text-foreground">
-                    {formatShortDateTime(entry.created_at)}
-                  </div>
-                </div>
-                {entry.ip ? (
-                  <div>
-                    <div className="t-label mb-1">IP address</div>
-                    <div className="font-mono text-[11px] text-foreground">{entry.ip}</div>
-                  </div>
-                ) : null}
-                {entry.user_agent ? (
-                  <div>
-                    <div className="t-label mb-1">User agent</div>
-                    <div className="break-all font-mono text-[11px] text-muted-foreground">
-                      {entry.user_agent}
-                    </div>
-                  </div>
-                ) : null}
-              </div>
-              {entry.metadata ? (
-                <div className="space-y-1">
-                  <div className="t-label">Metadata</div>
-                  <pre className="overflow-x-auto rounded-md border border-border bg-surface-elevated p-3 font-mono text-[11px] text-foreground">
-                    {JSON.stringify(entry.metadata, null, 2)}
-                  </pre>
-                </div>
-              ) : null}
-            </div>
-          </TableCell>
-        </TableRow>
-      ) : null}
-    </>
   );
 }
 
