@@ -5,7 +5,6 @@ import {
   FileCode2,
   LayoutDashboard,
   LogOut,
-  ScrollText,
   Search,
   Settings2,
   ShieldCheck,
@@ -15,7 +14,6 @@ import {
 import { AppProviders } from '@/app/providers';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
-import { AuditPage } from '@/features/audit/AuditPage';
 import { LoginPage } from '@/features/auth/LoginPage';
 import { useAuth } from '@/features/auth/useAuth';
 import { ConfigsPage } from '@/features/configs/ConfigsPage';
@@ -29,7 +27,7 @@ import { apiClient } from '@/shared/api/client';
 import { OverviewStats } from '@/shared/api/types';
 import { CommandPalette, useCommandPaletteShortcut } from '@/shared/ui/CommandPalette';
 
-type LinkTo = '/' | '/users' | '/settings' | '/audit' | '/configs/$core';
+type LinkTo = '/' | '/users' | '/settings' | '/configs/$core';
 
 function RootLayout() {
   return (
@@ -57,7 +55,6 @@ function ProtectedShell() {
     { icon: LayoutDashboard, label: 'Dashboard', to: '/' as const },
     { icon: Users, label: 'Users', to: '/users' as const },
     { icon: Settings2, label: 'Settings', to: '/settings' as const },
-    { icon: ScrollText, label: 'Audit', to: '/audit' as const },
   ];
 
   const configLinks = [
@@ -287,13 +284,12 @@ const dashboardRoute = createRoute({ getParentRoute: () => appRoute, path: '/', 
 const usersRoute = createRoute({ getParentRoute: () => appRoute, path: '/users', component: UsersPage });
 const configsRoute = createRoute({ getParentRoute: () => appRoute, path: '/configs/$core', component: ConfigsPage });
 const settingsRoute = createRoute({ getParentRoute: () => appRoute, path: '/settings', component: SettingsPage });
-const auditRoute = createRoute({ getParentRoute: () => appRoute, path: '/audit', component: AuditPage });
 const publicSubscriptionRoute = createRoute({ getParentRoute: () => rootRoute, path: '/u/$token', component: SubPage });
 
 const routeTree = rootRoute.addChildren([
   loginRoute,
   publicSubscriptionRoute,
-  appRoute.addChildren([dashboardRoute, usersRoute, configsRoute, settingsRoute, auditRoute]),
+  appRoute.addChildren([dashboardRoute, usersRoute, configsRoute, settingsRoute]),
 ]);
 
 export const router = createRouter({ routeTree });

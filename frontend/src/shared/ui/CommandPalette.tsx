@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import { useNavigate } from '@tanstack/react-router';
 import { useQuery } from '@tanstack/react-query';
-import { FileCode2, LayoutDashboard, ScrollText, Settings2, UserRound, Users, Zap } from 'lucide-react';
+import { FileCode2, LayoutDashboard, Settings2, UserRound, Users, Zap } from 'lucide-react';
 import {
   CommandDialog,
   CommandEmpty,
@@ -46,10 +46,6 @@ export function CommandPalette({ onClose, open }: { onClose: () => void; open: b
           <CommandItem onSelect={() => go(() => navigate({ to: '/settings' }))}>
             <Settings2 />
             <span>Settings</span>
-          </CommandItem>
-          <CommandItem onSelect={() => go(() => navigate({ to: '/audit' }))}>
-            <ScrollText />
-            <span>Audit log</span>
           </CommandItem>
         </CommandGroup>
 

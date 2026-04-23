@@ -8,7 +8,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { cn } from '@/lib/utils';
 import { apiClient } from '@/shared/api/client';
-import { AuditEntry, OverviewStats, TrafficPoint } from '@/shared/api/types';
+import { OverviewStats, TrafficPoint } from '@/shared/api/types';
 import { formatBytes, formatNumber, formatShortDateTime } from '@/shared/lib/format';
 
 const ranges = ['1', '7', '30'] as const;
@@ -42,10 +42,6 @@ export function DashboardPage() {
   const traffic = useQuery({
     queryKey: ['stats', 'traffic', days],
     queryFn: () => apiClient.request<TrafficPoint[]>(`/stats/traffic?days=${days}`),
-  });
-  const recentActivity = useQuery({
-    queryKey: ['audit', 'recent'],
-    queryFn: () => apiClient.request<AuditEntry[]>('/audit?limit=4'),
   });
 
   const data = overview.data;
@@ -308,7 +304,7 @@ export function DashboardPage() {
         </Card>
       </div>
 
-      <div className="grid gap-4 px-5 pt-4 sm:px-8 xl:grid-cols-2">
+      <div className="grid gap-4 px-5 pt-4 sm:px-8">
         <Card>
           <CardHeader>
             <CardTitle>Kernels</CardTitle>
@@ -332,37 +328,6 @@ export function DashboardPage() {
                 </div>
               );
             })}
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Recent activity</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-1">
-            {recentActivity.isLoading ? (
-              Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-12 w-full" />)
-            ) : recentActivity.data?.length ? (
-              recentActivity.data.map((entry) => (
-                <div
-                  key={entry.id}
-                  className="flex items-center justify-between gap-3 rounded-md px-2 py-2 transition hover:bg-accent"
-                >
-                  <div className="min-w-0">
-                    <div className="truncate font-mono text-xs text-foreground">{entry.action}</div>
-                    <div className="mt-0.5 text-xs text-muted-foreground">
-                      {entry.target_type}
-                      {entry.target_id ? `:${entry.target_id}` : ''}
-                    </div>
-                  </div>
-                  <div className="shrink-0 text-right text-xs text-muted-foreground">
-                    {formatShortDateTime(entry.created_at)}
-                  </div>
-                </div>
-              ))
-            ) : (
-              <div className="py-8 text-center text-sm text-muted-foreground">No recent activity.</div>
-            )}
           </CardContent>
         </Card>
       </div>

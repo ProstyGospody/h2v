@@ -66,18 +66,6 @@ export type Setting = {
   updated_at: string;
 };
 
-export type AuditEntry = {
-  id: number;
-  admin_id?: string | null;
-  action: string;
-  target_type: string;
-  target_id: string;
-  ip: string;
-  user_agent: string;
-  created_at: string;
-  metadata: unknown;
-};
-
 export type Admin = {
   id: string;
   username: string;
