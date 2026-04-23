@@ -3,35 +3,57 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useParams } from '@tanstack/react-router';
 import { ChevronRight, Link2, RotateCcw, ShieldCheck } from 'lucide-react';
 import { toast } from 'sonner';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
+import { Skeleton } from '@/components/ui/skeleton';
+import { cn } from '@/lib/utils';
 import { apiClient } from '@/shared/api/client';
 import { UserLinks } from '@/shared/api/types';
 import { detectOS } from '@/shared/lib/detectOS';
 import { daysUntil, formatBytes, formatDate, relativeExpiry, usagePercent } from '@/shared/lib/format';
-import {
-  Button,
-  Card,
-  CardContent,
-  CopyButton,
-  EmptyState,
-  SecondaryButton,
-  Skeleton,
-  TrafficBar,
-  cn,
-} from '@/shared/ui/primitives';
+import { CopyButton, EmptyState, TrafficBar } from '@/shared/ui/primitives';
 
 const clientLinks = {
   ios: [
-    { href: 'https://apps.apple.com/app/streisand/id6450534064', icon: '/clients/streisand.svg', label: 'Streisand' },
-    { href: 'https://apps.apple.com/app/karing/id6472431552', icon: '/clients/karing.svg', label: 'Karing' },
-    { href: 'https://apps.apple.com/app/shadowrocket/id932747118', icon: '/clients/shadowrocket.svg', label: 'Shadowrocket' },
+    {
+      href: 'https://apps.apple.com/app/streisand/id6450534064',
+      icon: '/clients/streisand.svg',
+      label: 'Streisand',
+    },
+    {
+      href: 'https://apps.apple.com/app/karing/id6472431552',
+      icon: '/clients/karing.svg',
+      label: 'Karing',
+    },
+    {
+      href: 'https://apps.apple.com/app/shadowrocket/id932747118',
+      icon: '/clients/shadowrocket.svg',
+      label: 'Shadowrocket',
+    },
   ],
   android: [
-    { href: 'https://github.com/2dust/v2rayNG/releases', icon: '/clients/v2rayng.svg', label: 'v2rayNG' },
-    { href: 'https://github.com/hiddify/hiddify-next/releases', icon: '/clients/hiddify.svg', label: 'Hiddify' },
-    { href: 'https://github.com/KaringX/karing/releases', icon: '/clients/karing.svg', label: 'Karing' },
+    {
+      href: 'https://github.com/2dust/v2rayNG/releases',
+      icon: '/clients/v2rayng.svg',
+      label: 'v2rayNG',
+    },
+    {
+      href: 'https://github.com/hiddify/hiddify-next/releases',
+      icon: '/clients/hiddify.svg',
+      label: 'Hiddify',
+    },
+    {
+      href: 'https://github.com/KaringX/karing/releases',
+      icon: '/clients/karing.svg',
+      label: 'Karing',
+    },
   ],
   desktop: [
-    { href: 'https://github.com/hiddify/hiddify-next/releases', icon: '/clients/hiddify.svg', label: 'Hiddify' },
+    {
+      href: 'https://github.com/hiddify/hiddify-next/releases',
+      icon: '/clients/hiddify.svg',
+      label: 'Hiddify',
+    },
     { href: 'https://sing-box.sagernet.org/', icon: '/clients/singbox.svg', label: 'sing-box' },
   ],
 } as const;
@@ -75,7 +97,10 @@ export function SubPage() {
     return (
       <div className="min-h-screen bg-background px-4 py-10 text-foreground" data-theme={theme}>
         <div className="mx-auto flex min-h-screen max-w-[480px] items-center justify-center">
-          <EmptyState description="This subscription link was rotated or is no longer available." title="This link is no longer valid" />
+          <EmptyState
+            description="This subscription link was rotated or is no longer available."
+            title="This link is no longer valid"
+          />
         </div>
       </div>
     );
@@ -109,7 +134,6 @@ export function SubPage() {
               )}
               <Button
                 className="w-full"
-                leadingIcon={<Link2 className="size-4" />}
                 onClick={async () => {
                   if (!data?.subscription) return;
                   await navigator.clipboard.writeText(data.subscription);
@@ -118,6 +142,7 @@ export function SubPage() {
                 size="lg"
                 type="button"
               >
+                <Link2 className="size-4" />
                 Copy subscription link
               </Button>
             </CardContent>
@@ -133,7 +158,11 @@ export function SubPage() {
                 </>
               ) : (
                 <>
-                  <TrafficBar animated total={usage?.traffic_limit ?? 0} used={usage?.traffic_used ?? 0} />
+                  <TrafficBar
+                    animated
+                    total={usage?.traffic_limit ?? 0}
+                    used={usage?.traffic_used ?? 0}
+                  />
                   <div className="grid gap-5 border-t border-border pt-5 sm:grid-cols-2">
                     <Stat
                       label="Used"
@@ -147,7 +176,10 @@ export function SubPage() {
                     <Stat
                       label="Expires"
                       primary={relativeExpiry(usage?.expires_at ?? null)}
-                      primaryClass={cn(expired && 'text-destructive', expiringSoon && 'text-warning')}
+                      primaryClass={cn(
+                        expired && 'text-destructive',
+                        expiringSoon && 'text-warning',
+                      )}
                       secondary={usage?.expires_at ? formatDate(usage.expires_at) : 'No expiry date'}
                     />
                   </div>
@@ -210,7 +242,7 @@ export function SubPage() {
 
           <details className="group rounded-lg border border-border bg-surface">
             <summary className="flex cursor-pointer list-none items-center justify-between px-5 py-4 text-sm font-medium text-foreground">
-              <span>Advanced · individual keys</span>
+              <span>Advanced - individual keys</span>
               <ChevronRight className="size-4 text-muted-foreground transition group-open:rotate-90" />
             </summary>
             <div className="space-y-4 border-t border-border px-5 py-5">
@@ -221,23 +253,32 @@ export function SubPage() {
                 </>
               ) : (
                 <div className="grid gap-4 sm:grid-cols-2">
-                  <AdvancedCard image={data?.qr.vless} label="VLESS · Reality" value={data?.vless ?? ''} />
-                  <AdvancedCard image={data?.qr.hysteria2} label="Hysteria 2" value={data?.hysteria2 ?? ''} />
+                  <AdvancedCard
+                    image={data?.qr.vless}
+                    label="VLESS - Reality"
+                    value={data?.vless ?? ''}
+                  />
+                  <AdvancedCard
+                    image={data?.qr.hysteria2}
+                    label="Hysteria 2"
+                    value={data?.hysteria2 ?? ''}
+                  />
                 </div>
               )}
             </div>
           </details>
 
           <div className="flex justify-center pt-2">
-            <SecondaryButton
-              busy={rotateLink.isPending}
-              leadingIcon={<RotateCcw className="size-4" />}
+            <Button
+              disabled={rotateLink.isPending}
               onClick={() => rotateLink.mutate()}
               size="sm"
               type="button"
+              variant="secondary"
             >
-              Reset my link
-            </SecondaryButton>
+              <RotateCcw className={cn('size-4', rotateLink.isPending && 'animate-spin')} />
+              {rotateLink.isPending ? 'Resetting...' : 'Reset my link'}
+            </Button>
           </div>
         </div>
       </div>
@@ -274,7 +315,9 @@ function AdvancedCard({ image, label, value }: { image?: string; label: string; 
       ) : (
         <div className="aspect-square rounded-sm border border-border bg-surface" />
       )}
-      <div className="overflow-hidden text-ellipsis whitespace-nowrap font-mono text-xs text-foreground">{value}</div>
+      <div className="overflow-hidden text-ellipsis whitespace-nowrap font-mono text-xs text-foreground">
+        {value}
+      </div>
       <CopyButton className="w-full" value={value} />
     </div>
   );

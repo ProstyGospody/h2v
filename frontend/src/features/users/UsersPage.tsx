@@ -1,31 +1,70 @@
-import { useEffect, useMemo, useState } from 'react';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMemo, useState } from 'react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { addDays } from 'date-fns';
 import { Area, AreaChart, ResponsiveContainer, Tooltip } from 'recharts';
-import { AlertTriangle, ArrowRight, Plus, RefreshCw, Search, Trash2 } from 'lucide-react';
+import {
+  AlertTriangle,
+  ArrowRight,
+  MoreHorizontal,
+  Plus,
+  RefreshCw,
+  RotateCcw,
+  Search,
+  Trash2,
+} from 'lucide-react';
 import { toast } from 'sonner';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Separator } from '@/components/ui/separator';
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from '@/components/ui/sheet';
+import { Skeleton } from '@/components/ui/skeleton';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Textarea } from '@/components/ui/textarea';
+import { cn } from '@/lib/utils';
 import { apiClient, ApiError } from '@/shared/api/client';
 import { TrafficPoint, User, UserLinks, UserStatus } from '@/shared/api/types';
+import { formatBytes, formatDate, formatDateTime, relativeExpiry } from '@/shared/lib/format';
 import {
-  Button,
-  Card,
-  CardContent,
   DetailStat,
   DurationBadge,
   EmptyState,
-  Label,
-  Modal,
   MonoField,
   PageHeader,
-  SecondaryButton,
-  Skeleton,
   StatusBadge,
-  Textarea,
   TrafficBar,
-  Input,
-  cn,
 } from '@/shared/ui/primitives';
-import { formatBytes, formatDate, formatDateTime, relativeExpiry } from '@/shared/lib/format';
 
 const statusOptions: Array<{ label: string; value: 'all' | UserStatus }> = [
   { label: 'All', value: 'all' },
@@ -38,12 +77,12 @@ const statusOptions: Array<{ label: string; value: 'all' | UserStatus }> = [
 export function UsersPage() {
   const queryClient = useQueryClient();
   const [search, setSearch] = useState('');
-  const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [status, setStatus] = useState<'all' | UserStatus>('all');
   const [nearExpiry, setNearExpiry] = useState(false);
-  const [activeUserId, setActiveUserId] = useState<string | null>(null);
+  const [drawerUserId, setDrawerUserId] = useState<string | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
   const [busyAction, setBusyAction] = useState<string | null>(null);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
 
   const users = useQuery({
     queryKey: ['users', search, status, nearExpiry],
@@ -53,42 +92,17 @@ export function UsersPage() {
       if (status !== 'all') params.set('status', status);
       if (nearExpiry) params.set('near_expiry', '14');
       params.set('per_page', '100');
-      const query = params.toString();
-      return apiClient.request<User[]>(`/users${query ? `?${query}` : ''}`);
+      const q = params.toString();
+      return apiClient.request<User[]>(`/users${q ? `?${q}` : ''}`);
     },
   });
 
-  const activeUser = useMemo(() => users.data?.find((item) => item.id === activeUserId) ?? null, [activeUserId, users.data]);
-  const selectedUsers = useMemo(
-    () => users.data?.filter((item) => selectedIds.includes(item.id)) ?? [],
-    [selectedIds, users.data],
+  const drawerUser = useMemo(
+    () => users.data?.find((u) => u.id === drawerUserId) ?? null,
+    [drawerUserId, users.data],
   );
 
-  useEffect(() => {
-    if (!users.data?.length) {
-      setActiveUserId(null);
-      setSelectedIds([]);
-      return;
-    }
-
-    setSelectedIds((current) => current.filter((id) => users.data?.some((user) => user.id === id)));
-
-    if (!activeUserId || !users.data.some((user) => user.id === activeUserId)) {
-      setActiveUserId(users.data[0].id);
-    }
-  }, [activeUserId, users.data]);
-
-  const links = useQuery({
-    enabled: Boolean(activeUserId),
-    queryKey: ['users', activeUserId, 'links'],
-    queryFn: () => apiClient.request<UserLinks>(`/users/${activeUserId}/links`),
-  });
-
-  const traffic = useQuery({
-    enabled: Boolean(activeUserId),
-    queryKey: ['users', activeUserId, 'traffic'],
-    queryFn: () => apiClient.request<TrafficPoint[]>(`/users/${activeUserId}/traffic?days=7`),
-  });
+  const allSelected = Boolean(users.data?.length) && selectedIds.length === users.data?.length;
 
   async function refreshUsers() {
     await Promise.all([
@@ -97,13 +111,11 @@ export function UsersPage() {
     ]);
   }
 
-  async function runBulkAction(label: string, action: (id: string) => Promise<unknown>) {
+  async function runBulk(label: string, action: (id: string) => Promise<unknown>) {
     if (!selectedIds.length) return;
     setBusyAction(label);
     try {
-      for (const id of selectedIds) {
-        await action(id);
-      }
+      for (const id of selectedIds) await action(id);
       toast.success(`${label} complete`);
       setSelectedIds([]);
       await refreshUsers();
@@ -114,373 +126,468 @@ export function UsersPage() {
     }
   }
 
-  const allSelected = Boolean(users.data?.length) && selectedIds.length === users.data?.length;
-  const bulkStatusLabel = selectedUsers.every((user) => user.status === 'disabled') ? 'Enable' : 'Disable';
-
   return (
-    <div className="pb-8">
+    <div className="pb-10">
       <PageHeader
-        title={`Users (${users.data?.length ?? 0})`}
-        subtitle="Search, filter, and manage subscription state without leaving the table."
+        title={
+          <span className="flex items-baseline gap-2.5">
+            Users
+            <span className="font-mono text-base text-muted-foreground">{users.data?.length ?? 0}</span>
+          </span>
+        }
         action={
-          <Button leadingIcon={<Plus className="size-4" />} onClick={() => setCreateOpen(true)} type="button">
+          <Button onClick={() => setCreateOpen(true)}>
+            <Plus />
             Create user
           </Button>
         }
       />
 
-      <div className="space-y-5 px-5 pt-6 sm:px-8">
+      <div className="space-y-4 px-5 pt-6 sm:px-8">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
           <div className="relative w-full lg:max-w-sm">
             <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-            <Input className="pl-9" onChange={(event) => setSearch(event.target.value)} placeholder="Search by username..." value={search} />
+            <Input
+              className="pl-9"
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search by username..."
+              value={search}
+            />
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            <div className="flex items-center gap-0.5 rounded-md border border-border bg-surface-elevated p-0.5">
-              {statusOptions.map((option) => (
-                <button
-                  key={option.value}
-                  className={
-                    option.value === status
-                      ? 'rounded-sm bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground'
-                      : 'rounded-sm px-3 py-1.5 text-xs font-medium text-muted-foreground transition hover:text-foreground'
-                  }
-                  onClick={() => setStatus(option.value)}
-                  type="button"
-                >
-                  {option.label}
-                </button>
-              ))}
-            </div>
-            <button
-              className={cn(
-                'rounded-md border px-3 py-1.5 text-xs font-medium transition',
-                nearExpiry
-                  ? 'border-warning/30 bg-warning/10 text-warning'
-                  : 'border-border bg-surface-elevated text-muted-foreground hover:text-foreground',
-              )}
-              onClick={() => setNearExpiry((current) => !current)}
-              type="button"
+            <Tabs onValueChange={(v) => setStatus(v as typeof status)} value={status}>
+              <TabsList>
+                {statusOptions.map((o) => (
+                  <TabsTrigger key={o.value} value={o.value}>
+                    {o.label}
+                  </TabsTrigger>
+                ))}
+              </TabsList>
+            </Tabs>
+            <Button
+              onClick={() => setNearExpiry((v) => !v)}
+              size="sm"
+              variant={nearExpiry ? 'outline' : 'ghost'}
             >
               Near expiry
-            </button>
+            </Button>
           </div>
         </div>
 
         {selectedIds.length ? (
-          <Card className="border-primary/25 bg-[hsl(var(--primary)/0.05)]">
-            <CardContent className="flex flex-col gap-3 py-4 md:flex-row md:items-center md:justify-between">
-              <div className="flex items-center gap-2 text-sm text-foreground">
-                <span className="rounded-md bg-primary/15 px-2 py-1 font-mono text-xs text-primary">{selectedIds.length}</span>
-                <span>selected</span>
-              </div>
-              <div className="flex flex-wrap items-center gap-2">
-                <SecondaryButton
-                  busy={busyAction === 'status'}
-                  onClick={() =>
-                    runBulkAction('status', (id) =>
-                      apiClient.request(`/users/${id}`, {
-                        body: JSON.stringify({ status: bulkStatusLabel === 'Disable' ? 'disabled' : 'active' }),
-                        method: 'PATCH',
-                      }),
-                    )
-                  }
-                  type="button"
-                >
-                  {bulkStatusLabel}
-                </SecondaryButton>
-                <SecondaryButton
-                  busy={busyAction === 'extend'}
-                  onClick={() =>
-                    runBulkAction('extend', async (id) => {
-                      const user = users.data?.find((item) => item.id === id);
-                      const baseDate = user?.expires_at ? new Date(user.expires_at) : new Date();
-                      const nextDate = addDays(baseDate > new Date() ? baseDate : new Date(), 30);
-                      return apiClient.request(`/users/${id}`, {
-                        body: JSON.stringify({ expires_at: nextDate.toISOString() }),
-                        method: 'PATCH',
-                      });
-                    })
-                  }
-                  type="button"
-                >
-                  Extend +30d
-                </SecondaryButton>
-                <SecondaryButton
-                  busy={busyAction === 'traffic'}
-                  onClick={() => runBulkAction('traffic', (id) => apiClient.request(`/users/${id}/reset-traffic`, { method: 'POST' }))}
-                  type="button"
-                >
-                  Reset traffic
-                </SecondaryButton>
-                <Button
-                  busy={busyAction === 'delete'}
-                  leadingIcon={<Trash2 className="size-4" />}
-                  onClick={() => runBulkAction('delete', (id) => apiClient.request(`/users/${id}`, { method: 'DELETE' }))}
-                  type="button"
-                  variant="destructive"
-                >
-                  Delete
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
+          <div className="flex flex-col items-start justify-between gap-3 rounded-lg bg-primary/8 px-4 py-3 md:flex-row md:items-center">
+            <div className="flex items-center gap-2 text-sm">
+              <Badge>{selectedIds.length}</Badge>
+              <span className="text-muted-foreground">selected</span>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <Button
+                disabled={busyAction === 'disable'}
+                onClick={() =>
+                  runBulk('disable', (id) =>
+                    apiClient.request(`/users/${id}`, {
+                      body: JSON.stringify({ status: 'disabled' }),
+                      method: 'PATCH',
+                    }),
+                  )
+                }
+                size="sm"
+                variant="secondary"
+              >
+                Disable
+              </Button>
+              <Button
+                disabled={busyAction === 'extend'}
+                onClick={() =>
+                  runBulk('extend', async (id) => {
+                    const u = users.data?.find((x) => x.id === id);
+                    const base = u?.expires_at ? new Date(u.expires_at) : new Date();
+                    const next = addDays(base > new Date() ? base : new Date(), 30);
+                    return apiClient.request(`/users/${id}`, {
+                      body: JSON.stringify({ expires_at: next.toISOString() }),
+                      method: 'PATCH',
+                    });
+                  })
+                }
+                size="sm"
+                variant="secondary"
+              >
+                +30d
+              </Button>
+              <Button
+                disabled={busyAction === 'traffic'}
+                onClick={() =>
+                  runBulk('traffic', (id) =>
+                    apiClient.request(`/users/${id}/reset-traffic`, { method: 'POST' }),
+                  )
+                }
+                size="sm"
+                variant="secondary"
+              >
+                Reset traffic
+              </Button>
+              <Button
+                disabled={busyAction === 'delete'}
+                onClick={() =>
+                  runBulk('delete', (id) =>
+                    apiClient.request(`/users/${id}`, { method: 'DELETE' }),
+                  )
+                }
+                size="sm"
+                variant="destructive"
+              >
+                <Trash2 />
+                Delete
+              </Button>
+            </div>
+          </div>
         ) : null}
 
-        <div className="grid gap-6 xl:grid-cols-[1.55fr_1fr]">
-          <Card className="overflow-hidden">
-            <div className="overflow-x-auto">
-              {users.isLoading ? (
-                <div className="space-y-2 p-5">
-                  {Array.from({ length: 8 }).map((_, index) => (
-                    <Skeleton key={index} className="h-14 w-full" />
-                  ))}
-                </div>
-              ) : users.data?.length ? (
-                <table className="min-w-full text-left text-sm">
-                  <thead className="bg-surface-elevated">
-                    <tr>
-                      <th className="px-4 py-3" style={{ width: 36 }}>
+        <Card className="overflow-hidden">
+          {users.isLoading ? (
+            <CardContent className="space-y-2 p-5">
+              {Array.from({ length: 8 }).map((_, i) => (
+                <Skeleton key={i} className="h-12 w-full" />
+              ))}
+            </CardContent>
+          ) : users.data?.length ? (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-10">
+                    <input
+                      checked={allSelected}
+                      onChange={() => {
+                        if (allSelected) setSelectedIds([]);
+                        else setSelectedIds(users.data?.map((u) => u.id) ?? []);
+                      }}
+                      type="checkbox"
+                    />
+                  </TableHead>
+                  <TableHead>Username</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Traffic</TableHead>
+                  <TableHead className="hidden md:table-cell">Expires</TableHead>
+                  <TableHead className="hidden lg:table-cell">Created</TableHead>
+                  <TableHead className="w-10" />
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {users.data.map((user) => {
+                  const checked = selectedIds.includes(user.id);
+                  return (
+                    <TableRow
+                      className="cursor-pointer"
+                      key={user.id}
+                      onClick={() => setDrawerUserId(user.id)}
+                    >
+                      <TableCell onClick={(e) => e.stopPropagation()}>
                         <input
-                          checked={allSelected}
-                          onChange={() => {
-                            if (allSelected) {
-                              setSelectedIds([]);
-                            } else {
-                              setSelectedIds(users.data?.map((user) => user.id) ?? []);
-                            }
-                          }}
+                          checked={checked}
+                          onChange={() =>
+                            setSelectedIds((curr) =>
+                              checked ? curr.filter((id) => id !== user.id) : [...curr, user.id],
+                            )
+                          }
                           type="checkbox"
                         />
-                      </th>
-                      <th className="t-label px-4 py-3 font-medium">Username</th>
-                      <th className="t-label px-4 py-3 font-medium">Status</th>
-                      <th className="t-label px-4 py-3 font-medium">Traffic</th>
-                      <th className="t-label hidden px-4 py-3 font-medium md:table-cell">Expires</th>
-                      <th className="t-label hidden px-4 py-3 font-medium lg:table-cell">Created</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {users.data.map((user) => {
-                      const checked = selectedIds.includes(user.id);
-                      const isActive = user.id === activeUserId;
-                      return (
-                        <tr
-                          key={user.id}
-                          className={cn(
-                            'cursor-pointer border-t border-border/70 transition',
-                            isActive
-                              ? 'bg-[hsl(var(--primary)/0.07)] shadow-[inset_2px_0_0_hsl(var(--primary))]'
-                              : 'hover:bg-[hsl(var(--hover-overlay))]',
-                          )}
-                          onClick={() => setActiveUserId(user.id)}
-                        >
-                          <td className="px-4 py-4" onClick={(event) => event.stopPropagation()}>
-                            <input
-                              checked={checked}
-                              onChange={() =>
-                                setSelectedIds((current) =>
-                                  checked ? current.filter((id) => id !== user.id) : [...current, user.id],
-                                )
-                              }
-                              type="checkbox"
-                            />
-                          </td>
-                          <td className="px-4 py-3.5">
-                            <div className="font-medium text-foreground">{user.username}</div>
-                            {user.note ? <div className="mt-0.5 truncate text-xs text-muted-foreground">{user.note}</div> : null}
-                          </td>
-                          <td className="px-4 py-3.5">
-                            <StatusBadge status={user.status} />
-                          </td>
-                          <td className="min-w-52 px-4 py-3.5">
-                            <TrafficBar total={user.traffic_limit} used={user.traffic_used} />
-                          </td>
-                          <td className="hidden px-4 py-3.5 md:table-cell">
-                            <div className="space-y-1">
-                              <DurationBadge value={user.expires_at} />
-                              <div className="text-xs text-muted-foreground">{relativeExpiry(user.expires_at)}</div>
-                            </div>
-                          </td>
-                          <td className="hidden px-4 py-3.5 text-xs text-muted-foreground lg:table-cell">{formatDate(user.created_at, 'MMM d')}</td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              ) : (
-                <div className="p-6">
-                  <EmptyState
-                    action={
-                      <Button leadingIcon={<Plus className="size-4" />} onClick={() => setCreateOpen(true)} type="button">
-                        Create user
-                      </Button>
-                    }
-                    description="Create the first user to generate subscription links and start collecting traffic."
-                    title="No users yet"
-                  />
-                </div>
-              )}
-            </div>
-          </Card>
-
-          <Card className="h-fit">
-            <CardContent className="space-y-6">
-              {activeUser ? (
-                <>
-                  <div className="space-y-2">
-                    <div className="flex items-center gap-3">
-                      <div className="t-h2">{activeUser.username}</div>
-                      <StatusBadge status={activeUser.status} />
-                    </div>
-                    <div className="text-sm text-muted-foreground">{activeUser.note || 'No note on this subscription.'}</div>
-                  </div>
-
-                  <TrafficBar animated total={activeUser.traffic_limit} used={activeUser.traffic_used} />
-
-                  <div className="space-y-1">
-                    <DetailStat label="Created" value={formatDateTime(activeUser.created_at)} />
-                    <DetailStat label="Expires" value={activeUser.expires_at ? formatDateTime(activeUser.expires_at) : 'Never'} />
-                    <DetailStat label="Status" value={<StatusBadge status={activeUser.status} />} />
-                  </div>
-
-                  <div className="grid gap-2">
-                    <SecondaryButton
-                      busy={busyAction === 'single-sub'}
-                      onClick={async () => {
-                        setBusyAction('single-sub');
-                        try {
-                          await apiClient.request(`/users/${activeUser.id}/reset-sub`, { method: 'POST' });
-                          toast.success('Subscription link rotated');
-                          await Promise.all([
-                            queryClient.invalidateQueries({ queryKey: ['users', activeUser.id, 'links'] }),
-                            queryClient.invalidateQueries({ queryKey: ['users'] }),
-                          ]);
-                        } catch (error) {
-                          toast.error(error instanceof ApiError ? error.message : 'Unable to rotate link');
-                        } finally {
-                          setBusyAction(null);
-                        }
-                      }}
-                      type="button"
-                    >
-                      Reset link
-                    </SecondaryButton>
-                    <SecondaryButton
-                      busy={busyAction === 'single-traffic'}
-                      onClick={async () => {
-                        setBusyAction('single-traffic');
-                        try {
-                          await apiClient.request(`/users/${activeUser.id}/reset-traffic`, { method: 'POST' });
-                          toast.success('Traffic counters reset');
-                          await refreshUsers();
-                        } catch (error) {
-                          toast.error(error instanceof ApiError ? error.message : 'Unable to reset traffic');
-                        } finally {
-                          setBusyAction(null);
-                        }
-                      }}
-                      type="button"
-                    >
-                      Reset traffic
-                    </SecondaryButton>
-                  </div>
-
-                  <div className="space-y-3">
-                    <div className="t-label">Subscription links</div>
-                    {links.isLoading ? (
-                      <>
-                        <Skeleton className="h-16 w-full" />
-                        <Skeleton className="h-16 w-full" />
-                        <Skeleton className="h-16 w-full" />
-                      </>
-                    ) : links.data ? (
-                      <>
-                        <MonoField label="Subscription" value={links.data.subscription} />
-                        <MonoField label="VLESS" value={links.data.vless} />
-                        <MonoField label="Hysteria 2" value={links.data.hysteria2} />
-                        <div className="grid gap-3 sm:grid-cols-3">
-                          <QrThumb image={links.data.qr.subscription} label="Subscription" />
-                          <QrThumb image={links.data.qr.vless} label="VLESS" />
-                          <QrThumb image={links.data.qr.hysteria2} label="Hysteria 2" />
-                        </div>
-                      </>
-                    ) : null}
-                  </div>
-
-                  <div className="space-y-3">
-                    <div className="t-label">Traffic history</div>
-                    <div className="h-36 rounded-md border border-border bg-surface-elevated p-3">
-                      {traffic.isLoading ? (
-                        <Skeleton className="h-full w-full" />
-                      ) : traffic.data?.length ? (
-                        <ResponsiveContainer width="100%" height="100%">
-                          <AreaChart data={traffic.data}>
-                            <defs>
-                              <linearGradient id="userTraffic" x1="0" x2="0" y1="0" y2="1">
-                                <stop offset="0%" stopColor="hsl(var(--primary))" stopOpacity={0.35} />
-                                <stop offset="100%" stopColor="hsl(var(--primary))" stopOpacity={0} />
-                              </linearGradient>
-                            </defs>
-                            <Tooltip
-                              contentStyle={{
-                                backgroundColor: 'hsl(var(--surface))',
-                                border: '1px solid hsl(var(--border))',
-                                borderRadius: '8px',
-                              }}
-                              formatter={(value) => [formatBytes(Number(value)), 'Traffic']}
-                              labelFormatter={(value) => formatDate(value, 'MMM d')}
-                            />
-                            <Area
-                              dataKey={(point: TrafficPoint) => point.downlink + point.uplink}
-                              fill="url(#userTraffic)"
-                              stroke="hsl(var(--primary))"
-                              strokeWidth={2}
-                              type="monotone"
-                            />
-                          </AreaChart>
-                        </ResponsiveContainer>
-                      ) : (
-                        <div className="flex h-full items-center justify-center text-sm text-muted-foreground">No traffic samples yet.</div>
-                      )}
-                    </div>
-                  </div>
-                </>
-              ) : (
-                <EmptyState description="Pick a user row to inspect usage, links, and recent traffic." title="Select a user" />
-              )}
-            </CardContent>
-          </Card>
-        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="font-medium text-foreground">{user.username}</div>
+                        {user.note ? (
+                          <div className="mt-0.5 truncate text-xs text-muted-foreground">{user.note}</div>
+                        ) : null}
+                      </TableCell>
+                      <TableCell>
+                        <StatusBadge status={user.status} />
+                      </TableCell>
+                      <TableCell className="min-w-52">
+                        <TrafficBar total={user.traffic_limit} used={user.traffic_used} />
+                      </TableCell>
+                      <TableCell className="hidden md:table-cell">
+                        <DurationBadge value={user.expires_at} />
+                      </TableCell>
+                      <TableCell className="hidden text-xs text-muted-foreground lg:table-cell">
+                        {formatDate(user.created_at, 'MMM d')}
+                      </TableCell>
+                      <TableCell onClick={(e) => e.stopPropagation()}>
+                        <UserRowMenu onReset={refreshUsers} user={user} />
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          ) : (
+            <EmptyState
+              action={
+                <Button onClick={() => setCreateOpen(true)}>
+                  <Plus />
+                  Create user
+                </Button>
+              }
+              description="Create the first user to generate subscription links."
+              title="No users yet"
+            />
+          )}
+        </Card>
       </div>
 
-      {createOpen ? (
-        <CreateUserDialog
-          onClose={() => setCreateOpen(false)}
-          onCreated={async () => {
-            setCreateOpen(false);
-            await refreshUsers();
-          }}
-        />
-      ) : null}
+      <UserDrawer onClose={() => setDrawerUserId(null)} user={drawerUser} />
+
+      <CreateUserDialog
+        onClose={() => setCreateOpen(false)}
+        onCreated={async () => {
+          setCreateOpen(false);
+          await refreshUsers();
+        }}
+        open={createOpen}
+      />
     </div>
   );
 }
 
-function CreateUserDialog({ onClose, onCreated }: { onClose: () => void; onCreated: () => Promise<void> }) {
+function UserRowMenu({ user, onReset }: { user: User; onReset: () => Promise<void> }) {
+  const [busy, setBusy] = useState<string | null>(null);
+
+  async function run(key: string, action: () => Promise<unknown>, message: string) {
+    setBusy(key);
+    try {
+      await action();
+      toast.success(message);
+      await onReset();
+    } catch (error) {
+      toast.error(error instanceof ApiError ? error.message : 'Action failed');
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button aria-label="Open menu" size="icon" variant="ghost">
+          <MoreHorizontal />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end">
+        <DropdownMenuItem
+          disabled={busy === 'status'}
+          onSelect={() =>
+            run(
+              'status',
+              () =>
+                apiClient.request(`/users/${user.id}`, {
+                  body: JSON.stringify({
+                    status: user.status === 'disabled' ? 'active' : 'disabled',
+                  }),
+                  method: 'PATCH',
+                }),
+              user.status === 'disabled' ? 'User enabled' : 'User disabled',
+            )
+          }
+        >
+          {user.status === 'disabled' ? 'Enable' : 'Disable'}
+        </DropdownMenuItem>
+        <DropdownMenuItem
+          disabled={busy === 'reset-traffic'}
+          onSelect={() =>
+            run(
+              'reset-traffic',
+              () => apiClient.request(`/users/${user.id}/reset-traffic`, { method: 'POST' }),
+              'Traffic reset',
+            )
+          }
+        >
+          <RotateCcw />
+          Reset traffic
+        </DropdownMenuItem>
+        <DropdownMenuItem
+          disabled={busy === 'reset-sub'}
+          onSelect={() =>
+            run(
+              'reset-sub',
+              () => apiClient.request(`/users/${user.id}/reset-sub`, { method: 'POST' }),
+              'Subscription rotated',
+            )
+          }
+        >
+          <RefreshCw />
+          Reset link
+        </DropdownMenuItem>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem
+          disabled={busy === 'delete'}
+          onSelect={() =>
+            run(
+              'delete',
+              () => apiClient.request(`/users/${user.id}`, { method: 'DELETE' }),
+              'User deleted',
+            )
+          }
+          variant="destructive"
+        >
+          <Trash2 />
+          Delete
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
+function UserDrawer({ onClose, user }: { onClose: () => void; user: User | null }) {
+  const queryClient = useQueryClient();
+  const [busy, setBusy] = useState<string | null>(null);
+  const open = Boolean(user);
+
+  const links = useQuery({
+    enabled: open && Boolean(user?.id),
+    queryKey: ['users', user?.id, 'links'],
+    queryFn: () => apiClient.request<UserLinks>(`/users/${user!.id}/links`),
+  });
+
+  const traffic = useQuery({
+    enabled: open && Boolean(user?.id),
+    queryKey: ['users', user?.id, 'traffic'],
+    queryFn: () => apiClient.request<TrafficPoint[]>(`/users/${user!.id}/traffic?days=7`),
+  });
+
+  async function reset() {
+    if (!user) return;
+    setBusy('reset-sub');
+    try {
+      await apiClient.request(`/users/${user.id}/reset-sub`, { method: 'POST' });
+      toast.success('Subscription rotated');
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['users', user.id, 'links'] }),
+        queryClient.invalidateQueries({ queryKey: ['users'] }),
+      ]);
+    } catch (error) {
+      toast.error(error instanceof ApiError ? error.message : 'Action failed');
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  return (
+    <Sheet onOpenChange={(next) => (next ? null : onClose())} open={open}>
+      <SheetContent className="overflow-y-auto" side="right">
+        {user ? (
+          <>
+            <SheetHeader>
+              <SheetTitle className="flex items-center gap-3">
+                {user.username}
+                <StatusBadge status={user.status} />
+              </SheetTitle>
+              <SheetDescription>
+                {user.note || 'No note attached.'}
+              </SheetDescription>
+            </SheetHeader>
+
+            <div className="space-y-5 px-6 pb-6">
+              <TrafficBar animated total={user.traffic_limit} used={user.traffic_used} />
+
+              <div className="divide-y">
+                <DetailStat label="Created" value={formatDateTime(user.created_at)} />
+                <DetailStat
+                  label="Expires"
+                  value={user.expires_at ? formatDateTime(user.expires_at) : 'Never'}
+                />
+                <DetailStat label="Status" value={<StatusBadge status={user.status} />} />
+              </div>
+
+              <Separator />
+
+              <div className="flex flex-wrap gap-2">
+                <Button disabled={busy === 'reset-sub'} onClick={reset} size="sm" variant="secondary">
+                  <RefreshCw />
+                  Reset link
+                </Button>
+              </div>
+
+              <div className="space-y-2">
+                <div className="t-label">Links</div>
+                {links.isLoading ? (
+                  <>
+                    <Skeleton className="h-16 w-full" />
+                    <Skeleton className="h-16 w-full" />
+                    <Skeleton className="h-16 w-full" />
+                  </>
+                ) : links.data ? (
+                  <>
+                    <MonoField label="Subscription" value={links.data.subscription} />
+                    <MonoField label="VLESS" value={links.data.vless} />
+                    <MonoField label="Hysteria 2" value={links.data.hysteria2} />
+                  </>
+                ) : null}
+              </div>
+
+              <div className="space-y-2">
+                <div className="t-label">Traffic · 7 days</div>
+                <div className="h-32 rounded-md bg-muted p-2">
+                  {traffic.isLoading ? (
+                    <Skeleton className="h-full w-full" />
+                  ) : traffic.data?.length ? (
+                    <ResponsiveContainer width="100%" height="100%">
+                      <AreaChart data={traffic.data}>
+                        <defs>
+                          <linearGradient id="userTraffic" x1="0" x2="0" y1="0" y2="1">
+                            <stop offset="0%" stopColor="hsl(var(--primary))" stopOpacity={0.35} />
+                            <stop offset="100%" stopColor="hsl(var(--primary))" stopOpacity={0} />
+                          </linearGradient>
+                        </defs>
+                        <Tooltip
+                          contentStyle={{
+                            backgroundColor: 'hsl(var(--popover))',
+                            border: '1px solid hsl(var(--border))',
+                            borderRadius: '8px',
+                            fontSize: 12,
+                          }}
+                          formatter={(v) => [formatBytes(Number(v)), 'Traffic']}
+                          labelFormatter={(v) => formatDate(v, 'MMM d')}
+                        />
+                        <Area
+                          dataKey={(p: TrafficPoint) => p.downlink + p.uplink}
+                          fill="url(#userTraffic)"
+                          stroke="hsl(var(--primary))"
+                          strokeWidth={2}
+                          type="monotone"
+                        />
+                      </AreaChart>
+                    </ResponsiveContainer>
+                  ) : (
+                    <div className="flex h-full items-center justify-center text-xs text-muted-foreground">
+                      No traffic samples yet.
+                    </div>
+                  )}
+                </div>
+                <div className="text-xs text-muted-foreground">{relativeExpiry(user.expires_at)}</div>
+              </div>
+            </div>
+          </>
+        ) : null}
+      </SheetContent>
+    </Sheet>
+  );
+}
+
+function CreateUserDialog({
+  onClose,
+  onCreated,
+  open,
+}: {
+  onClose: () => void;
+  onCreated: () => Promise<void>;
+  open: boolean;
+}) {
   const [username, setUsername] = useState(generateUsername());
   const [trafficGb, setTrafficGb] = useState<number | null>(50);
   const [expiryDays, setExpiryDays] = useState<number | null>(30);
   const [note, setNote] = useState('');
-  const [busy, setBusy] = useState(false);
 
-  const trafficPresets = [10, 50, 100, 500];
-  const expiryPresets = [7, 30, 90, 365];
-
-  async function submit() {
-    setBusy(true);
-    try {
-      await apiClient.request('/users', {
+  const createMutation = useMutation({
+    mutationFn: () =>
+      apiClient.request('/users', {
         body: JSON.stringify({
           expires_at: expiryDays ? addDays(new Date(), expiryDays).toISOString() : null,
           note,
@@ -488,125 +595,141 @@ function CreateUserDialog({ onClose, onCreated }: { onClose: () => void; onCreat
           username,
         }),
         method: 'POST',
-      });
+      }),
+    onSuccess: async () => {
       toast.success('User created');
+      setUsername(generateUsername());
+      setNote('');
       await onCreated();
-    } catch (error) {
+    },
+    onError: (error) => {
       toast.error(error instanceof ApiError ? error.message : 'Unable to create user');
-    } finally {
-      setBusy(false);
-    }
-  }
+    },
+  });
+
+  const trafficPresets = [10, 50, 100, 500];
+  const expiryPresets = [7, 30, 90, 365];
 
   return (
-    <Modal
-      onClose={onClose}
-      size="lg"
-      subtitle="Generate a new subscription with preset traffic and expiry defaults."
-      title="Create user"
-      footer={
-        <>
-          <SecondaryButton onClick={onClose} type="button">
-            Cancel
-          </SecondaryButton>
-          <Button busy={busy} onClick={() => void submit()} trailingIcon={<ArrowRight className="size-4" />} type="button">
-            Create user
-          </Button>
-        </>
-      }
-    >
-      <div className="space-y-5">
-        <div className="space-y-2">
-          <Label htmlFor="username">Username</Label>
-          <div className="relative">
-            <Input
-              className="pr-11 font-mono"
-              id="username"
-              onChange={(event) => setUsername(event.target.value)}
-              value={username}
+    <Dialog onOpenChange={(next) => (next ? null : onClose())} open={open}>
+      <DialogContent className="sm:max-w-xl">
+        <DialogHeader>
+          <DialogTitle>Create user</DialogTitle>
+          <DialogDescription>New subscription with traffic and expiry defaults.</DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-5">
+          <div className="space-y-2">
+            <Label htmlFor="username">Username</Label>
+            <div className="relative">
+              <Input
+                className="pr-10 font-mono"
+                id="username"
+                onChange={(e) => setUsername(e.target.value)}
+                value={username}
+              />
+              <button
+                aria-label="Regenerate"
+                className="absolute inset-y-0 right-0 flex w-10 items-center justify-center text-muted-foreground transition hover:text-primary"
+                onClick={() => setUsername(generateUsername())}
+                type="button"
+              >
+                <RefreshCw className="size-4" />
+              </button>
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label>Traffic</Label>
+            <div className="flex flex-wrap gap-1.5">
+              {trafficPresets.map((p) => (
+                <PresetChip
+                  active={trafficGb === p}
+                  key={p}
+                  label={`${p} GB`}
+                  onClick={() => setTrafficGb(p)}
+                />
+              ))}
+              <PresetChip
+                active={trafficGb === null}
+                label="Unlimited"
+                onClick={() => setTrafficGb(null)}
+              />
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label>Expires in</Label>
+            <div className="flex flex-wrap gap-1.5">
+              {expiryPresets.map((p) => (
+                <PresetChip
+                  active={expiryDays === p}
+                  key={p}
+                  label={`${p}d`}
+                  onClick={() => setExpiryDays(p)}
+                />
+              ))}
+              <PresetChip
+                active={expiryDays === null}
+                label="Never"
+                onClick={() => setExpiryDays(null)}
+              />
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="note">Note</Label>
+            <Textarea
+              id="note"
+              onChange={(e) => setNote(e.target.value)}
+              placeholder="Friend from Riga..."
+              rows={2}
+              value={note}
             />
-            <button
-              aria-label="Regenerate username"
-              className="absolute inset-y-0 right-0 flex w-10 items-center justify-center text-muted-foreground transition hover:text-primary"
-              onClick={() => setUsername(generateUsername())}
-              type="button"
-            >
-              <RefreshCw className="size-4" />
-            </button>
+          </div>
+
+          <div className="flex items-start gap-2 rounded-md bg-warning/10 px-3 py-2 text-xs text-warning">
+            <AlertTriangle className="mt-0.5 size-3.5 shrink-0" />
+            <span>Subscription links generate immediately.</span>
           </div>
         </div>
 
-        <div className="space-y-2">
-          <Label>Traffic limit</Label>
-          <div className="flex flex-wrap gap-2">
-            {trafficPresets.map((preset) => (
-              <PresetChip key={preset} active={trafficGb === preset} label={`${preset} GB`} onClick={() => setTrafficGb(preset)} />
-            ))}
-            <PresetChip active={trafficGb === null} label="Unlimited" onClick={() => setTrafficGb(null)} />
-          </div>
-          <Input
-            min={1}
-            onChange={(event) => setTrafficGb(event.target.value ? Number(event.target.value) : null)}
-            placeholder="Custom GB"
-            type="number"
-            value={trafficGb ?? ''}
-          />
-        </div>
-
-        <div className="space-y-2">
-          <Label>Expires in</Label>
-          <div className="flex flex-wrap gap-2">
-            {expiryPresets.map((preset) => (
-              <PresetChip key={preset} active={expiryDays === preset} label={`${preset} days`} onClick={() => setExpiryDays(preset)} />
-            ))}
-            <PresetChip active={expiryDays === null} label="Never" onClick={() => setExpiryDays(null)} />
-          </div>
-          <Input
-            min={1}
-            onChange={(event) => setExpiryDays(event.target.value ? Number(event.target.value) : null)}
-            placeholder="Custom days"
-            type="number"
-            value={expiryDays ?? ''}
-          />
-        </div>
-
-        <div className="space-y-2">
-          <Label htmlFor="note">Note <span className="text-[10px] font-normal uppercase tracking-[0.08em] text-faint">Optional</span></Label>
-          <Textarea id="note" onChange={(event) => setNote(event.target.value)} placeholder="Friend from Riga..." rows={3} value={note} />
-        </div>
-
-        <div className="flex items-start gap-2 rounded-md border border-warning/25 bg-warning/10 px-3 py-2.5 text-xs text-warning">
-          <AlertTriangle className="mt-0.5 size-4 shrink-0" />
-          <span>Subscription links are generated immediately after creation.</span>
-        </div>
-      </div>
-    </Modal>
+        <DialogFooter>
+          <Button onClick={onClose} variant="secondary">
+            Cancel
+          </Button>
+          <Button disabled={createMutation.isPending} onClick={() => createMutation.mutate()}>
+            Create
+            <ArrowRight />
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 
-function PresetChip({ active, label, onClick }: { active: boolean; label: string; onClick: () => void }) {
+function PresetChip({
+  active,
+  label,
+  onClick,
+}: {
+  active: boolean;
+  label: string;
+  onClick: () => void;
+}) {
   return (
     <button
       className={cn(
-        'rounded-md border px-3 py-1.5 text-xs font-medium transition',
+        'rounded-md px-3 py-1.5 text-xs font-medium transition',
         active
-          ? 'border-primary/30 bg-primary/10 text-foreground'
-          : 'border-border bg-surface-elevated text-muted-foreground hover:border-border-strong hover:text-foreground',
+          ? 'bg-primary/15 text-primary'
+          : 'bg-muted text-muted-foreground hover:text-foreground',
       )}
       onClick={onClick}
       type="button"
     >
       {label}
     </button>
-  );
-}
-
-function QrThumb({ image, label }: { image: string; label: string }) {
-  return (
-    <div className="space-y-2 rounded-md border border-border bg-surface-elevated p-3">
-      <div className="t-label">{label}</div>
-      <img alt={label} className="w-full rounded-sm bg-white" src={image} />
-    </div>
   );
 }
 

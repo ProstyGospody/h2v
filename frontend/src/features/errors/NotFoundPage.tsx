@@ -1,6 +1,7 @@
 import { Link } from '@tanstack/react-router';
 import { ArrowLeft, Compass } from 'lucide-react';
-import { Button, Card, CardContent } from '@/shared/ui/primitives';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
 
 export function NotFoundPage() {
   return (
@@ -22,16 +23,18 @@ export function NotFoundPage() {
               <div className="font-mono text-xs text-faint">404</div>
               <h1 className="t-h1 text-foreground">Page not found</h1>
               <p className="text-sm text-muted-foreground">
-                The route you tried to reach doesn't exist or was moved. Head back to the dashboard to continue.
+                The route you tried to reach doesn't exist or was moved. Head back to the
+                dashboard to continue.
               </p>
             </div>
 
             <div className="flex items-center justify-center">
-              <Link to="/">
-                <Button leadingIcon={<ArrowLeft className="size-4" />} type="button">
+              <Button asChild>
+                <Link to="/">
+                  <ArrowLeft className="size-4" />
                   Back to dashboard
-                </Button>
-              </Link>
+                </Link>
+              </Button>
             </div>
           </CardContent>
         </Card>

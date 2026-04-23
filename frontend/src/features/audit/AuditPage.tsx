@@ -1,10 +1,22 @@
 import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { ChevronDown, ChevronRight } from 'lucide-react';
+import { Card, CardContent } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Skeleton } from '@/components/ui/skeleton';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
+import { cn } from '@/lib/utils';
 import { apiClient } from '@/shared/api/client';
 import { AuditEntry } from '@/shared/api/types';
 import { formatDate, formatShortDateTime } from '@/shared/lib/format';
-import { Card, EmptyState, Input, PageHeader, Skeleton, cn } from '@/shared/ui/primitives';
+import { EmptyState, PageHeader } from '@/shared/ui/primitives';
 
 export function AuditPage() {
   const [query, setQuery] = useState('');
@@ -34,7 +46,7 @@ export function AuditPage() {
         subtitle="Administrative actions, targets, and attached metadata."
         action={
           <Input
-            className="w-60"
+            className="w-full sm:w-72"
             onChange={(event) => setQuery(event.target.value)}
             placeholder="Filter by action, target..."
             value={query}
@@ -45,50 +57,57 @@ export function AuditPage() {
       <div className="px-5 pt-6 sm:px-8">
         <Card className="overflow-hidden">
           {audit.isLoading ? (
-            <div className="space-y-2 p-6">
+            <CardContent className="space-y-2 p-6">
               {Array.from({ length: 8 }).map((_, index) => (
                 <Skeleton key={index} className="h-10 w-full" />
               ))}
-            </div>
+            </CardContent>
           ) : filtered.length ? (
-            <div className="overflow-x-auto">
-              <table className="min-w-full text-left text-sm">
-                <thead className="bg-surface-elevated text-muted-foreground">
-                  <tr>
-                    <th className="t-label px-5 py-3 font-medium" style={{ width: 140 }}>Time</th>
-                    <th className="t-label px-5 py-3 font-medium" style={{ width: 100 }}>Actor</th>
-                    <th className="t-label px-5 py-3 font-medium">Action</th>
-                    <th className="t-label px-5 py-3 font-medium">Target</th>
-                    <th className="t-label hidden px-5 py-3 font-medium lg:table-cell" style={{ width: 140 }}>IP</th>
-                    <th className="px-5 py-3" style={{ width: 40 }} />
-                  </tr>
-                </thead>
-                <tbody>
-                  {groups.flatMap((group) => [
-                    <tr key={`h-${group.day}`} className="border-t border-border bg-surface-sunken">
-                      <td
-                        className="t-label px-5 py-2 text-muted-foreground"
-                        colSpan={6}
-                      >
-                        {group.label}
-                      </td>
-                    </tr>,
-                    ...group.entries.map((entry) => <AuditRow entry={entry} key={entry.id} />),
-                  ])}
-                </tbody>
-              </table>
-            </div>
+            <Table>
+              <TableHeader className="bg-surface-elevated">
+                <TableRow className="hover:bg-surface-elevated">
+                  <TableHead className="px-5 py-3" style={{ width: 140 }}>
+                    Time
+                  </TableHead>
+                  <TableHead className="px-5 py-3" style={{ width: 100 }}>
+                    Actor
+                  </TableHead>
+                  <TableHead className="px-5 py-3">Action</TableHead>
+                  <TableHead className="px-5 py-3">Target</TableHead>
+                  <TableHead className="hidden px-5 py-3 lg:table-cell" style={{ width: 140 }}>
+                    IP
+                  </TableHead>
+                  <TableHead className="px-5 py-3" style={{ width: 40 }} />
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {groups.flatMap((group) => [
+                  <TableRow
+                    className="bg-surface-sunken hover:bg-surface-sunken"
+                    key={`h-${group.day}`}
+                  >
+                    <TableCell
+                      className="px-5 py-2 text-[11px] uppercase tracking-[0.06em] text-muted-foreground"
+                      colSpan={6}
+                    >
+                      {group.label}
+                    </TableCell>
+                  </TableRow>,
+                  ...group.entries.map((entry) => <AuditRow entry={entry} key={entry.id} />),
+                ])}
+              </TableBody>
+            </Table>
           ) : (
-            <div className="p-6">
+            <CardContent className="p-6">
               <EmptyState
                 description={
                   query
-                    ? 'No entries match that filter — try a different action or target.'
+                    ? 'No entries match that filter. Try a different action or target.'
                     : 'Administrative activity will appear here once the panel starts processing changes.'
                 }
                 title={query ? 'Nothing matches' : 'No audit events yet'}
               />
-            </div>
+            </CardContent>
           )}
         </Card>
       </div>
@@ -105,44 +124,63 @@ function AuditRow({ entry }: { entry: AuditEntry }) {
 
   return (
     <>
-      <tr
+      <TableRow
         className={cn(
-          'border-t border-border/70 transition',
+          'border-border/70 transition',
           hasDetails ? 'cursor-pointer hover:bg-[hsl(var(--hover-overlay))]' : '',
           open && 'bg-[hsl(var(--hover-overlay))]',
         )}
-        onClick={() => hasDetails && setOpen((v) => !v)}
+        onClick={() => hasDetails && setOpen((value) => !value)}
       >
-        <td className="px-5 py-3 align-top">
-          <div className="font-mono text-xs text-foreground">{time.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}</div>
-        </td>
-        <td className="px-5 py-3 align-top">
-          <span className={cn('text-xs', isSystem ? 'text-muted-foreground' : 'font-medium text-foreground')}>{actor}</span>
-        </td>
-        <td className="px-5 py-3 align-top">
+        <TableCell className="px-5 py-3 align-top">
+          <div className="font-mono text-xs text-foreground">
+            {time.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}
+          </div>
+        </TableCell>
+        <TableCell className="px-5 py-3 align-top">
+          <span
+            className={cn(
+              'text-xs',
+              isSystem ? 'text-muted-foreground' : 'font-medium text-foreground',
+            )}
+          >
+            {actor}
+          </span>
+        </TableCell>
+        <TableCell className="px-5 py-3 align-top">
           <span className="font-mono text-xs text-foreground">{entry.action}</span>
-        </td>
-        <td className="px-5 py-3 align-top">
+        </TableCell>
+        <TableCell className="px-5 py-3 align-top">
           <span className="text-sm text-muted-foreground">
             <span className="text-foreground">{entry.target_type}</span>
-            {entry.target_id ? <span className="ml-1 font-mono text-xs">:{entry.target_id}</span> : null}
+            {entry.target_id ? (
+              <span className="ml-1 font-mono text-xs">:{entry.target_id}</span>
+            ) : null}
           </span>
-        </td>
-        <td className="hidden px-5 py-3 align-top font-mono text-xs text-muted-foreground lg:table-cell">
-          {entry.ip || '—'}
-        </td>
-        <td className="px-5 py-3 align-top text-muted-foreground">
-          {hasDetails ? (open ? <ChevronDown className="size-4" /> : <ChevronRight className="size-4" />) : null}
-        </td>
-      </tr>
+        </TableCell>
+        <TableCell className="hidden px-5 py-3 align-top font-mono text-xs text-muted-foreground lg:table-cell">
+          {entry.ip || '--'}
+        </TableCell>
+        <TableCell className="px-5 py-3 align-top text-muted-foreground">
+          {hasDetails ? (
+            open ? (
+              <ChevronDown className="size-4" />
+            ) : (
+              <ChevronRight className="size-4" />
+            )
+          ) : null}
+        </TableCell>
+      </TableRow>
       {open && hasDetails ? (
-        <tr className="border-t border-border/40 bg-surface-sunken">
-          <td className="px-5 py-4" colSpan={6}>
+        <TableRow className="bg-surface-sunken hover:bg-surface-sunken">
+          <TableCell className="px-5 py-4" colSpan={6}>
             <div className="grid gap-3 lg:grid-cols-[200px_1fr]">
               <div className="space-y-2 text-xs text-muted-foreground">
                 <div>
                   <div className="t-label mb-1">Timestamp</div>
-                  <div className="font-mono text-[11px] text-foreground">{formatShortDateTime(entry.created_at)}</div>
+                  <div className="font-mono text-[11px] text-foreground">
+                    {formatShortDateTime(entry.created_at)}
+                  </div>
                 </div>
                 {entry.ip ? (
                   <div>
@@ -153,7 +191,9 @@ function AuditRow({ entry }: { entry: AuditEntry }) {
                 {entry.user_agent ? (
                   <div>
                     <div className="t-label mb-1">User agent</div>
-                    <div className="break-all font-mono text-[11px] text-muted-foreground">{entry.user_agent}</div>
+                    <div className="break-all font-mono text-[11px] text-muted-foreground">
+                      {entry.user_agent}
+                    </div>
                   </div>
                 ) : null}
               </div>
@@ -166,8 +206,8 @@ function AuditRow({ entry }: { entry: AuditEntry }) {
                 </div>
               ) : null}
             </div>
-          </td>
-        </tr>
+          </TableCell>
+        </TableRow>
       ) : null}
     </>
   );
@@ -195,7 +235,9 @@ function formatDayLabel(value: string): string {
   const yesterday = new Date();
   yesterday.setDate(today.getDate() - 1);
   const sameDay = (a: Date, b: Date) =>
-    a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
+    a.getFullYear() === b.getFullYear() &&
+    a.getMonth() === b.getMonth() &&
+    a.getDate() === b.getDate();
   if (sameDay(d, today)) return 'Today';
   if (sameDay(d, yesterday)) return 'Yesterday';
   return formatDate(d, 'EEEE, MMM d');

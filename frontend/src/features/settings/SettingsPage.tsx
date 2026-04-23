@@ -1,44 +1,29 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
+import { Skeleton } from '@/components/ui/skeleton';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Textarea } from '@/components/ui/textarea';
+import { cn } from '@/lib/utils';
 import { apiClient } from '@/shared/api/client';
 import { Setting } from '@/shared/api/types';
-import {
-  Card,
-  CardContent,
-  EmptyState,
-  PageHeader,
-  SecondaryButton,
-  Textarea,
-  Button,
-} from '@/shared/ui/primitives';
+import { EmptyState, PageHeader } from '@/shared/ui/primitives';
 
-type SettingsGroupKey = 'protocols' | 'domains' | 'security' | 'misc';
+type GroupKey = 'protocols' | 'domains' | 'security' | 'misc';
 
-type SettingsGroup = {
-  description: string;
+type Group = {
   items: Setting[];
-  key: SettingsGroupKey;
+  key: GroupKey;
   label: string;
 };
 
-const groupMeta: Record<SettingsGroupKey, { description: string; label: string }> = {
-  domains: {
-    description: 'Public-facing domains, SNI, and destinations.',
-    label: 'Domains',
-  },
-  misc: {
-    description: 'Everything else that does not fit protocol or security buckets.',
-    label: 'Misc',
-  },
-  protocols: {
-    description: 'Runtime protocol knobs for VLESS and Hysteria.',
-    label: 'Protocols',
-  },
-  security: {
-    description: 'Reality keys and other security-sensitive values.',
-    label: 'Security',
-  },
+const meta: Record<GroupKey, { label: string }> = {
+  protocols: { label: 'Protocols' },
+  domains: { label: 'Domains' },
+  security: { label: 'Security' },
+  misc: { label: 'Misc' },
 };
 
 export function SettingsPage() {
@@ -49,10 +34,10 @@ export function SettingsPage() {
   });
   const [draft, setDraft] = useState<Record<string, string>>({});
   const groups = useMemo(() => buildGroups(settings.data ?? []), [settings.data]);
-  const [activeGroup, setActiveGroup] = useState<SettingsGroupKey>('protocols');
+  const [activeGroup, setActiveGroup] = useState<GroupKey>('protocols');
 
   useEffect(() => {
-    if (groups.length && !groups.some((group) => group.key === activeGroup)) {
+    if (groups.length && !groups.some((g) => g.key === activeGroup)) {
       setActiveGroup(groups[0].key);
     }
   }, [activeGroup, groups]);
@@ -61,7 +46,9 @@ export function SettingsPage() {
     mutationFn: () => {
       let payload: Record<string, unknown>;
       try {
-        payload = Object.fromEntries(Object.entries(draft).map(([key, value]) => [key, JSON.parse(value)]));
+        payload = Object.fromEntries(
+          Object.entries(draft).map(([k, v]) => [k, JSON.parse(v)]),
+        );
       } catch {
         toast.error('One or more settings contain invalid JSON');
         throw new Error('invalid_json');
@@ -78,106 +65,117 @@ export function SettingsPage() {
     },
   });
 
-  const currentGroup = groups.find((group) => group.key === activeGroup) ?? groups[0];
+  const currentGroup = groups.find((g) => g.key === activeGroup) ?? groups[0];
+  const hasDraft = Object.keys(draft).length > 0;
 
   return (
-    <div className="pb-8">
+    <div className="pb-10">
       <PageHeader
         title="Settings"
-        subtitle="Protocol, domain, and security values backed by runtime configuration."
         action={
-          <>
-            <SecondaryButton onClick={() => setDraft({})} type="button">
-              Discard
-            </SecondaryButton>
-            <Button busy={save.isPending} disabled={!Object.keys(draft).length} onClick={() => save.mutate()} type="button">
-              Save changes
-            </Button>
-          </>
+          hasDraft ? (
+            <>
+              <Button onClick={() => setDraft({})} size="sm" variant="ghost">
+                Discard
+              </Button>
+              <Button disabled={save.isPending} onClick={() => save.mutate()} size="sm">
+                Save
+              </Button>
+            </>
+          ) : null
         }
       />
 
-      <div className="grid gap-6 px-5 pt-6 sm:px-8 lg:grid-cols-[220px_1fr]">
-        <nav className="h-fit rounded-lg border border-border bg-surface p-2">
-          <div className="space-y-0.5">
-            {groups.map((group) => {
-              const active = group.key === currentGroup?.key;
-              return (
-                <button
-                  key={group.key}
-                  className={
-                    active
-                      ? 'flex w-full items-center justify-between rounded-md bg-[hsl(var(--primary)/0.08)] px-3 py-2 text-left text-sm font-medium text-foreground shadow-[inset_2px_0_0_hsl(var(--primary))]'
-                      : 'flex w-full items-center justify-between rounded-md px-3 py-2 text-left text-sm text-muted-foreground transition hover:bg-[hsl(var(--hover-overlay))] hover:text-foreground'
-                  }
-                  onClick={() => setActiveGroup(group.key)}
-                  type="button"
-                >
-                  <span>{group.label}</span>
-                  <span className="font-mono text-[10px] text-faint">{group.items.length}</span>
-                </button>
-              );
-            })}
-          </div>
-        </nav>
+      <Tabs
+        className="gap-6 px-5 pt-6 sm:px-8 lg:grid lg:grid-cols-[200px_1fr] lg:items-start"
+        onValueChange={(value) => setActiveGroup(value as GroupKey)}
+        value={currentGroup?.key ?? activeGroup}
+      >
+        <TabsList className="h-auto w-full flex-wrap justify-start gap-1 bg-transparent p-0 lg:flex-col lg:items-stretch">
+          {groups.map((group) => (
+            <TabsTrigger
+              className={cn(
+                'h-auto min-w-[120px] justify-between rounded-md px-3 py-2 text-left text-sm',
+                'data-[state=active]:bg-[hsl(var(--primary)/0.08)] data-[state=active]:text-foreground',
+                'data-[state=active]:shadow-[inset_2px_0_0_hsl(var(--primary))]',
+                'lg:w-full',
+              )}
+              key={group.key}
+              value={group.key}
+            >
+              <span>{group.label}</span>
+              <span className="font-mono text-[10px] text-muted-foreground/60">
+                {group.items.length}
+              </span>
+            </TabsTrigger>
+          ))}
+        </TabsList>
 
-        <div className="space-y-4">
-          {currentGroup ? (
-            <div className="space-y-1">
-              <div className="t-h2 text-foreground">{currentGroup.label}</div>
-              <p className="text-sm text-muted-foreground">{currentGroup.description}</p>
-            </div>
-          ) : null}
-
-          {settings.isLoading ? (
-            Array.from({ length: 4 }).map((_, index) => (
-              <Card key={index}>
-                <CardContent className="space-y-4">
-                  <div className="skeleton h-5 w-48 rounded-md" />
-                  <div className="skeleton h-28 w-full rounded-md" />
-                </CardContent>
-              </Card>
-            ))
-          ) : currentGroup ? (
-            currentGroup.items.map((setting) => (
-              <Card key={setting.key}>
-                <CardContent className="space-y-4">
-                  <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-                    <div className="min-w-0">
-                      <div className="text-sm font-semibold text-foreground">{titleizeKey(setting.key)}</div>
-                      <div className="mt-1 text-xs text-muted-foreground">{describeSetting(setting.key)}</div>
-                    </div>
-                    <div className="shrink-0 space-y-1 text-right">
-                      <div className="font-mono text-[11px] text-faint">{setting.key}</div>
-                      <div className="text-[10px] text-muted-foreground">Updated {new Date(setting.updated_at).toLocaleString()}</div>
-                    </div>
-                  </div>
-                  <Textarea
-                    className="font-mono text-xs"
-                    rows={Math.min(10, Math.max(3, JSON.stringify(setting.value, null, 2).split('\n').length))}
-                    value={draft[setting.key] ?? JSON.stringify(setting.value, null, 2)}
-                    onChange={(event) => setDraft((current) => ({ ...current, [setting.key]: event.target.value }))}
-                  />
-                </CardContent>
-              </Card>
-            ))
-          ) : (
-            <EmptyState description="Settings bootstrap has not created any values yet." title="No runtime settings" />
-          )}
+        <div className="space-y-3">
+          {settings.isLoading
+            ? Array.from({ length: 4 }).map((_, i) => <Skeleton className="h-40 w-full" key={i} />)
+            : currentGroup
+              ? (
+                  <TabsContent className="mt-0 space-y-3" forceMount value={currentGroup.key}>
+                    {currentGroup.items.map((setting) => (
+                      <Card key={setting.key}>
+                        <CardContent className="space-y-3 p-5">
+                          <div className="flex items-start justify-between gap-4">
+                            <div className="min-w-0">
+                              <div className="text-sm font-semibold text-foreground">
+                                {titleize(setting.key)}
+                              </div>
+                              <div className="mt-0.5 font-mono text-[11px] text-muted-foreground/70">
+                                {setting.key}
+                              </div>
+                            </div>
+                            <div className="shrink-0 text-[10px] text-muted-foreground">
+                              {new Date(setting.updated_at).toLocaleDateString()}
+                            </div>
+                          </div>
+                          <Textarea
+                            className={cn(
+                              'font-mono text-xs',
+                              draft[setting.key] !== undefined && 'ring-2 ring-primary/30',
+                            )}
+                            onChange={(e) =>
+                              setDraft((curr) => ({ ...curr, [setting.key]: e.target.value }))
+                            }
+                            rows={Math.min(
+                              10,
+                              Math.max(
+                                3,
+                                JSON.stringify(setting.value, null, 2).split('\n').length,
+                              ),
+                            )}
+                            value={draft[setting.key] ?? JSON.stringify(setting.value, null, 2)}
+                          />
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </TabsContent>
+                )
+              : (
+                  <Card>
+                    <EmptyState
+                      description="Settings bootstrap hasn't created any values yet."
+                      title="No settings"
+                    />
+                  </Card>
+                )}
         </div>
-      </div>
+      </Tabs>
     </div>
   );
 }
 
-function buildGroups(items: Setting[]): SettingsGroup[] {
-  const buckets: Record<SettingsGroupKey, Setting[]> = {
-    domains: [],
-    misc: [],
+function buildGroups(items: Setting[]): Group[] {
+  const buckets: Record<GroupKey, Setting[]> = {
     protocols: [],
+    domains: [],
     security: [],
+    misc: [],
   };
-
   for (const item of items) {
     const key = item.key;
     if (key.startsWith('vless.') || key.startsWith('hy2.')) {
@@ -188,40 +186,26 @@ function buildGroups(items: Setting[]): SettingsGroup[] {
       buckets.security.push(item);
       continue;
     }
-    if (key.includes('domain') || key.includes('sni') || key.includes('dest') || key.includes('masquerade')) {
+    if (
+      key.includes('domain') ||
+      key.includes('sni') ||
+      key.includes('dest') ||
+      key.includes('masquerade')
+    ) {
       buckets.domains.push(item);
       continue;
     }
     buckets.misc.push(item);
   }
-
-  return (Object.keys(groupMeta) as SettingsGroupKey[])
-    .map((key) => ({ ...groupMeta[key], items: buckets[key], key }))
-    .filter((group) => group.items.length);
+  return (Object.keys(meta) as GroupKey[])
+    .map((key) => ({ ...meta[key], items: buckets[key], key }))
+    .filter((g) => g.items.length);
 }
 
-function titleizeKey(key: string): string {
+function titleize(key: string): string {
   return key
     .split('.')
     .map((part) => part.split('_').join(' '))
     .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
     .join(' / ');
-}
-
-function describeSetting(key: string): string {
-  const descriptions: Record<string, string> = {
-    'hy2.bandwidth_down': 'Advertised downstream bandwidth for Hysteria clients.',
-    'hy2.bandwidth_up': 'Advertised upstream bandwidth for Hysteria clients.',
-    'hy2.domain': 'Public domain used for Hysteria links.',
-    'hy2.masquerade_url': 'Masquerade target served by Hysteria when probing.',
-    'hy2.obfs_enabled': 'Obfuscation toggle for Hysteria transport.',
-    'hy2.port': 'Listening port for Hysteria.',
-    'panel.domain': 'Primary panel domain used for generated links.',
-    'reality.dest': 'Reality destination used by the upstream handshake.',
-    'reality.public_key': 'Published Reality public key.',
-    'reality.short_ids': 'Allowed short IDs for Reality clients.',
-    'reality.sni': 'Reality SNI announced to clients.',
-    'vless.port': 'Listening port for the VLESS endpoint.',
-  };
-  return descriptions[key] ?? 'Stored as JSON and applied by the backend runtime.';
 }
