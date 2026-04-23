@@ -19,11 +19,23 @@ export function AppProviders({ children }: PropsWithChildren) {
   const toaster = useMemo(
     () => (
       <Toaster
-        position="top-right"
-        richColors
+        closeButton
+        duration={4000}
+        position="bottom-right"
         theme="dark"
         toastOptions={{
-          className: 'border border-border bg-surface text-foreground',
+          classNames: {
+            toast:
+              'group rounded-md border border-border bg-surface-elevated px-4 py-3 text-sm text-foreground shadow-[0_16px_48px_-12px_rgba(0,0,0,0.6)]',
+            title: 'text-sm font-medium',
+            description: 'text-xs text-muted-foreground',
+            actionButton: 'rounded-md bg-primary px-2.5 py-1 text-xs font-medium text-primary-foreground',
+            cancelButton: 'rounded-md border border-border px-2.5 py-1 text-xs font-medium text-muted-foreground',
+            success: 'border-success/30',
+            error: 'border-destructive/35',
+            warning: 'border-warning/30',
+            info: 'border-border',
+          },
         }}
       />
     ),

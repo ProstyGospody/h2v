@@ -1,0 +1,41 @@
+import { Link } from '@tanstack/react-router';
+import { ArrowLeft, Compass } from 'lucide-react';
+import { Button, Card, CardContent } from '@/shared/ui/primitives';
+
+export function NotFoundPage() {
+  return (
+    <div className="relative min-h-screen overflow-hidden bg-background px-4 py-10 text-foreground">
+      <div aria-hidden className="absolute inset-0 bg-grid opacity-40" />
+      <div
+        aria-hidden
+        className="absolute inset-x-0 top-[-20%] h-[55%] bg-[radial-gradient(ellipse_at_top,hsl(var(--primary)/0.1),transparent_70%)]"
+      />
+
+      <div className="relative mx-auto flex min-h-screen w-full max-w-[480px] flex-col items-center justify-center">
+        <Card className="w-full">
+          <CardContent className="space-y-6 p-8 text-center">
+            <div className="mx-auto flex size-12 items-center justify-center rounded-md border border-border bg-surface-elevated text-muted-foreground">
+              <Compass className="size-5" />
+            </div>
+
+            <div className="space-y-2">
+              <div className="font-mono text-xs text-faint">404</div>
+              <h1 className="t-h1 text-foreground">Page not found</h1>
+              <p className="text-sm text-muted-foreground">
+                The route you tried to reach doesn't exist or was moved. Head back to the dashboard to continue.
+              </p>
+            </div>
+
+            <div className="flex items-center justify-center">
+              <Link to="/">
+                <Button leadingIcon={<ArrowLeft className="size-4" />} type="button">
+                  Back to dashboard
+                </Button>
+              </Link>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    </div>
+  );
+}

@@ -159,12 +159,22 @@
 
   ::-webkit-scrollbar-thumb {
     background: hsl(var(--border));
-    border-radius: 6px;
+    border-radius: 999px;
     border: 2px solid hsl(var(--background));
+    transition: background 150ms ease-out;
   }
 
   ::-webkit-scrollbar-thumb:hover {
-    background: hsl(var(--border-strong));
+    background: hsl(var(--primary) / 0.55);
+  }
+
+  ::-webkit-scrollbar-corner {
+    background: transparent;
+  }
+
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: hsl(var(--border)) transparent;
   }
 }
 

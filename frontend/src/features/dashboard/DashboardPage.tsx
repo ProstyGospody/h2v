@@ -59,26 +59,30 @@ export function DashboardPage() {
         <MetricCard
           icon={<Users className="size-4" />}
           label="Active users"
+          loading={overview.isLoading}
           note={`${formatNumber(data?.expired_users ?? 0)} expired`}
-          value={overview.isLoading ? <Skeleton className="h-7 w-20" /> : formatNumber(data?.active_users ?? 0)}
+          value={formatNumber(data?.active_users ?? 0)}
         />
         <MetricCard
           icon={<Activity className="size-4" />}
           label="Today traffic"
+          loading={overview.isLoading}
           note={`${formatNumber(data?.limited_users ?? 0)} limited`}
-          value={overview.isLoading ? <Skeleton className="h-7 w-28" /> : formatBytes(data?.today_traffic ?? 0)}
+          value={formatBytes(data?.today_traffic ?? 0)}
         />
         <MetricCard
           icon={<Radio className="size-4" />}
           label="Online now"
+          loading={overview.isLoading}
           note="Last 60 seconds"
-          value={overview.isLoading ? <Skeleton className="h-7 w-16" /> : formatNumber(data?.online_users?.length ?? 0)}
+          value={formatNumber(data?.online_users?.length ?? 0)}
         />
         <MetricCard
           icon={<Ban className="size-4" />}
           label="Disabled"
+          loading={overview.isLoading}
           note="Manually blocked"
-          value={overview.isLoading ? <Skeleton className="h-7 w-16" /> : formatNumber(data?.disabled_users ?? 0)}
+          value={formatNumber(data?.disabled_users ?? 0)}
         />
       </div>
 

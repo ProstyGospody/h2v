@@ -244,6 +244,7 @@ export function MetricCard({
   deltaTone = 'neutral',
   icon,
   label,
+  loading = false,
   note,
   value,
 }: {
@@ -251,6 +252,7 @@ export function MetricCard({
   deltaTone?: DeltaTone;
   icon?: ReactNode;
   label: string;
+  loading?: boolean;
   note?: ReactNode;
   value: ReactNode;
 }) {
@@ -259,14 +261,20 @@ export function MetricCard({
 
   return (
     <Card className="h-full">
-      <CardContent className="flex h-full flex-col gap-4 p-5">
+      <CardContent className="flex h-full flex-col gap-3 p-5">
         <div className="flex items-center gap-2 text-muted-foreground">
           {icon ? <span className="text-faint">{icon}</span> : null}
           <span className="t-label">{label}</span>
         </div>
-        <div className="t-metric text-foreground">{value}</div>
-        {delta ? <div className={cn('text-xs', deltaClass)}>{delta}</div> : null}
-        {note ? <div className="text-xs text-muted-foreground">{note}</div> : null}
+        {loading ? <Skeleton className="h-7 w-24" /> : <div className="t-metric text-foreground">{value}</div>}
+        {loading ? (
+          <Skeleton className="h-3 w-32" />
+        ) : (
+          <>
+            {delta ? <div className={cn('text-xs', deltaClass)}>{delta}</div> : null}
+            {note ? <div className="text-xs text-muted-foreground">{note}</div> : null}
+          </>
+        )}
       </CardContent>
     </Card>
   );

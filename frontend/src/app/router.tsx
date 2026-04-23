@@ -1,16 +1,21 @@
-import type { ComponentType } from 'react';
+import { useState, type ComponentType } from 'react';
 import { Link, Outlet, createRootRoute, createRoute, createRouter } from '@tanstack/react-router';
-import { FileCode2, LayoutDashboard, LogOut, ScrollText, Settings2, Users, Zap } from 'lucide-react';
+import { useQuery } from '@tanstack/react-query';
+import { FileCode2, LayoutDashboard, LogOut, ScrollText, Search, Settings2, Users, Zap } from 'lucide-react';
 import { AppProviders } from '@/app/providers';
 import { AuditPage } from '@/features/audit/AuditPage';
 import { LoginPage } from '@/features/auth/LoginPage';
 import { useAuth } from '@/features/auth/useAuth';
 import { ConfigsPage } from '@/features/configs/ConfigsPage';
 import { DashboardPage } from '@/features/dashboard/DashboardPage';
+import { NotFoundPage } from '@/features/errors/NotFoundPage';
 import { SettingsPage } from '@/features/settings/SettingsPage';
 import { SubPage } from '@/features/subscription/SubPage';
 import { UsersPage } from '@/features/users/UsersPage';
+import { apiClient } from '@/shared/api/client';
+import { OverviewStats } from '@/shared/api/types';
 import { BrandMark } from '@/shared/ui/primitives';
+import { CommandPalette, useCommandPaletteShortcut } from '@/shared/ui/CommandPalette';
 
 type LinkTo = '/' | '/users' | '/settings' | '/audit' | '/configs/$core';
 
@@ -24,6 +29,8 @@ function RootLayout() {
 
 function ProtectedShell() {
   const { admin, logout, ready } = useAuth();
+  const [paletteOpen, setPaletteOpen] = useState(false);
+  useCommandPaletteShortcut(() => setPaletteOpen(true));
 
   if (!ready) {
     return <div className="flex min-h-screen items-center justify-center bg-background text-muted-foreground">Loading...</div>;
@@ -54,6 +61,16 @@ function ProtectedShell() {
             </div>
 
             <div className="flex-1 overflow-y-auto px-3 py-4">
+              <button
+                className="mb-4 flex w-full items-center gap-2 rounded-md border border-border bg-surface-elevated px-3 py-2 text-left text-xs text-muted-foreground transition hover:border-border-strong hover:bg-[hsl(var(--hover-overlay))] hover:text-foreground"
+                onClick={() => setPaletteOpen(true)}
+                type="button"
+              >
+                <Search className="size-3.5" />
+                <span className="flex-1">Quick search...</span>
+                <kbd className="rounded border border-border bg-surface px-1.5 py-0.5 font-mono text-[10px] text-faint">⌘K</kbd>
+              </button>
+
               <nav className="space-y-0.5">
                 {primaryLinks.map((link) => (
                   <SidebarLink key={link.to} icon={link.icon} label={link.label} to={link.to} />
@@ -76,9 +93,10 @@ function ProtectedShell() {
               </div>
             </div>
 
-            <div className="border-t border-border p-3">
+            <div className="space-y-2 border-t border-border p-3">
+              <KernelStatusPill />
               <button
-                className="group flex w-full items-center gap-3 rounded-md border border-transparent px-3 py-2.5 text-left transition hover:border-border hover:bg-[hsl(var(--hover-overlay))]"
+                className="group flex w-full items-center gap-3 rounded-md border border-transparent px-3 py-2 text-left transition hover:border-border hover:bg-[hsl(var(--hover-overlay))]"
                 onClick={async () => {
                   await logout();
                 }}
@@ -125,6 +143,45 @@ function ProtectedShell() {
           <Outlet />
         </main>
       </div>
+      <CommandPalette onClose={() => setPaletteOpen(false)} open={paletteOpen} />
+    </div>
+  );
+}
+
+function KernelStatusPill() {
+  const overview = useQuery({
+    queryKey: ['stats', 'overview'],
+    queryFn: () => apiClient.request<OverviewStats>('/stats/overview'),
+    refetchInterval: 15_000,
+    staleTime: 10_000,
+  });
+
+  const running = (status?: string) => (status ?? '').toLowerCase().includes('run') || (status ?? '').toLowerCase().includes('ok');
+  const xray = running(overview.data?.xray_status);
+  const hy = running(overview.data?.hysteria_status);
+  const allGood = xray && hy;
+  const partial = xray || hy;
+
+  const label = !overview.data ? 'Checking...' : allGood ? 'All systems' : partial ? 'Degraded' : 'Down';
+  const dotClass = !overview.data
+    ? 'bg-muted-foreground/50'
+    : allGood
+      ? 'bg-success animate-[pulse-ring_2s_ease-out_infinite]'
+      : partial
+        ? 'bg-warning'
+        : 'bg-destructive';
+
+  return (
+    <div className="flex items-center justify-between rounded-md border border-border bg-surface-elevated px-3 py-2">
+      <div className="flex items-center gap-2">
+        <span className={`size-1.5 rounded-full ${dotClass}`} />
+        <span className="text-[11px] text-muted-foreground">{label}</span>
+      </div>
+      <span className="flex items-center gap-1.5 font-mono text-[10px]">
+        <span className={xray ? 'text-success' : 'text-muted-foreground'}>xray</span>
+        <span className="text-faint">·</span>
+        <span className={hy ? 'text-success' : 'text-muted-foreground'}>hy2</span>
+      </span>
     </div>
   );
 }
@@ -185,6 +242,7 @@ function PillLink({ label, params, to }: { label: string; params?: { core: strin
 
 const rootRoute = createRootRoute({
   component: RootLayout,
+  notFoundComponent: NotFoundPage,
 });
 
 const appRoute = createRoute({
