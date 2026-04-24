@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { addDays } from 'date-fns';
+import { QRCodeSVG } from 'qrcode.react';
 import { Area, AreaChart } from 'recharts';
 import {
   AlertTriangle,
@@ -640,22 +641,27 @@ export function UsersPage() {
                     ] as const).map((link) => (
                       <div className="rounded-md bg-muted p-3" key={link.label}>
                         <div className="mb-2 t-label">{link.label}</div>
-                        <div className="flex items-center gap-2">
-                          <div className="min-w-0 flex-1 truncate font-mono text-xs text-foreground">
-                            {link.value || '--'}
+                        <div className="flex items-start gap-3">
+                          <QRCodePreview label={`${link.label} QR`} value={link.value} />
+                          <div className="min-w-0 flex-1 space-y-2">
+                            <div className="max-h-16 overflow-hidden break-all font-mono text-[11px] leading-relaxed text-foreground">
+                              {link.value || '--'}
+                            </div>
+                            <Button
+                              className="h-8 w-full justify-start"
+                              onClick={async () => {
+                                if (!link.value) return;
+                                await navigator.clipboard.writeText(link.value);
+                                toast.success(`${link.label} copied`);
+                              }}
+                              size="sm"
+                              type="button"
+                              variant="secondary"
+                            >
+                              <Copy className="size-4" />
+                              Copy
+                            </Button>
                           </div>
-                          <Button
-                            onClick={async () => {
-                              if (!link.value) return;
-                              await navigator.clipboard.writeText(link.value);
-                              toast.success(`${link.label} copied`);
-                            }}
-                            size="icon"
-                            type="button"
-                            variant="ghost"
-                          >
-                            <Copy className="size-4" />
-                          </Button>
                         </div>
                       </div>
                     ))
@@ -830,4 +836,30 @@ export function UsersPage() {
 
 function generateUsername() {
   return `user_${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function QRCodePreview({ label, value }: { label: string; value: string }) {
+  if (!value) {
+    return <div className="size-32 shrink-0 rounded-md border border-border bg-surface" />;
+  }
+
+  return (
+    <div
+      aria-label={label}
+      className="flex size-32 shrink-0 items-center justify-center overflow-hidden rounded-md border border-border bg-white p-2"
+      role="img"
+    >
+      <QRCodeSVG
+        className="block size-full"
+        bgColor="#ffffff"
+        fgColor="#050505"
+        level="L"
+        marginSize={4}
+        size={160}
+        style={{ height: '100%', width: '100%' }}
+        title={label}
+        value={value}
+      />
+    </div>
+  );
 }
