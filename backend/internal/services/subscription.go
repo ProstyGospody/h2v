@@ -458,15 +458,6 @@ func hostOnly(value string) string {
 	return strings.Trim(value, "[]")
 }
 
-func firstNonEmpty(values ...string) string {
-	for _, v := range values {
-		if v != "" {
-			return v
-		}
-	}
-	return ""
-}
-
 func firstInSlice(values []string) string {
 	for _, v := range values {
 		if v != "" {
