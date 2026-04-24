@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useParams } from '@tanstack/react-router';
+import { useNavigate, useParams } from '@tanstack/react-router';
 import { QRCodeSVG } from 'qrcode.react';
 import { ChevronRight, Copy, Link2, RotateCcw, ShieldCheck } from 'lucide-react';
 import { toast } from 'sonner';
@@ -87,6 +87,7 @@ const helpSections = [
 
 export function SubPage() {
   const { token } = useParams({ from: '/u/$token' });
+  const navigate = useNavigate({ from: '/u/$token' });
   const queryClient = useQueryClient();
   const [theme, setTheme] = useState<'dark' | 'light'>(() => getPreferredTheme());
   const os = typeof window !== 'undefined' ? detectOS() : 'desktop';
@@ -106,13 +107,24 @@ export function SubPage() {
 
   const rotateLink = useMutation({
     mutationFn: () => apiClient.request<UserLinks>(`/sub/${token}/rotate`, { method: 'POST' }),
-    onSuccess: async () => {
+    onSuccess: async (next) => {
       toast.success('Subscription link rotated');
+      const nextToken = subscriptionTokenFromURL(next.subscription);
+      if (nextToken && nextToken !== token) {
+        queryClient.setQueryData(['public-sub', nextToken], next);
+        await navigate({ to: '/u/$token', params: { token: nextToken }, replace: true });
+        return;
+      }
+      queryClient.setQueryData(['public-sub', token], next);
       await queryClient.invalidateQueries({ queryKey: ['public-sub', token] });
     },
   });
 
   const data = subscription.data;
+  const subscriptionURL = useMemo(
+    () => (data ? subscriptionURLForCurrentOrigin(token, data.subscription) : ''),
+    [data, token],
+  );
   const usage = data?.usage;
   const expiryDays = daysUntil(usage?.expires_at ?? null);
   const unlimited = (usage?.traffic_limit ?? 0) <= 0;
@@ -164,15 +176,15 @@ export function SubPage() {
               ) : (
                 <QRCodePreview
                   label="Subscription QR"
-                  maxWidthClassName="max-w-[260px]"
-                  value={data?.subscription ?? ''}
+                  maxWidthClassName="max-w-[280px]"
+                  value={subscriptionURL}
                 />
               )}
               <Button
                 className="w-full"
                 onClick={async () => {
-                  if (!data?.subscription) return;
-                  await navigator.clipboard.writeText(data.subscription);
+                  if (!subscriptionURL) return;
+                  await navigator.clipboard.writeText(subscriptionURL);
                   toast.success('Subscription link copied');
                 }}
                 size="lg"
@@ -360,6 +372,34 @@ function getPreferredTheme(): 'dark' | 'light' {
   return window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
 }
 
+function subscriptionURLForCurrentOrigin(token: string, fallback: string): string {
+  if (!fallback) {
+    return '';
+  }
+  if (typeof window === 'undefined') {
+    return fallback;
+  }
+  return `${window.location.origin}/sub/${encodeURIComponent(token)}`;
+}
+
+function subscriptionTokenFromURL(value: string): string {
+  if (!value) {
+    return '';
+  }
+  try {
+    const base = typeof window === 'undefined' ? 'http://localhost' : window.location.origin;
+    const url = new URL(value, base);
+    const parts = url.pathname.split('/').filter(Boolean);
+    const subIndex = parts.lastIndexOf('sub');
+    if (subIndex >= 0 && parts[subIndex + 1]) {
+      return parts[subIndex + 1];
+    }
+  } catch {
+    // Fall back to a lightweight path match below.
+  }
+  return value.match(/\/sub\/([^/?#]+)/)?.[1] ?? '';
+}
+
 function QRCodePreview({
   label,
   value,
@@ -374,7 +414,7 @@ function QRCodePreview({
       <div
         aria-label={label}
         className={cn(
-          'flex aspect-square w-full items-center justify-center overflow-hidden rounded-md border border-border bg-white p-4',
+          'flex aspect-square w-full items-center justify-center overflow-hidden rounded-md border border-border bg-white p-3',
           maxWidthClassName,
         )}
         role="img"
@@ -383,9 +423,9 @@ function QRCodePreview({
           className="block h-full w-full"
           bgColor="#ffffff"
           fgColor="#050505"
-          marginSize={2}
-          level="M"
-          size={220}
+          marginSize={4}
+          level="L"
+          size={256}
           style={{ height: '100%', width: '100%' }}
           title={label}
           value={value}

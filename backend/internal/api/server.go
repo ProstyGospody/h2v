@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"net"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -274,6 +275,7 @@ func (s *Server) handleUsersCreate(w http.ResponseWriter, r *http.Request) {
 		jsonError(w, err)
 		return
 	}
+	links = linksForRequest(r, links, user.SubToken)
 	jsonData(w, http.StatusCreated, map[string]any{
 		"id":            user.ID,
 		"username":      user.Username,
@@ -362,7 +364,7 @@ func (s *Server) handleUsersResetSub(w http.ResponseWriter, r *http.Request) {
 		jsonError(w, err)
 		return
 	}
-	jsonData(w, http.StatusOK, links, nil)
+	jsonData(w, http.StatusOK, linksForRequest(r, links, user.SubToken), nil)
 }
 
 func (s *Server) handleUsersResetTraffic(w http.ResponseWriter, r *http.Request) {
@@ -404,7 +406,7 @@ func (s *Server) handleUsersLinks(w http.ResponseWriter, r *http.Request) {
 		jsonError(w, err)
 		return
 	}
-	jsonData(w, http.StatusOK, links, nil)
+	jsonData(w, http.StatusOK, linksForRequest(r, links, subscriptionTokenFromURL(links.Subscription)), nil)
 }
 
 func (s *Server) handleConfigGet(w http.ResponseWriter, r *http.Request) {
@@ -596,7 +598,8 @@ func (s *Server) handleSubscription(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
 		return
 	}
-	if r.URL.Query().Get("format") == "json" || strings.Contains(r.Header.Get("Accept"), "application/json") {
+	links = linksForRequest(r, links, token)
+	if r.URL.Query().Get("format") == "json" {
 		jsonData(w, http.StatusOK, links, nil)
 		return
 	}
@@ -634,7 +637,7 @@ func (s *Server) handleSubscriptionRotate(w http.ResponseWriter, r *http.Request
 		jsonError(w, err)
 		return
 	}
-	jsonData(w, http.StatusOK, links, nil)
+	jsonData(w, http.StatusOK, linksForRequest(r, links, subscriptionTokenFromURL(links.Subscription)), nil)
 }
 
 func (s *Server) handleHY2Auth(w http.ResponseWriter, r *http.Request) {
@@ -845,8 +848,69 @@ func boolQuery(r *http.Request, key string) bool {
 	return value
 }
 
+func linksForRequest(r *http.Request, links *domain.SubscriptionLinks, token string) *domain.SubscriptionLinks {
+	if links == nil || token == "" {
+		return links
+	}
+	origin := requestOrigin(r)
+	if origin == "" {
+		return links
+	}
+	copy := *links
+	copy.Subscription = strings.TrimSuffix(origin, "/") + "/sub/" + token
+	return &copy
+}
+
+func requestOrigin(r *http.Request) string {
+	host := firstForwardedValue(r.Header.Get("X-Forwarded-Host"))
+	if host == "" {
+		host = strings.TrimSpace(r.Host)
+	}
+	if host == "" {
+		return ""
+	}
+
+	proto := strings.ToLower(firstForwardedValue(r.Header.Get("X-Forwarded-Proto")))
+	if proto == "" {
+		if r.TLS != nil {
+			proto = "https"
+		} else {
+			proto = "http"
+		}
+	}
+	if proto != "http" && proto != "https" {
+		proto = "https"
+	}
+	return proto + "://" + host
+}
+
+func firstForwardedValue(value string) string {
+	return strings.TrimSpace(strings.Split(value, ",")[0])
+}
+
+func subscriptionTokenFromURL(raw string) string {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return ""
+	}
+	if parsed, err := url.Parse(raw); err == nil {
+		parts := strings.Split(strings.Trim(parsed.Path, "/"), "/")
+		for i := len(parts) - 2; i >= 0; i-- {
+			if parts[i] == "sub" && parts[i+1] != "" {
+				return parts[i+1]
+			}
+		}
+	}
+	const marker = "/sub/"
+	if index := strings.LastIndex(raw, marker); index >= 0 {
+		tail := strings.Trim(raw[index+len(marker):], "/")
+		return strings.Split(tail, "?")[0]
+	}
+	return ""
+}
+
 func clientIP(r *http.Request) string {
-	if forwarded := strings.TrimSpace(strings.Split(r.Header.Get("X-Forwarded-For"), ",")[0]); forwarded != "" {
+	if forwarded := firstForwardedValue(r.Header.Get("X-Forwarded-For")); forwarded != "" {
 		return forwarded
 	}
 	host, _, err := net.SplitHostPort(r.RemoteAddr)
