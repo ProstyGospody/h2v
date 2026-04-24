@@ -421,15 +421,6 @@ func yamlString(value string) string {
 	return string(b)
 }
 
-func firstNonEmpty(values ...string) string {
-	for _, value := range values {
-		if value != "" {
-			return value
-		}
-	}
-	return ""
-}
-
 func hostOnly(value string) string {
 	value = strings.TrimSpace(value)
 	if value == "" {
