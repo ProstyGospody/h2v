@@ -767,9 +767,15 @@ setup_reverse_proxy() {
 
   substep "writing /etc/caddy/Caddyfile for ${domain}"
   mkdir -p /etc/caddy
+  # protocols h1 h2: disable HTTP/3. The panel is low-traffic and UDP/443 is
+  # frequently blocked or mangled by ISPs/NAT; leaving QUIC on triggers
+  # ERR_QUIC_PROTOCOL_ERROR in browsers that cached the Alt-Svc hint.
   cat >/etc/caddy/Caddyfile <<EOF
 {
   admin off
+  servers {
+    protocols h1 h2
+  }
 }
 
 ${domain} {
