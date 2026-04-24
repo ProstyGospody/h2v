@@ -59,11 +59,18 @@ step() {
 banner() {
   local title="$1"
   local sub="${2:-}"
+  # printf's width counts bytes, not columns — multi-byte UTF-8 inside the
+  # title throws alignment off. Count characters with wc -m and pad manually.
+  local title_pad sub_pad
+  title_pad=$((60 - $(printf '%s' "${title}" | wc -m)))
+  sub_pad=$((60 - $(printf '%s' "${sub}" | wc -m)))
+  (( title_pad < 0 )) && title_pad=0
+  (( sub_pad < 0 )) && sub_pad=0
   printf '\n'
   printf '%s╔══════════════════════════════════════════════════════════════╗%s\n' "${CYAN}" "${RESET}"
-  printf '%s║%s %s%-60s%s %s║%s\n' "${CYAN}" "${RESET}" "${BOLD}" "${title}" "${RESET}" "${CYAN}" "${RESET}"
+  printf '%s║%s %s%s%*s%s %s║%s\n' "${CYAN}" "${RESET}" "${BOLD}" "${title}" "${title_pad}" "" "${RESET}" "${CYAN}" "${RESET}"
   if [[ -n "${sub}" ]]; then
-    printf '%s║%s %s%-60s%s %s║%s\n' "${CYAN}" "${RESET}" "${DIM}" "${sub}" "${RESET}" "${CYAN}" "${RESET}"
+    printf '%s║%s %s%s%*s%s %s║%s\n' "${CYAN}" "${RESET}" "${DIM}" "${sub}" "${sub_pad}" "" "${RESET}" "${CYAN}" "${RESET}"
   fi
   printf '%s╚══════════════════════════════════════════════════════════════╝%s\n' "${CYAN}" "${RESET}"
 }
@@ -219,10 +226,22 @@ ensure_reality_keys() {
   fi
   [[ -x /usr/local/bin/xray ]] || fail "xray binary missing; cannot generate Reality keypair"
   local out
-  out="$(/usr/local/bin/xray x25519)" || fail "xray x25519 failed"
-  priv="$(printf '%s\n' "${out}" | awk '/Private key:/ {print $3}')"
-  pub="$(printf '%s\n' "${out}" | awk '/Public key:/ {print $3}')"
-  [[ -z "${priv}" || -z "${pub}" ]] && fail "failed to parse Reality keypair"
+  out="$(/usr/local/bin/xray x25519 2>&1)" || {
+    red "xray x25519 failed. Raw output:"
+    printf '%s\n' "${out}"
+    fail "xray x25519 command failed"
+  }
+  # Xray versions print "Private key:" / "PrivateKey:" (and some releases also
+  # print "Password:" as a duplicate of the private key). Split on ':' so the
+  # field name variations don't matter — we just take whatever comes after the
+  # first colon on the matching line.
+  priv="$(printf '%s\n' "${out}" | awk -F: '/[Pp]rivate/ {gsub(/^[ \t]+|[ \t\r]+$/, "", $2); print $2; exit}')"
+  pub="$(printf '%s\n' "${out}" | awk -F: '/[Pp]ublic/ {gsub(/^[ \t]+|[ \t\r]+$/, "", $2); print $2; exit}')"
+  if [[ -z "${priv}" || -z "${pub}" ]]; then
+    red "Could not parse Reality keypair from xray x25519 output:"
+    printf '%s\n' "${out}"
+    fail "failed to parse Reality keypair"
+  fi
   env_set REALITY_PRIVATE_KEY "${priv}"
   env_set REALITY_PUBLIC_KEY "${pub}"
   substep "generated Reality x25519 keypair"
@@ -807,7 +826,7 @@ create_admin() {
 install_all() {
   require_root
   detect_os
-  banner "h2v panel installer" "VLESS Reality + Hysteria 2 · Ubuntu 22.04/24.04"
+  banner "h2v panel installer" "VLESS Reality + Hysteria 2 | Ubuntu 22.04/24.04"
   resolve_source_dir
 
   collect_install_inputs
