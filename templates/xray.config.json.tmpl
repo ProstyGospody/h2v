@@ -31,17 +31,27 @@
       "port": {{ .VlessPort }},
       "protocol": "vless",
       "settings": {
-        "clients": [],
+        "clients": [
+          {{- range $i, $c := .Clients }}
+          {{- if $i }},{{ end }}
+          { "id": {{ $c.UUID | json }}, "email": {{ $c.Email | json }}, "flow": "xtls-rprx-vision" }
+          {{- end }}
+        ],
         "decryption": "none"
       },
       "streamSettings": {
         "network": "tcp",
         "security": "reality",
         "realitySettings": {
-          "dest": "{{ .RealityDest }}",
-          "serverNames": ["{{ .RealitySNI }}"],
-          "privateKey": "{{ .RealityPrivateKey }}",
-          "shortIds": [{{ range $i, $s := .RealityShortIDs }}{{ if $i }},{{ end }}"{{ $s }}"{{ end }}]
+          "show": false,
+          "dest": {{ .RealityDest | json }},
+          "xver": 0,
+          "serverNames": [{{ range $i, $s := .RealityServerNames }}{{ if $i }}, {{ end }}{{ $s | json }}{{ end }}],
+          "privateKey": {{ .RealityPrivateKey | json }},
+          "minClientVer": "",
+          "maxClientVer": "",
+          "maxTimeDiff": 0,
+          "shortIds": [{{ range $i, $s := .RealityShortIDs }}{{ if $i }}, {{ end }}{{ $s | json }}{{ end }}]
         }
       },
       "sniffing": {
@@ -63,4 +73,3 @@
     ]
   }
 }
-

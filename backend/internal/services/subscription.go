@@ -149,70 +149,92 @@ func (s *SubscriptionService) BuildUserInfoHeader(user *domain.User) string {
 	return util.FormatSubscriptionUserInfo(user.TrafficUsed, user.TrafficLimit, user.ExpiresAt)
 }
 
-type RuntimeSettings struct {
-	PanelDomain       string
-	PanelPort         int
-	SubURLPrefix      string
-	RealitySNI        string
-	RealityDest       string
-	RealityPublicKey  string
-	RealityPrivateKey string
-	RealityShortIDs   []string
-	VlessPort         int
-	Hy2Domain         string
-	Hy2Port           int
-	Hy2ObfsEnabled    bool
-	Hy2ObfsPassword   string
-	Hy2BandwidthUp    string
-	Hy2BandwidthDown  string
-	Hy2MasqueradeURL  string
-	Hy2TrafficSecret  string
-	Hy2CertPath       string
-	Hy2KeyPath        string
+type ClientEntry struct {
+	UUID  string
+	Email string
 }
 
+type RuntimeSettings struct {
+	PanelDomain        string
+	PanelPort          int
+	SubURLPrefix       string
+	RealitySNI         string
+	RealityDest        string
+	RealityPublicKey   string
+	RealityPrivateKey  string
+	RealityServerNames []string
+	RealityShortIDs    []string
+	VlessPort          int
+	Hy2Domain          string
+	Hy2Port            int
+	Hy2ObfsEnabled     bool
+	Hy2ObfsPassword    string
+	Hy2BandwidthUp     string
+	Hy2BandwidthDown   string
+	Hy2MasqueradeURL   string
+	Hy2TrafficSecret   string
+	Hy2CertPath        string
+	Hy2KeyPath         string
+	Clients            []ClientEntry
+}
+
+// buildVLESS emits a VLESS + Reality URI per Xray's share-link convention:
+//
+//	vless://UUID@HOST:PORT?encryption=none&flow=xtls-rprx-vision&security=reality
+//	    &sni=SNI&fp=chrome&pbk=PUBLIC_KEY&sid=SHORT_ID&spx=%2F&type=tcp#NAME
+//
+// sid is optional: when the server allows an empty shortId, clients must pass
+// no sid or an explicit empty one. We pick the first non-empty shortId so the
+// client has a concrete value that matches the server list.
 func buildVLESS(runtime RuntimeSettings, user *domain.User) string {
-	shortID := ""
-	for _, candidate := range runtime.RealityShortIDs {
-		if candidate != "" {
-			shortID = candidate
-			break
-		}
-	}
+	shortID := firstInSlice(runtime.RealityShortIDs)
+	sni := hostOnly(firstNonEmpty(runtime.RealitySNI, firstInSlice(runtime.RealityServerNames)))
+	host := hostOnly(runtime.PanelDomain)
+
 	query := url.Values{}
 	query.Set("encryption", "none")
-	query.Set("type", "tcp")
-	query.Set("security", "reality")
-	query.Set("pbk", runtime.RealityPublicKey)
-	query.Set("sni", hostOnly(runtime.RealitySNI))
-	query.Set("fp", "chrome")
 	query.Set("flow", "xtls-rprx-vision")
+	query.Set("security", "reality")
+	query.Set("sni", sni)
+	query.Set("fp", "chrome")
+	query.Set("pbk", runtime.RealityPublicKey)
 	if shortID != "" {
 		query.Set("sid", shortID)
 	}
 	query.Set("spx", "/")
+	query.Set("type", "tcp")
+
 	return (&url.URL{
 		Scheme:   "vless",
 		User:     url.User(user.VlessUUID.String()),
-		Host:     net.JoinHostPort(hostOnly(runtime.PanelDomain), strconv.Itoa(runtime.VlessPort)),
+		Host:     net.JoinHostPort(host, strconv.Itoa(runtime.VlessPort)),
 		RawQuery: query.Encode(),
 		Fragment: user.Username + "-VLESS",
 	}).String()
 }
 
+// buildHysteria2 emits a Hysteria 2 URI per the official scheme:
+//
+//	hysteria2://AUTH@HOST:PORT/?sni=SNI&insecure=0&obfs=salamander&obfs-password=PWD#NAME
+//
+// The password is percent-encoded by net/url. Path is "/" to keep parsers that
+// expect an explicit host/path boundary happy; clients ignore it.
 func buildHysteria2(runtime RuntimeSettings, user *domain.User) string {
-	hy2Host := hostOnly(runtime.Hy2Domain)
+	host := hostOnly(runtime.Hy2Domain)
+	sni := host
+
 	query := url.Values{}
-	query.Set("sni", hy2Host)
+	query.Set("sni", sni)
 	query.Set("insecure", "0")
-	if runtime.Hy2ObfsEnabled {
+	if runtime.Hy2ObfsEnabled && runtime.Hy2ObfsPassword != "" {
 		query.Set("obfs", "salamander")
 		query.Set("obfs-password", runtime.Hy2ObfsPassword)
 	}
+
 	return (&url.URL{
 		Scheme:   "hysteria2",
 		User:     url.User(user.Hy2Password),
-		Host:     net.JoinHostPort(hy2Host, strconv.Itoa(runtime.Hy2Port)),
+		Host:     net.JoinHostPort(host, strconv.Itoa(runtime.Hy2Port)),
 		Path:     "/",
 		RawQuery: query.Encode(),
 		Fragment: user.Username + "-HY2",
@@ -230,8 +252,8 @@ type vlessNode struct {
 	Server      string
 	Port        int
 	Flow        string
-	RealityPBK string
-	RealitySID string
+	RealityPBK  string
+	RealitySID  string
 	SNI         string
 	Fingerprint string
 }
@@ -434,4 +456,22 @@ func hostOnly(value string) string {
 		return host
 	}
 	return strings.Trim(value, "[]")
+}
+
+func firstNonEmpty(values ...string) string {
+	for _, v := range values {
+		if v != "" {
+			return v
+		}
+	}
+	return ""
+}
+
+func firstInSlice(values []string) string {
+	for _, v := range values {
+		if v != "" {
+			return v
+		}
+	}
+	return ""
 }

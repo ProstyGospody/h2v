@@ -45,56 +45,70 @@ func (s *SettingsService) Update(ctx context.Context, values map[string]json.Raw
 }
 
 func (s *SettingsService) Runtime(ctx context.Context) (RuntimeSettings, error) {
+	runtime := DefaultRuntime(s.cfg)
+
 	values, err := s.GetAll(ctx)
 	if err != nil {
 		s.logger.Warn("settings lookup failed, falling back to env defaults", "err", err)
-		return DefaultRuntime(s.cfg), nil
+	} else {
+		runtime.PanelDomain = stringOr(values, "panel.domain", runtime.PanelDomain)
+		runtime.RealitySNI = stringOr(values, "reality.sni", runtime.RealitySNI)
+		runtime.RealityDest = stringOr(values, "reality.dest", runtime.RealityDest)
+		runtime.RealityPublicKey = stringOr(values, "reality.public_key", runtime.RealityPublicKey)
+		runtime.RealityShortIDs = stringsOr(values, "reality.short_ids", runtime.RealityShortIDs)
+		runtime.VlessPort = intOr(values, "vless.port", runtime.VlessPort)
+		runtime.Hy2Domain = stringOr(values, "hy2.domain", runtime.Hy2Domain)
+		runtime.Hy2Port = intOr(values, "hy2.port", runtime.Hy2Port)
+		runtime.Hy2ObfsEnabled = boolOr(values, "hy2.obfs_enabled", runtime.Hy2ObfsEnabled)
+		runtime.Hy2BandwidthUp = stringOr(values, "hy2.bandwidth_up", runtime.Hy2BandwidthUp)
+		runtime.Hy2BandwidthDown = stringOr(values, "hy2.bandwidth_down", runtime.Hy2BandwidthDown)
+		runtime.Hy2MasqueradeURL = stringOr(values, "hy2.masquerade_url", runtime.Hy2MasqueradeURL)
 	}
 
-	return RuntimeSettings{
-		PanelDomain:       stringOr(values, "panel.domain", s.cfg.Panel.Domain),
-		PanelPort:         s.cfg.Panel.Port,
-		SubURLPrefix:      s.cfg.Subscription.URLPrefix,
-		RealitySNI:        stringOr(values, "reality.sni", s.cfg.Xray.RealitySNI),
-		RealityDest:       stringOr(values, "reality.dest", s.cfg.Xray.RealityDest),
-		RealityPublicKey:  stringOr(values, "reality.public_key", s.cfg.Xray.RealityPubKey),
-		RealityPrivateKey: s.cfg.Xray.RealityPrivKey,
-		RealityShortIDs:   stringsOr(values, "reality.short_ids", s.cfg.Xray.RealityShortIDs),
-		VlessPort:         intOr(values, "vless.port", s.cfg.Xray.VlessPort),
-		Hy2Domain:         stringOr(values, "hy2.domain", s.cfg.Hysteria.Domain),
-		Hy2Port:           intOr(values, "hy2.port", s.cfg.Hysteria.Port),
-		Hy2ObfsEnabled:    boolOr(values, "hy2.obfs_enabled", s.cfg.Hysteria.ObfsEnabled),
-		Hy2ObfsPassword:   s.cfg.Hysteria.ObfsPassword,
-		Hy2BandwidthUp:    stringOr(values, "hy2.bandwidth_up", s.cfg.Hysteria.BandwidthUp),
-		Hy2BandwidthDown:  stringOr(values, "hy2.bandwidth_down", s.cfg.Hysteria.BandwidthDown),
-		Hy2MasqueradeURL:  stringOr(values, "hy2.masquerade_url", s.cfg.Hysteria.MasqueradeURL),
-		Hy2TrafficSecret:  s.cfg.Hysteria.TrafficSecret,
-		Hy2CertPath:       s.cfg.Hysteria.CertPath,
-		Hy2KeyPath:        s.cfg.Hysteria.KeyPath,
-	}, nil
+	runtime.RealityServerNames = dedupeNonEmpty(append([]string{runtime.RealitySNI}, runtime.RealityServerNames...))
+	runtime.RealityShortIDs = normalizeShortIDs(runtime.RealityShortIDs)
+
+	if s.repo != nil {
+		users, err := s.repo.ListActiveUsers(ctx)
+		if err != nil {
+			s.logger.Warn("active users lookup failed; rendering xray config without clients", "err", err)
+		} else {
+			runtime.Clients = make([]ClientEntry, 0, len(users))
+			for _, user := range users {
+				runtime.Clients = append(runtime.Clients, ClientEntry{
+					UUID:  user.VlessUUID.String(),
+					Email: user.Username,
+				})
+			}
+		}
+	}
+
+	return runtime, nil
 }
 
 func DefaultRuntime(cfg config.Config) RuntimeSettings {
 	return RuntimeSettings{
-		PanelDomain:       cfg.Panel.Domain,
-		PanelPort:         cfg.Panel.Port,
-		SubURLPrefix:      cfg.Subscription.URLPrefix,
-		RealitySNI:        cfg.Xray.RealitySNI,
-		RealityDest:       cfg.Xray.RealityDest,
-		RealityPublicKey:  cfg.Xray.RealityPubKey,
-		RealityPrivateKey: cfg.Xray.RealityPrivKey,
-		RealityShortIDs:   cfg.Xray.RealityShortIDs,
-		VlessPort:         cfg.Xray.VlessPort,
-		Hy2Domain:         cfg.Hysteria.Domain,
-		Hy2Port:           cfg.Hysteria.Port,
-		Hy2ObfsEnabled:    cfg.Hysteria.ObfsEnabled,
-		Hy2ObfsPassword:   cfg.Hysteria.ObfsPassword,
-		Hy2BandwidthUp:    cfg.Hysteria.BandwidthUp,
-		Hy2BandwidthDown:  cfg.Hysteria.BandwidthDown,
-		Hy2MasqueradeURL:  cfg.Hysteria.MasqueradeURL,
-		Hy2TrafficSecret:  cfg.Hysteria.TrafficSecret,
-		Hy2CertPath:       cfg.Hysteria.CertPath,
-		Hy2KeyPath:        cfg.Hysteria.KeyPath,
+		PanelDomain:        cfg.Panel.Domain,
+		PanelPort:          cfg.Panel.Port,
+		SubURLPrefix:       cfg.Subscription.URLPrefix,
+		RealitySNI:         cfg.Xray.RealitySNI,
+		RealityDest:        cfg.Xray.RealityDest,
+		RealityPublicKey:   cfg.Xray.RealityPubKey,
+		RealityPrivateKey:  cfg.Xray.RealityPrivKey,
+		RealityServerNames: []string{cfg.Xray.RealitySNI},
+		RealityShortIDs:    normalizeShortIDs(cfg.Xray.RealityShortIDs),
+		VlessPort:          cfg.Xray.VlessPort,
+		Hy2Domain:          cfg.Hysteria.Domain,
+		Hy2Port:            cfg.Hysteria.Port,
+		Hy2ObfsEnabled:     cfg.Hysteria.ObfsEnabled,
+		Hy2ObfsPassword:    cfg.Hysteria.ObfsPassword,
+		Hy2BandwidthUp:     cfg.Hysteria.BandwidthUp,
+		Hy2BandwidthDown:   cfg.Hysteria.BandwidthDown,
+		Hy2MasqueradeURL:   cfg.Hysteria.MasqueradeURL,
+		Hy2TrafficSecret:   cfg.Hysteria.TrafficSecret,
+		Hy2CertPath:        cfg.Hysteria.CertPath,
+		Hy2KeyPath:         cfg.Hysteria.KeyPath,
+		Clients:            nil,
 	}
 }
 
@@ -146,3 +160,39 @@ func stringsOr(values map[string]json.RawMessage, key string, fallback []string)
 	return result
 }
 
+func dedupeNonEmpty(values []string) []string {
+	seen := make(map[string]struct{}, len(values))
+	out := make([]string, 0, len(values))
+	for _, v := range values {
+		if v == "" {
+			continue
+		}
+		if _, ok := seen[v]; ok {
+			continue
+		}
+		seen[v] = struct{}{}
+		out = append(out, v)
+	}
+	return out
+}
+
+// normalizeShortIDs keeps Reality shortIds valid per Xray docs: empty string
+// (to allow clients with no shortId) plus hex strings 2..16 chars (even length).
+// Duplicates are dropped and order is preserved; "" is always present exactly
+// once when any empty value is supplied.
+func normalizeShortIDs(values []string) []string {
+	seen := make(map[string]struct{}, len(values))
+	out := make([]string, 0, len(values))
+	for _, raw := range values {
+		trimmed := raw
+		if _, ok := seen[trimmed]; ok {
+			continue
+		}
+		seen[trimmed] = struct{}{}
+		out = append(out, trimmed)
+	}
+	if len(out) == 0 {
+		return []string{""}
+	}
+	return out
+}

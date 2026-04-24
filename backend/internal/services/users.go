@@ -2,7 +2,6 @@ package services
 
 import (
 	"context"
-	"fmt"
 	"log/slog"
 	"time"
 
@@ -21,10 +20,11 @@ type UserService struct {
 	hysteria     HysteriaAdapter
 	cache        SubscriptionCache
 	subscription *SubscriptionService
+	configs      *ConfigService
 	logger       *slog.Logger
 }
 
-func NewUserService(cfg config.Config, repository *repo.Repository, xray XrayAdapter, hysteria HysteriaAdapter, cache SubscriptionCache, subscription *SubscriptionService, logger *slog.Logger) *UserService {
+func NewUserService(cfg config.Config, repository *repo.Repository, xray XrayAdapter, hysteria HysteriaAdapter, cache SubscriptionCache, subscription *SubscriptionService, configs *ConfigService, logger *slog.Logger) *UserService {
 	return &UserService{
 		cfg:          cfg,
 		repo:         repository,
@@ -32,6 +32,7 @@ func NewUserService(cfg config.Config, repository *repo.Repository, xray XrayAda
 		hysteria:     hysteria,
 		cache:        cache,
 		subscription: subscription,
+		configs:      configs,
 		logger:       logger,
 	}
 }
@@ -81,11 +82,9 @@ func (s *UserService) Create(ctx context.Context, req CreateUserRequest, _ Actor
 	if err := s.repo.CreateUser(ctx, user); err != nil {
 		return nil, err
 	}
-	if err := s.xray.AddUser(ctx, user); err != nil {
-		_ = s.repo.DeleteUser(ctx, user.ID)
-		return nil, fmt.Errorf("xray add user: %w", err)
-	}
+	_ = s.xray.AddUser(ctx, user)
 	s.cache.Set(user)
+	s.reconcileXray(ctx, "create", user.Username)
 	return user, nil
 }
 
@@ -119,18 +118,14 @@ func (s *UserService) Update(ctx context.Context, id uuid.UUID, req UpdateUserRe
 	}
 
 	if user.CanConnect() {
-		if err := s.xray.AddUser(ctx, user); err != nil {
-			s.logger.Warn("xray add during update failed", "user", user.Username, "err", err)
-		}
+		_ = s.xray.AddUser(ctx, user)
 		s.cache.Set(user)
 	} else {
-		if err := s.xray.RemoveUser(ctx, user.Username); err != nil {
-			s.logger.Warn("xray remove during update failed", "user", user.Username, "err", err)
-		}
+		_ = s.xray.RemoveUser(ctx, user.Username)
 		_ = s.hysteria.Kick(ctx, []string{user.Username})
 		s.cache.Delete(user)
 	}
-
+	s.reconcileXray(ctx, "update", user.Username)
 	return user, nil
 }
 
@@ -145,6 +140,7 @@ func (s *UserService) Delete(ctx context.Context, id uuid.UUID, _ Actor) error {
 	_ = s.xray.RemoveUser(ctx, user.Username)
 	_ = s.hysteria.Kick(ctx, []string{user.Username})
 	s.cache.Delete(user)
+	s.reconcileXray(ctx, "delete", user.Username)
 	return nil
 }
 
@@ -191,3 +187,14 @@ func (s *UserService) Links(ctx context.Context, id uuid.UUID) (*domain.Subscrip
 	return s.subscription.LinksForUser(ctx, user)
 }
 
+// reconcileXray regenerates xray/config.json from the current DB state and
+// restarts the kernel. Failures are logged but do not fail the user operation
+// — the DB is the source of truth and a later scheduled reconcile will retry.
+func (s *UserService) reconcileXray(ctx context.Context, op, username string) {
+	if s.configs == nil {
+		return
+	}
+	if err := s.configs.ReconcileXray(ctx); err != nil {
+		s.logger.Error("xray reconcile failed after user change", "op", op, "user", username, "err", err)
+	}
+}

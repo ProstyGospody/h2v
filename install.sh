@@ -143,6 +143,7 @@ ensure_base_packages() {
     wget \
     openssl \
     jq \
+    unzip \
     uuid-runtime \
     certbot \
     postgresql \
@@ -155,6 +156,132 @@ ensure_base_packages() {
     xz-utils \
     build-essential \
     sudo
+}
+
+install_xray_binary() {
+  local arch
+  case "$(uname -m)" in
+    x86_64) arch="64" ;;
+    aarch64|arm64) arch="arm64-v8a" ;;
+    *) fail "Unsupported architecture for Xray-core: $(uname -m)" ;;
+  esac
+  if [[ -x /usr/local/bin/xray ]]; then
+    substep "Xray-core already installed ($(/usr/local/bin/xray version 2>/dev/null | awk 'NR==1 {print $2}'))"
+    return
+  fi
+  substep "downloading Xray-core (${arch})"
+  local tmp
+  tmp="$(mktemp -d)"
+  curl -fsSL "https://github.com/XTLS/Xray-core/releases/latest/download/Xray-linux-${arch}.zip" -o "${tmp}/xray.zip" \
+    || fail "Xray-core download failed"
+  unzip -qo "${tmp}/xray.zip" -d "${tmp}"
+  install -m 0755 "${tmp}/xray" /usr/local/bin/xray
+  install -d -m 0755 /usr/local/share/xray
+  [[ -f "${tmp}/geoip.dat" ]] && install -m 0644 "${tmp}/geoip.dat" /usr/local/share/xray/geoip.dat
+  [[ -f "${tmp}/geosite.dat" ]] && install -m 0644 "${tmp}/geosite.dat" /usr/local/share/xray/geosite.dat
+  rm -rf "${tmp}"
+}
+
+install_hysteria_binary() {
+  local arch
+  case "$(uname -m)" in
+    x86_64) arch="amd64" ;;
+    aarch64|arm64) arch="arm64" ;;
+    *) fail "Unsupported architecture for Hysteria: $(uname -m)" ;;
+  esac
+  if [[ -x /usr/local/bin/hysteria ]]; then
+    substep "Hysteria 2 already installed ($(/usr/local/bin/hysteria version 2>/dev/null | awk '/Version:/ {print $2}'))"
+    return
+  fi
+  substep "downloading Hysteria 2 (${arch})"
+  curl -fsSL "https://github.com/apernet/hysteria/releases/latest/download/hysteria-linux-${arch}" \
+    -o /usr/local/bin/hysteria || fail "Hysteria 2 download failed"
+  chmod 0755 /usr/local/bin/hysteria
+  setcap 'cap_net_bind_service=+ep' /usr/local/bin/hysteria 2>/dev/null || true
+}
+
+ensure_core_users() {
+  if ! id -u xray >/dev/null 2>&1; then
+    useradd -r -s /bin/false xray
+  fi
+  if ! id -u hysteria >/dev/null 2>&1; then
+    useradd -r -s /bin/false hysteria
+  fi
+}
+
+ensure_reality_keys() {
+  local priv pub
+  priv="$(env_get REALITY_PRIVATE_KEY || true)"
+  pub="$(env_get REALITY_PUBLIC_KEY || true)"
+  if [[ -n "${priv}" && -n "${pub}" ]]; then
+    substep "Reality keypair already present"
+    return
+  fi
+  [[ -x /usr/local/bin/xray ]] || fail "xray binary missing; cannot generate Reality keypair"
+  local out
+  out="$(/usr/local/bin/xray x25519)" || fail "xray x25519 failed"
+  priv="$(printf '%s\n' "${out}" | awk '/Private key:/ {print $3}')"
+  pub="$(printf '%s\n' "${out}" | awk '/Public key:/ {print $3}')"
+  [[ -z "${priv}" || -z "${pub}" ]] && fail "failed to parse Reality keypair"
+  env_set REALITY_PRIVATE_KEY "${priv}"
+  env_set REALITY_PUBLIC_KEY "${pub}"
+  substep "generated Reality x25519 keypair"
+}
+
+render_core_configs() {
+  [[ -x "${INSTALL_DIR}/bin/panel" ]] || fail "panel binary missing; cannot render core configs"
+  PANEL_ENV_FILE="${ENV_FILE}" sudo -u panel "${INSTALL_DIR}/bin/panel" config render --core xray \
+    || fail "failed to render xray config"
+  PANEL_ENV_FILE="${ENV_FILE}" sudo -u panel "${INSTALL_DIR}/bin/panel" config render --core hysteria \
+    || fail "failed to render hysteria config"
+  chown panel:xray "${INSTALL_DIR}/configs/xray/config.json" 2>/dev/null || true
+  chown panel:hysteria "${INSTALL_DIR}/configs/hysteria/config.json" 2>/dev/null || true
+  chmod 0640 "${INSTALL_DIR}/configs/xray/config.json" "${INSTALL_DIR}/configs/hysteria/config.json" 2>/dev/null || true
+}
+
+grant_cert_access() {
+  local domain cert_path key_path
+  domain="$(env_get PANEL_DOMAIN || true)"
+  cert_path="$(env_get HY2_CERT_PATH || true)"
+  key_path="$(env_get HY2_KEY_PATH || true)"
+  [[ -z "${cert_path}" || -z "${key_path}" ]] && return
+  if [[ ! -f "${cert_path}" || ! -f "${key_path}" ]]; then
+    warn "TLS cert not found at ${cert_path}"
+    info "obtain it with: certbot certonly --standalone -d ${domain}"
+    info "then: systemctl restart hysteria.service"
+    return
+  fi
+  if [[ "${cert_path}" == /etc/letsencrypt/* ]]; then
+    chgrp -R hysteria /etc/letsencrypt/live /etc/letsencrypt/archive 2>/dev/null || true
+    chmod -R g+rX /etc/letsencrypt/live /etc/letsencrypt/archive 2>/dev/null || true
+  fi
+}
+
+start_cores() {
+  local vless_port hy2_port
+  vless_port="$(env_get VLESS_PORT || echo 443)"
+  hy2_port="$(env_get HY2_PORT || echo 8443)"
+
+  if [[ "${vless_port}" == "443" ]] && ss -tln 2>/dev/null | awk '{print $4}' | grep -qE '(:|\.)443$'; then
+    warn "port 443 appears to be in use by another service (likely Caddy)"
+    info "set VLESS_PORT to a free port (e.g. 8444) in ${ENV_FILE} and rerun"
+  fi
+
+  systemctl enable xray.service hysteria.service >/dev/null 2>&1 || true
+  if ! systemctl restart xray.service; then
+    red "xray.service failed to start. Recent logs:"
+    journalctl -u xray.service -n 40 --no-pager || true
+    warn "xray is NOT running — VLESS traffic will be rejected until resolved"
+  else
+    substep "xray.service active (VLESS Reality on TCP ${vless_port})"
+  fi
+  if ! systemctl restart hysteria.service; then
+    red "hysteria.service failed to start. Recent logs:"
+    journalctl -u hysteria.service -n 40 --no-pager || true
+    warn "hysteria is NOT running — Hysteria 2 traffic will be rejected until resolved (most often a missing TLS cert)"
+  else
+    substep "hysteria.service active (Hysteria 2 on UDP ${hy2_port})"
+  fi
 }
 
 install_go() {
@@ -360,6 +487,17 @@ ensure_dirs() {
     "${INSTALL_DIR}/data/backups" \
     "${INSTALL_DIR}/logs"
   chown -R panel:panel "${INSTALL_DIR}"
+  chmod 0755 "${INSTALL_DIR}" "${INSTALL_DIR}/configs"
+  if getent group xray >/dev/null; then
+    chown panel:xray "${INSTALL_DIR}/configs/xray"
+    chmod 2750 "${INSTALL_DIR}/configs/xray"
+    usermod -aG xray panel 2>/dev/null || true
+  fi
+  if getent group hysteria >/dev/null; then
+    chown panel:hysteria "${INSTALL_DIR}/configs/hysteria"
+    chmod 2750 "${INSTALL_DIR}/configs/hysteria"
+    usermod -aG hysteria panel 2>/dev/null || true
+  fi
 }
 
 ensure_env() {
@@ -675,7 +813,7 @@ install_all() {
   collect_install_inputs
 
   STAGE_INDEX=0
-  STAGE_TOTAL=10
+  STAGE_TOTAL=12
 
   step "deps" "Installing Ubuntu dependencies"
   ensure_base_packages
@@ -685,11 +823,18 @@ install_all() {
   ensure_build_toolchain
   success "Go $(go version | awk '{print $3}') · Node $(node -v) · npm $(npm -v)"
 
+  step "cores" "Installing Xray-core and Hysteria 2 binaries"
+  install_xray_binary
+  install_hysteria_binary
+  ensure_core_users
+  success "xray and hysteria binaries installed"
+
   step "layout" "Creating panel user and directory layout"
   ensure_panel_user
   ensure_dirs
   ensure_env
   ensure_runtime_secrets
+  ensure_reality_keys
   success "user/panel and ${INSTALL_DIR} prepared"
 
   step "db" "Ensuring PostgreSQL role and database"
@@ -725,8 +870,14 @@ install_all() {
     info "existing admin account preserved"
   fi
 
-  step "service" "Starting panel and reverse proxy"
+  step "configs" "Rendering xray and hysteria configs"
+  render_core_configs
+  grant_cert_access
+  success "core configs written to ${INSTALL_DIR}/configs/"
+
+  step "service" "Starting panel, cores, and reverse proxy"
   start_panel
+  start_cores
   setup_reverse_proxy
   success "panel.service active"
 

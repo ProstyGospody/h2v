@@ -85,6 +85,24 @@ func (s *ConfigService) Render(ctx context.Context, core string) ([]byte, error)
 	return s.RenderWithRuntime(core, runtime)
 }
 
+// ReconcileXray regenerates the Xray config from the current runtime (which
+// includes the active client list from the database) and restarts the kernel
+// so the new client UUIDs take effect. Unlike Apply, it does not log to config
+// history — this path is for system-driven updates after user changes.
+func (s *ConfigService) ReconcileXray(ctx context.Context) error {
+	content, err := s.Render(ctx, "xray")
+	if err != nil {
+		return err
+	}
+	if err := writeFileAtomic(s.cfg.Xray.ConfigPath, content, 0o640); err != nil {
+		return err
+	}
+	if err := s.systemctl.Restart(ctx, "xray"); err != nil {
+		return err
+	}
+	return s.waitHealthy(ctx, "xray")
+}
+
 func (s *ConfigService) RenderWithRuntime(core string, runtime RuntimeSettings) ([]byte, error) {
 	name, err := templateName(core)
 	if err != nil {
