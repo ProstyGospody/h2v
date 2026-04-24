@@ -163,7 +163,6 @@ export function SubPage() {
                 <Skeleton className="aspect-square w-full max-w-[260px] rounded-md" />
               ) : (
                 <QRCodePreview
-                  image={data?.qr.subscription}
                   label="Subscription QR"
                   maxWidthClassName="max-w-[260px]"
                   value={data?.subscription ?? ''}
@@ -304,15 +303,15 @@ export function SubPage() {
               ) : (
                 <div className="grid gap-4 sm:grid-cols-2">
                   {[
-                    { image: data?.qr.vless, label: 'VLESS - Reality', value: data?.vless ?? '' },
-                    { image: data?.qr.hysteria2, label: 'Hysteria 2', value: data?.hysteria2 ?? '' },
+                    { label: 'VLESS - Reality', value: data?.vless ?? '' },
+                    { label: 'Hysteria 2', value: data?.hysteria2 ?? '' },
                   ].map((item) => (
                     <div
                       className="space-y-3 rounded-md border border-border bg-surface-elevated p-4"
                       key={item.label}
                     >
                       <div className="t-label">{item.label}</div>
-                      <QRCodePreview image={item.image} label={item.label} value={item.value} />
+                      <QRCodePreview label={item.label} value={item.value} />
                       <div className="overflow-hidden text-ellipsis whitespace-nowrap font-mono text-xs text-foreground">
                         {item.value}
                       </div>
@@ -362,37 +361,32 @@ function getPreferredTheme(): 'dark' | 'light' {
 }
 
 function QRCodePreview({
-  image,
   label,
   value,
   maxWidthClassName = '',
 }: {
-  image?: string;
   label: string;
   value: string;
   maxWidthClassName?: string;
 }) {
-  if (image) {
-    return (
-      <img
-        alt={label}
-        className={`w-full rounded-md border border-border bg-white p-4 ${maxWidthClassName}`.trim()}
-        src={image}
-      />
-    );
-  }
-
   if (value) {
     return (
       <div
-        className={`w-full rounded-md border border-border bg-white p-4 ${maxWidthClassName}`.trim()}
+        aria-label={label}
+        className={cn(
+          'flex aspect-square w-full items-center justify-center overflow-hidden rounded-md border border-border bg-white p-4',
+          maxWidthClassName,
+        )}
+        role="img"
       >
         <QRCodeSVG
+          className="block h-full w-full"
           bgColor="#ffffff"
-          fgColor="#111111"
-          includeMargin={false}
+          fgColor="#050505"
+          marginSize={2}
           level="M"
           size={220}
+          style={{ height: '100%', width: '100%' }}
           title={label}
           value={value}
         />
@@ -400,5 +394,12 @@ function QRCodePreview({
     );
   }
 
-  return <div className="aspect-square rounded-sm border border-border bg-surface" />;
+  return (
+    <div
+      className={cn(
+        'aspect-square w-full rounded-md border border-border bg-surface',
+        maxWidthClassName,
+      )}
+    />
+  );
 }

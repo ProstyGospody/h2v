@@ -27,11 +27,6 @@ export type UserLinks = {
   subscription: string;
   vless: string;
   hysteria2: string;
-  qr: {
-    subscription: string;
-    vless: string;
-    hysteria2: string;
-  };
   usage: {
     traffic_limit: number;
     traffic_used: number;

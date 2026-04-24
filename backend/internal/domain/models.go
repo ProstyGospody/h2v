@@ -111,15 +111,8 @@ type SubscriptionLinks struct {
 	Subscription string        `json:"subscription"`
 	VLESS        string        `json:"vless"`
 	Hysteria2    string        `json:"hysteria2"`
-	QR           QRCollection  `json:"qr"`
 	Usage        UsageSnapshot `json:"usage"`
 	Username     string        `json:"username"`
-}
-
-type QRCollection struct {
-	Subscription string `json:"subscription"`
-	VLESS        string `json:"vless"`
-	Hysteria2    string `json:"hysteria2"`
 }
 
 type UsageSnapshot struct {
