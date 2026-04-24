@@ -121,9 +121,25 @@ export function SubPage() {
   });
 
   const data = subscription.data;
-  const subscriptionURL = useMemo(
-    () => (data ? subscriptionURLForCurrentOrigin(token, data.subscription) : ''),
+  const subscriptionURLs = useMemo(
+    () =>
+      data
+        ? {
+            clash: subscriptionURLForCurrentOrigin(token, data.subscription, 'clash'),
+            raw: subscriptionURLForCurrentOrigin(token, data.subscription),
+            singBox: subscriptionURLForCurrentOrigin(token, data.subscription, 'sing-box'),
+          }
+        : { clash: '', raw: '', singBox: '' },
     [data, token],
+  );
+  const subscriptionURL = subscriptionURLs.raw;
+  const subscriptionFormatLinks = useMemo(
+    () => [
+      { label: 'Raw subscription', value: subscriptionURLs.raw },
+      { label: 'Clash / Mihomo', value: subscriptionURLs.clash },
+      { label: 'sing-box', value: subscriptionURLs.singBox },
+    ],
+    [subscriptionURLs],
   );
   const usage = data?.usage;
   const expiryDays = daysUntil(usage?.expires_at ?? null);
@@ -309,39 +325,72 @@ export function SubPage() {
             <div className="space-y-4 border-t border-border px-5 py-5">
               {subscription.isLoading ? (
                 <>
+                  <Skeleton className="h-32 w-full" />
                   <Skeleton className="h-44 w-full" />
                   <Skeleton className="h-44 w-full" />
                 </>
               ) : (
-                <div className="grid gap-4 sm:grid-cols-2">
-                  {[
-                    { label: 'VLESS - Reality', value: data?.vless ?? '' },
-                    { label: 'Hysteria 2', value: data?.hysteria2 ?? '' },
-                  ].map((item) => (
-                    <div
-                      className="space-y-3 rounded-md border border-border bg-surface-elevated p-4"
-                      key={item.label}
-                    >
-                      <div className="t-label">{item.label}</div>
-                      <QRCodePreview label={item.label} value={item.value} />
-                      <div className="overflow-hidden text-ellipsis whitespace-nowrap font-mono text-xs text-foreground">
-                        {item.value}
-                      </div>
-                      <Button
-                        className="w-full"
-                        onClick={async () => {
-                          if (!item.value) return;
-                          await navigator.clipboard.writeText(item.value);
-                          toast.success(`${item.label} copied`);
-                        }}
-                        type="button"
-                        variant="secondary"
+                <div className="space-y-5">
+                  <div className="space-y-2">
+                    <div className="t-label">Subscription formats</div>
+                    {subscriptionFormatLinks.map((item) => (
+                      <div
+                        className="flex items-center gap-3 rounded-md border border-border bg-surface-elevated p-3"
+                        key={item.label}
                       >
-                        <Copy className="size-4" />
-                        Copy
-                      </Button>
-                    </div>
-                  ))}
+                        <div className="min-w-0 flex-1">
+                          <div className="text-sm font-medium text-foreground">{item.label}</div>
+                          <div className="overflow-hidden text-ellipsis whitespace-nowrap font-mono text-[11px] text-muted-foreground">
+                            {item.value}
+                          </div>
+                        </div>
+                        <Button
+                          aria-label={`Copy ${item.label}`}
+                          onClick={async () => {
+                            if (!item.value) return;
+                            await navigator.clipboard.writeText(item.value);
+                            toast.success(`${item.label} copied`);
+                          }}
+                          size="icon"
+                          type="button"
+                          variant="secondary"
+                        >
+                          <Copy className="size-4" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    {[
+                      { label: 'VLESS - Reality', value: data?.vless ?? '' },
+                      { label: 'Hysteria 2', value: data?.hysteria2 ?? '' },
+                    ].map((item) => (
+                      <div
+                        className="space-y-3 rounded-md border border-border bg-surface-elevated p-4"
+                        key={item.label}
+                      >
+                        <div className="t-label">{item.label}</div>
+                        <QRCodePreview label={item.label} value={item.value} />
+                        <div className="overflow-hidden text-ellipsis whitespace-nowrap font-mono text-xs text-foreground">
+                          {item.value}
+                        </div>
+                        <Button
+                          className="w-full"
+                          onClick={async () => {
+                            if (!item.value) return;
+                            await navigator.clipboard.writeText(item.value);
+                            toast.success(`${item.label} copied`);
+                          }}
+                          type="button"
+                          variant="secondary"
+                        >
+                          <Copy className="size-4" />
+                          Copy
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               )}
             </div>
@@ -372,14 +421,27 @@ function getPreferredTheme(): 'dark' | 'light' {
   return window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
 }
 
-function subscriptionURLForCurrentOrigin(token: string, fallback: string): string {
+function subscriptionURLForCurrentOrigin(token: string, fallback: string, format?: string): string {
   if (!fallback) {
     return '';
   }
-  if (typeof window === 'undefined') {
-    return fallback;
+  const base =
+    typeof window === 'undefined'
+      ? fallback
+      : `${window.location.origin}/sub/${encodeURIComponent(token)}`;
+  try {
+    const url = new URL(base);
+    if (format) {
+      url.searchParams.set('format', format);
+    }
+    return url.toString();
+  } catch {
+    if (!format) {
+      return base;
+    }
+    const separator = base.includes('?') ? '&' : '?';
+    return `${base}${separator}format=${encodeURIComponent(format)}`;
   }
-  return `${window.location.origin}/sub/${encodeURIComponent(token)}`;
 }
 
 function subscriptionTokenFromURL(value: string): string {

@@ -599,17 +599,26 @@ func (s *Server) handleSubscription(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	links = linksForRequest(r, links, token)
-	if r.URL.Query().Get("format") == "json" {
+	format := strings.ToLower(strings.TrimSpace(r.URL.Query().Get("format")))
+	if format == "json" {
 		jsonData(w, http.StatusOK, links, nil)
 		return
 	}
 
+	w.Header().Set("Profile-Update-Interval", strconv.Itoa(s.cfg.Subscription.UpdateIntervalHours))
+	w.Header().Set("Subscription-Userinfo", s.services.Subscription.BuildUserInfoHeader(user))
+
 	ua := strings.ToLower(r.Header.Get("User-Agent"))
 	switch {
-	case strings.Contains(ua, "clash"):
+	case format == "clash" || format == "mihomo" || format == "yaml" || (format == "" && isClashLikeUserAgent(ua)):
+		payload, err := s.services.Subscription.BuildClashYAML(links)
+		if err != nil {
+			jsonError(w, err)
+			return
+		}
 		w.Header().Set("Content-Type", "text/yaml; charset=utf-8")
-		_, _ = w.Write([]byte(s.services.Subscription.BuildClashYAML(links)))
-	case strings.Contains(ua, "sing-box"):
+		_, _ = w.Write([]byte(payload))
+	case format == "sing-box" || format == "singbox" || (format == "" && strings.Contains(ua, "sing-box")):
 		payload, err := s.services.Subscription.BuildSingBoxJSON(links)
 		if err != nil {
 			jsonError(w, err)
@@ -619,8 +628,6 @@ func (s *Server) handleSubscription(w http.ResponseWriter, r *http.Request) {
 		_, _ = w.Write(payload)
 	default:
 		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
-		w.Header().Set("Profile-Update-Interval", strconv.Itoa(s.cfg.Subscription.UpdateIntervalHours))
-		w.Header().Set("Subscription-Userinfo", s.services.Subscription.BuildUserInfoHeader(user))
 		w.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename="%s"`, user.Username))
 		_, _ = w.Write([]byte(services.EncodedLinks(links)))
 	}
@@ -656,11 +663,12 @@ func (s *Server) handleHY2Auth(w http.ResponseWriter, r *http.Request) {
 		password = r.FormValue("auth")
 	}
 	if password == "" {
-		var req map[string]string
-		_ = decodeJSON(r, &req)
-		password = req["password"]
+		var req map[string]any
+		if err := json.NewDecoder(r.Body).Decode(&req); err == nil {
+			password = stringValue(req["password"])
+		}
 		if password == "" {
-			password = req["auth"]
+			password = stringValue(req["auth"])
 		}
 	}
 	if password == "" {
@@ -677,7 +685,7 @@ func (s *Server) handleHY2Auth(w http.ResponseWriter, r *http.Request) {
 	}
 
 	hy2AuthRequests.WithLabelValues("ok").Inc()
-	jsonData(w, http.StatusOK, map[string]any{"ok": true, "user": user.Username}, nil)
+	writeJSON(w, http.StatusOK, map[string]any{"ok": true, "id": user.Username})
 }
 
 func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
@@ -886,6 +894,19 @@ func requestOrigin(r *http.Request) string {
 
 func firstForwardedValue(value string) string {
 	return strings.TrimSpace(strings.Split(value, ",")[0])
+}
+
+func isClashLikeUserAgent(ua string) bool {
+	return strings.Contains(ua, "clash") ||
+		strings.Contains(ua, "mihomo") ||
+		strings.Contains(ua, "stash")
+}
+
+func stringValue(value any) string {
+	if str, ok := value.(string); ok {
+		return str
+	}
+	return ""
 }
 
 func subscriptionTokenFromURL(raw string) string {

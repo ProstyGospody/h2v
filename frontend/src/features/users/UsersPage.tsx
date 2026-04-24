@@ -636,6 +636,14 @@ export function UsersPage() {
                   ) : links.data ? (
                     ([
                       { label: 'Subscription', value: links.data.subscription },
+                      {
+                        label: 'Clash / Mihomo',
+                        value: subscriptionFormatURL(links.data.subscription, 'clash'),
+                      },
+                      {
+                        label: 'sing-box',
+                        value: subscriptionFormatURL(links.data.subscription, 'sing-box'),
+                      },
                       { label: 'VLESS', value: links.data.vless },
                       { label: 'Hysteria 2', value: links.data.hysteria2 },
                     ] as const).map((link) => (
@@ -836,6 +844,21 @@ export function UsersPage() {
 
 function generateUsername() {
   return `user_${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function subscriptionFormatURL(value: string, format: string) {
+  if (!value) {
+    return '';
+  }
+  try {
+    const base = typeof window === 'undefined' ? 'http://localhost' : window.location.origin;
+    const url = new URL(value, base);
+    url.searchParams.set('format', format);
+    return url.toString();
+  } catch {
+    const separator = value.includes('?') ? '&' : '?';
+    return `${value}${separator}format=${encodeURIComponent(format)}`;
+  }
 }
 
 function QRCodePreview({ label, value }: { label: string; value: string }) {
