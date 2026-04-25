@@ -118,7 +118,7 @@ func Load() Config {
 			APIAddr:         getenv("XRAY_API_ADDR", "127.0.0.1:10085"),
 			ConfigPath:      getenv("XRAY_CONFIG_PATH", filepath.Join(rootDir, "configs", "xray", "config.json")),
 			InboundTag:      getenv("XRAY_INBOUND_TAG", "vless-reality"),
-			VlessPort:       getenvInt("VLESS_PORT", 443),
+			VlessPort:       getenvInt("VLESS_PORT", 8444),
 			RealityDest:     getenv("REALITY_DEST", "www.cloudflare.com:443"),
 			RealitySNI:      getenv("REALITY_SNI", "www.cloudflare.com"),
 			RealityPrivKey:  getenv("REALITY_PRIVATE_KEY", ""),
@@ -242,4 +242,3 @@ func firstNonEmpty(values ...string) string {
 	}
 	return ""
 }
-

@@ -19,6 +19,7 @@ FIRST_INSTALL=false
 NEEDS_CONFIG=false
 PANEL_DOMAIN_INPUT=""
 PANEL_PORT_INPUT=""
+VLESS_PORT_INPUT=""
 HY2_PORT_INPUT=""
 ADMIN_USERNAME_INPUT=""
 ADMIN_PASSWORD_INPUT=""
@@ -278,11 +279,11 @@ grant_cert_access() {
 
 start_cores() {
   local vless_port hy2_port
-  vless_port="$(env_get VLESS_PORT || echo 443)"
+  vless_port="$(env_get VLESS_PORT || echo 8444)"
   hy2_port="$(env_get HY2_PORT || echo 8443)"
 
   if [[ "${vless_port}" == "443" ]] && ss -tln 2>/dev/null | awk '{print $4}' | grep -qE '(:|\.)443$'; then
-    warn "port 443 appears to be in use by another service (likely Caddy)"
+    warn "VLESS_PORT=443 conflicts with another listener (likely Caddy panel HTTPS)"
     info "set VLESS_PORT to a free port (e.g. 8444) in ${ENV_FILE} and rerun"
   fi
 
@@ -424,17 +425,20 @@ collect_install_inputs() {
   local env_exists=false
   local default_domain="panel.example.com"
   local default_panel_port="8000"
+  local default_vless_port="8444"
   local default_hy2_port="8443"
   local default_admin_username="${PANEL_ADMIN_USERNAME:-admin}"
 
   if [[ -f "${ENV_FILE}" ]]; then
     env_exists=true
-    local cur_domain cur_panel_port cur_hy2_port
+    local cur_domain cur_panel_port cur_vless_port cur_hy2_port
     cur_domain="$(env_get PANEL_DOMAIN || true)"
     cur_panel_port="$(env_get PANEL_PORT || true)"
+    cur_vless_port="$(env_get VLESS_PORT || true)"
     cur_hy2_port="$(env_get HY2_PORT || true)"
     [[ -n "${cur_domain}" ]] && default_domain="${cur_domain}"
     [[ -n "${cur_panel_port}" ]] && default_panel_port="${cur_panel_port}"
+    [[ -n "${cur_vless_port}" ]] && default_vless_port="${cur_vless_port}"
     [[ -n "${cur_hy2_port}" ]] && default_hy2_port="${cur_hy2_port}"
   else
     FIRST_INSTALL=true
@@ -474,6 +478,7 @@ collect_install_inputs() {
   done
 
   PANEL_PORT_INPUT="$(prompt_value "Panel HTTP port" "${default_panel_port}")"
+  VLESS_PORT_INPUT="$(prompt_value "VLESS Reality TCP port" "${default_vless_port}")"
   HY2_PORT_INPUT="$(prompt_value "Hysteria 2 port" "${default_hy2_port}")"
   ADMIN_USERNAME_INPUT="$(prompt_value "Admin username" "${default_admin_username}")"
 
@@ -539,6 +544,9 @@ ensure_env() {
   fi
   if [[ -n "${PANEL_PORT_INPUT}" ]]; then
     env_set PANEL_PORT "${PANEL_PORT_INPUT}"
+  fi
+  if [[ -n "${VLESS_PORT_INPUT}" ]]; then
+    env_set VLESS_PORT "${VLESS_PORT_INPUT}"
   fi
   if [[ -n "${HY2_PORT_INPUT}" ]]; then
     env_set HY2_PORT "${HY2_PORT_INPUT}"
@@ -902,8 +910,8 @@ install_all() {
 
   step "service" "Starting panel, cores, and reverse proxy"
   start_panel
-  start_cores
   setup_reverse_proxy
+  start_cores
   success "panel.service active"
 
   local final_domain final_port access_url local_url
