@@ -54,7 +54,6 @@ const clientLinks = {
       icon: '/clients/hiddify.svg',
       label: 'Hiddify',
     },
-    { href: 'https://sing-box.sagernet.org/', icon: '/clients/singbox.svg', label: 'sing-box' },
   ],
 } as const;
 
@@ -78,7 +77,7 @@ const helpSections = [
   {
     title: 'Desktop',
     steps: [
-      'Install Hiddify or sing-box on your desktop.',
+      'Install Hiddify on your desktop.',
       'Import via subscription URL or scan the QR with the client camera.',
       'Keep the subscription entry enabled for automatic updates.',
     ],
@@ -121,25 +120,9 @@ export function SubPage() {
   });
 
   const data = subscription.data;
-  const subscriptionURLs = useMemo(
-    () =>
-      data
-        ? {
-            clash: subscriptionURLForCurrentOrigin(token, data.subscription, 'clash'),
-            raw: subscriptionURLForCurrentOrigin(token, data.subscription),
-            singBox: subscriptionURLForCurrentOrigin(token, data.subscription, 'sing-box'),
-          }
-        : { clash: '', raw: '', singBox: '' },
+  const subscriptionURL = useMemo(
+    () => (data ? subscriptionURLForCurrentOrigin(token, data.subscription) : ''),
     [data, token],
-  );
-  const subscriptionURL = subscriptionURLs.raw;
-  const subscriptionFormatLinks = useMemo(
-    () => [
-      { label: 'Raw subscription', value: subscriptionURLs.raw },
-      { label: 'Clash / Mihomo', value: subscriptionURLs.clash },
-      { label: 'sing-box', value: subscriptionURLs.singBox },
-    ],
-    [subscriptionURLs],
   );
   const usage = data?.usage;
   const expiryDays = daysUntil(usage?.expires_at ?? null);
@@ -331,36 +314,6 @@ export function SubPage() {
                 </>
               ) : (
                 <div className="space-y-5">
-                  <div className="space-y-2">
-                    <div className="t-label">Subscription formats</div>
-                    {subscriptionFormatLinks.map((item) => (
-                      <div
-                        className="flex items-center gap-3 rounded-md border border-border bg-surface-elevated p-3"
-                        key={item.label}
-                      >
-                        <div className="min-w-0 flex-1">
-                          <div className="text-sm font-medium text-foreground">{item.label}</div>
-                          <div className="overflow-hidden text-ellipsis whitespace-nowrap font-mono text-[11px] text-muted-foreground">
-                            {item.value}
-                          </div>
-                        </div>
-                        <Button
-                          aria-label={`Copy ${item.label}`}
-                          onClick={async () => {
-                            if (!item.value) return;
-                            await navigator.clipboard.writeText(item.value);
-                            toast.success(`${item.label} copied`);
-                          }}
-                          size="icon"
-                          type="button"
-                          variant="secondary"
-                        >
-                          <Copy className="size-4" />
-                        </Button>
-                      </div>
-                    ))}
-                  </div>
-
                   <div className="grid gap-4 sm:grid-cols-2">
                     {[
                       { label: 'VLESS - Reality', value: data?.vless ?? '' },
@@ -421,7 +374,7 @@ function getPreferredTheme(): 'dark' | 'light' {
   return window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
 }
 
-function subscriptionURLForCurrentOrigin(token: string, fallback: string, format?: string): string {
+function subscriptionURLForCurrentOrigin(token: string, fallback: string): string {
   if (!fallback) {
     return '';
   }
@@ -430,17 +383,9 @@ function subscriptionURLForCurrentOrigin(token: string, fallback: string, format
       ? fallback
       : `${window.location.origin}/sub/${encodeURIComponent(token)}`;
   try {
-    const url = new URL(base);
-    if (format) {
-      url.searchParams.set('format', format);
-    }
-    return url.toString();
+    return new URL(base).toString();
   } catch {
-    if (!format) {
-      return base;
-    }
-    const separator = base.includes('?') ? '&' : '?';
-    return `${base}${separator}format=${encodeURIComponent(format)}`;
+    return base;
   }
 }
 

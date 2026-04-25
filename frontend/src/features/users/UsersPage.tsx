@@ -623,54 +623,40 @@ export function UsersPage() {
                   </Button>
                 </div>
 
-                <div className="space-y-2">
-                  <div className="t-label">Links</div>
+                <div className="space-y-3">
+                  <div className="t-label">Connection</div>
                   {links.isLoading ? (
                     <>
-                      <Skeleton className="h-16 w-full" />
-                      <Skeleton className="h-16 w-full" />
-                      <Skeleton className="h-16 w-full" />
+                      <Skeleton className="aspect-square w-full rounded-md" />
+                      <Skeleton className="h-11 w-full" />
+                      <Skeleton className="h-11 w-full" />
                     </>
                   ) : links.data ? (
-                    ([
-                      { label: 'Subscription', value: links.data.subscription },
-                      {
-                        label: 'Clash / Mihomo',
-                        value: subscriptionFormatURL(links.data.subscription, 'clash'),
-                      },
-                      {
-                        label: 'sing-box',
-                        value: subscriptionFormatURL(links.data.subscription, 'sing-box'),
-                      },
-                      { label: 'VLESS', value: links.data.vless },
-                      { label: 'Hysteria 2', value: links.data.hysteria2 },
-                    ] as const).map((link) => (
-                      <div className="rounded-md bg-muted p-3" key={link.label}>
-                        <div className="mb-2 t-label">{link.label}</div>
-                        <div className="flex items-start gap-3">
-                          <QRCodePreview label={`${link.label} QR`} value={link.value} />
-                          <div className="min-w-0 flex-1 space-y-2">
-                            <div className="max-h-16 overflow-hidden break-all font-mono text-[11px] leading-relaxed text-foreground">
-                              {link.value || '--'}
-                            </div>
-                            <Button
-                              className="h-8 w-full justify-start"
-                              onClick={async () => {
-                                if (!link.value) return;
-                                await navigator.clipboard.writeText(link.value);
-                                toast.success(`${link.label} copied`);
-                              }}
-                              size="sm"
-                              type="button"
-                              variant="secondary"
-                            >
-                              <Copy className="size-4" />
-                              Copy
-                            </Button>
-                          </div>
+                    <div className="space-y-3">
+                      <div className="rounded-md border bg-muted p-4">
+                        <div className="mx-auto max-w-[220px]">
+                          <QRCodePreview label="Subscription QR" value={links.data.subscription} />
                         </div>
+                        <Button
+                          className="mt-4 w-full"
+                          onClick={async () => {
+                            if (!links.data?.subscription) return;
+                            await navigator.clipboard.writeText(links.data.subscription);
+                            toast.success('Subscription copied');
+                          }}
+                          size="sm"
+                          type="button"
+                          variant="secondary"
+                        >
+                          <Copy className="size-4" />
+                          Copy subscription
+                        </Button>
                       </div>
-                    ))
+                      <div className="space-y-1.5">
+                        <LinkCopyRow label="VLESS" value={links.data.vless} />
+                        <LinkCopyRow label="Hys2" value={links.data.hysteria2} />
+                      </div>
+                    </div>
                   ) : null}
                 </div>
 
@@ -838,34 +824,19 @@ function generateUsername() {
   return `user_${Math.random().toString(36).slice(2, 8)}`;
 }
 
-function subscriptionFormatURL(value: string, format: string) {
-  if (!value) {
-    return '';
-  }
-  try {
-    const base = typeof window === 'undefined' ? 'http://localhost' : window.location.origin;
-    const url = new URL(value, base);
-    url.searchParams.set('format', format);
-    return url.toString();
-  } catch {
-    const separator = value.includes('?') ? '&' : '?';
-    return `${value}${separator}format=${encodeURIComponent(format)}`;
-  }
-}
-
 function QRCodePreview({ label, value }: { label: string; value: string }) {
   if (!value) {
-    return <div className="size-32 shrink-0 rounded-md border border-border bg-surface" />;
+    return <div className="aspect-square w-full rounded-md border border-border bg-surface" />;
   }
 
   return (
     <div
       aria-label={label}
-      className="flex size-32 shrink-0 items-center justify-center overflow-hidden rounded-md border border-border bg-white p-2"
+      className="flex aspect-square w-full items-center justify-center overflow-hidden rounded-md border border-border bg-white p-3"
       role="img"
     >
       <QRCodeSVG
-        className="block size-full"
+        className="block h-full w-full"
         bgColor="#ffffff"
         fgColor="#050505"
         level="L"
@@ -875,6 +846,31 @@ function QRCodePreview({ label, value }: { label: string; value: string }) {
         title={label}
         value={value}
       />
+    </div>
+  );
+}
+
+function LinkCopyRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex items-center gap-2 rounded-md bg-muted px-3 py-2">
+      <div className="min-w-0 flex-1">
+        <div className="text-xs font-medium text-foreground">{label}</div>
+        <div className="truncate font-mono text-[11px] text-muted-foreground">{value || '--'}</div>
+      </div>
+      <Button
+        aria-label={`Copy ${label}`}
+        disabled={!value}
+        onClick={async () => {
+          if (!value) return;
+          await navigator.clipboard.writeText(value);
+          toast.success(`${label} copied`);
+        }}
+        size="icon"
+        type="button"
+        variant="secondary"
+      >
+        <Copy className="size-4" />
+      </Button>
     </div>
   );
 }
