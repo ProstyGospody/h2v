@@ -1,7 +1,7 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Activity, ArrowDown, Ban, Cpu, HardDrive, Radio, Users } from 'lucide-react';
-import { Area, AreaChart, CartesianGrid, XAxis, YAxis } from 'recharts';
+import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from 'recharts';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from '@/components/ui/chart';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -15,13 +15,9 @@ const ranges = ['1', '7', '30'] as const;
 type Range = (typeof ranges)[number];
 
 const trafficChartConfig = {
-  downlink: {
-    label: 'Download',
+  total: {
+    label: 'Traffic',
     color: 'hsl(var(--primary))',
-  },
-  uplink: {
-    label: 'Upload',
-    color: 'hsl(var(--success))',
   },
 } satisfies ChartConfig;
 
@@ -48,6 +44,10 @@ export function DashboardPage() {
   const data = overview.data;
   const cpuPercent = data?.cpu_usage_percent;
   const memoryPercent = data?.memory_usage_percent;
+  const trafficData = useMemo(
+    () => (traffic.data ?? []).map((p) => ({ recorded_at: p.recorded_at, total: p.uplink + p.downlink })),
+    [traffic.data],
+  );
   const kernelRows = [
     { label: 'Xray', value: data?.xray_status ?? 'Unknown' },
     { label: 'Hysteria', value: data?.hysteria_status ?? 'Unknown' },
@@ -204,19 +204,7 @@ export function DashboardPage() {
       <div className="grid gap-4 px-5 pt-4 sm:px-8 xl:grid-cols-[1.75fr_1fr]">
         <Card>
           <CardHeader>
-            <div className="flex items-center justify-between gap-4">
-              <CardTitle>Traffic</CardTitle>
-              <div className="hidden items-center gap-4 text-xs md:flex">
-                <span className="flex items-center gap-1.5 text-muted-foreground">
-                  <span className="size-2 rounded-sm bg-primary" />
-                  Download
-                </span>
-                <span className="flex items-center gap-1.5 text-muted-foreground">
-                  <span className="size-2 rounded-sm bg-success" />
-                  Upload
-                </span>
-              </div>
-            </div>
+            <CardTitle>Traffic</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="h-[300px]">
@@ -224,17 +212,7 @@ export function DashboardPage() {
                 <Skeleton className="h-full w-full" />
               ) : (
                 <ChartContainer className="h-full w-full aspect-auto" config={trafficChartConfig}>
-                  <AreaChart data={traffic.data ?? []} margin={{ left: 0, right: 8, top: 8, bottom: 0 }}>
-                    <defs>
-                      <linearGradient id="trafficDown" x1="0" x2="0" y1="0" y2="1">
-                        <stop offset="0%" stopColor="var(--color-downlink)" stopOpacity={0.38} />
-                        <stop offset="100%" stopColor="var(--color-downlink)" stopOpacity={0} />
-                      </linearGradient>
-                      <linearGradient id="trafficUp" x1="0" x2="0" y1="0" y2="1">
-                        <stop offset="0%" stopColor="var(--color-uplink)" stopOpacity={0.28} />
-                        <stop offset="100%" stopColor="var(--color-uplink)" stopOpacity={0} />
-                      </linearGradient>
-                    </defs>
+                  <BarChart data={trafficData} margin={{ left: 0, right: 8, top: 8, bottom: 0 }}>
                     <CartesianGrid stroke="hsl(var(--border))" strokeDasharray="3 3" vertical={false} />
                     <XAxis
                       axisLine={false}
@@ -252,20 +230,16 @@ export function DashboardPage() {
                       width={72}
                     />
                     <ChartTooltip
-                      cursor={false}
+                      cursor={{ fill: 'hsl(var(--accent))', opacity: 0.3 }}
                       content={
                         <ChartTooltipContent
-                          formatter={(value, name) => [
-                            formatBytes(Number(value)),
-                            name === 'downlink' ? 'Download' : 'Upload',
-                          ]}
+                          formatter={(value) => [formatBytes(Number(value)), 'Traffic']}
                           labelFormatter={(v) => formatShortDateTime(String(v))}
                         />
                       }
                     />
-                    <Area dataKey="downlink" fill="url(#trafficDown)" name="downlink" stroke="var(--color-downlink)" strokeWidth={2} type="monotone" />
-                    <Area dataKey="uplink" fill="url(#trafficUp)" name="uplink" stroke="var(--color-uplink)" strokeWidth={2} type="monotone" />
-                  </AreaChart>
+                    <Bar dataKey="total" fill="var(--color-total)" name="total" radius={[4, 4, 0, 0]} />
+                  </BarChart>
                 </ChartContainer>
               )}
             </div>
