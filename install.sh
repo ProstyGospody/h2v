@@ -254,6 +254,7 @@ render_core_configs() {
     || fail "failed to render xray config"
   PANEL_ENV_FILE="${ENV_FILE}" sudo -u panel "${INSTALL_DIR}/bin/panel" config render --core hysteria \
     || fail "failed to render hysteria config"
+  rm -f "${INSTALL_DIR}/configs/hysteria/config.yaml" "${INSTALL_DIR}/configs/hysteria/config.yml"
   chown panel:xray "${INSTALL_DIR}/configs/xray/config.json" 2>/dev/null || true
   chown panel:hysteria "${INSTALL_DIR}/configs/hysteria/config.json" 2>/dev/null || true
   chmod 0640 "${INSTALL_DIR}/configs/xray/config.json" "${INSTALL_DIR}/configs/hysteria/config.json" 2>/dev/null || true
@@ -611,6 +612,21 @@ normalize_vless_env_port() {
   fi
 }
 
+normalize_config_paths() {
+  local hy2_config_path xray_config_path
+
+  xray_config_path="$(env_get XRAY_CONFIG_PATH || true)"
+  if [[ -z "${xray_config_path}" || "${xray_config_path}" != "${INSTALL_DIR}/configs/xray/config.json" ]]; then
+    env_set XRAY_CONFIG_PATH "${INSTALL_DIR}/configs/xray/config.json"
+  fi
+
+  hy2_config_path="$(env_get HY2_CONFIG_PATH || true)"
+  if [[ -z "${hy2_config_path}" || "${hy2_config_path}" != "${INSTALL_DIR}/configs/hysteria/config.json" ]]; then
+    warn "HY2_CONFIG_PATH must point to JSON; switching it to ${INSTALL_DIR}/configs/hysteria/config.json"
+    env_set HY2_CONFIG_PATH "${INSTALL_DIR}/configs/hysteria/config.json"
+  fi
+}
+
 ensure_secret_value() {
   local key="${1}"
   local value
@@ -950,6 +966,7 @@ install_all() {
   ensure_panel_user
   ensure_dirs
   ensure_env
+  normalize_config_paths
   normalize_vless_env_port
   ensure_runtime_secrets
   ensure_reality_keys
