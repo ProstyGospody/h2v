@@ -1,6 +1,7 @@
 [Unit]
 Description=Hysteria 2 Server
-After=network.target
+After=network.target panel.service
+Wants=panel.service
 
 [Service]
 User=hysteria
@@ -14,4 +15,3 @@ LimitNOFILE=1048576
 
 [Install]
 WantedBy=multi-user.target
-

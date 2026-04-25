@@ -670,18 +670,21 @@ func (s *Server) handleHY2Auth(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	password := r.FormValue("password")
+	password := ""
+	if strings.Contains(strings.ToLower(r.Header.Get("Content-Type")), "json") {
+		password = hy2AuthFromJSON(r)
+	}
+	if password != "" {
+		allowHY2Auth(w, s, password)
+		return
+	}
+
+	password = r.FormValue("auth")
 	if password == "" {
-		password = r.FormValue("auth")
+		password = r.FormValue("password")
 	}
 	if password == "" {
-		var req map[string]any
-		if err := json.NewDecoder(r.Body).Decode(&req); err == nil {
-			password = stringValue(req["password"])
-		}
-		if password == "" {
-			password = stringValue(req["auth"])
-		}
+		password = hy2AuthFromJSON(r)
 	}
 	if password == "" {
 		hy2AuthRequests.WithLabelValues("denied").Inc()
@@ -689,6 +692,21 @@ func (s *Server) handleHY2Auth(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	allowHY2Auth(w, s, password)
+}
+
+func hy2AuthFromJSON(r *http.Request) string {
+	var req map[string]any
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		return ""
+	}
+	if password := stringValue(req["auth"]); password != "" {
+		return password
+	}
+	return stringValue(req["password"])
+}
+
+func allowHY2Auth(w http.ResponseWriter, s *Server, password string) {
 	user, ok := s.services.Subscription.CheckPasswordCached(password)
 	if !ok || !user.CanConnect() {
 		hy2AuthRequests.WithLabelValues("denied").Inc()

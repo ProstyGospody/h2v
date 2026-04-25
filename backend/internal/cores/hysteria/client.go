@@ -1,13 +1,14 @@
 package hysteria
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
 	"log/slog"
 	"net"
 	"net/http"
-	"strings"
+	"net/url"
 	"time"
 
 	"github.com/prost/h2v/backend/internal/config"
@@ -31,11 +32,17 @@ func NewClient(cfg config.HysteriaConfig, logger *slog.Logger) *Client {
 }
 
 func (c *Client) Health(ctx context.Context) error {
-	addr := strings.TrimPrefix(strings.TrimPrefix(c.cfg.TrafficURL, "http://"), "https://")
+	parsed, err := url.Parse(c.cfg.TrafficURL)
+	if err != nil {
+		return fmt.Errorf("invalid hysteria traffic API URL %q: %w", c.cfg.TrafficURL, err)
+	}
+	if parsed.Host == "" {
+		return fmt.Errorf("invalid hysteria traffic API URL %q: missing host", c.cfg.TrafficURL)
+	}
+	addr := parsed.Host
 	conn, err := (&net.Dialer{Timeout: 500 * time.Millisecond}).DialContext(ctx, "tcp", addr)
 	if err != nil {
-		c.logger.Warn("hysteria health check failed; traffic API unavailable", "addr", addr, "err", err)
-		return nil
+		return fmt.Errorf("hysteria traffic API unavailable at %s: %w", addr, err)
 	}
 	_ = conn.Close()
 	return nil
@@ -48,11 +55,11 @@ func (c *Client) GetTraffic(ctx context.Context, reset bool) (map[string]domain.
 	}
 	q := req.URL.Query()
 	if reset {
-		q.Set("clear", "true")
+		q.Set("clear", "1")
 	}
 	req.URL.RawQuery = q.Encode()
 	if c.cfg.TrafficSecret != "" {
-		req.Header.Set("Authorization", "Bearer "+c.cfg.TrafficSecret)
+		req.Header.Set("Authorization", c.cfg.TrafficSecret)
 	}
 
 	resp, err := c.httpClient.Do(req)
@@ -85,17 +92,17 @@ func (c *Client) Kick(ctx context.Context, usernames []string) error {
 	if len(usernames) == 0 {
 		return nil
 	}
-	body, err := json.Marshal(map[string]any{"users": usernames})
+	body, err := json.Marshal(usernames)
 	if err != nil {
 		return err
 	}
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.cfg.TrafficURL+"/kick", strings.NewReader(string(body)))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.cfg.TrafficURL+"/kick", bytes.NewReader(body))
 	if err != nil {
 		return err
 	}
 	req.Header.Set("Content-Type", "application/json")
 	if c.cfg.TrafficSecret != "" {
-		req.Header.Set("Authorization", "Bearer "+c.cfg.TrafficSecret)
+		req.Header.Set("Authorization", c.cfg.TrafficSecret)
 	}
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
@@ -108,4 +115,3 @@ func (c *Client) Kick(ctx context.Context, usernames []string) error {
 	}
 	return nil
 }
-

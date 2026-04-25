@@ -38,7 +38,7 @@
       "url": {{ .Hy2MasqueradeURL | json }},
       "rewriteHost": true
     }
-  }{{ if .Hy2ObfsEnabled }},
+  }{{ if and .Hy2ObfsEnabled .Hy2ObfsPassword }},
   "obfs": {
     "type": "salamander",
     "salamander": {

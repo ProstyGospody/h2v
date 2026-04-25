@@ -1,6 +1,6 @@
 [Unit]
 Description=VPN Panel
-After=network.target postgresql.service xray.service hysteria.service
+After=network.target postgresql.service
 Wants=postgresql.service
 
 [Service]
