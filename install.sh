@@ -829,8 +829,8 @@ build_artifacts() {
 }
 
 install_templates() {
-  rsync -a "${SOURCE_DIR}/templates/" "${INSTALL_DIR}/templates/"
-  rsync -a "${SOURCE_DIR}/backend/migrations/" "${INSTALL_DIR}/migrations/"
+  rsync -a --delete "${SOURCE_DIR}/templates/" "${INSTALL_DIR}/templates/"
+  rsync -a --delete "${SOURCE_DIR}/backend/migrations/" "${INSTALL_DIR}/migrations/"
   chown -R panel:panel "${INSTALL_DIR}/templates"
   chown -R panel:panel "${INSTALL_DIR}/migrations"
 }
