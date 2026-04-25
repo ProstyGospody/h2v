@@ -134,11 +134,15 @@ func parseTrafficCounters(raw any) (domain.TrafficDelta, bool) {
 func firstCounter(payload map[string]any, keys ...string) (int64, bool) {
 	for _, key := range keys {
 		if value, ok := payload[key]; ok {
-			return trafficCounterInt64(value)
+			if counter, ok := trafficCounterInt64(value); ok {
+				return counter, true
+			}
 		}
 		for existingKey, value := range payload {
 			if strings.EqualFold(existingKey, key) {
-				return trafficCounterInt64(value)
+				if counter, ok := trafficCounterInt64(value); ok {
+					return counter, true
+				}
 			}
 		}
 	}

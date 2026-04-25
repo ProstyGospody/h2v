@@ -52,17 +52,17 @@ function ProtectedShell() {
 
   return (
     <div className="min-h-screen bg-background text-foreground">
-      <div className="grid min-h-screen grid-cols-1 lg:grid-cols-[240px_1fr]">
+      <div className="grid min-h-screen grid-cols-1 lg:grid-cols-[280px_1fr]">
         <aside className="border-b lg:border-b-0 lg:border-r">
           <div className="flex h-full flex-col">
-            <div className="flex h-14 items-center px-5">
-              <AppBrand compact />
+            <div className="flex h-16 items-center px-6">
+              <AppBrand />
             </div>
 
             <Separator />
 
-            <div className="flex-1 overflow-y-auto px-3 py-3">
-              <nav className="space-y-0.5">
+            <div className="flex-1 overflow-y-auto px-4 py-4">
+              <nav className="space-y-1">
                 {primaryLinks.map((link) => (
                   <SidebarLink key={link.to} icon={link.icon} label={link.label} to={link.to} />
                 ))}
@@ -71,21 +71,21 @@ function ProtectedShell() {
 
             <Separator />
 
-            <div className="space-y-1.5 p-3">
+            <div className="space-y-1.5 p-4">
               <button
-                className="group flex w-full items-center gap-3 rounded-md px-3 py-2 text-left transition hover:bg-accent"
+                className="group flex w-full items-center gap-3 rounded-md px-3 py-2.5 text-left transition hover:bg-accent"
                 onClick={async () => {
                   await logout();
                 }}
                 type="button"
               >
-                <div className="flex size-7 items-center justify-center rounded-md bg-muted font-mono text-xs font-semibold text-primary">
+                <div className="flex size-9 items-center justify-center rounded-md bg-muted font-mono text-sm font-semibold text-primary">
                   {admin.username.slice(0, 1).toUpperCase()}
                 </div>
                 <div className="min-w-0 flex-1">
-                  <div className="truncate text-sm text-foreground">{admin.username}</div>
+                  <div className="truncate text-base text-foreground">{admin.username}</div>
                 </div>
-                <LogOut className="size-4 text-muted-foreground transition group-hover:text-foreground" />
+                <LogOut className="size-5 text-muted-foreground transition group-hover:text-foreground" />
               </button>
             </div>
           </div>
@@ -123,8 +123,8 @@ function ProtectedShell() {
 function AppBrand({ compact = false }: { compact?: boolean }) {
   return (
     <div className="flex items-center gap-2.5">
-      <div className="flex size-7 items-center justify-center rounded-md bg-primary/12 text-primary">
-        <ShieldCheck className="size-4" />
+      <div className="flex size-9 items-center justify-center rounded-md bg-primary/12 text-primary">
+        <ShieldCheck className="size-5" />
       </div>
       <span
         className={cn(
@@ -148,13 +148,13 @@ function SidebarLink({
   to: LinkTo;
 }) {
   const base =
-    'group flex items-center gap-3 rounded-md px-3 py-2 text-sm text-muted-foreground transition hover:bg-accent hover:text-foreground';
+    'group flex items-center gap-3 rounded-md px-3 py-2.5 text-base text-muted-foreground transition hover:bg-accent hover:text-foreground';
   const active =
-    'group flex items-center gap-3 rounded-md bg-[hsl(var(--primary)/0.08)] px-3 py-2 text-sm font-medium text-foreground shadow-[inset_2px_0_0_hsl(var(--primary))]';
+    'group flex items-center gap-3 rounded-md bg-[hsl(var(--primary)/0.08)] px-3 py-2.5 text-base font-medium text-foreground shadow-[inset_2px_0_0_hsl(var(--primary))]';
 
   return (
     <Link activeOptions={{ exact: true }} activeProps={{ className: active }} className={base} to={to}>
-      <Icon className="size-4" />
+      <Icon className="size-5" />
       <span>{label}</span>
     </Link>
   );
