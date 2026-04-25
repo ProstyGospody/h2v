@@ -59,7 +59,7 @@ export function DashboardPage() {
     <div className="pb-10">
       <PageHeader
         title="Overview"
-        right={
+        action={
           <Tabs onValueChange={(v) => setDays(v as Range)} value={days}>
             <TabsList>
               {ranges.map((r) => (

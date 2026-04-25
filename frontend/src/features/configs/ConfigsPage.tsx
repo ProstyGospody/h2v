@@ -60,15 +60,7 @@ const ConfigEditor = lazy(() =>
 export function ConfigsPage() {
   return (
     <div className="pb-10">
-      <PageHeader
-        title="Configs"
-        left={
-          <div className="flex items-center gap-2 text-muted-foreground">
-            <FileCode2 className="size-4" />
-            <span className="text-xs font-medium uppercase tracking-wide">Configs</span>
-          </div>
-        }
-      />
+      <PageHeader title="Configs" />
 
       <div className="grid gap-4 px-5 pt-6 sm:px-8 xl:grid-cols-2">
         {cores.map((core) => (

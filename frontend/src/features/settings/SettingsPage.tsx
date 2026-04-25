@@ -72,7 +72,7 @@ export function SettingsPage() {
     <div className="pb-10">
       <PageHeader
         title="Settings"
-        right={
+        action={
           hasDraft ? (
             <>
               <Button onClick={() => setDraft({})} size="sm" variant="ghost">

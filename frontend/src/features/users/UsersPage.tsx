@@ -231,13 +231,8 @@ export function UsersPage() {
   return (
     <div className="pb-10">
       <PageHeader
-        title={
-          <div className="flex items-baseline gap-2.5">
-            <span>Users</span>
-            <span className="font-mono text-base text-muted-foreground">{users.data?.length ?? 0}</span>
-          </div>
-        }
-        right={
+        title="Users"
+        action={
           <Button onClick={() => setCreateOpen(true)}>
             <Plus />
             Create user
