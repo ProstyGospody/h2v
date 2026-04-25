@@ -267,7 +267,7 @@ grant_cert_access() {
   [[ -z "${cert_path}" || -z "${key_path}" ]] && return
   if [[ ! -f "${cert_path}" || ! -f "${key_path}" ]]; then
     warn "TLS cert not found at ${cert_path}"
-    info "obtain it with: certbot certonly --standalone -d ${domain}"
+    info "obtain it with: systemctl stop caddy && certbot certonly --standalone -d ${domain} && systemctl start caddy"
     info "then: systemctl restart hysteria.service"
     return
   fi
@@ -288,6 +288,7 @@ start_cores() {
   fi
 
   systemctl enable xray.service hysteria.service >/dev/null 2>&1 || true
+  systemctl reset-failed xray.service hysteria.service >/dev/null 2>&1 || true
   if ! systemctl restart xray.service; then
     red "xray.service failed to start. Recent logs:"
     journalctl -u xray.service -n 40 --no-pager || true
@@ -591,6 +592,25 @@ env_set() {
   mv "${tmp}" "${ENV_FILE}"
 }
 
+panel_domain_is_real() {
+  local domain
+  domain="$(env_get PANEL_DOMAIN || true)"
+  [[ -n "${domain}" && "${domain}" != "panel.example.com" ]]
+}
+
+normalize_vless_env_port() {
+  local vless_port
+  if ! panel_domain_is_real; then
+    return
+  fi
+
+  vless_port="$(env_get VLESS_PORT || echo 8444)"
+  if [[ "${vless_port}" == "443" ]]; then
+    warn "VLESS_PORT=443 conflicts with Caddy panel HTTPS; switching VLESS_PORT to 8444"
+    env_set VLESS_PORT 8444
+  fi
+}
+
 ensure_secret_value() {
   local key="${1}"
   local value
@@ -668,6 +688,56 @@ ensure_postgres() {
 
   sudo -u postgres psql -v ON_ERROR_STOP=1 --dbname=postgres --port="${db_port}" \
     -c "ALTER DATABASE \"${db_name_ident}\" OWNER TO \"${db_user_ident}\""
+}
+
+sync_runtime_settings() {
+  local db_host db_port db_name db_user db_password vless_port current
+  if ! panel_domain_is_real; then
+    return
+  fi
+
+  vless_port="$(env_get VLESS_PORT || echo 8444)"
+  if [[ "${vless_port}" == "443" ]]; then
+    warn "VLESS_PORT=443 conflicts with Caddy panel HTTPS; switching VLESS_PORT to 8444"
+    env_set VLESS_PORT 8444
+    vless_port="8444"
+  fi
+  if ! [[ "${vless_port}" =~ ^[0-9]+$ ]]; then
+    fail "VLESS_PORT must be numeric, got '${vless_port}'"
+  fi
+
+  db_host="$(env_get DB_HOST || true)"
+  db_port="$(env_get DB_PORT || true)"
+  db_name="$(env_get DB_NAME || true)"
+  db_user="$(env_get DB_USER || true)"
+  db_password="$(env_get DB_PASSWORD || true)"
+  db_host="${db_host:-127.0.0.1}"
+  db_port="${db_port:-5432}"
+  db_name="${db_name:-mypanel}"
+  db_user="${db_user:-panel}"
+
+  if [[ "${db_host}" == "127.0.0.1" || "${db_host}" == "localhost" || "${db_host}" == "::1" ]]; then
+    current="$(sudo -u postgres psql -tA --dbname="${db_name}" --port="${db_port}" \
+      -c "SELECT value::text FROM settings WHERE key = 'vless.port'" 2>/dev/null || true)"
+  else
+    current="$(PGPASSWORD="${db_password}" psql -tA -h "${db_host}" -p "${db_port}" -U "${db_user}" "${db_name}" \
+      -c "SELECT value::text FROM settings WHERE key = 'vless.port'" 2>/dev/null || true)"
+  fi
+  current="${current%\"}"
+  current="${current#\"}"
+
+  if [[ "${current}" != "443" ]]; then
+    return
+  fi
+
+  warn "database setting vless.port is still 443; updating it to ${vless_port}"
+  if [[ "${db_host}" == "127.0.0.1" || "${db_host}" == "localhost" || "${db_host}" == "::1" ]]; then
+    sudo -u postgres psql -v ON_ERROR_STOP=1 --dbname="${db_name}" --port="${db_port}" \
+      -c "INSERT INTO settings (key, value, updated_at) VALUES ('vless.port', '${vless_port}'::jsonb, now()) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = now()"
+  else
+    PGPASSWORD="${db_password}" psql -v ON_ERROR_STOP=1 -h "${db_host}" -p "${db_port}" -U "${db_user}" "${db_name}" \
+      -c "INSERT INTO settings (key, value, updated_at) VALUES ('vless.port', '${vless_port}'::jsonb, now()) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = now()"
+  fi
 }
 
 build_artifacts() {
@@ -880,6 +950,7 @@ install_all() {
   ensure_panel_user
   ensure_dirs
   ensure_env
+  normalize_vless_env_port
   ensure_runtime_secrets
   ensure_reality_keys
   success "user/panel and ${INSTALL_DIR} prepared"
@@ -919,6 +990,7 @@ install_all() {
   fi
 
   step "configs" "Rendering xray and hysteria configs"
+  sync_runtime_settings
   render_core_configs
   grant_cert_access
   success "core configs written to ${INSTALL_DIR}/configs/"

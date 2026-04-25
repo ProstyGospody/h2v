@@ -41,7 +41,27 @@ func (s *SettingsService) List(ctx context.Context) ([]domain.Setting, error) {
 }
 
 func (s *SettingsService) Update(ctx context.Context, values map[string]json.RawMessage, _ Actor) error {
+	if err := s.validateUpdate(ctx, values); err != nil {
+		return err
+	}
 	return s.repo.UpsertSettings(ctx, values)
+}
+
+func (s *SettingsService) validateUpdate(ctx context.Context, values map[string]json.RawMessage) error {
+	runtime := DefaultRuntime(s.cfg)
+	current, err := s.GetAll(ctx)
+	if err == nil {
+		runtime.PanelDomain = stringOr(current, "panel.domain", runtime.PanelDomain)
+		runtime.VlessPort = intOr(current, "vless.port", runtime.VlessPort)
+	}
+
+	runtime.PanelDomain = stringOr(values, "panel.domain", runtime.PanelDomain)
+	runtime.VlessPort = intOr(values, "vless.port", runtime.VlessPort)
+
+	if runtime.PanelDomain != "" && runtime.PanelDomain != "panel.example.com" && runtime.VlessPort == 443 {
+		return domain.NewError(400, "port_conflict", "VLESS port 443 conflicts with Caddy panel HTTPS; use a different VLESS port", nil)
+	}
+	return nil
 }
 
 func (s *SettingsService) Runtime(ctx context.Context) (RuntimeSettings, error) {
