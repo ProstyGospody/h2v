@@ -122,6 +122,10 @@ func buildApp(ctx context.Context, cfg config.Config, logger *slog.Logger) (*pgx
 		logger.Warn("settings bootstrap failed", "err", err)
 	}
 
+	if err := serviceBundle.Configs.ReconcileXray(ctx); err != nil {
+		logger.Warn("initial xray config reconcile failed", "err", err)
+	}
+
 	reconciler := tasks.NewReconciler(repository, xrayClient, logger)
 	if err := reconciler.Run(ctx); err != nil {
 		logger.Warn("initial reconcile failed", "err", err)
@@ -250,9 +254,18 @@ func runConfig(cfg config.Config, logger *slog.Logger, args []string) {
 	_ = cmd.Parse(args[1:])
 
 	logger = logger.With("core", *core)
-	settingsSvc := services.NewSettingsService(cfg, nil, logger)
-	configSvc := services.NewConfigService(cfg, nil, settingsSvc, systemctl.New(true), xray.NewClient(cfg.Xray, logger), hysteria.NewClient(cfg.Hysteria, logger), logger)
-	content, err := configSvc.RenderWithRuntime(*core, services.DefaultRuntime(cfg))
+
+	ctx := context.Background()
+	pool, err := db.Connect(ctx, cfg.DB)
+	if err != nil {
+		fatal(logger, fmt.Errorf("connect db for config render: %w", err))
+	}
+	defer pool.Close()
+
+	repository := repo.New(pool)
+	settingsSvc := services.NewSettingsService(cfg, repository, logger)
+	configSvc := services.NewConfigService(cfg, repository, settingsSvc, systemctl.New(true), xray.NewClient(cfg.Xray, logger), hysteria.NewClient(cfg.Hysteria, logger), logger)
+	content, err := configSvc.Render(ctx, *core)
 	if err != nil {
 		fatal(logger, err)
 	}

@@ -43,7 +43,7 @@ func (r *Repository) BootstrapSettings(ctx context.Context, cfg config.Config) e
 		"hy2.bandwidth_down": rawJSONString(cfg.Hysteria.BandwidthDown),
 		"hy2.masquerade_url": rawJSONString(cfg.Hysteria.MasqueradeURL),
 	}
-	return r.UpsertSettings(ctx, settings)
+	return r.InsertMissingSettings(ctx, settings)
 }
 
 func (r *Repository) CreateUser(ctx context.Context, user *domain.User) error {
@@ -486,6 +486,28 @@ func (r *Repository) UpsertSettings(ctx context.Context, values map[string]json.
 			ON CONFLICT (key) DO UPDATE
 			SET value = EXCLUDED.value,
 			    updated_at = now()
+		`, key, string(value)); err != nil {
+			return err
+		}
+	}
+	return tx.Commit(ctx)
+}
+
+func (r *Repository) InsertMissingSettings(ctx context.Context, values map[string]json.RawMessage) error {
+	if len(values) == 0 {
+		return nil
+	}
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+
+	for key, value := range values {
+		if _, err := tx.Exec(ctx, `
+			INSERT INTO settings (key, value, updated_at)
+			VALUES ($1, $2::jsonb, now())
+			ON CONFLICT (key) DO NOTHING
 		`, key, string(value)); err != nil {
 			return err
 		}

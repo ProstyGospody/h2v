@@ -17,7 +17,7 @@ StartLimitBurst=5
 LimitNOFILE=1048576
 LimitNPROC=4096
 TasksMax=4096
-NoNewPrivileges=true
+NoNewPrivileges=false
 ProtectSystem=strict
 ProtectHome=true
 ReadWritePaths=/opt/mypanel/data /opt/mypanel/configs /opt/mypanel/logs
@@ -30,4 +30,3 @@ TimeoutStopSec=30
 
 [Install]
 WantedBy=multi-user.target
-

@@ -90,17 +90,29 @@ func (s *ConfigService) Render(ctx context.Context, core string) ([]byte, error)
 // so the new client UUIDs take effect. Unlike Apply, it does not log to config
 // history — this path is for system-driven updates after user changes.
 func (s *ConfigService) ReconcileXray(ctx context.Context) error {
-	content, err := s.Render(ctx, "xray")
+	return s.ReconcileCore(ctx, "xray")
+}
+
+func (s *ConfigService) ReconcileHysteria(ctx context.Context) error {
+	return s.ReconcileCore(ctx, "hysteria")
+}
+
+func (s *ConfigService) ReconcileCore(ctx context.Context, core string) error {
+	content, err := s.Render(ctx, core)
 	if err != nil {
 		return err
 	}
-	if err := writeFileAtomic(s.cfg.Xray.ConfigPath, content, 0o640); err != nil {
+	path, err := s.pathForCore(core)
+	if err != nil {
 		return err
 	}
-	if err := s.systemctl.Restart(ctx, "xray"); err != nil {
+	if err := writeFileAtomic(path, content, 0o640); err != nil {
 		return err
 	}
-	return s.waitHealthy(ctx, "xray")
+	if err := s.systemctl.Restart(ctx, core); err != nil {
+		return err
+	}
+	return s.waitHealthy(ctx, core)
 }
 
 func (s *ConfigService) RenderWithRuntime(core string, runtime RuntimeSettings) ([]byte, error) {
@@ -304,4 +316,3 @@ func restoreFile(src, dst string) error {
 	}
 	return os.WriteFile(dst, content, 0o640)
 }
-

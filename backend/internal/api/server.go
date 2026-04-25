@@ -489,6 +489,18 @@ func (s *Server) handleSettingsUpdate(w http.ResponseWriter, r *http.Request) {
 		jsonError(w, err)
 		return
 	}
+	if shouldReconcileXray(values) {
+		if err := s.services.Configs.ReconcileXray(r.Context()); err != nil {
+			jsonError(w, err)
+			return
+		}
+	}
+	if shouldReconcileHysteria(values) {
+		if err := s.services.Configs.ReconcileHysteria(r.Context()); err != nil {
+			jsonError(w, err)
+			return
+		}
+	}
 	jsonData(w, http.StatusOK, map[string]any{"updated": true}, nil)
 }
 
@@ -928,6 +940,24 @@ func subscriptionTokenFromURL(raw string) string {
 		return strings.Split(tail, "?")[0]
 	}
 	return ""
+}
+
+func shouldReconcileXray(values map[string]json.RawMessage) bool {
+	for key := range values {
+		if strings.HasPrefix(key, "vless.") || strings.HasPrefix(key, "reality.") {
+			return true
+		}
+	}
+	return false
+}
+
+func shouldReconcileHysteria(values map[string]json.RawMessage) bool {
+	for key := range values {
+		if strings.HasPrefix(key, "hy2.") {
+			return true
+		}
+	}
+	return false
 }
 
 func clientIP(r *http.Request) string {

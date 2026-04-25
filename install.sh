@@ -745,6 +745,20 @@ install_units() {
   systemctl daemon-reload
 }
 
+install_sudoers() {
+  local path="/etc/sudoers.d/mypanel-systemctl"
+  local tmp="${path}.tmp"
+  cat >"${tmp}" <<'EOF'
+panel ALL=(root) NOPASSWD: /bin/systemctl restart xray.service, /bin/systemctl restart hysteria.service
+panel ALL=(root) NOPASSWD: /bin/systemctl reload xray.service, /bin/systemctl reload hysteria.service
+EOF
+  chmod 0440 "${tmp}"
+  if command_exists visudo; then
+    visudo -cf "${tmp}" >/dev/null
+  fi
+  mv "${tmp}" "${path}"
+}
+
 start_panel() {
   substep "enabling panel.service"
   systemctl enable panel.service >/dev/null 2>&1 || true
@@ -884,6 +898,7 @@ install_all() {
 
   step "units" "Installing systemd units"
   install_units
+  install_sudoers
   success "systemd units installed"
 
   step "migrate" "Running database migrations"
@@ -989,6 +1004,7 @@ uninstall_all() {
   step "purge" "Removing application files and units"
   rm -rf "${INSTALL_DIR}"
   rm -f /etc/systemd/system/panel.service /etc/systemd/system/xray.service /etc/systemd/system/hysteria.service
+  rm -f /etc/sudoers.d/mypanel-systemctl
   systemctl daemon-reload
   success "${INSTALL_DIR} and systemd units removed"
 
