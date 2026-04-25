@@ -51,12 +51,12 @@ export function LoginPage() {
             })}
           >
             <div className="space-y-2">
-              <Label htmlFor="username">Логин</Label>
+              <Label htmlFor="username">Username</Label>
               <Input autoComplete="username" id="username" {...form.register('username')} />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="password">Пароль</Label>
+              <Label htmlFor="password">Password</Label>
               <div className="relative">
                 <Input
                   autoComplete="current-password"
@@ -66,7 +66,7 @@ export function LoginPage() {
                   {...form.register('password')}
                 />
                 <button
-                  aria-label={showPassword ? 'Скрыть пароль' : 'Показать пароль'}
+                  aria-label={showPassword ? 'Hide password' : 'Show password'}
                   className="absolute inset-y-0 right-0 flex w-10 items-center justify-center text-muted-foreground transition hover:text-foreground"
                   onClick={() => setShowPassword((value) => !value)}
                   type="button"
@@ -77,7 +77,7 @@ export function LoginPage() {
             </div>
 
             <Button className="w-full" disabled={form.formState.isSubmitting} type="submit">
-              Войти
+              Sign in
             </Button>
           </form>
         </CardContent>
