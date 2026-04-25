@@ -22,7 +22,7 @@ CREATE INDEX IF NOT EXISTS idx_users_status_expires ON users(status, expires_at)
 
 CREATE TABLE IF NOT EXISTS traffic_log (
     id BIGSERIAL PRIMARY KEY,
-    user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+    user_id UUID REFERENCES users(id) ON DELETE SET NULL,
     core TEXT NOT NULL,
     uplink BIGINT NOT NULL,
     downlink BIGINT NOT NULL,
