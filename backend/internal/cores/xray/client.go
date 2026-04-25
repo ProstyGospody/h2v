@@ -2,7 +2,6 @@ package xray
 
 import (
 	"context"
-	"errors"
 	"log/slog"
 	"net"
 	"sync"
@@ -89,13 +88,3 @@ func (c *Client) ListUsers(_ context.Context) ([]string, error) {
 func (c *Client) QueryStats(_ context.Context) (map[string]domain.TrafficDelta, error) {
 	return map[string]domain.TrafficDelta{}, nil
 }
-
-func (c *Client) Close() error {
-	if c == nil {
-		return nil
-	}
-	return nil
-}
-
-var ErrNotReady = errors.New("xray not ready")
-

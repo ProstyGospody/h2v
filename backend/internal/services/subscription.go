@@ -11,25 +11,19 @@ import (
 	"strings"
 	"time"
 
-	"github.com/prost/h2v/backend/internal/config"
 	"github.com/prost/h2v/backend/internal/domain"
 	"github.com/prost/h2v/backend/internal/repo"
 	"github.com/prost/h2v/backend/internal/util"
 )
 
 type SubscriptionService struct {
-	cfg      config.Config
 	repo     *repo.Repository
 	settings *SettingsService
 	cache    SubscriptionCache
 }
 
-func NewSubscriptionService(cfg config.Config, repository *repo.Repository, settings *SettingsService, cache SubscriptionCache) *SubscriptionService {
-	return &SubscriptionService{cfg: cfg, repo: repository, settings: settings, cache: cache}
-}
-
-func (s *SubscriptionService) GetByToken(ctx context.Context, token string) (*domain.User, error) {
-	return s.repo.GetUserByToken(ctx, token)
+func NewSubscriptionService(repository *repo.Repository, settings *SettingsService, cache SubscriptionCache) *SubscriptionService {
+	return &SubscriptionService{repo: repository, settings: settings, cache: cache}
 }
 
 func (s *SubscriptionService) LinksForUser(ctx context.Context, user *domain.User) (*domain.SubscriptionLinks, error) {

@@ -7,14 +7,12 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/prost/h2v/backend/internal/config"
 	"github.com/prost/h2v/backend/internal/domain"
 	"github.com/prost/h2v/backend/internal/repo"
 	"github.com/prost/h2v/backend/internal/util"
 )
 
 type UserService struct {
-	cfg          config.Config
 	repo         *repo.Repository
 	xray         XrayAdapter
 	hysteria     HysteriaAdapter
@@ -24,9 +22,8 @@ type UserService struct {
 	logger       *slog.Logger
 }
 
-func NewUserService(cfg config.Config, repository *repo.Repository, xray XrayAdapter, hysteria HysteriaAdapter, cache SubscriptionCache, subscription *SubscriptionService, configs *ConfigService, logger *slog.Logger) *UserService {
+func NewUserService(repository *repo.Repository, xray XrayAdapter, hysteria HysteriaAdapter, cache SubscriptionCache, subscription *SubscriptionService, configs *ConfigService, logger *slog.Logger) *UserService {
 	return &UserService{
-		cfg:          cfg,
 		repo:         repository,
 		xray:         xray,
 		hysteria:     hysteria,

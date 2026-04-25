@@ -25,12 +25,10 @@ type PanelConfig struct {
 	JWTSecret        string
 	JWTAccessTTL     time.Duration
 	JWTRefreshTTL    time.Duration
-	LogLevel         string
 	RootDir          string
 	FrontendDir      string
 	TemplatesDir     string
 	DisableSystemctl bool
-	EnvFile          string
 }
 
 type DBConfig struct {
@@ -46,7 +44,6 @@ type XrayConfig struct {
 	Binary         string
 	APIAddr        string
 	ConfigPath     string
-	InboundTag     string
 	VlessPort      int
 	RealityDest    string
 	RealitySNI     string
@@ -56,7 +53,6 @@ type XrayConfig struct {
 }
 
 type HysteriaConfig struct {
-	Binary         string
 	ConfigPath     string
 	TrafficURL     string
 	TrafficSecret  string
@@ -79,7 +75,6 @@ type SubscriptionConfig struct {
 type BackupConfig struct {
 	Dir           string
 	RetentionDays int
-	TimeUTC       string
 }
 
 func Load() Config {
@@ -98,12 +93,10 @@ func Load() Config {
 			JWTSecret:        getenv("PANEL_JWT_SECRET", "dev-secret-change-me"),
 			JWTAccessTTL:     getenvDuration("PANEL_JWT_ACCESS_TTL", 15*time.Minute),
 			JWTRefreshTTL:    getenvDuration("PANEL_JWT_REFRESH_TTL", 720*time.Hour),
-			LogLevel:         getenv("PANEL_LOG_LEVEL", "info"),
 			RootDir:          rootDir,
 			FrontendDir:      frontendDir,
 			TemplatesDir:     templatesDir,
 			DisableSystemctl: getenvBool("PANEL_DISABLE_SYSTEMCTL", false),
-			EnvFile:          envFile,
 		},
 		DB: DBConfig{
 			Host:     getenv("DB_HOST", "127.0.0.1"),
@@ -117,7 +110,6 @@ func Load() Config {
 			Binary:          getenv("XRAY_BINARY", "/usr/local/bin/xray"),
 			APIAddr:         getenv("XRAY_API_ADDR", "127.0.0.1:10085"),
 			ConfigPath:      getenv("XRAY_CONFIG_PATH", filepath.Join(rootDir, "configs", "xray", "config.json")),
-			InboundTag:      getenv("XRAY_INBOUND_TAG", "vless-reality"),
 			VlessPort:       getenvInt("VLESS_PORT", 8444),
 			RealityDest:     getenv("REALITY_DEST", "www.cloudflare.com:443"),
 			RealitySNI:      getenv("REALITY_SNI", "www.cloudflare.com"),
@@ -126,7 +118,6 @@ func Load() Config {
 			RealityShortIDs: splitCSV(getenv("REALITY_SHORT_IDS", ",a1b2c3d4e5f60718")),
 		},
 		Hysteria: HysteriaConfig{
-			Binary:        getenv("HY2_BINARY", "/usr/local/bin/hysteria"),
 			ConfigPath:    getenv("HY2_CONFIG_PATH", filepath.Join(rootDir, "configs", "hysteria", "config.json")),
 			TrafficURL:    getenv("HY2_TRAFFIC_URL", "http://127.0.0.1:7653"),
 			TrafficSecret: getenv("HY2_TRAFFIC_SECRET", ""),
@@ -147,7 +138,6 @@ func Load() Config {
 		Backup: BackupConfig{
 			Dir:           getenv("BACKUP_DIR", filepath.Join(rootDir, "data", "backups")),
 			RetentionDays: getenvInt("BACKUP_RETENTION_DAYS", 14),
-			TimeUTC:       getenv("BACKUP_TIME_UTC", "03:00"),
 		},
 	}
 }

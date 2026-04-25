@@ -1,6 +1,6 @@
 # h2v
 
-Production-oriented VPN panel scaffold based on `SPEC.md`.
+Production-oriented VPN panel scaffold.
 
 ## Install
 
@@ -51,4 +51,4 @@ make build
 make dev
 ```
 
-`SPEC.md` remains the authoritative contract for production hardening and rollout details.
+Review the installer and environment defaults before production rollout.

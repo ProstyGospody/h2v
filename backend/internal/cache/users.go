@@ -32,7 +32,6 @@ type UsersCache struct {
 
 	mu         sync.RWMutex
 	byPassword map[string]domain.User
-	byToken    map[string]domain.User
 	size       atomic.Int64
 }
 
@@ -40,7 +39,6 @@ func NewUsersCache(repository *repo.Repository) *UsersCache {
 	return &UsersCache{
 		repo:       repository,
 		byPassword: map[string]domain.User{},
-		byToken:    map[string]domain.User{},
 	}
 }
 
@@ -50,15 +48,12 @@ func (c *UsersCache) LoadAll(ctx context.Context) error {
 		return err
 	}
 	nextPassword := make(map[string]domain.User, len(users))
-	nextToken := make(map[string]domain.User, len(users))
 	for _, user := range users {
 		nextPassword[user.Hy2Password] = user
-		nextToken[user.SubToken] = user
 	}
 
 	c.mu.Lock()
 	c.byPassword = nextPassword
-	c.byToken = nextToken
 	c.mu.Unlock()
 
 	c.size.Store(int64(len(users)))
@@ -77,7 +72,6 @@ func (c *UsersCache) Set(user *domain.User) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	c.byPassword[user.Hy2Password] = *user
-	c.byToken[user.SubToken] = *user
 	c.size.Store(int64(len(c.byPassword)))
 	cacheSize.Set(float64(len(c.byPassword)))
 }
@@ -89,7 +83,6 @@ func (c *UsersCache) Delete(user *domain.User) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	delete(c.byPassword, user.Hy2Password)
-	delete(c.byToken, user.SubToken)
 	c.size.Store(int64(len(c.byPassword)))
 	cacheSize.Set(float64(len(c.byPassword)))
 }
@@ -106,19 +99,6 @@ func (c *UsersCache) GetByPassword(password string) (*domain.User, bool) {
 	return nil, false
 }
 
-func (c *UsersCache) GetByToken(token string) (*domain.User, bool) {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
-	user, ok := c.byToken[token]
-	if ok {
-		cacheHits.Inc()
-		return &user, true
-	}
-	cacheMisses.Inc()
-	return nil, false
-}
-
 func (c *UsersCache) Size() int64 {
 	return c.size.Load()
 }
-

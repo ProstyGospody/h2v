@@ -91,23 +91,21 @@ type SubscriptionCache interface {
 	Set(user *domain.User)
 	Delete(user *domain.User)
 	GetByPassword(password string) (*domain.User, bool)
-	GetByToken(token string) (*domain.User, bool)
 	Size() int64
 }
 
 func New(deps ServiceDeps) *Services {
 	settings := NewSettingsService(deps.Config, deps.Repo, deps.Logger)
-	subscription := NewSubscriptionService(deps.Config, deps.Repo, settings, deps.Cache)
+	subscription := NewSubscriptionService(deps.Repo, settings, deps.Cache)
 	configs := NewConfigService(deps.Config, deps.Repo, settings, deps.Systemctl, deps.Xray, deps.Hysteria, deps.Logger)
 
 	return &Services{
 		Auth:         NewAuthService(deps.Config, deps.Repo, deps.Logger),
-		Users:        NewUserService(deps.Config, deps.Repo, deps.Xray, deps.Hysteria, deps.Cache, subscription, configs, deps.Logger),
+		Users:        NewUserService(deps.Repo, deps.Xray, deps.Hysteria, deps.Cache, subscription, configs, deps.Logger),
 		Subscription: subscription,
 		Settings:     settings,
 		Configs:      configs,
 		Stats:        NewStatsService(deps.Repo, deps.Xray, deps.Hysteria, deps.Cache, deps.Version, deps.StartedAt),
-		Admins:       NewAdminService(deps.Repo, deps.Logger),
+		Admins:       NewAdminService(deps.Repo),
 	}
 }
-

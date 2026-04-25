@@ -103,24 +103,6 @@ func (r *Repository) GetUserByToken(ctx context.Context, token string) (*domain.
 	return user, nil
 }
 
-func (r *Repository) GetUserByPassword(ctx context.Context, password string) (*domain.User, error) {
-	const query = `
-		SELECT id, username, vless_uuid, hy2_password, sub_token, traffic_limit, traffic_used,
-		       expires_at, status, note, created_at, updated_at
-		FROM users
-		WHERE hy2_password = $1
-	`
-	row := r.pool.QueryRow(ctx, query, password)
-	user, err := scanUser(row)
-	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, domain.NewError(404, "user_not_found", "User with given password does not exist", err)
-		}
-		return nil, err
-	}
-	return user, nil
-}
-
 func (r *Repository) ListUsers(ctx context.Context, filters domain.UserFilters) ([]domain.User, int, error) {
 	if filters.Page <= 0 {
 		filters.Page = 1
@@ -230,16 +212,6 @@ func (r *Repository) DeleteUser(ctx context.Context, id uuid.UUID) error {
 
 func (r *Repository) UpdateUserStatus(ctx context.Context, id uuid.UUID, status domain.UserStatus) error {
 	_, err := r.pool.Exec(ctx, `UPDATE users SET status = $2, updated_at = now() WHERE id = $1`, id, status)
-	return err
-}
-
-func (r *Repository) ResetUserToken(ctx context.Context, id uuid.UUID, token string) error {
-	_, err := r.pool.Exec(ctx, `UPDATE users SET sub_token = $2, updated_at = now() WHERE id = $1`, id, token)
-	return err
-}
-
-func (r *Repository) ResetUserTraffic(ctx context.Context, id uuid.UUID) error {
-	_, err := r.pool.Exec(ctx, `UPDATE users SET traffic_used = 0, updated_at = now() WHERE id = $1`, id)
 	return err
 }
 

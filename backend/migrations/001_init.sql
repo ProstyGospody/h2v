@@ -57,24 +57,9 @@ CREATE TABLE IF NOT EXISTS config_history (
 );
 CREATE INDEX IF NOT EXISTS idx_config_history_core_time ON config_history(core, applied_at DESC);
 
-CREATE TABLE IF NOT EXISTS audit_log (
-    id BIGSERIAL PRIMARY KEY,
-    admin_id UUID REFERENCES admins(id),
-    action TEXT NOT NULL,
-    target_type TEXT NOT NULL DEFAULT '',
-    target_id TEXT NOT NULL DEFAULT '',
-    metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
-    ip INET,
-    user_agent TEXT NOT NULL DEFAULT '',
-    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
-);
-CREATE INDEX IF NOT EXISTS idx_audit_admin_time ON audit_log(admin_id, created_at DESC);
-
 -- +goose Down
-DROP TABLE IF EXISTS audit_log;
 DROP TABLE IF EXISTS config_history;
 DROP TABLE IF EXISTS settings;
 DROP TABLE IF EXISTS admins;
 DROP TABLE IF EXISTS traffic_log;
 DROP TABLE IF EXISTS users;
-

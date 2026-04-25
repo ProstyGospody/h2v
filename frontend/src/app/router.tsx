@@ -1,4 +1,4 @@
-import { useState, type ComponentType } from 'react';
+import { type ComponentType } from 'react';
 import { Link, Outlet, createRootRoute, createRoute, createRouter } from '@tanstack/react-router';
 import {
   FileCode2,
@@ -21,7 +21,6 @@ import { SettingsPage } from '@/features/settings/SettingsPage';
 import { SubPage } from '@/features/subscription/SubPage';
 import { UsersPage } from '@/features/users/UsersPage';
 import { cn } from '@/lib/utils';
-import { CommandPalette, useCommandPaletteShortcut } from '@/shared/ui/CommandPalette';
 
 type LinkTo = '/' | '/users' | '/settings' | '/configs/$core';
 
@@ -35,8 +34,6 @@ function RootLayout() {
 
 function ProtectedShell() {
   const { admin, logout, ready } = useAuth();
-  const [paletteOpen, setPaletteOpen] = useState(false);
-  useCommandPaletteShortcut(() => setPaletteOpen(true));
 
   if (!ready) {
     return (
@@ -142,7 +139,6 @@ function ProtectedShell() {
           <Outlet />
         </main>
       </div>
-      <CommandPalette onClose={() => setPaletteOpen(false)} open={paletteOpen} />
     </div>
   );
 }

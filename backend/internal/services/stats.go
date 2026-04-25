@@ -125,16 +125,11 @@ func (s *StatsService) Health(ctx context.Context) (*domain.HealthReport, error)
 }
 
 type AdminService struct {
-	repo   *repo.Repository
-	logger LoggerLike
+	repo *repo.Repository
 }
 
-type LoggerLike interface {
-	Warn(msg string, args ...any)
-}
-
-func NewAdminService(repository *repo.Repository, logger LoggerLike) *AdminService {
-	return &AdminService{repo: repository, logger: logger}
+func NewAdminService(repository *repo.Repository) *AdminService {
+	return &AdminService{repo: repository}
 }
 
 func (s *AdminService) List(ctx context.Context) ([]domain.Admin, error) {
