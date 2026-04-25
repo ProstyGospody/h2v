@@ -91,62 +91,20 @@ func parseTrafficPayload(payload any) map[string]domain.TrafficDelta {
 	if !ok {
 		return map[string]domain.TrafficDelta{}
 	}
-	if result := parseTrafficMap(root); len(result) > 0 {
-		return result
-	}
-	for _, key := range []string{"users", "traffic", "stats", "data"} {
-		nested, ok := root[key].(map[string]any)
+	result := make(map[string]domain.TrafficDelta, len(root))
+	for username, raw := range root {
+		entry, ok := raw.(map[string]any)
 		if !ok {
 			continue
 		}
-		if result := parseTrafficMap(nested); len(result) > 0 {
-			return result
-		}
-	}
-	return map[string]domain.TrafficDelta{}
-}
-
-func parseTrafficMap(payload map[string]any) map[string]domain.TrafficDelta {
-	result := make(map[string]domain.TrafficDelta, len(payload))
-	for username, raw := range payload {
-		delta, ok := parseTrafficCounters(raw)
-		if !ok || (delta.Uplink <= 0 && delta.Downlink <= 0) {
+		tx, _ := trafficCounterInt64(entry["tx"])
+		rx, _ := trafficCounterInt64(entry["rx"])
+		if tx <= 0 && rx <= 0 {
 			continue
 		}
-		result[username] = delta
+		result[username] = domain.TrafficDelta{Uplink: tx, Downlink: rx}
 	}
 	return result
-}
-
-func parseTrafficCounters(raw any) (domain.TrafficDelta, bool) {
-	payload, ok := raw.(map[string]any)
-	if !ok {
-		return domain.TrafficDelta{}, false
-	}
-	uplink, upOK := firstCounter(payload, "tx", "upload", "uplink", "up", "sent", "send")
-	downlink, downOK := firstCounter(payload, "rx", "download", "downlink", "down", "recv", "receive", "received")
-	if !upOK && !downOK {
-		return domain.TrafficDelta{}, false
-	}
-	return domain.TrafficDelta{Uplink: uplink, Downlink: downlink}, true
-}
-
-func firstCounter(payload map[string]any, keys ...string) (int64, bool) {
-	for _, key := range keys {
-		if value, ok := payload[key]; ok {
-			if counter, ok := trafficCounterInt64(value); ok {
-				return counter, true
-			}
-		}
-		for existingKey, value := range payload {
-			if strings.EqualFold(existingKey, key) {
-				if counter, ok := trafficCounterInt64(value); ok {
-					return counter, true
-				}
-			}
-		}
-	}
-	return 0, false
 }
 
 func trafficCounterInt64(value any) (int64, bool) {
