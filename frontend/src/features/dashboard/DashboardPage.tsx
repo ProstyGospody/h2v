@@ -286,8 +286,8 @@ export function DashboardPage() {
           </CardHeader>
           <CardContent className="divide-y">
             {kernelRows.map((row) => {
-              const running =
-                row.value.toLowerCase().includes('run') || row.value.toLowerCase().includes('ok');
+              const v = row.value.toLowerCase();
+              const running = v.includes('run') || v.includes('ok') || v.includes('receiv');
               return (
                 <div className="flex items-center justify-between py-2" key={row.label}>
                   <div className="flex items-center gap-2.5">
