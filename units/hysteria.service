@@ -5,6 +5,7 @@ Wants=panel.service
 
 [Service]
 User=hysteria
+SupplementaryGroups=panel
 CapabilityBoundingSet=CAP_NET_BIND_SERVICE
 AmbientCapabilities=CAP_NET_BIND_SERVICE
 NoNewPrivileges=true

@@ -261,16 +261,25 @@ render_core_configs() {
 }
 
 grant_cert_access() {
-  local domain cert_path key_path
+  local domain cert_path key_path caddy_was_active=false
   domain="$(env_get PANEL_DOMAIN || true)"
   cert_path="$(env_get HY2_CERT_PATH || true)"
   key_path="$(env_get HY2_KEY_PATH || true)"
+  [[ -z "${domain}" || "${domain}" == "panel.example.com" ]] && return
   [[ -z "${cert_path}" || -z "${key_path}" ]] && return
   if [[ ! -f "${cert_path}" || ! -f "${key_path}" ]]; then
-    warn "TLS cert not found at ${cert_path}"
-    info "obtain it with: systemctl stop caddy && certbot certonly --standalone -d ${domain} && systemctl start caddy"
-    info "then: systemctl restart hysteria.service"
-    return
+    warn "TLS cert not found at ${cert_path}; trying certbot standalone for Hysteria 2"
+    if systemctl is-active --quiet caddy.service; then
+      caddy_was_active=true
+      systemctl stop caddy.service || true
+    fi
+    if ! certbot certonly --standalone --non-interactive --agree-tos --register-unsafely-without-email --keep-until-expiring -d "${domain}"; then
+      warn "certbot failed to obtain ${domain}; Hysteria 2 will not start until HY2_CERT_PATH/HY2_KEY_PATH exist"
+      info "manual command: systemctl stop caddy && certbot certonly --standalone -d ${domain} && systemctl start caddy"
+      ${caddy_was_active} && systemctl start caddy.service || true
+      return
+    fi
+    ${caddy_was_active} && systemctl start caddy.service || true
   fi
   if [[ "${cert_path}" == /etc/letsencrypt/* ]]; then
     chgrp -R hysteria /etc/letsencrypt/live /etc/letsencrypt/archive 2>/dev/null || true
