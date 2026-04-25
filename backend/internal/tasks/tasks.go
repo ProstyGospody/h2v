@@ -102,24 +102,40 @@ func NewCollector(repository *repo.Repository, xray interface{ QueryStats(contex
 }
 
 func (t *Collector) Run(ctx context.Context) error {
-	xStats, err := t.xray.QueryStats(ctx)
-	if err != nil {
+	if xStats, err := t.xray.QueryStats(ctx); err != nil {
 		t.logger.Warn("xray stats failed", "err", err)
 	} else if len(xStats) > 0 {
-		if err := t.repo.AddTrafficBatch(ctx, "xray", xStats); err != nil {
+		matched, err := t.repo.AddTrafficBatch(ctx, "xray", xStats)
+		if err != nil {
 			return fmt.Errorf("save xray traffic: %w", err)
+		}
+		t.logger.Info("xray stats saved", "users_reported", len(xStats), "users_matched", matched)
+		if matched == 0 {
+			t.logger.Warn("xray stats username mismatch — emails in xray config do not match users.username", "reported", keysOf(xStats))
 		}
 	}
 
-	hStats, err := t.hysteria.GetTraffic(ctx, true)
-	if err != nil {
+	if hStats, err := t.hysteria.GetTraffic(ctx, true); err != nil {
 		t.logger.Warn("hysteria traffic failed", "err", err)
 	} else if len(hStats) > 0 {
-		if err := t.repo.AddTrafficBatch(ctx, "hysteria", hStats); err != nil {
+		matched, err := t.repo.AddTrafficBatch(ctx, "hysteria", hStats)
+		if err != nil {
 			return fmt.Errorf("save hysteria traffic: %w", err)
+		}
+		t.logger.Info("hysteria stats saved", "users_reported", len(hStats), "users_matched", matched)
+		if matched == 0 {
+			t.logger.Warn("hysteria stats username mismatch — auth callback ids do not match users.username", "reported", keysOf(hStats))
 		}
 	}
 	return nil
+}
+
+func keysOf(m map[string]domain.TrafficDelta) []string {
+	out := make([]string, 0, len(m))
+	for k := range m {
+		out = append(out, k)
+	}
+	return out
 }
 
 type Enforcer struct {

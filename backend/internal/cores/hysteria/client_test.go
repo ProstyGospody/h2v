@@ -6,34 +6,23 @@ import (
 	"testing"
 )
 
-func TestParseTrafficPayloadDirectMap(t *testing.T) {
+func TestParseTrafficPayload(t *testing.T) {
 	payload := decodeTrafficTestPayload(t, `{
 		"alice": { "tx": 100, "rx": "200" },
-		"bob": { "tx": 0, "rx": 0 },
-		"ignored": { "connections": 2 }
+		"bob":   { "tx": 0, "rx": 0 },
+		"carol": { "tx": 5, "rx": 0 },
+		"dan":   { "connections": 2 }
 	}`)
 
 	stats := parseTrafficPayload(payload)
-	if len(stats) != 1 {
-		t.Fatalf("len(stats) = %d, want 1", len(stats))
+	if len(stats) != 2 {
+		t.Fatalf("len(stats) = %d, want 2", len(stats))
 	}
-	alice := stats["alice"]
-	if alice.Uplink != 100 || alice.Downlink != 200 {
-		t.Fatalf("alice traffic = %+v, want uplink 100 downlink 200", alice)
+	if a := stats["alice"]; a.Uplink != 100 || a.Downlink != 200 {
+		t.Fatalf("alice = %+v, want {100 200}", a)
 	}
-}
-
-func TestParseTrafficPayloadWrappedMap(t *testing.T) {
-	payload := decodeTrafficTestPayload(t, `{
-		"data": {
-			"carol": { "uplink": "300", "downlink": 400 }
-		}
-	}`)
-
-	stats := parseTrafficPayload(payload)
-	carol := stats["carol"]
-	if carol.Uplink != 300 || carol.Downlink != 400 {
-		t.Fatalf("carol traffic = %+v, want uplink 300 downlink 400", carol)
+	if c := stats["carol"]; c.Uplink != 5 || c.Downlink != 0 {
+		t.Fatalf("carol = %+v, want {5 0}", c)
 	}
 }
 

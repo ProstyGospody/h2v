@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log/slog"
 	"net"
 	"net/http"
@@ -67,23 +68,36 @@ func (c *Client) GetTraffic(ctx context.Context, reset bool) (map[string]domain.
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
-		c.logger.Warn("hysteria traffic request failed", "err", err)
-		return map[string]domain.TrafficDelta{}, nil
+		return nil, fmt.Errorf("hysteria traffic request failed: %w", err)
 	}
 	defer resp.Body.Close()
 
+	body, err := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
+	if err != nil {
+		return nil, fmt.Errorf("read hysteria traffic response: %w", err)
+	}
+
 	if resp.StatusCode >= http.StatusBadRequest {
-		return map[string]domain.TrafficDelta{}, nil
+		return nil, fmt.Errorf("hysteria traffic API returned %d: %s", resp.StatusCode, truncate(string(body), 200))
 	}
 
 	var payload any
-	decoder := json.NewDecoder(resp.Body)
+	decoder := json.NewDecoder(bytes.NewReader(body))
 	decoder.UseNumber()
 	if err := decoder.Decode(&payload); err != nil {
 		return nil, fmt.Errorf("decode hysteria traffic: %w", err)
 	}
 
-	return parseTrafficPayload(payload), nil
+	stats := parseTrafficPayload(payload)
+	c.logger.Debug("hysteria traffic collected", "users", len(stats))
+	return stats, nil
+}
+
+func truncate(s string, n int) string {
+	if len(s) <= n {
+		return s
+	}
+	return s[:n] + "..."
 }
 
 func parseTrafficPayload(payload any) map[string]domain.TrafficDelta {

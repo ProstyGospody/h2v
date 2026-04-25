@@ -265,13 +265,13 @@ func (r *Repository) FindOffenders(ctx context.Context) ([]domain.User, error) {
 	return users, rows.Err()
 }
 
-func (r *Repository) AddTrafficBatch(ctx context.Context, core string, stats map[string]domain.TrafficDelta) error {
+func (r *Repository) AddTrafficBatch(ctx context.Context, core string, stats map[string]domain.TrafficDelta) (int64, error) {
 	if len(stats) == 0 {
-		return nil
+		return 0, nil
 	}
 	tx, err := r.pool.Begin(ctx)
 	if err != nil {
-		return err
+		return 0, err
 	}
 	defer tx.Rollback(ctx)
 
@@ -279,7 +279,7 @@ func (r *Repository) AddTrafficBatch(ctx context.Context, core string, stats map
 	updateArgs := make([]any, 0, len(stats)*2)
 	index := 1
 	for username, delta := range stats {
-		updateValues = append(updateValues, fmt.Sprintf("($%d, $%d)", index, index+1))
+		updateValues = append(updateValues, fmt.Sprintf("($%d, $%d::bigint)", index, index+1))
 		updateArgs = append(updateArgs, username, delta.Uplink+delta.Downlink)
 		index += 2
 	}
@@ -290,15 +290,17 @@ func (r *Repository) AddTrafficBatch(ctx context.Context, core string, stats map
 		FROM (VALUES %s) AS t(username, bytes)
 		WHERE u.username = t.username
 	`, strings.Join(updateValues, ","))
-	if _, err := tx.Exec(ctx, updateQuery, updateArgs...); err != nil {
-		return err
+	tag, err := tx.Exec(ctx, updateQuery, updateArgs...)
+	if err != nil {
+		return 0, err
 	}
+	matched := tag.RowsAffected()
 
 	insertValues := make([]string, 0, len(stats))
 	insertArgs := make([]any, 0, len(stats)*4)
 	index = 1
 	for username, delta := range stats {
-		insertValues = append(insertValues, fmt.Sprintf("($%d, $%d, $%d, $%d)", index, index+1, index+2, index+3))
+		insertValues = append(insertValues, fmt.Sprintf("($%d, $%d, $%d::bigint, $%d::bigint)", index, index+1, index+2, index+3))
 		insertArgs = append(insertArgs, username, core, delta.Uplink, delta.Downlink)
 		index += 4
 	}
@@ -309,10 +311,13 @@ func (r *Repository) AddTrafficBatch(ctx context.Context, core string, stats map
 		JOIN users u ON u.username = t.username
 	`, strings.Join(insertValues, ","))
 	if _, err := tx.Exec(ctx, insertQuery, insertArgs...); err != nil {
-		return err
+		return 0, err
 	}
 
-	return tx.Commit(ctx)
+	if err := tx.Commit(ctx); err != nil {
+		return 0, err
+	}
+	return matched, nil
 }
 
 func (r *Repository) GetUserTraffic(ctx context.Context, id uuid.UUID, days int) ([]domain.TrafficPoint, error) {
