@@ -1,12 +1,11 @@
 import { lazy, Suspense, useEffect, useMemo, useState } from 'react';
-import { useNavigate, useParams } from '@tanstack/react-router';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   AlertTriangle,
   Braces,
   CheckCircle2,
-  Clock3,
   FileClock,
+  FileCode2,
   FileJson2,
   PlayCircle,
   RefreshCw,
@@ -28,7 +27,6 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { cn } from '@/lib/utils';
 import { apiClient, ApiError } from '@/shared/api/client';
 import { formatBytes, formatShortDateTime } from '@/shared/lib/format';
@@ -46,50 +44,55 @@ type ConfigHistoryEntry = {
   note: string;
 };
 
+const cores: Core[] = ['xray', 'hysteria'];
+
 const coreMeta: Record<Core, { icon: typeof FileJson2; label: string; service: string }> = {
   xray: { icon: FileJson2, label: 'Xray', service: 'xray' },
-  hysteria: { icon: Braces, label: 'Hysteria', service: 'hysteria' },
+  hysteria: { icon: Braces, label: 'Hys2', service: 'hysteria' },
 };
 
 const ConfigEditor = lazy(() =>
   import('./ConfigEditor').then((module) => ({ default: module.ConfigEditor })),
 );
 
-function asCore(value: unknown): Core | null {
-  if (value === 'xray' || value === 'hysteria') {
-    return value;
-  }
-  return null;
+export function ConfigsPage() {
+  return (
+    <div className="pb-10">
+      <header className="px-5 pb-2 pt-8 sm:px-8">
+        <div className="flex items-center gap-2 text-muted-foreground">
+          <FileCode2 className="size-4" />
+          <span className="t-label">Configs</span>
+        </div>
+        <h1 className="mt-2 text-[26px] font-semibold leading-none text-foreground">Configs</h1>
+      </header>
+
+      <div className="grid gap-4 px-5 pt-5 sm:px-8 xl:grid-cols-2">
+        {cores.map((core) => (
+          <ConfigCorePanel core={core} key={core} />
+        ))}
+      </div>
+    </div>
+  );
 }
 
-export function ConfigsPage() {
-  const { core: rawCore } = useParams({ from: '/app/configs/$core' });
-  const navigate = useNavigate();
+function ConfigCorePanel({ core }: { core: Core }) {
   const queryClient = useQueryClient();
-
-  const core = asCore(rawCore);
+  const meta = coreMeta[core];
+  const Icon = meta.icon;
 
   const [draft, setDraft] = useState<string | null>(null);
   const [validation, setValidation] = useState<ValidationState>('idle');
   const [diffOpen, setDiffOpen] = useState(false);
 
   const config = useQuery({
-    enabled: Boolean(core),
     queryKey: ['configs', core],
     queryFn: () => apiClient.request<ConfigResponse>(`/configs/${core}`),
   });
 
   const history = useQuery({
-    enabled: Boolean(core),
     queryKey: ['configs', core, 'history'],
     queryFn: () => apiClient.request<ConfigHistoryEntry[]>(`/configs/${core}/history`),
   });
-
-  useEffect(() => {
-    setDraft(null);
-    setDiffOpen(false);
-    setValidation('idle');
-  }, [core]);
 
   useEffect(() => {
     if (config.data?.content !== undefined) {
@@ -113,11 +116,11 @@ export function ConfigsPage() {
       }),
     onError: (error) => {
       setValidation('invalid');
-      toast.error(error instanceof ApiError ? error.message : 'Validation failed');
+      toast.error(error instanceof ApiError ? error.message : `${meta.label} validation failed`);
     },
     onSuccess: () => {
       setValidation('valid');
-      toast.success('Configuration is valid');
+      toast.success(`${meta.label} configuration is valid`);
     },
   });
 
@@ -128,10 +131,10 @@ export function ConfigsPage() {
         method: 'POST',
       }),
     onError: (error) => {
-      toast.error(error instanceof ApiError ? error.message : 'Unable to apply configuration');
+      toast.error(error instanceof ApiError ? error.message : `Unable to apply ${meta.label} configuration`);
     },
     onSuccess: async () => {
-      toast.success('Configuration applied');
+      toast.success(`${meta.label} configuration applied`);
       setDiffOpen(false);
       setValidation('idle');
       await Promise.all([
@@ -144,10 +147,10 @@ export function ConfigsPage() {
   const restoreMutation = useMutation({
     mutationFn: (id: number) => apiClient.request(`/configs/${core}/restore/${id}`, { method: 'POST' }),
     onError: (error) => {
-      toast.error(error instanceof ApiError ? error.message : 'Unable to restore version');
+      toast.error(error instanceof ApiError ? error.message : `Unable to restore ${meta.label} version`);
     },
     onSuccess: async () => {
-      toast.success('Previous version restored');
+      toast.success(`${meta.label} previous version restored`);
       setDiffOpen(false);
       setValidation('idle');
       await Promise.all([
@@ -157,13 +160,8 @@ export function ConfigsPage() {
     },
   });
 
-  if (!core) {
-    return <UnknownCore onSelect={(nextCore) => navigateToCore(navigate, nextCore)} />;
-  }
-
   const canValidate = Boolean(config.data && dirty && jsonState.valid && !validateMutation.isPending);
   const readyToApply = dirty && validation === 'valid' && jsonState.valid && !applyMutation.isPending;
-  const Icon = coreMeta[core].icon;
 
   async function reloadConfig() {
     const result = await config.refetch();
@@ -182,33 +180,40 @@ export function ConfigsPage() {
     try {
       setDraft(JSON.stringify(JSON.parse(content), null, 2));
       setValidation('idle');
-      toast.success('JSON formatted');
+      toast.success(`${meta.label} JSON formatted`);
     } catch {
-      toast.error('JSON contains syntax errors');
+      toast.error(`${meta.label} JSON contains syntax errors`);
     }
   }
 
   return (
-    <div className="pb-10">
-      <header className="px-5 pb-2 pt-8 sm:px-8">
-        <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
-          <div className="min-w-0 space-y-2">
-            <div className="flex items-center gap-2 text-muted-foreground">
-              <Icon className="size-4" />
-              <span className="t-label">Configs</span>
+    <>
+      <Card className="min-w-0 overflow-hidden">
+        <CardHeader className="border-b px-4 py-3 sm:px-5">
+          <div className="flex flex-col gap-3 2xl:flex-row 2xl:items-center 2xl:justify-between">
+            <div className="min-w-0">
+              <CardTitle className="flex items-center gap-2">
+                <Icon className="size-4 text-muted-foreground" />
+                {meta.label}
+              </CardTitle>
+              <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                <span>{stats.lines} lines</span>
+                <span className="text-muted-foreground/40">/</span>
+                <span>{formatBytes(stats.bytes)}</span>
+                <span className="text-muted-foreground/40">/</span>
+                <span>{diffStats.changed} changed</span>
+              </div>
             </div>
-            <h1 className="text-[26px] font-semibold leading-none text-foreground">
-              {coreMeta[core].label}
-            </h1>
+            <EditorStatus
+              dirty={dirty}
+              isChecking={validateMutation.isPending}
+              isLoading={config.isLoading}
+              jsonState={jsonState}
+              validation={validation}
+            />
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
-            <Tabs onValueChange={(value) => navigateToCore(navigate, value as Core)} value={core}>
-              <TabsList>
-                <TabsTrigger value="xray">Xray</TabsTrigger>
-                <TabsTrigger value="hysteria">Hysteria</TabsTrigger>
-              </TabsList>
-            </Tabs>
             <Button disabled={config.isFetching} onClick={reloadConfig} size="sm" variant="secondary">
               <RefreshCw className={cn(config.isFetching && 'animate-spin')} />
               Reload
@@ -230,123 +235,82 @@ export function ConfigsPage() {
               Apply
             </Button>
           </div>
-        </div>
-      </header>
+        </CardHeader>
 
-      <div className="grid gap-4 px-5 pt-5 sm:px-8 xl:grid-cols-[minmax(0,1fr)_340px]">
-        <Card className="min-w-0 overflow-hidden">
-          <CardHeader className="border-b px-4 py-3 sm:px-5">
-            <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-              <div className="min-w-0">
-                <CardTitle className="flex items-center gap-2">
-                  <FileJson2 className="size-4 text-muted-foreground" />
-                  Editor
-                </CardTitle>
-                <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                  <span>{stats.lines} lines</span>
-                  <span className="text-muted-foreground/40">/</span>
-                  <span>{formatBytes(stats.bytes)}</span>
-                  <span className="text-muted-foreground/40">/</span>
-                  <span>{diffStats.changed} changed</span>
-                </div>
-              </div>
-              <EditorStatus
-                dirty={dirty}
-                isChecking={validateMutation.isPending}
-                jsonState={jsonState}
-                validation={validation}
-              />
+        <CardContent className="px-0 pb-0">
+          {config.isLoading ? (
+            <Skeleton className="h-[56vh] min-h-[390px] w-full rounded-none" />
+          ) : config.isError ? (
+            <div className="flex h-[56vh] min-h-[390px] flex-col items-center justify-center gap-3 px-6 text-center">
+              <XCircle className="size-8 text-destructive" />
+              <div className="text-base font-semibold">Unable to load {meta.label}</div>
+              <p className="max-w-xl text-sm text-muted-foreground">{errorMessage(config.error)}</p>
+              <Button onClick={() => config.refetch()} size="sm" variant="secondary">
+                <RefreshCw />
+                Retry
+              </Button>
             </div>
-          </CardHeader>
+          ) : (
+            <Suspense fallback={<Skeleton className="h-[56vh] min-h-[390px] w-full rounded-none" />}>
+              <ConfigEditor
+                className="h-[56vh] min-h-[390px] rounded-none border-0"
+                label={`${meta.label} configuration editor`}
+                onChange={(nextValue) => {
+                  setDraft(nextValue);
+                  setValidation('idle');
+                }}
+                value={content}
+              />
+            </Suspense>
+          )}
 
-          <CardContent className="px-0 pb-0">
-            {config.isLoading ? (
-              <Skeleton className="h-[62vh] min-h-[430px] w-full rounded-none" />
-            ) : config.isError ? (
-              <div className="flex h-[62vh] min-h-[430px] flex-col items-center justify-center gap-3 px-6 text-center">
-                <XCircle className="size-8 text-destructive" />
-                <div className="text-base font-semibold">Unable to load configuration</div>
-                <p className="max-w-xl text-sm text-muted-foreground">{errorMessage(config.error)}</p>
-                <Button onClick={() => config.refetch()} size="sm" variant="secondary">
-                  <RefreshCw />
-                  Retry
-                </Button>
-              </div>
-            ) : (
-              <Suspense fallback={<Skeleton className="h-[62vh] min-h-[430px] w-full rounded-none" />}>
-                <ConfigEditor
-                  className="h-[62vh] min-h-[430px] rounded-none border-0"
-                  label={`${coreMeta[core].label} configuration editor`}
-                  onChange={(nextValue) => {
-                    setDraft(nextValue);
-                    setValidation('idle');
-                  }}
-                  value={content}
-                />
-              </Suspense>
-            )}
-          </CardContent>
-        </Card>
-
-        <div className="space-y-4">
-          <Card>
-            <CardHeader className="px-5 pt-5">
-              <CardTitle className="flex items-center gap-2">
-                <Clock3 className="size-4 text-muted-foreground" />
-                State
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3 px-5 pb-5">
-              <InfoRow label="Service" value={coreMeta[core].service} />
+          <div className="grid border-t lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)]">
+            <section className="space-y-3 border-b p-4 lg:border-b-0 lg:border-r">
+              <div className="text-xs font-medium text-foreground">State</div>
+              <InfoRow label="Service" value={meta.service} />
               <InfoRow label="JSON" value={jsonState.valid ? 'Valid syntax' : 'Syntax error'} />
               <InfoRow label="Server check" value={validationLabel(validation, validateMutation.isPending)} />
               <InfoRow label="Unsaved" value={dirty ? 'Yes' : 'No'} />
-              {!jsonState.valid ? (
+              {!jsonState.valid && !config.isLoading ? (
                 <div className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-destructive">
                   {jsonState.message}
                 </div>
               ) : null}
-            </CardContent>
-          </Card>
+            </section>
 
-          <Card>
-            <CardHeader className="px-5 pt-5">
-              <CardTitle className="flex items-center gap-2">
-                <FileClock className="size-4 text-muted-foreground" />
+            <section className="min-w-0 p-3">
+              <div className="mb-2 flex items-center gap-2 px-1 text-xs font-medium text-foreground">
+                <FileClock className="size-3.5 text-muted-foreground" />
                 History
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-1.5 px-3 pb-4">
-              {history.isLoading ? (
-                Array.from({ length: 5 }).map((_, index) => (
-                  <Skeleton className="mx-2 h-14 w-[calc(100%-16px)]" key={index} />
-                ))
-              ) : history.isError ? (
-                <div className="px-3 py-6 text-center text-xs text-destructive">Failed to load history</div>
-              ) : history.data?.length ? (
-                history.data.map((entry) => (
-                  <HistoryItem
-                    disabled={restoreMutation.isPending && restoreMutation.variables === entry.id}
-                    entry={entry}
-                    key={entry.id}
-                    onRestore={() => restoreMutation.mutate(entry.id)}
-                  />
-                ))
-              ) : (
-                <div className="px-3 py-6 text-center text-xs text-muted-foreground">No applied versions yet.</div>
-              )}
-            </CardContent>
-          </Card>
-        </div>
-      </div>
+              </div>
+              <div className="max-h-56 space-y-1 overflow-auto pr-1">
+                {history.isLoading ? (
+                  Array.from({ length: 3 }).map((_, index) => <Skeleton className="h-12 w-full" key={index} />)
+                ) : history.isError ? (
+                  <div className="px-3 py-6 text-center text-xs text-destructive">Failed to load history</div>
+                ) : history.data?.length ? (
+                  history.data.map((entry) => (
+                    <HistoryItem
+                      disabled={restoreMutation.isPending && restoreMutation.variables === entry.id}
+                      entry={entry}
+                      key={entry.id}
+                      onRestore={() => restoreMutation.mutate(entry.id)}
+                    />
+                  ))
+                ) : (
+                  <div className="px-3 py-6 text-center text-xs text-muted-foreground">No applied versions yet.</div>
+                )}
+              </div>
+            </section>
+          </div>
+        </CardContent>
+      </Card>
 
       <Dialog onOpenChange={setDiffOpen} open={diffOpen}>
         <DialogContent className="max-h-[92vh] overflow-hidden sm:max-w-6xl">
           <DialogHeader>
-            <DialogTitle>Apply changes</DialogTitle>
-            <DialogDescription>
-              {coreMeta[core].label} will restart after the new configuration is written.
-            </DialogDescription>
+            <DialogTitle>Apply {meta.label}</DialogTitle>
+            <DialogDescription>{meta.label} will restart after the new configuration is written.</DialogDescription>
           </DialogHeader>
 
           <div className="grid gap-2 sm:grid-cols-3">
@@ -357,7 +321,7 @@ export function ConfigsPage() {
 
           <div className="flex items-start gap-2 rounded-md bg-warning/10 px-3 py-2.5 text-xs text-warning">
             <AlertTriangle className="mt-0.5 size-4 shrink-0" />
-            <span>Active connections may briefly drop while {coreMeta[core].label} restarts.</span>
+            <span>Active connections may briefly drop while {meta.label} restarts.</span>
           </div>
 
           <div className="grid min-h-0 gap-3 overflow-hidden md:grid-cols-2">
@@ -376,42 +340,26 @@ export function ConfigsPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
-  );
-}
-
-function UnknownCore({ onSelect }: { onSelect: (core: Core) => void }) {
-  return (
-    <div className="px-5 pb-10 pt-8 sm:px-8">
-      <Card>
-        <CardContent className="space-y-4 p-6">
-          <div className="text-base font-semibold">Unknown config core</div>
-          <p className="text-sm text-muted-foreground">Choose one of the available cores to continue.</p>
-          <div className="flex gap-2">
-            <Button onClick={() => onSelect('xray')} size="sm">
-              Xray
-            </Button>
-            <Button onClick={() => onSelect('hysteria')} size="sm" variant="secondary">
-              Hysteria
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
-    </div>
+    </>
   );
 }
 
 function EditorStatus({
   dirty,
   isChecking,
+  isLoading,
   jsonState,
   validation,
 }: {
   dirty: boolean;
   isChecking: boolean;
+  isLoading: boolean;
   jsonState: JsonState;
   validation: ValidationState;
 }) {
+  if (isLoading) {
+    return <Badge variant="secondary">Loading</Badge>;
+  }
   if (isChecking) {
     return (
       <Badge variant="secondary">
@@ -501,10 +449,6 @@ function DiffPanel({ label, value }: { label: string; value: string }) {
       <pre className="min-h-0 flex-1 overflow-auto p-3 font-mono text-xs leading-5">{value}</pre>
     </div>
   );
-}
-
-function navigateToCore(navigate: ReturnType<typeof useNavigate>, core: Core) {
-  navigate({ params: { core }, to: '/configs/$core' });
 }
 
 type JsonState =

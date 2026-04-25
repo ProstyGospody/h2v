@@ -7,7 +7,6 @@ import {
   Settings2,
   ShieldCheck,
   Users,
-  Zap,
 } from 'lucide-react';
 import { AppProviders } from '@/app/providers';
 import { Button } from '@/components/ui/button';
@@ -22,7 +21,7 @@ import { SubPage } from '@/features/subscription/SubPage';
 import { UsersPage } from '@/features/users/UsersPage';
 import { cn } from '@/lib/utils';
 
-type LinkTo = '/' | '/users' | '/settings' | '/configs/$core';
+type LinkTo = '/' | '/users' | '/settings' | '/configs';
 
 function RootLayout() {
   return (
@@ -47,12 +46,8 @@ function ProtectedShell() {
   const primaryLinks = [
     { icon: LayoutDashboard, label: 'Dashboard', to: '/' as const },
     { icon: Users, label: 'Users', to: '/users' as const },
+    { icon: FileCode2, label: 'Configs', to: '/configs' as const },
     { icon: Settings2, label: 'Settings', to: '/settings' as const },
-  ];
-
-  const configLinks = [
-    { icon: FileCode2, label: 'Xray', params: { core: 'xray' }, to: '/configs/$core' as const },
-    { icon: Zap, label: 'Hysteria', params: { core: 'hysteria' }, to: '/configs/$core' as const },
   ];
 
   return (
@@ -72,21 +67,6 @@ function ProtectedShell() {
                   <SidebarLink key={link.to} icon={link.icon} label={link.label} to={link.to} />
                 ))}
               </nav>
-
-              <div className="mt-6">
-                <div className="t-label px-3 pb-2">Configs</div>
-                <div className="space-y-0.5">
-                  {configLinks.map((link) => (
-                    <SidebarLink
-                      key={link.params.core}
-                      icon={link.icon}
-                      label={link.label}
-                      params={link.params}
-                      to={link.to}
-                    />
-                  ))}
-                </div>
-              </div>
             </div>
 
             <Separator />
@@ -130,9 +110,6 @@ function ProtectedShell() {
               {primaryLinks.map((link) => (
                 <PillLink key={link.to} label={link.label} to={link.to} />
               ))}
-              {configLinks.map((link) => (
-                <PillLink key={link.params.core} label={link.label} params={link.params} to={link.to} />
-              ))}
             </div>
           </div>
 
@@ -164,12 +141,10 @@ function AppBrand({ compact = false }: { compact?: boolean }) {
 function SidebarLink({
   icon: Icon,
   label,
-  params,
   to,
 }: {
   icon: ComponentType<{ className?: string }>;
   label: string;
-  params?: { core: string };
   to: LinkTo;
 }) {
   const base =
@@ -177,14 +152,6 @@ function SidebarLink({
   const active =
     'group flex items-center gap-3 rounded-md bg-[hsl(var(--primary)/0.08)] px-3 py-2 text-sm font-medium text-foreground shadow-[inset_2px_0_0_hsl(var(--primary))]';
 
-  if (params) {
-    return (
-      <Link activeProps={{ className: active }} className={base} params={params} to="/configs/$core">
-        <Icon className="size-4" />
-        <span>{label}</span>
-      </Link>
-    );
-  }
   return (
     <Link activeOptions={{ exact: true }} activeProps={{ className: active }} className={base} to={to}>
       <Icon className="size-4" />
@@ -193,16 +160,9 @@ function SidebarLink({
   );
 }
 
-function PillLink({ label, params, to }: { label: string; params?: { core: string }; to: LinkTo }) {
+function PillLink({ label, to }: { label: string; to: LinkTo }) {
   const base = 'shrink-0 rounded-md bg-muted px-3 py-1.5 text-xs font-medium text-muted-foreground';
   const active = 'shrink-0 rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground';
-  if (params) {
-    return (
-      <Link activeProps={{ className: active }} className={base} params={params} to="/configs/$core">
-        {label}
-      </Link>
-    );
-  }
   return (
     <Link activeOptions={{ exact: true }} activeProps={{ className: active }} className={base} to={to}>
       {label}
@@ -219,7 +179,7 @@ const appRoute = createRoute({ getParentRoute: () => rootRoute, id: 'app', compo
 const loginRoute = createRoute({ getParentRoute: () => rootRoute, path: '/login', component: LoginPage });
 const dashboardRoute = createRoute({ getParentRoute: () => appRoute, path: '/', component: DashboardPage });
 const usersRoute = createRoute({ getParentRoute: () => appRoute, path: '/users', component: UsersPage });
-const configsRoute = createRoute({ getParentRoute: () => appRoute, path: '/configs/$core', component: ConfigsPage });
+const configsRoute = createRoute({ getParentRoute: () => appRoute, path: '/configs', component: ConfigsPage });
 const settingsRoute = createRoute({ getParentRoute: () => appRoute, path: '/settings', component: SettingsPage });
 const publicSubscriptionRoute = createRoute({ getParentRoute: () => rootRoute, path: '/u/$token', component: SubPage });
 
