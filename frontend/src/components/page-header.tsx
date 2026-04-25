@@ -12,7 +12,7 @@ export function PageHeader({ title, action }: PageHeaderProps) {
         <h1 className="text-2xl font-semibold text-foreground">{title}</h1>
         {action && <div className="flex items-center gap-2">{action}</div>}
       </div>
-      <Separator />
+      <Separator className="-mx-5 sm:-mx-8" />
     </>
   );
 }
