@@ -538,6 +538,17 @@ func (r *Repository) GetConfigHistory(ctx context.Context, id int64) (*domain.Co
 	return &item, nil
 }
 
+func (r *Repository) DeleteConfigHistory(ctx context.Context, core string, id int64) error {
+	tag, err := r.pool.Exec(ctx, `DELETE FROM config_history WHERE id = $1 AND core = $2`, id, core)
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return domain.NewError(404, "config_history_not_found", "Config history entry does not exist", nil)
+	}
+	return nil
+}
+
 func (r *Repository) GetAdminByUsername(ctx context.Context, username string) (*domain.Admin, error) {
 	row := r.pool.QueryRow(ctx, `
 		SELECT id, username, password_hash, totp_secret, role, last_login_at, created_at

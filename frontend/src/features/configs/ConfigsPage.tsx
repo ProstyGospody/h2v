@@ -10,6 +10,7 @@ import {
   PlayCircle,
   RefreshCw,
   RotateCcw,
+  Trash2,
   Undo2,
   Wand2,
   XCircle,
@@ -160,6 +161,17 @@ function ConfigCorePanel({ core }: { core: Core }) {
     },
   });
 
+  const deleteHistoryMutation = useMutation({
+    mutationFn: (id: number) => apiClient.request(`/configs/${core}/history/${id}`, { method: 'DELETE' }),
+    onError: (error) => {
+      toast.error(error instanceof ApiError ? error.message : `Unable to delete ${meta.label} history entry`);
+    },
+    onSuccess: async () => {
+      toast.success(`${meta.label} history entry deleted`);
+      await queryClient.invalidateQueries({ queryKey: ['configs', core, 'history'] });
+    },
+  });
+
   const canValidate = Boolean(config.data && dirty && jsonState.valid && !validateMutation.isPending);
   const readyToApply = dirty && validation === 'valid' && jsonState.valid && !applyMutation.isPending;
 
@@ -291,10 +303,14 @@ function ConfigCorePanel({ core }: { core: Core }) {
                 ) : history.data?.length ? (
                   history.data.map((entry) => (
                     <HistoryItem
-                      disabled={restoreMutation.isPending && restoreMutation.variables === entry.id}
+                      deleteDisabled={
+                        deleteHistoryMutation.isPending && deleteHistoryMutation.variables === entry.id
+                      }
                       entry={entry}
                       key={entry.id}
+                      onDelete={() => deleteHistoryMutation.mutate(entry.id)}
                       onRestore={() => restoreMutation.mutate(entry.id)}
+                      restoreDisabled={restoreMutation.isPending && restoreMutation.variables === entry.id}
                     />
                   ))
                 ) : (
@@ -399,13 +415,17 @@ function EditorStatus({
 }
 
 function HistoryItem({
-  disabled,
+  deleteDisabled,
   entry,
+  onDelete,
   onRestore,
+  restoreDisabled,
 }: {
-  disabled: boolean;
+  deleteDisabled: boolean;
   entry: ConfigHistoryEntry;
+  onDelete: () => void;
   onRestore: () => void;
+  restoreDisabled: boolean;
 }) {
   return (
     <div className="flex items-center justify-between gap-3 rounded-md px-2 py-2 transition hover:bg-accent">
@@ -416,10 +436,22 @@ function HistoryItem({
         </div>
         {entry.note ? <div className="mt-0.5 truncate text-[11px] text-muted-foreground/70">{entry.note}</div> : null}
       </div>
-      <Button disabled={disabled} onClick={onRestore} size="sm" variant="ghost">
-        <Undo2 />
-        Restore
-      </Button>
+      <div className="flex shrink-0 items-center gap-1">
+        <Button disabled={restoreDisabled} onClick={onRestore} size="sm" variant="ghost">
+          <Undo2 />
+          Restore
+        </Button>
+        <Button
+          className="text-destructive hover:text-destructive"
+          disabled={deleteDisabled}
+          onClick={onDelete}
+          size="sm"
+          variant="ghost"
+        >
+          <Trash2 />
+          Delete
+        </Button>
+      </div>
     </div>
   );
 }

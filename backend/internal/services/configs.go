@@ -231,6 +231,16 @@ func (s *ConfigService) Restore(ctx context.Context, id int64, actor Actor) erro
 	return s.Apply(ctx, entry.Core, []byte(entry.Content), actor)
 }
 
+func (s *ConfigService) DeleteHistory(ctx context.Context, core string, id int64) error {
+	if _, err := s.pathForCore(core); err != nil {
+		return err
+	}
+	if s.repo == nil {
+		return domain.NewError(500, "repository_unavailable", "Repository is not available", nil)
+	}
+	return s.repo.DeleteConfigHistory(ctx, core, id)
+}
+
 func (s *ConfigService) waitHealthy(ctx context.Context, core string) error {
 	deadline, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()

@@ -126,6 +126,7 @@ func (s *Server) routes(r chi.Router) {
 		api.Post("/configs/{core}/validate", s.handleConfigValidate)
 		api.Post("/configs/{core}/apply", s.handleConfigApply)
 		api.Get("/configs/{core}/history", s.handleConfigHistory)
+		api.Delete("/configs/{core}/history/{historyID}", s.handleConfigHistoryDelete)
 		api.Post("/configs/{core}/restore/{historyID}", s.handleConfigRestore)
 
 		api.Get("/settings", s.handleSettingsList)
@@ -468,6 +469,19 @@ func (s *Server) handleConfigRestore(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	jsonData(w, http.StatusOK, map[string]any{"restored": true}, nil)
+}
+
+func (s *Server) handleConfigHistoryDelete(w http.ResponseWriter, r *http.Request) {
+	historyID, err := strconv.ParseInt(chi.URLParam(r, "historyID"), 10, 64)
+	if err != nil {
+		jsonError(w, domain.NewError(400, "invalid_history_id", "Invalid history id", err))
+		return
+	}
+	if err := s.services.Configs.DeleteHistory(r.Context(), chi.URLParam(r, "core"), historyID); err != nil {
+		jsonError(w, err)
+		return
+	}
+	jsonData(w, http.StatusOK, map[string]any{"deleted": true}, nil)
 }
 
 func (s *Server) handleSettingsList(w http.ResponseWriter, r *http.Request) {
@@ -997,4 +1011,3 @@ func routePath(r *http.Request) string {
 	}
 	return r.URL.Path
 }
-
