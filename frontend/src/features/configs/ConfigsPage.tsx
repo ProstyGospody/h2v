@@ -28,6 +28,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Skeleton } from '@/components/ui/skeleton';
+import { PageHeader } from '@/components/page-header';
 import { cn } from '@/lib/utils';
 import { apiClient, ApiError } from '@/shared/api/client';
 import { formatBytes, formatShortDateTime } from '@/shared/lib/format';
@@ -59,15 +60,17 @@ const ConfigEditor = lazy(() =>
 export function ConfigsPage() {
   return (
     <div className="pb-10">
-      <header className="px-5 pb-2 pt-8 sm:px-8">
-        <div className="flex items-center gap-2 text-muted-foreground">
-          <FileCode2 className="size-4" />
-          <span className="t-label">Configs</span>
-        </div>
-        <h1 className="mt-2 text-[26px] font-semibold leading-none text-foreground">Configs</h1>
-      </header>
+      <PageHeader
+        title="Configs"
+        left={
+          <div className="flex items-center gap-2 text-muted-foreground">
+            <FileCode2 className="size-4" />
+            <span className="text-xs font-medium uppercase tracking-wide">Configs</span>
+          </div>
+        }
+      />
 
-      <div className="grid gap-4 px-5 pt-5 sm:px-8 xl:grid-cols-2">
+      <div className="grid gap-4 px-5 pt-6 sm:px-8 xl:grid-cols-2">
         {cores.map((core) => (
           <ConfigCorePanel core={core} key={core} />
         ))}

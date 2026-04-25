@@ -6,6 +6,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
+import { PageHeader } from '@/components/page-header';
 import { cn } from '@/lib/utils';
 import { apiClient } from '@/shared/api/client';
 import { Setting } from '@/shared/api/types';
@@ -69,25 +70,21 @@ export function SettingsPage() {
 
   return (
     <div className="pb-10">
-      <header className="px-5 pb-2 pt-8 sm:px-8">
-        <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
-          <div className="min-w-0 space-y-1">
-            <h1 className="text-[26px] font-semibold leading-none tracking-[-0.01em] text-foreground">
-              Settings
-            </h1>
-          </div>
-          {hasDraft ? (
-            <div className="flex flex-wrap items-center gap-2">
+      <PageHeader
+        title="Settings"
+        right={
+          hasDraft ? (
+            <>
               <Button onClick={() => setDraft({})} size="sm" variant="ghost">
                 Discard
               </Button>
               <Button disabled={save.isPending} onClick={() => save.mutate()} size="sm">
                 Save
               </Button>
-            </div>
-          ) : null}
-        </div>
-      </header>
+            </>
+          ) : null
+        }
+      />
 
       <Tabs
         className="gap-6 px-5 pt-6 sm:px-8 lg:grid lg:grid-cols-[200px_1fr] lg:items-start"

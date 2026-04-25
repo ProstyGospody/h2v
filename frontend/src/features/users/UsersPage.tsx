@@ -17,6 +17,7 @@ import {
 import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { PageHeader } from '@/components/page-header';
 import { Card, CardContent } from '@/components/ui/card';
 import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from '@/components/ui/chart';
 import {
@@ -229,24 +230,20 @@ export function UsersPage() {
 
   return (
     <div className="pb-10">
-      <header className="px-5 pb-2 pt-8 sm:px-8">
-        <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
-          <div className="min-w-0 space-y-1">
-            <h1 className="flex items-baseline gap-2.5 text-[26px] font-semibold leading-none tracking-[-0.01em] text-foreground">
-              <span>Users</span>
-              <span className="font-mono text-base text-muted-foreground">
-                {users.data?.length ?? 0}
-              </span>
-            </h1>
+      <PageHeader
+        title={
+          <div className="flex items-baseline gap-2.5">
+            <span>Users</span>
+            <span className="font-mono text-base text-muted-foreground">{users.data?.length ?? 0}</span>
           </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <Button onClick={() => setCreateOpen(true)}>
-              <Plus />
-              Create user
-            </Button>
-          </div>
-        </div>
-      </header>
+        }
+        right={
+          <Button onClick={() => setCreateOpen(true)}>
+            <Plus />
+            Create user
+          </Button>
+        }
+      />
 
       <div className="space-y-4 px-5 pt-6 sm:px-8">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">

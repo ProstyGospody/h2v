@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from '@/components/ui/chart';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { PageHeader } from '@/components/page-header';
 import { cn } from '@/lib/utils';
 import { apiClient } from '@/shared/api/client';
 import { OverviewStats, TrafficPoint } from '@/shared/api/types';
@@ -56,13 +57,9 @@ export function DashboardPage() {
 
   return (
     <div className="pb-10">
-      <header className="px-5 pb-2 pt-8 sm:px-8">
-        <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
-          <div className="min-w-0 space-y-1">
-            <h1 className="text-[26px] font-semibold leading-none tracking-[-0.01em] text-foreground">
-              Overview
-            </h1>
-          </div>
+      <PageHeader
+        title="Overview"
+        right={
           <Tabs onValueChange={(v) => setDays(v as Range)} value={days}>
             <TabsList>
               {ranges.map((r) => (
@@ -72,8 +69,8 @@ export function DashboardPage() {
               ))}
             </TabsList>
           </Tabs>
-        </div>
-      </header>
+        }
+      />
 
       <div className="grid gap-4 px-5 pt-6 sm:px-8 md:grid-cols-2 xl:grid-cols-6">
         <Card>
