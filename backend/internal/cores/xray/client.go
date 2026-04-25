@@ -60,10 +60,7 @@ func (c *Client) Health(ctx context.Context) error {
 	dialer := &net.Dialer{Timeout: 500 * time.Millisecond}
 	conn, err := dialer.DialContext(ctx, "tcp", c.cfg.APIAddr)
 	if err != nil {
-		// Allow development boot without a running kernel while keeping the
-		// transport contract explicit in logs.
-		c.logger.Warn("xray health check failed; using in-process mirror until gRPC adapter is wired", "addr", c.cfg.APIAddr, "err", err)
-		return nil
+		return fmt.Errorf("xray api unavailable at %s: %w", c.cfg.APIAddr, err)
 	}
 	_ = conn.Close()
 	return nil
@@ -99,7 +96,7 @@ func (c *Client) QueryStats(ctx context.Context) (map[string]domain.TrafficDelta
 	}
 	if _, err := os.Stat(c.cfg.Binary); err != nil {
 		if errors.Is(err, os.ErrNotExist) {
-			return map[string]domain.TrafficDelta{}, nil
+			return nil, fmt.Errorf("xray binary %q not found", c.cfg.Binary)
 		}
 		return nil, fmt.Errorf("check xray binary: %w", err)
 	}
