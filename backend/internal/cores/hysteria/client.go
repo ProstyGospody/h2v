@@ -9,6 +9,8 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/prost/h2v/backend/internal/config"
@@ -49,7 +51,7 @@ func (c *Client) Health(ctx context.Context) error {
 }
 
 func (c *Client) GetTraffic(ctx context.Context, reset bool) (map[string]domain.TrafficDelta, error) {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, c.cfg.TrafficURL+"/traffic", nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, strings.TrimRight(c.cfg.TrafficURL, "/")+"/traffic", nil)
 	if err != nil {
 		return nil, err
 	}
@@ -61,6 +63,7 @@ func (c *Client) GetTraffic(ctx context.Context, reset bool) (map[string]domain.
 	if c.cfg.TrafficSecret != "" {
 		req.Header.Set("Authorization", c.cfg.TrafficSecret)
 	}
+	req.Header.Set("Accept", "application/json")
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
@@ -73,19 +76,101 @@ func (c *Client) GetTraffic(ctx context.Context, reset bool) (map[string]domain.
 		return map[string]domain.TrafficDelta{}, nil
 	}
 
-	payload := map[string]struct {
-		Tx int64 `json:"tx"`
-		Rx int64 `json:"rx"`
-	}{}
-	if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {
+	var payload any
+	decoder := json.NewDecoder(resp.Body)
+	decoder.UseNumber()
+	if err := decoder.Decode(&payload); err != nil {
 		return nil, fmt.Errorf("decode hysteria traffic: %w", err)
 	}
 
-	result := make(map[string]domain.TrafficDelta, len(payload))
-	for username, stat := range payload {
-		result[username] = domain.TrafficDelta{Uplink: stat.Tx, Downlink: stat.Rx}
+	return parseTrafficPayload(payload), nil
+}
+
+func parseTrafficPayload(payload any) map[string]domain.TrafficDelta {
+	root, ok := payload.(map[string]any)
+	if !ok {
+		return map[string]domain.TrafficDelta{}
 	}
-	return result, nil
+	if result := parseTrafficMap(root); len(result) > 0 {
+		return result
+	}
+	for _, key := range []string{"users", "traffic", "stats", "data"} {
+		nested, ok := root[key].(map[string]any)
+		if !ok {
+			continue
+		}
+		if result := parseTrafficMap(nested); len(result) > 0 {
+			return result
+		}
+	}
+	return map[string]domain.TrafficDelta{}
+}
+
+func parseTrafficMap(payload map[string]any) map[string]domain.TrafficDelta {
+	result := make(map[string]domain.TrafficDelta, len(payload))
+	for username, raw := range payload {
+		delta, ok := parseTrafficCounters(raw)
+		if !ok || (delta.Uplink <= 0 && delta.Downlink <= 0) {
+			continue
+		}
+		result[username] = delta
+	}
+	return result
+}
+
+func parseTrafficCounters(raw any) (domain.TrafficDelta, bool) {
+	payload, ok := raw.(map[string]any)
+	if !ok {
+		return domain.TrafficDelta{}, false
+	}
+	uplink, upOK := firstCounter(payload, "tx", "upload", "uplink", "up", "sent", "send")
+	downlink, downOK := firstCounter(payload, "rx", "download", "downlink", "down", "recv", "receive", "received")
+	if !upOK && !downOK {
+		return domain.TrafficDelta{}, false
+	}
+	return domain.TrafficDelta{Uplink: uplink, Downlink: downlink}, true
+}
+
+func firstCounter(payload map[string]any, keys ...string) (int64, bool) {
+	for _, key := range keys {
+		if value, ok := payload[key]; ok {
+			return trafficCounterInt64(value)
+		}
+		for existingKey, value := range payload {
+			if strings.EqualFold(existingKey, key) {
+				return trafficCounterInt64(value)
+			}
+		}
+	}
+	return 0, false
+}
+
+func trafficCounterInt64(value any) (int64, bool) {
+	switch v := value.(type) {
+	case json.Number:
+		if i, err := v.Int64(); err == nil {
+			return i, true
+		}
+		f, err := strconv.ParseFloat(v.String(), 64)
+		if err != nil {
+			return 0, false
+		}
+		return int64(f), true
+	case float64:
+		return int64(v), true
+	case int64:
+		return v, true
+	case int:
+		return int64(v), true
+	case string:
+		i, err := strconv.ParseInt(v, 10, 64)
+		if err != nil {
+			return 0, false
+		}
+		return i, true
+	default:
+		return 0, false
+	}
 }
 
 func (c *Client) Kick(ctx context.Context, usernames []string) error {

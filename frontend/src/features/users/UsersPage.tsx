@@ -103,6 +103,7 @@ export function UsersPage() {
       const q = params.toString();
       return apiClient.request<User[]>(`/users${q ? `?${q}` : ''}`);
     },
+    refetchInterval: 10_000,
   });
 
   const drawerUser = useMemo(
@@ -132,6 +133,7 @@ export function UsersPage() {
     enabled: drawerOpen && Boolean(drawerUser?.id),
     queryKey: ['users', drawerUser?.id, 'traffic'],
     queryFn: () => apiClient.request<TrafficPoint[]>(`/users/${drawerUser!.id}/traffic?days=7`),
+    refetchInterval: 10_000,
   });
 
   const allSelected = Boolean(users.data?.length) && selectedIds.length === users.data?.length;

@@ -42,6 +42,7 @@ export function DashboardPage() {
   const traffic = useQuery({
     queryKey: ['stats', 'traffic', days],
     queryFn: () => apiClient.request<TrafficPoint[]>(`/stats/traffic?days=${days}`),
+    refetchInterval: 10_000,
   });
 
   const data = overview.data;
