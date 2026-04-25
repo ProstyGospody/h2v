@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { addDays } from 'date-fns';
 import { QRCodeSVG } from 'qrcode.react';
-import { Area, AreaChart } from 'recharts';
+import { Bar, BarChart } from 'recharts';
 import {
   ArrowRight,
   Copy,
@@ -681,15 +681,9 @@ export function UsersPage() {
                         className="h-full w-full aspect-auto"
                         config={userTrafficChartConfig}
                       >
-                        <AreaChart data={traffic.data}>
-                          <defs>
-                            <linearGradient id="userTraffic" x1="0" x2="0" y1="0" y2="1">
-                              <stop offset="0%" stopColor="var(--color-total)" stopOpacity={0.35} />
-                              <stop offset="100%" stopColor="var(--color-total)" stopOpacity={0} />
-                            </linearGradient>
-                          </defs>
+                        <BarChart data={traffic.data.map((p) => ({ ...p, total: p.uplink + p.downlink }))}>
                           <ChartTooltip
-                            cursor={false}
+                            cursor={{ fill: 'hsl(var(--accent))', opacity: 0.3 }}
                             content={
                               <ChartTooltipContent
                                 formatter={(v) => [formatBytes(Number(v)), 'Traffic']}
@@ -697,15 +691,8 @@ export function UsersPage() {
                               />
                             }
                           />
-                          <Area
-                            dataKey={(p: TrafficPoint) => p.downlink + p.uplink}
-                            fill="url(#userTraffic)"
-                            name="total"
-                            stroke="var(--color-total)"
-                            strokeWidth={2}
-                            type="monotone"
-                          />
-                        </AreaChart>
+                          <Bar dataKey="total" fill="var(--color-total)" name="total" radius={[3, 3, 0, 0]} />
+                        </BarChart>
                       </ChartContainer>
                     ) : (
                       <div className="flex h-full items-center justify-center text-xs text-muted-foreground">
