@@ -8,6 +8,7 @@ import {
   Copy,
   MoreHorizontal,
   Plus,
+  QrCode,
   RefreshCw,
   RotateCcw,
   Search,
@@ -78,6 +79,7 @@ export function UsersPage() {
   const [status, setStatus] = useState<'all' | UserStatus>('all');
   const [nearExpiry, setNearExpiry] = useState(false);
   const [drawerUserId, setDrawerUserId] = useState<string | null>(null);
+  const [qrUserId, setQrUserId] = useState<string | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
   const [busyAction, setBusyAction] = useState<string | null>(null);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
@@ -107,12 +109,23 @@ export function UsersPage() {
     () => users.data?.find((u) => u.id === drawerUserId) ?? null,
     [drawerUserId, users.data],
   );
+  const qrUser = useMemo(
+    () => users.data?.find((u) => u.id === qrUserId) ?? null,
+    [qrUserId, users.data],
+  );
   const drawerOpen = Boolean(drawerUser);
+  const qrOpen = Boolean(qrUser);
 
   const links = useQuery({
     enabled: drawerOpen && Boolean(drawerUser?.id),
     queryKey: ['users', drawerUser?.id, 'links'],
     queryFn: () => apiClient.request<UserLinks>(`/users/${drawerUser!.id}/links`),
+  });
+
+  const qrLinks = useQuery({
+    enabled: qrOpen && Boolean(qrUser?.id),
+    queryKey: ['users', qrUser?.id, 'links'],
+    queryFn: () => apiClient.request<UserLinks>(`/users/${qrUser!.id}/links`),
   });
 
   const traffic = useQuery({
@@ -359,6 +372,7 @@ export function UsersPage() {
                   <TableHead>Traffic</TableHead>
                   <TableHead className="hidden md:table-cell">Expires</TableHead>
                   <TableHead className="hidden lg:table-cell">Created</TableHead>
+                  <TableHead className="w-20">QR</TableHead>
                   <TableHead className="w-10" />
                 </TableRow>
               </TableHeader>
@@ -440,6 +454,17 @@ export function UsersPage() {
                       </TableCell>
                       <TableCell className="hidden text-xs text-muted-foreground lg:table-cell">
                         {formatDate(user.created_at, 'MMM d')}
+                      </TableCell>
+                      <TableCell onClick={(e) => e.stopPropagation()}>
+                        <Button
+                          onClick={() => setQrUserId(user.id)}
+                          size="sm"
+                          type="button"
+                          variant="secondary"
+                        >
+                          <QrCode />
+                          QR
+                        </Button>
                       </TableCell>
                       <TableCell onClick={(e) => e.stopPropagation()}>
                         <DropdownMenu>
@@ -612,6 +637,10 @@ export function UsersPage() {
                 <Separator />
 
                 <div className="flex flex-wrap gap-2">
+                  <Button onClick={() => setQrUserId(drawerUser.id)} size="sm" variant="secondary">
+                    <QrCode />
+                    Show QR
+                  </Button>
                   <Button
                     disabled={drawerBusy === 'reset-sub'}
                     onClick={() => void resetDrawerSubscription()}
@@ -627,35 +656,15 @@ export function UsersPage() {
                   <div className="t-label">Connection</div>
                   {links.isLoading ? (
                     <>
-                      <Skeleton className="aspect-square w-full rounded-md" />
+                      <Skeleton className="h-11 w-full" />
                       <Skeleton className="h-11 w-full" />
                       <Skeleton className="h-11 w-full" />
                     </>
                   ) : links.data ? (
-                    <div className="space-y-3">
-                      <div className="rounded-md border bg-muted p-4">
-                        <div className="mx-auto max-w-[220px]">
-                          <QRCodePreview label="Subscription QR" value={links.data.subscription} />
-                        </div>
-                        <Button
-                          className="mt-4 w-full"
-                          onClick={async () => {
-                            if (!links.data?.subscription) return;
-                            await navigator.clipboard.writeText(links.data.subscription);
-                            toast.success('Subscription copied');
-                          }}
-                          size="sm"
-                          type="button"
-                          variant="secondary"
-                        >
-                          <Copy className="size-4" />
-                          Copy subscription
-                        </Button>
-                      </div>
-                      <div className="space-y-1.5">
-                        <LinkCopyRow label="VLESS" value={links.data.vless} />
-                        <LinkCopyRow label="Hys2" value={links.data.hysteria2} />
-                      </div>
+                    <div className="space-y-1.5">
+                      <LinkCopyRow label="Subscription" value={links.data.subscription} />
+                      <LinkCopyRow label="VLESS" value={links.data.vless} />
+                      <LinkCopyRow label="Hys2" value={links.data.hysteria2} />
                     </div>
                   ) : null}
                 </div>
@@ -709,6 +718,21 @@ export function UsersPage() {
           ) : null}
         </SheetContent>
       </Sheet>
+
+      <Dialog
+        onOpenChange={(next) => {
+          if (!next) setQrUserId(null);
+        }}
+        open={qrOpen}
+      >
+        <DialogContent className="w-[calc(100vw-32px)] max-w-[420px] p-0">
+          <QRDialogContent
+            isLoading={qrLinks.isLoading}
+            links={qrLinks.data ?? null}
+            username={qrUser?.username ?? ''}
+          />
+        </DialogContent>
+      </Dialog>
 
       <Dialog onOpenChange={setCreateOpen} open={createOpen}>
         <DialogContent className="sm:max-w-xl">
@@ -822,6 +846,62 @@ export function UsersPage() {
 
 function generateUsername() {
   return `user_${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function QRDialogContent({
+  isLoading,
+  links,
+  username,
+}: {
+  isLoading: boolean;
+  links: UserLinks | null;
+  username: string;
+}) {
+  return (
+    <div className="space-y-5 p-6">
+      <DialogHeader className="pr-8">
+        <DialogTitle>{username || 'User'} QR</DialogTitle>
+      </DialogHeader>
+
+      {isLoading ? (
+        <div className="space-y-4">
+          <Skeleton className="mx-auto aspect-square w-full max-w-[260px] rounded-md" />
+          <Skeleton className="h-9 w-full" />
+          <Skeleton className="h-11 w-full" />
+          <Skeleton className="h-11 w-full" />
+        </div>
+      ) : links ? (
+        <div className="space-y-4">
+          <div className="mx-auto w-full max-w-[260px]">
+            <QRCodePreview label={`${username || 'User'} subscription QR`} value={links.subscription} />
+          </div>
+
+          <Button
+            className="w-full"
+            disabled={!links.subscription}
+            onClick={async () => {
+              if (!links.subscription) return;
+              await navigator.clipboard.writeText(links.subscription);
+              toast.success('Subscription copied');
+            }}
+            type="button"
+          >
+            <Copy className="size-4" />
+            Copy subscription
+          </Button>
+
+          <div className="space-y-1.5">
+            <LinkCopyRow label="VLESS" value={links.vless} />
+            <LinkCopyRow label="Hys2" value={links.hysteria2} />
+          </div>
+        </div>
+      ) : (
+        <div className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-6 text-center text-sm text-destructive">
+          Unable to load QR data.
+        </div>
+      )}
+    </div>
+  );
 }
 
 function QRCodePreview({ label, value }: { label: string; value: string }) {
