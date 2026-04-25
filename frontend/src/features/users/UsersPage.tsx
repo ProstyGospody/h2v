@@ -4,7 +4,6 @@ import { addDays } from 'date-fns';
 import { QRCodeSVG } from 'qrcode.react';
 import { Area, AreaChart } from 'recharts';
 import {
-  AlertTriangle,
   ArrowRight,
   Copy,
   MoreHorizontal,
@@ -22,7 +21,6 @@ import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } f
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
@@ -730,7 +728,6 @@ export function UsersPage() {
         <DialogContent className="sm:max-w-xl">
           <DialogHeader>
             <DialogTitle>Create user</DialogTitle>
-            <DialogDescription>New subscription with traffic and expiry defaults.</DialogDescription>
           </DialogHeader>
 
           <div className="space-y-5">
@@ -819,11 +816,6 @@ export function UsersPage() {
                 rows={2}
                 value={note}
               />
-            </div>
-
-            <div className="flex items-start gap-2 rounded-md bg-warning/10 px-3 py-2 text-xs text-warning">
-              <AlertTriangle className="mt-0.5 size-3.5 shrink-0" />
-              <span>Subscription links generate immediately.</span>
             </div>
           </div>
 

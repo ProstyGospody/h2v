@@ -1,11 +1,9 @@
 import { useState, type ComponentType } from 'react';
 import { Link, Outlet, createRootRoute, createRoute, createRouter } from '@tanstack/react-router';
-import { useQuery } from '@tanstack/react-query';
 import {
   FileCode2,
   LayoutDashboard,
   LogOut,
-  Search,
   Settings2,
   ShieldCheck,
   Users,
@@ -23,8 +21,6 @@ import { SettingsPage } from '@/features/settings/SettingsPage';
 import { SubPage } from '@/features/subscription/SubPage';
 import { UsersPage } from '@/features/users/UsersPage';
 import { cn } from '@/lib/utils';
-import { apiClient } from '@/shared/api/client';
-import { OverviewStats } from '@/shared/api/types';
 import { CommandPalette, useCommandPaletteShortcut } from '@/shared/ui/CommandPalette';
 
 type LinkTo = '/' | '/users' | '/settings' | '/configs/$core';
@@ -74,18 +70,6 @@ function ProtectedShell() {
             <Separator />
 
             <div className="flex-1 overflow-y-auto px-3 py-3">
-              <button
-                className="mb-4 flex w-full items-center gap-2 rounded-md bg-muted px-3 py-2 text-left text-xs text-muted-foreground transition hover:text-foreground"
-                onClick={() => setPaletteOpen(true)}
-                type="button"
-              >
-                <Search className="size-3.5" />
-                <span className="flex-1">Search...</span>
-                <kbd className="rounded bg-background px-1.5 py-0.5 font-mono text-[10px]">
-                  Ctrl K
-                </kbd>
-              </button>
-
               <nav className="space-y-0.5">
                 {primaryLinks.map((link) => (
                   <SidebarLink key={link.to} icon={link.icon} label={link.label} to={link.to} />
@@ -111,7 +95,6 @@ function ProtectedShell() {
             <Separator />
 
             <div className="space-y-1.5 p-3">
-              <KernelStatusPill />
               <button
                 className="group flex w-full items-center gap-3 rounded-md px-3 py-2 text-left transition hover:bg-accent"
                 onClick={async () => {
@@ -228,48 +211,6 @@ function PillLink({ label, params, to }: { label: string; params?: { core: strin
     <Link activeOptions={{ exact: true }} activeProps={{ className: active }} className={base} to={to}>
       {label}
     </Link>
-  );
-}
-
-function KernelStatusPill() {
-  const overview = useQuery({
-    queryKey: ['stats', 'overview'],
-    queryFn: () => apiClient.request<OverviewStats>('/stats/overview'),
-    refetchInterval: 15_000,
-    staleTime: 10_000,
-  });
-
-  const running = (s?: string) => (s ?? '').toLowerCase().includes('run') || (s ?? '').toLowerCase().includes('ok');
-  const xray = running(overview.data?.xray_status);
-  const hy = running(overview.data?.hysteria_status);
-  const all = xray && hy;
-  const partial = xray || hy;
-
-  return (
-    <div className="flex items-center justify-between px-3 py-1.5 text-[11px]">
-      <div className="flex items-center gap-2">
-        <span
-          className={cn(
-            'size-1.5 rounded-full',
-            !overview.data
-              ? 'bg-muted-foreground/50'
-              : all
-                ? 'bg-success animate-pulse-ring'
-                : partial
-                  ? 'bg-warning'
-                  : 'bg-destructive',
-          )}
-        />
-        <span className="text-muted-foreground">
-          {!overview.data ? 'Checking...' : all ? 'All systems' : partial ? 'Degraded' : 'Down'}
-        </span>
-      </div>
-      <span className="flex items-center gap-1 font-mono text-[10px]">
-        <span className={xray ? 'text-success' : 'text-muted-foreground'}>xray</span>
-        <span className="text-muted-foreground/50">/</span>
-        <span className={hy ? 'text-success' : 'text-muted-foreground'}>hy2</span>
-      </span>
-    </div>
   );
 }
 
