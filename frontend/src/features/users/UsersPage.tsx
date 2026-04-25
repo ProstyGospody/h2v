@@ -725,7 +725,7 @@ export function UsersPage() {
         }}
         open={qrOpen}
       >
-        <DialogContent className="w-[calc(100vw-32px)] max-w-[420px] p-0">
+        <DialogContent className="min-w-0 w-[calc(100vw-32px)] max-w-[420px] overflow-hidden p-0 sm:max-w-[420px]">
           <QRDialogContent
             isLoading={qrLinks.isLoading}
             links={qrLinks.data ?? null}
@@ -858,13 +858,13 @@ function QRDialogContent({
   username: string;
 }) {
   return (
-    <div className="space-y-5 p-6">
+    <div className="min-w-0 space-y-5 overflow-hidden p-6">
       <DialogHeader className="pr-8">
         <DialogTitle>{username || 'User'} QR</DialogTitle>
       </DialogHeader>
 
       {isLoading ? (
-        <div className="space-y-4">
+        <div className="min-w-0 space-y-4">
           <Skeleton className="mx-auto aspect-square w-full max-w-[260px] rounded-md" />
           <Skeleton className="h-9 w-full" />
           <Skeleton className="h-11 w-full" />
@@ -890,7 +890,7 @@ function QRDialogContent({
             Copy subscription
           </Button>
 
-          <div className="space-y-1.5">
+          <div className="min-w-0 space-y-1.5">
             <LinkCopyRow label="VLESS" value={links.vless} />
             <LinkCopyRow label="Hys2" value={links.hysteria2} />
           </div>
@@ -932,13 +932,14 @@ function QRCodePreview({ label, value }: { label: string; value: string }) {
 
 function LinkCopyRow({ label, value }: { label: string; value: string }) {
   return (
-    <div className="flex items-center gap-2 rounded-md bg-muted px-3 py-2">
-      <div className="min-w-0 flex-1">
+    <div className="flex w-full min-w-0 items-center gap-2 overflow-hidden rounded-md bg-muted px-3 py-2">
+      <div className="min-w-0 flex-1 overflow-hidden">
         <div className="text-xs font-medium text-foreground">{label}</div>
         <div className="truncate font-mono text-[11px] text-muted-foreground">{value || '--'}</div>
       </div>
       <Button
         aria-label={`Copy ${label}`}
+        className="shrink-0"
         disabled={!value}
         onClick={async () => {
           if (!value) return;
