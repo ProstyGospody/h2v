@@ -134,7 +134,7 @@ function SidebarBody({
           }}
           type="button"
         >
-          <div className="flex size-9 shrink-0 items-center justify-center rounded-md bg-primary/12 font-mono text-sm font-semibold text-primary">
+          <div className="flex size-9 shrink-0 items-center justify-center rounded-md bg-accent-gradient-soft font-mono text-sm font-semibold text-accent-gradient">
             {admin.username.slice(0, 1).toUpperCase()}
           </div>
           <div className="min-w-0 flex-1">
@@ -151,12 +151,12 @@ function SidebarBody({
 function AppBrand({ compact = false }: { compact?: boolean }) {
   return (
     <div className="flex items-center gap-2.5">
-      <div className="relative flex size-9 items-center justify-center rounded-md bg-primary/15 text-primary">
+      <div className="relative flex size-9 items-center justify-center rounded-md bg-accent-gradient-soft text-foreground">
         <ShieldCheck className="size-5" />
       </div>
       <span
         className={cn(
-          'font-serif italic leading-none tracking-[-0.02em]',
+          'font-serif italic leading-none tracking-[-0.02em] text-accent-gradient',
           compact ? 'text-xl' : 'text-2xl',
         )}
       >
@@ -180,7 +180,7 @@ function SidebarLink({
   const base =
     'group relative flex items-center gap-3 rounded-md px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground';
   const active =
-    'group relative flex items-center gap-3 rounded-md bg-[hsl(var(--primary)/0.1)] px-3 py-2 text-sm font-medium text-foreground before:absolute before:inset-y-1.5 before:left-0 before:w-0.5 before:rounded-r-full before:bg-primary';
+    'group relative flex items-center gap-3 rounded-md bg-accent-gradient-soft px-3 py-2 text-sm font-medium text-foreground before:absolute before:inset-y-1.5 before:left-0 before:w-0.5 before:rounded-r-full before:bg-accent-gradient-vertical';
 
   return (
     <Link

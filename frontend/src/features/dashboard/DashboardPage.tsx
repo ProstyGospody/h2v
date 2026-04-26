@@ -18,7 +18,7 @@ type Range = (typeof ranges)[number];
 const trafficChartConfig = {
   total: {
     label: 'Traffic',
-    color: 'hsl(var(--primary))',
+    color: 'var(--gradient-accent)',
   },
 } satisfies ChartConfig;
 
@@ -32,7 +32,7 @@ function usageTone(value: number | undefined) {
   const v = value ?? 0;
   if (v >= 85) return 'bg-destructive';
   if (v >= 70) return 'bg-warning';
-  return 'bg-primary';
+  return 'bg-accent-gradient';
 }
 
 export function DashboardPage() {
@@ -139,6 +139,13 @@ export function DashboardPage() {
               ) : trafficData.length ? (
                 <ChartContainer className="h-full w-full aspect-auto" config={trafficChartConfig}>
                   <BarChart data={trafficData} margin={{ left: 0, right: 8, top: 8, bottom: 0 }}>
+                    <defs>
+                      <linearGradient id="dashboardTrafficGradient" x1="0" x2="0" y1="0" y2="1">
+                        <stop offset="0%" stopColor="hsl(var(--ring))" />
+                        <stop offset="55%" stopColor="hsl(188 90% 54%)" />
+                        <stop offset="100%" stopColor="hsl(256 84% 66%)" />
+                      </linearGradient>
+                    </defs>
                     <CartesianGrid stroke="hsl(var(--border) / 0.5)" strokeDasharray="3 3" vertical={false} />
                     <XAxis
                       axisLine={false}
@@ -164,7 +171,7 @@ export function DashboardPage() {
                         />
                       }
                     />
-                    <Bar dataKey="total" fill="var(--color-total)" name="total" radius={[4, 4, 0, 0]} />
+                    <Bar dataKey="total" fill="url(#dashboardTrafficGradient)" name="total" radius={[4, 4, 0, 0]} />
                   </BarChart>
                 </ChartContainer>
               ) : (
@@ -199,7 +206,7 @@ export function DashboardPage() {
                     </div>
                   </div>
                   <div className="flex items-center gap-1 font-mono text-xs text-foreground">
-                    <ArrowDown className="size-3 text-primary" />
+                    <ArrowDown className="size-3 text-foreground" />
                     {formatBytes(entry.bytes)}
                   </div>
                 </div>
@@ -258,7 +265,7 @@ function MetricCard({
   value: string;
 }) {
   const accentClasses = {
-    primary: 'bg-primary/12 text-primary',
+    primary: 'bg-accent-gradient-soft text-foreground',
     success: 'bg-success/12 text-success',
     muted: 'bg-muted text-muted-foreground',
   } as const;

@@ -128,7 +128,7 @@ export function SubPage() {
   const expiryDays = daysUntil(usage?.expires_at ?? null);
   const unlimited = (usage?.traffic_limit ?? 0) <= 0;
   const percent = unlimited ? 0 : usagePercent(usage?.traffic_used ?? 0, usage?.traffic_limit ?? 0);
-  const usageFillClass = percent >= 90 ? 'bg-destructive' : percent >= 70 ? 'bg-warning' : 'bg-primary';
+  const usageFillClass = percent >= 90 ? 'bg-destructive' : percent >= 70 ? 'bg-warning' : 'bg-accent-gradient';
   const expiringSoon = expiryDays !== null && expiryDays >= 0 && expiryDays < 3;
   const expired = expiryDays !== null && expiryDays < 0;
 
@@ -159,10 +159,10 @@ export function SubPage() {
         <div aria-hidden className="absolute inset-0 bg-grid opacity-40" />
         <div className="relative mx-auto w-full max-w-120 space-y-6 px-4 py-10 sm:py-14">
           <header className="space-y-5 text-center">
-            <div className="mx-auto flex size-12 items-center justify-center rounded-md bg-primary/10 text-primary">
+            <div className="mx-auto flex size-12 items-center justify-center rounded-md bg-accent-gradient-soft text-foreground">
               <ShieldCheck className="size-6" />
             </div>
-            <div className="t-hero">MyVPN</div>
+            <div className="t-hero text-accent-gradient">MyVPN</div>
           </header>
 
           <Card>
@@ -252,7 +252,7 @@ export function SubPage() {
             <CardContent className="space-y-2 p-4">
               {clientLinks[os].map((client) => (
                 <a
-                  className="group flex min-h-12 items-center gap-3 rounded-md bg-surface-elevated px-3 py-3 transition hover:bg-[hsl(var(--primary)/0.06)]"
+                  className="group flex min-h-12 items-center gap-3 rounded-md bg-surface-elevated px-3 py-3 transition hover:bg-[image:var(--gradient-accent-soft)]"
                   href={client.href}
                   key={client.label}
                   rel="noreferrer"

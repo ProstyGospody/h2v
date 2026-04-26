@@ -134,7 +134,7 @@ export function SettingsPage() {
                           <Textarea
                             className={cn(
                               'font-mono text-xs',
-                              draft[setting.key] !== undefined && 'bg-primary/8 ring-2 ring-primary/25',
+                              draft[setting.key] !== undefined && 'bg-accent-gradient-soft ring-2 ring-ring/25',
                             )}
                             onChange={(e) =>
                               setDraft((curr) => ({ ...curr, [setting.key]: e.target.value }))

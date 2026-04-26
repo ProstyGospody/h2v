@@ -70,6 +70,10 @@
 
     --primary: 202 95% 46%;
     --primary-foreground: 0 0% 100%;
+    --gradient-accent: linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(188 90% 54%) 48%, hsl(256 84% 66%) 100%);
+    --gradient-accent-vertical: linear-gradient(180deg, hsl(var(--primary)) 0%, hsl(188 90% 54%) 100%);
+    --gradient-accent-soft: linear-gradient(135deg, hsl(var(--primary) / 0.18) 0%, hsl(188 90% 54% / 0.12) 48%, hsl(256 84% 66% / 0.16) 100%);
+    --gradient-accent-text: linear-gradient(135deg, hsl(202 95% 58%) 0%, hsl(188 90% 62%) 45%, hsl(256 84% 72%) 100%);
 
     --secondary: 220 9% 12%;
     --secondary-foreground: 210 17% 96%;
@@ -108,6 +112,10 @@
     --popover-foreground: 220 14% 8%;
     --primary: 202 100% 38%;
     --primary-foreground: 0 0% 100%;
+    --gradient-accent: linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(188 82% 42%) 48%, hsl(256 70% 58%) 100%);
+    --gradient-accent-vertical: linear-gradient(180deg, hsl(var(--primary)) 0%, hsl(188 82% 42%) 100%);
+    --gradient-accent-soft: linear-gradient(135deg, hsl(var(--primary) / 0.13) 0%, hsl(188 82% 42% / 0.1) 48%, hsl(256 70% 58% / 0.13) 100%);
+    --gradient-accent-text: linear-gradient(135deg, hsl(202 100% 34%) 0%, hsl(188 82% 34%) 45%, hsl(256 70% 52%) 100%);
     --secondary: 40 18% 94%;
     --secondary-foreground: 220 14% 8%;
     --muted: 40 18% 94%;
@@ -163,7 +171,7 @@
   }
 
   ::selection {
-    background: hsl(var(--primary) / 0.32);
+    background: hsl(var(--ring) / 0.32);
     color: hsl(var(--foreground));
   }
 
@@ -181,7 +189,7 @@
     border-radius: 999px;
   }
   ::-webkit-scrollbar-thumb:hover {
-    background: hsl(var(--primary) / 0.55);
+    background: var(--gradient-accent);
     border: 2px solid transparent;
     background-clip: padding-box;
   }
@@ -191,7 +199,7 @@
   }
 
   input[type="checkbox"] {
-    accent-color: hsl(var(--primary));
+    accent-color: hsl(var(--ring));
     width: 14px;
     height: 14px;
     border-radius: 3px;
@@ -250,6 +258,25 @@
     color: hsl(var(--faint));
   }
 
+  .bg-accent-gradient {
+    background-image: var(--gradient-accent);
+  }
+
+  .bg-accent-gradient-soft {
+    background-image: var(--gradient-accent-soft);
+  }
+
+  .bg-accent-gradient-vertical {
+    background-image: var(--gradient-accent-vertical);
+  }
+
+  .text-accent-gradient {
+    background-image: var(--gradient-accent-text);
+    background-clip: text;
+    color: transparent;
+    -webkit-background-clip: text;
+  }
+
   .bg-surface {
     background-color: hsl(var(--surface));
   }
@@ -265,11 +292,9 @@
   }
 
   .bg-radial-primary {
-    background-image: radial-gradient(
-      ellipse at top,
-      hsl(var(--primary) / 0.12),
-      transparent 70%
-    );
+    background-image:
+      radial-gradient(ellipse at top, hsl(var(--ring) / 0.12), transparent 70%),
+      var(--gradient-accent-soft);
   }
 
   .ring-focus {

@@ -30,7 +30,7 @@ const configEditorTheme = EditorView.theme(
       lineHeight: '1.55',
     },
     '.cm-content': {
-      caretColor: 'hsl(var(--primary))',
+      caretColor: 'hsl(var(--ring))',
       minHeight: '100%',
       padding: '16px 0',
     },
@@ -53,10 +53,10 @@ const configEditorTheme = EditorView.theme(
       color: 'hsl(var(--foreground))',
     },
     '.cm-selectionBackground, &.cm-focused .cm-selectionBackground, .cm-content ::selection': {
-      backgroundColor: 'hsl(var(--primary) / 0.28) !important',
+      backgroundColor: 'hsl(var(--ring) / 0.28) !important',
     },
     '.cm-cursor': {
-      borderLeftColor: 'hsl(var(--primary))',
+      borderLeftColor: 'hsl(var(--ring))',
     },
     '.cm-matchingBracket': {
       backgroundColor: 'hsl(var(--success) / 0.16)',
@@ -71,7 +71,7 @@ const configEditorTheme = EditorView.theme(
       outline: '1px solid hsl(var(--warning) / 0.28)',
     },
     '.cm-searchMatch.cm-searchMatch-selected': {
-      backgroundColor: 'hsl(var(--primary) / 0.32)',
+      backgroundColor: 'hsl(var(--ring) / 0.32)',
     },
     '.cm-panels': {
       backgroundColor: 'hsl(var(--popover))',
@@ -102,7 +102,7 @@ const configEditorTheme = EditorView.theme(
       color: 'hsl(var(--popover-foreground))',
     },
     '.cm-tooltip-autocomplete > ul > li[aria-selected]': {
-      backgroundColor: 'hsl(var(--primary) / 0.2)',
+      backgroundColor: 'hsl(var(--ring) / 0.2)',
       color: 'hsl(var(--foreground))',
     },
     '.cm-diagnostic': {

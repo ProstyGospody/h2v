@@ -69,7 +69,7 @@ const statusOptions: Array<{ label: string; value: 'all' | UserStatus }> = [
 const userTrafficChartConfig = {
   total: {
     label: 'Traffic',
-    color: 'hsl(var(--primary))',
+    color: 'var(--gradient-accent)',
   },
 } satisfies ChartConfig;
 
@@ -145,7 +145,7 @@ export function UsersPage() {
       ? 'bg-destructive'
       : drawerTrafficPercent >= 70
         ? 'bg-warning'
-        : 'bg-primary';
+        : 'bg-accent-gradient';
 
   async function refreshUsers() {
     await Promise.all([
@@ -271,7 +271,7 @@ export function UsersPage() {
         </div>
 
         {selectedIds.length ? (
-          <div className="flex flex-col items-start justify-between gap-3 rounded-md bg-primary/10 px-4 py-3 shadow-sm md:flex-row md:items-center">
+          <div className="flex flex-col items-start justify-between gap-3 rounded-md bg-accent-gradient-soft px-4 py-3 shadow-sm md:flex-row md:items-center">
             <div className="flex items-center gap-2 text-sm">
               <Badge>{selectedIds.length}</Badge>
               <span className="text-muted-foreground">selected</span>
@@ -379,7 +379,7 @@ export function UsersPage() {
                       ? 'bg-destructive'
                       : trafficPercent >= 70
                         ? 'bg-warning'
-                        : 'bg-primary';
+                        : 'bg-accent-gradient';
                   const expiresInDays = daysUntil(user.expires_at);
                   const rowBusy = rowAction?.userId === user.id ? rowAction.key : null;
                   return (
@@ -673,6 +673,13 @@ export function UsersPage() {
                         config={userTrafficChartConfig}
                       >
                         <BarChart data={traffic.data.map((p) => ({ ...p, total: p.uplink + p.downlink }))}>
+                          <defs>
+                            <linearGradient id="userTrafficGradient" x1="0" x2="0" y1="0" y2="1">
+                              <stop offset="0%" stopColor="hsl(var(--ring))" />
+                              <stop offset="55%" stopColor="hsl(188 90% 54%)" />
+                              <stop offset="100%" stopColor="hsl(256 84% 66%)" />
+                            </linearGradient>
+                          </defs>
                           <ChartTooltip
                             cursor={{ fill: 'hsl(var(--accent))', opacity: 0.3 }}
                             content={
@@ -682,7 +689,7 @@ export function UsersPage() {
                               />
                             }
                           />
-                          <Bar dataKey="total" fill="var(--color-total)" name="total" radius={[3, 3, 0, 0]} />
+                          <Bar dataKey="total" fill="url(#userTrafficGradient)" name="total" radius={[3, 3, 0, 0]} />
                         </BarChart>
                       </ChartContainer>
                     ) : (

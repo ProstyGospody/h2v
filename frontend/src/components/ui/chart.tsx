@@ -173,7 +173,7 @@ export function ChartTooltipContent({
           return (
             <div className="flex items-center justify-between gap-2" key={key}>
               <div className="flex items-center gap-1.5 text-muted-foreground">
-                <span className="size-2 rounded-[2px]" style={{ backgroundColor: color }} />
+                <span className="size-2 rounded-[2px]" style={{ background: color }} />
                 <span>{labelText}</span>
               </div>
               <span className="font-mono font-medium text-foreground">{valueText}</span>

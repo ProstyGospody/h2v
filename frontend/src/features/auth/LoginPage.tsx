@@ -38,10 +38,10 @@ export function LoginPage() {
       <Card className="relative w-full max-w-100">
         <CardContent className="space-y-7 p-7 sm:p-8">
           <div className="flex flex-col items-center gap-3 text-center">
-            <div className="flex size-11 items-center justify-center rounded-md bg-primary/15 text-primary">
+            <div className="flex size-11 items-center justify-center rounded-md bg-accent-gradient-soft text-foreground">
               <ShieldCheck className="size-5" />
             </div>
-            <span className="block font-serif text-2xl italic leading-none tracking-[-0.02em]">
+            <span className="block font-serif text-2xl italic leading-none tracking-[-0.02em] text-accent-gradient">
               MyPanel
             </span>
           </div>

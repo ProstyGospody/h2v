@@ -199,7 +199,7 @@ function ConfigCorePanel({ core }: { core: Core }) {
         <CardHeader className="gap-3 bg-muted/25 px-4 py-3 sm:px-5">
           <div className="flex flex-col gap-3 2xl:flex-row 2xl:items-center 2xl:justify-between">
             <div className="flex min-w-0 items-center gap-3">
-              <span className="flex size-8 shrink-0 items-center justify-center rounded-md bg-primary/12 text-primary">
+              <span className="flex size-8 shrink-0 items-center justify-center rounded-md bg-accent-gradient-soft text-foreground">
                 <Icon className="size-4" />
               </span>
               <div className="min-w-0">
