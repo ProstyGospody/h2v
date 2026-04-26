@@ -61,7 +61,7 @@ function ProtectedShell() {
   return (
     <div className="min-h-screen bg-background text-foreground">
       <div className="grid min-h-screen grid-cols-1 lg:grid-cols-[260px_1fr]">
-        <aside className="hidden border-r border-border/55 bg-surface lg:block">
+        <aside className="hidden border-r border-border/55 bg-sidebar-panel lg:block">
           <SidebarBody admin={admin} logout={logout} />
         </aside>
 
@@ -87,7 +87,7 @@ function ProtectedShell() {
       </div>
 
       <Sheet onOpenChange={setNavOpen} open={navOpen}>
-        <SheetContent className="w-70 p-0" side="left">
+        <SheetContent className="w-70 bg-sidebar-panel p-0" side="left">
           <SidebarBody admin={admin} logout={logout} onNavigate={() => setNavOpen(false)} />
         </SheetContent>
       </Sheet>
