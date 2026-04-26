@@ -39,7 +39,7 @@ const configEditorTheme = EditorView.theme(
     },
     '.cm-gutters': {
       backgroundColor: 'hsl(var(--card))',
-      borderRight: '0',
+      borderRight: '1px solid hsl(var(--border) / 0.55)',
       color: 'hsl(var(--muted-foreground))',
     },
     '.cm-lineNumbers .cm-gutterElement': {
@@ -190,7 +190,7 @@ export function ConfigEditor({
     <div
       aria-label={label}
       className={cn(
-        'h-full min-h-[360px] overflow-hidden rounded-md border border-transparent bg-card',
+        'h-full min-h-[360px] overflow-hidden rounded-md border border-border/65 bg-card shadow-[inset_0_1px_0_hsl(var(--foreground)/0.03)]',
         '[&_.cm-editor]:h-full [&_.cm-scroller]:overflow-auto',
         className,
       )}

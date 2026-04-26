@@ -264,7 +264,7 @@ function ConfigCorePanel({ core }: { core: Core }) {
           ) : (
             <Suspense fallback={<Skeleton className="h-[56vh] min-h-[390px] w-full rounded-none" />}>
               <ConfigEditor
-                className="h-[56vh] min-h-[390px] rounded-none border-0"
+                className="h-[56vh] min-h-[390px] rounded-none border-x-0 border-border/70"
                 label={`${meta.label} configuration editor`}
                 onChange={(nextValue) => {
                   setDraft(nextValue);
