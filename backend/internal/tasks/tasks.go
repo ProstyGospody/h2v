@@ -194,7 +194,7 @@ func NewReconciler(repository *repo.Repository, xray interface {
 }
 
 func (t *Reconciler) Run(ctx context.Context) error {
-	dbUsers, err := t.repo.ListActiveUsers(ctx)
+	dbUsers, err := t.repo.ListConnectableUsers(ctx)
 	if err != nil {
 		return err
 	}

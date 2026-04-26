@@ -68,8 +68,23 @@ func (s *SubscriptionService) RotateByToken(ctx context.Context, token string) (
 	return s.LinksForUser(ctx, user)
 }
 
-func (s *SubscriptionService) CheckPasswordCached(password string) (*domain.User, bool) {
-	return s.cache.GetByPassword(password)
+func (s *SubscriptionService) CheckPassword(ctx context.Context, password string) (*domain.User, bool) {
+	if strings.TrimSpace(password) == "" {
+		return nil, false
+	}
+	if user, ok := s.cache.GetByPassword(password); ok {
+		return user, true
+	}
+	user, err := s.repo.GetUserByHY2Password(ctx, password)
+	if err != nil {
+		return nil, false
+	}
+	if user.CanConnect() {
+		s.cache.Set(user)
+	} else {
+		s.cache.Delete(user)
+	}
+	return user, true
 }
 
 func (s *SubscriptionService) ResolveByToken(ctx context.Context, token string) (*domain.User, *domain.SubscriptionLinks, error) {

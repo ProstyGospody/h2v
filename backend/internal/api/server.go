@@ -676,7 +676,7 @@ func (s *Server) handleHY2Auth(w http.ResponseWriter, r *http.Request) {
 		password = hy2AuthFromJSON(r)
 	}
 	if password != "" {
-		allowHY2Auth(w, s, password)
+		allowHY2Auth(w, r.Context(), s, password)
 		return
 	}
 
@@ -693,7 +693,7 @@ func (s *Server) handleHY2Auth(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	allowHY2Auth(w, s, password)
+	allowHY2Auth(w, r.Context(), s, password)
 }
 
 func hy2AuthFromJSON(r *http.Request) string {
@@ -707,8 +707,8 @@ func hy2AuthFromJSON(r *http.Request) string {
 	return stringValue(req["password"])
 }
 
-func allowHY2Auth(w http.ResponseWriter, s *Server, password string) {
-	user, ok := s.services.Subscription.CheckPasswordCached(password)
+func allowHY2Auth(w http.ResponseWriter, ctx context.Context, s *Server, password string) {
+	user, ok := s.services.Subscription.CheckPassword(ctx, password)
 	if !ok || !user.CanConnect() {
 		hy2AuthRequests.WithLabelValues("denied").Inc()
 		jsonError(w, domain.NewError(403, "access_denied", "Access denied", nil))

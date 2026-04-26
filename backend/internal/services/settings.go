@@ -93,9 +93,9 @@ func (s *SettingsService) Runtime(ctx context.Context) (RuntimeSettings, error) 
 	runtime.RealityShortIDs = normalizeShortIDs(runtime.RealityShortIDs)
 
 	if s.repo != nil {
-		users, err := s.repo.ListActiveUsers(ctx)
+		users, err := s.repo.ListConnectableUsers(ctx)
 		if err != nil {
-			s.logger.Warn("active users lookup failed; rendering xray config without clients", "err", err)
+			s.logger.Warn("connectable users lookup failed; rendering xray config without clients", "err", err)
 		} else {
 			runtime.Clients = make([]ClientEntry, 0, len(users))
 			for _, user := range users {
