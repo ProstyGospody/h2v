@@ -70,10 +70,10 @@
 
     --primary: 202 95% 46%;
     --primary-foreground: 0 0% 100%;
-    --gradient-accent: linear-gradient(135deg, hsl(205 78% 36%) 0%, hsl(190 58% 34%) 50%, hsl(232 48% 42%) 100%);
-    --gradient-accent-vertical: linear-gradient(180deg, hsl(205 78% 36%) 0%, hsl(190 58% 34%) 100%);
-    --gradient-accent-soft: linear-gradient(135deg, hsl(205 78% 36% / 0.14) 0%, hsl(190 58% 34% / 0.1) 50%, hsl(232 48% 42% / 0.13) 100%);
-    --gradient-accent-text: linear-gradient(135deg, hsl(204 78% 62%) 0%, hsl(190 58% 58%) 48%, hsl(232 48% 66%) 100%);
+    --gradient-accent: linear-gradient(135deg, hsl(218 86% 45%) 0%, hsl(199 88% 39%) 48%, hsl(268 66% 47%) 100%);
+    --gradient-accent-vertical: linear-gradient(180deg, hsl(218 86% 45%) 0%, hsl(199 88% 39%) 100%);
+    --gradient-accent-soft: linear-gradient(135deg, hsl(218 86% 45% / 0.17) 0%, hsl(199 88% 39% / 0.12) 48%, hsl(268 66% 47% / 0.15) 100%);
+    --gradient-accent-text: linear-gradient(135deg, hsl(216 92% 68%) 0%, hsl(196 88% 62%) 46%, hsl(268 78% 72%) 100%);
 
     --secondary: 220 9% 12%;
     --secondary-foreground: 210 17% 96%;
@@ -112,10 +112,10 @@
     --popover-foreground: 220 14% 8%;
     --primary: 202 100% 38%;
     --primary-foreground: 0 0% 100%;
-    --gradient-accent: linear-gradient(135deg, hsl(204 74% 34%) 0%, hsl(190 52% 32%) 50%, hsl(232 42% 40%) 100%);
-    --gradient-accent-vertical: linear-gradient(180deg, hsl(204 74% 34%) 0%, hsl(190 52% 32%) 100%);
-    --gradient-accent-soft: linear-gradient(135deg, hsl(204 74% 34% / 0.1) 0%, hsl(190 52% 32% / 0.08) 50%, hsl(232 42% 40% / 0.1) 100%);
-    --gradient-accent-text: linear-gradient(135deg, hsl(204 74% 34%) 0%, hsl(190 52% 32%) 48%, hsl(232 42% 40%) 100%);
+    --gradient-accent: linear-gradient(135deg, hsl(218 82% 42%) 0%, hsl(199 82% 36%) 48%, hsl(268 60% 44%) 100%);
+    --gradient-accent-vertical: linear-gradient(180deg, hsl(218 82% 42%) 0%, hsl(199 82% 36%) 100%);
+    --gradient-accent-soft: linear-gradient(135deg, hsl(218 82% 42% / 0.13) 0%, hsl(199 82% 36% / 0.1) 48%, hsl(268 60% 44% / 0.12) 100%);
+    --gradient-accent-text: linear-gradient(135deg, hsl(218 82% 42%) 0%, hsl(199 82% 36%) 46%, hsl(268 60% 44%) 100%);
     --secondary: 40 18% 94%;
     --secondary-foreground: 220 14% 8%;
     --muted: 40 18% 94%;

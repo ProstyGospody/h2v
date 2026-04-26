@@ -675,9 +675,9 @@ export function UsersPage() {
                         <BarChart data={traffic.data.map((p) => ({ ...p, total: p.uplink + p.downlink }))}>
                           <defs>
                             <linearGradient id="userTrafficGradient" x1="0" x2="0" y1="0" y2="1">
-                              <stop offset="0%" stopColor="hsl(205 78% 36%)" />
-                              <stop offset="55%" stopColor="hsl(190 58% 34%)" />
-                              <stop offset="100%" stopColor="hsl(232 48% 42%)" />
+                              <stop offset="0%" stopColor="hsl(218 86% 45%)" />
+                              <stop offset="55%" stopColor="hsl(199 88% 39%)" />
+                              <stop offset="100%" stopColor="hsl(268 66% 47%)" />
                             </linearGradient>
                           </defs>
                           <ChartTooltip
