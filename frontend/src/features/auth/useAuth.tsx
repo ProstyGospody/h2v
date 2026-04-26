@@ -17,6 +17,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
+    apiClient.setUnauthorizedHandler(() => setAdmin(null));
     apiClient
       .refresh()
       .then((session) => {
@@ -26,6 +27,8 @@ export function AuthProvider({ children }: PropsWithChildren) {
       })
       .catch(() => null)
       .finally(() => setReady(true));
+
+    return () => apiClient.setUnauthorizedHandler(null);
   }, []);
 
   const value = useMemo<AuthContextValue>(

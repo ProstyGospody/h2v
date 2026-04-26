@@ -10,13 +10,16 @@ export class ApiError extends Error {
   }
 }
 
-export class UnauthorizedError extends Error {}
-
 class ApiClient {
   private accessToken: string | null = null;
+  private unauthorizedHandler: (() => void) | null = null;
 
   setAccessToken(token: string | null) {
     this.accessToken = token;
+  }
+
+  setUnauthorizedHandler(handler: (() => void) | null) {
+    this.unauthorizedHandler = handler;
   }
 
   async request<T>(path: string, init?: RequestInit): Promise<T> {
@@ -37,7 +40,6 @@ class ApiClient {
       if (refreshed) {
         return this.request(path, init);
       }
-      throw new UnauthorizedError();
     }
 
     if (!response.ok) {
@@ -59,12 +61,17 @@ class ApiClient {
       headers: { Accept: 'application/json' },
     });
     if (!response.ok) {
-      this.accessToken = null;
+      this.clearSession();
       return null;
     }
     const payload = (await response.json()) as ApiEnvelope<{ access_token: string; admin: Admin }>;
     this.accessToken = payload.data.access_token;
     return payload.data;
+  }
+
+  private clearSession() {
+    this.accessToken = null;
+    this.unauthorizedHandler?.();
   }
 }
 
