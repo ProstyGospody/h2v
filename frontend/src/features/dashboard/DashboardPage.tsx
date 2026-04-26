@@ -141,9 +141,9 @@ export function DashboardPage() {
                   <BarChart data={trafficData} margin={{ left: 0, right: 8, top: 8, bottom: 0 }}>
                     <defs>
                       <linearGradient id="dashboardTrafficGradient" x1="0" x2="0" y1="0" y2="1">
-                        <stop offset="0%" stopColor="hsl(var(--ring))" />
-                        <stop offset="55%" stopColor="hsl(188 90% 54%)" />
-                        <stop offset="100%" stopColor="hsl(256 84% 66%)" />
+                        <stop offset="0%" stopColor="hsl(205 78% 36%)" />
+                        <stop offset="55%" stopColor="hsl(190 58% 34%)" />
+                        <stop offset="100%" stopColor="hsl(232 48% 42%)" />
                       </linearGradient>
                     </defs>
                     <CartesianGrid stroke="hsl(var(--border) / 0.5)" strokeDasharray="3 3" vertical={false} />
