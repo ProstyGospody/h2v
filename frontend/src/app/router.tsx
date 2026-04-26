@@ -51,7 +51,7 @@ function ProtectedShell() {
 
   if (!ready) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-background text-sm text-muted-foreground">
+      <div className="flex min-h-screen items-center justify-center bg-app-background text-sm text-muted-foreground">
         Loading...
       </div>
     );
@@ -59,13 +59,13 @@ function ProtectedShell() {
   if (!admin) return <LoginPage />;
 
   return (
-    <div className="min-h-screen bg-background text-foreground">
+    <div className="min-h-screen bg-app-background text-foreground">
       <div className="grid min-h-screen grid-cols-1 lg:grid-cols-[260px_1fr]">
         <aside className="hidden border-r border-border/55 bg-sidebar-panel lg:block">
           <SidebarBody admin={admin} logout={logout} />
         </aside>
 
-        <main className="flex min-w-0 flex-col bg-background">
+        <main className="flex min-w-0 flex-col bg-transparent">
           <header className="sticky top-0 z-30 flex h-14 items-center gap-3 bg-background/90 px-4 shadow-sm backdrop-blur supports-backdrop-filter:bg-background/70 lg:hidden">
             <Button
               aria-label="Open navigation"

@@ -5,7 +5,7 @@ import { Card, CardContent } from '@/components/ui/card';
 
 export function NotFoundPage() {
   return (
-    <div className="relative min-h-screen overflow-hidden bg-background px-4 py-10 text-foreground">
+    <div className="relative min-h-screen overflow-hidden bg-app-background px-4 py-10 text-foreground">
       <div aria-hidden className="absolute inset-0 bg-grid opacity-30" />
       <div aria-hidden className="absolute inset-0 bg-radial-primary" />
 

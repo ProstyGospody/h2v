@@ -31,7 +31,7 @@ export function LoginPage() {
   }, [admin, navigate]);
 
   return (
-    <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-background px-4 py-10 text-foreground">
+    <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-app-background px-4 py-10 text-foreground">
       <div aria-hidden className="absolute inset-0 bg-grid opacity-30" />
       <div aria-hidden className="absolute inset-0 bg-radial-primary" />
 

@@ -134,7 +134,7 @@ export function SubPage() {
 
   if (subscription.isError) {
     return (
-      <div className="min-h-screen bg-background px-4 py-10 text-foreground" data-theme={theme}>
+      <div className="min-h-screen bg-app-background px-4 py-10 text-foreground" data-theme={theme}>
         <div className="mx-auto flex min-h-screen max-w-120 items-center justify-center">
           <Card className="w-full">
             <CardContent className="flex min-h-64 flex-col items-center justify-center gap-3 px-6 py-12 text-center">
@@ -154,7 +154,7 @@ export function SubPage() {
   }
 
   return (
-    <div className="min-h-screen bg-background text-foreground" data-theme={theme}>
+    <div className="min-h-screen bg-app-background text-foreground" data-theme={theme}>
       <div className="relative min-h-screen">
         <div aria-hidden className="absolute inset-0 bg-grid opacity-40" />
         <div className="relative mx-auto w-full max-w-120 space-y-6 px-4 py-10 sm:py-14">
