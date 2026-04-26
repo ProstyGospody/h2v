@@ -66,7 +66,6 @@ export function DashboardPage() {
     <div className="pb-10">
       <PageHeader
         title="Overview"
-        description="Live snapshot of your panel and connections"
         action={
           <Tabs onValueChange={(v) => setDays(v as Range)} value={days}>
             <TabsList>
@@ -85,14 +84,12 @@ export function DashboardPage() {
           icon={Users}
           label="Active users"
           loading={overview.isLoading}
-          subtext={`${formatNumber(data?.expired_users ?? 0)} expired`}
           value={formatNumber(data?.active_users ?? 0)}
         />
         <MetricCard
           icon={Activity}
           label="Today traffic"
           loading={overview.isLoading}
-          subtext={`${formatNumber(data?.limited_users ?? 0)} limited`}
           value={formatBytes(data?.today_traffic ?? 0)}
         />
         <MetricCard
@@ -251,7 +248,6 @@ function MetricCard({
   icon: Icon,
   label,
   loading,
-  subtext,
   value,
 }: {
   accent?: 'primary' | 'success' | 'muted';
@@ -259,7 +255,6 @@ function MetricCard({
   icon: ComponentType<{ className?: string }>;
   label: string;
   loading?: boolean;
-  subtext?: string;
   value: string;
 }) {
   const accentClasses = {
@@ -297,13 +292,6 @@ function MetricCard({
                 style={{ width: `${Math.max(0, Math.min(100, bar.percent))}%` }}
               />
             </div>
-          )
-        ) : null}
-        {subtext ? (
-          loading ? (
-            <Skeleton className="h-3 w-28" />
-          ) : (
-            <div className="text-xs text-muted-foreground">{subtext}</div>
           )
         ) : null}
       </CardContent>

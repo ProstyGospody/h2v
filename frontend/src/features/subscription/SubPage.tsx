@@ -135,7 +135,7 @@ export function SubPage() {
   if (subscription.isError) {
     return (
       <div className="min-h-screen bg-background px-4 py-10 text-foreground" data-theme={theme}>
-        <div className="mx-auto flex min-h-screen max-w-[480px] items-center justify-center">
+        <div className="mx-auto flex min-h-screen max-w-120 items-center justify-center">
           <Card className="w-full">
             <CardContent className="flex min-h-64 flex-col items-center justify-center gap-3 px-6 py-12 text-center">
               <div className="space-y-1">
@@ -157,25 +157,22 @@ export function SubPage() {
     <div className="min-h-screen bg-background text-foreground" data-theme={theme}>
       <div className="relative min-h-screen">
         <div aria-hidden className="absolute inset-0 bg-grid opacity-40" />
-        <div className="relative mx-auto w-full max-w-[480px] space-y-6 px-4 py-10 sm:py-14">
+        <div className="relative mx-auto w-full max-w-120 space-y-6 px-4 py-10 sm:py-14">
           <header className="space-y-5 text-center">
             <div className="mx-auto flex size-12 items-center justify-center rounded-md border border-primary/25 bg-primary/10 text-primary">
               <ShieldCheck className="size-6" />
             </div>
-            <div className="space-y-1">
-              <div className="t-hero">MyVPN</div>
-              <p className="text-sm text-muted-foreground">Your secure connection</p>
-            </div>
+            <div className="t-hero">MyVPN</div>
           </header>
 
           <Card>
             <CardContent className="flex flex-col items-center gap-5 p-6">
               {subscription.isLoading ? (
-                <Skeleton className="aspect-square w-full max-w-[260px] rounded-md" />
+                <Skeleton className="aspect-square w-full max-w-65 rounded-md" />
               ) : (
                 <QRCodePreview
                   label="Subscription QR"
-                  maxWidthClassName="max-w-[280px]"
+                  maxWidthClassName="max-w-70"
                   value={subscriptionURL}
                 />
               )}
@@ -227,11 +224,6 @@ export function SubPage() {
                       <div className="text-xl font-semibold text-foreground">
                         {unlimited ? 'Unlimited' : `${Math.round(percent)}%`}
                       </div>
-                      <div className="text-xs text-muted-foreground">
-                        {unlimited
-                          ? 'No hard traffic cap'
-                          : `${formatBytes(usage?.traffic_used ?? 0)} of ${formatBytes(usage?.traffic_limit ?? 0)}`}
-                      </div>
                     </div>
                     <div className="space-y-1.5">
                       <div className="t-label">Expires</div>
@@ -244,9 +236,11 @@ export function SubPage() {
                       >
                         {relativeExpiry(usage?.expires_at ?? null)}
                       </div>
-                      <div className="text-xs text-muted-foreground">
-                        {usage?.expires_at ? formatDate(usage.expires_at) : 'No expiry date'}
-                      </div>
+                      {usage?.expires_at ? (
+                        <div className="text-xs text-muted-foreground">
+                          {formatDate(usage.expires_at)}
+                        </div>
+                      ) : null}
                     </div>
                   </div>
                 </>
@@ -256,7 +250,6 @@ export function SubPage() {
 
           <Card>
             <CardContent className="space-y-2 p-4">
-              <div className="t-label px-2 pb-1">Connect with one tap</div>
               {clientLinks[os].map((client) => (
                 <a
                   className="group flex min-h-12 items-center gap-3 rounded-md border border-border bg-surface-elevated px-3 py-3 transition hover:border-primary/30 hover:bg-[hsl(var(--primary)/0.06)]"

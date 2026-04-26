@@ -41,12 +41,9 @@ export function LoginPage() {
             <div className="flex size-11 items-center justify-center rounded-md bg-primary/15 text-primary ring-1 ring-inset ring-primary/30">
               <ShieldCheck className="size-5" />
             </div>
-            <div className="space-y-1">
-              <span className="block font-serif text-2xl italic leading-none tracking-[-0.02em]">
-                MyPanel
-              </span>
-              <p className="text-xs text-muted-foreground">Sign in to your admin account</p>
-            </div>
+            <span className="block font-serif text-2xl italic leading-none tracking-[-0.02em]">
+              MyPanel
+            </span>
           </div>
 
           <form

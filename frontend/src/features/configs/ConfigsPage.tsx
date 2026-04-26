@@ -196,19 +196,21 @@ function ConfigCorePanel({ core }: { core: Core }) {
   return (
     <>
       <Card className="min-w-0 overflow-hidden">
-        <CardHeader className="border-b px-4 py-3 sm:px-5">
+        <CardHeader className="gap-3 border-b bg-muted/30 px-4 py-3 sm:px-5">
           <div className="flex flex-col gap-3 2xl:flex-row 2xl:items-center 2xl:justify-between">
-            <div className="min-w-0">
-              <CardTitle className="flex items-center gap-2">
-                <Icon className="size-4 text-muted-foreground" />
-                {meta.label}
-              </CardTitle>
-              <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                <span>{stats.lines} lines</span>
-                <span className="text-muted-foreground/40">/</span>
-                <span>{formatBytes(stats.bytes)}</span>
-                <span className="text-muted-foreground/40">/</span>
-                <span>{diffStats.changed} changed</span>
+            <div className="flex min-w-0 items-center gap-3">
+              <span className="flex size-8 shrink-0 items-center justify-center rounded-md bg-primary/12 text-primary ring-1 ring-inset ring-primary/25">
+                <Icon className="size-4" />
+              </span>
+              <div className="min-w-0">
+                <CardTitle>{meta.label}</CardTitle>
+                <div className="mt-1 flex flex-wrap items-center gap-1.5 font-mono text-[11px] text-muted-foreground">
+                  <span>{stats.lines}L</span>
+                  <span className="text-muted-foreground/40">·</span>
+                  <span>{formatBytes(stats.bytes)}</span>
+                  <span className="text-muted-foreground/40">·</span>
+                  <span>{diffStats.changed} changed</span>
+                </div>
               </div>
             </div>
             <EditorStatus
@@ -220,8 +222,8 @@ function ConfigCorePanel({ core }: { core: Core }) {
             />
           </div>
 
-          <div className="flex flex-wrap items-center gap-2">
-            <Button disabled={config.isFetching} onClick={reloadConfig} size="sm" variant="secondary">
+          <div className="flex flex-wrap items-center gap-1.5">
+            <Button disabled={config.isFetching} onClick={reloadConfig} size="sm" variant="ghost">
               <RefreshCw className={cn(config.isFetching && 'animate-spin')} />
               Reload
             </Button>
@@ -233,14 +235,16 @@ function ConfigCorePanel({ core }: { core: Core }) {
               <Wand2 />
               Format
             </Button>
-            <Button disabled={!canValidate} onClick={() => validateMutation.mutate()} size="sm" variant="secondary">
-              <CheckCircle2 />
-              Validate
-            </Button>
-            <Button disabled={!readyToApply} onClick={() => setDiffOpen(true)} size="sm">
-              <PlayCircle />
-              Apply
-            </Button>
+            <div className="ml-auto flex items-center gap-1.5">
+              <Button disabled={!canValidate} onClick={() => validateMutation.mutate()} size="sm" variant="secondary">
+                <CheckCircle2 />
+                Validate
+              </Button>
+              <Button disabled={!readyToApply} onClick={() => setDiffOpen(true)} size="sm">
+                <PlayCircle />
+                Apply
+              </Button>
+            </div>
           </div>
         </CardHeader>
 

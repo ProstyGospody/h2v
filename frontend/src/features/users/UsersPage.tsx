@@ -57,7 +57,7 @@ import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
 import { apiClient, ApiError } from '@/shared/api/client';
 import { TrafficPoint, User, UserLinks, UserStatus } from '@/shared/api/types';
-import { daysUntil, formatBytes, formatDate, formatDateTime, relativeExpiry, usagePercent } from '@/shared/lib/format';
+import { daysUntil, formatBytes, formatDate, formatDateTime, usagePercent } from '@/shared/lib/format';
 
 const statusOptions: Array<{ label: string; value: 'all' | UserStatus }> = [
   { label: 'All', value: 'all' },
@@ -350,9 +350,10 @@ export function UsersPage() {
           ) : users.data?.length ? (
             <Table>
               <TableHeader>
-                <TableRow>
-                  <TableHead className="w-10">
+                <TableRow className="hover:bg-transparent">
+                  <TableHead className="w-10 pl-4">
                     <input
+                      aria-label="Select all"
                       checked={allSelected}
                       onChange={() => {
                         if (allSelected) setSelectedIds([]);
@@ -388,8 +389,9 @@ export function UsersPage() {
                       key={user.id}
                       onClick={() => setDrawerUserId(user.id)}
                     >
-                      <TableCell onClick={(e) => e.stopPropagation()}>
+                      <TableCell className="pl-4" onClick={(e) => e.stopPropagation()}>
                         <input
+                          aria-label={`Select ${user.username}`}
                           checked={checked}
                           onChange={() =>
                             setSelectedIds((curr) =>
@@ -692,7 +694,6 @@ export function UsersPage() {
                       </div>
                     )}
                   </div>
-                  <div className="text-xs text-muted-foreground">{relativeExpiry(drawerUser.expires_at)}</div>
                 </div>
               </div>
             </>
@@ -706,7 +707,7 @@ export function UsersPage() {
         }}
         open={qrOpen}
       >
-        <DialogContent className="min-w-0 w-[calc(100vw-32px)] max-w-[420px] overflow-hidden p-0 sm:max-w-[420px]">
+        <DialogContent className="min-w-0 w-[calc(100vw-32px)] max-w-105 overflow-hidden p-0 sm:max-w-105">
           <QRDialogContent
             isLoading={qrLinks.isLoading}
             links={qrLinks.data ?? null}
