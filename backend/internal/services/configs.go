@@ -10,6 +10,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"sync"
 	"text/template"
 	"time"
 
@@ -36,6 +37,8 @@ type ConfigService struct {
 	xray      XrayAdapter
 	hysteria  HysteriaAdapter
 	logger    *slog.Logger
+
+	reconcileMu sync.Mutex
 }
 
 func NewConfigService(cfg config.Config, repository *repo.Repository, settings *SettingsService, systemctl SystemctlAdapter, xray XrayAdapter, hysteria HysteriaAdapter, logger *slog.Logger) *ConfigService {
@@ -98,6 +101,9 @@ func (s *ConfigService) ReconcileHysteria(ctx context.Context) error {
 }
 
 func (s *ConfigService) ReconcileCore(ctx context.Context, core string) error {
+	s.reconcileMu.Lock()
+	defer s.reconcileMu.Unlock()
+
 	content, err := s.Render(ctx, core)
 	if err != nil {
 		return err
@@ -106,6 +112,11 @@ func (s *ConfigService) ReconcileCore(ctx context.Context, core string) error {
 	if err != nil {
 		return err
 	}
+	if current, err := os.ReadFile(path); err == nil && bytes.Equal(current, content) {
+		if err := s.health(ctx, core); err == nil {
+			return nil
+		}
+	}
 	if err := writeFileAtomic(path, content, 0o640); err != nil {
 		return err
 	}
@@ -113,6 +124,17 @@ func (s *ConfigService) ReconcileCore(ctx context.Context, core string) error {
 		return err
 	}
 	return s.waitHealthy(ctx, core)
+}
+
+func (s *ConfigService) health(ctx context.Context, core string) error {
+	switch core {
+	case "xray":
+		return s.xray.Health(ctx)
+	case "hysteria":
+		return s.hysteria.Health(ctx)
+	default:
+		return domain.NewError(400, "invalid_core", "Core must be xray or hysteria", nil)
+	}
 }
 
 func (s *ConfigService) RenderWithRuntime(core string, runtime RuntimeSettings) ([]byte, error) {
@@ -249,15 +271,7 @@ func (s *ConfigService) waitHealthy(ctx context.Context, core string) error {
 	defer ticker.Stop()
 
 	for {
-		var err error
-		switch core {
-		case "xray":
-			err = s.xray.Health(deadline)
-		case "hysteria":
-			err = s.hysteria.Health(deadline)
-		default:
-			return domain.NewError(400, "invalid_core", "Core must be xray or hysteria", nil)
-		}
+		err := s.health(deadline, core)
 		if err == nil {
 			return nil
 		}
