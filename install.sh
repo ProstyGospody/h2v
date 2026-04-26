@@ -649,6 +649,7 @@ ensure_secret_value() {
     PANEL_JWT_SECRET) value="$(openssl rand -hex 64)" ;;
     DB_PASSWORD) value="$(openssl rand -hex 24)" ;;
     HY2_TRAFFIC_SECRET) value="$(openssl rand -hex 32)" ;;
+    HY2_OBFS_PASSWORD) value="$(openssl rand -base64 24 | tr -d '\n')" ;;
     *)
       fail "unknown secret key requested: ${key}"
       ;;
@@ -661,6 +662,7 @@ ensure_runtime_secrets() {
   ensure_secret_value PANEL_JWT_SECRET
   ensure_secret_value DB_PASSWORD
   ensure_secret_value HY2_TRAFFIC_SECRET
+  ensure_secret_value HY2_OBFS_PASSWORD
 }
 
 ensure_postgres() {

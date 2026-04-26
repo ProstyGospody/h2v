@@ -65,11 +65,11 @@ func TestBuildProtocolLinks(t *testing.T) {
 	if got := hy2q.Get("sni"); got != "hy2.example.com" {
 		t.Fatalf("hy2 sni = %q, want hy2.example.com", got)
 	}
-	if got := hy2q.Get("obfs"); got != "" {
-		t.Fatalf("hy2 obfs = %q, want empty for masquerade mode", got)
+	if got := hy2q.Get("obfs"); got != "salamander" {
+		t.Fatalf("hy2 obfs = %q, want salamander", got)
 	}
-	if got := hy2q.Get("obfs-password"); got != "" {
-		t.Fatalf("hy2 obfs password = %q, want empty for masquerade mode", got)
+	if got := hy2q.Get("obfs-password"); got != "obfs secret" {
+		t.Fatalf("hy2 obfs password = %q, want obfs secret", got)
 	}
 }
 
@@ -100,6 +100,7 @@ func TestBuildClashYAMLUsesStructuredProxies(t *testing.T) {
 		"encryption: \"\"",
 		"type: hysteria2",
 		"password: \"hy2/password+token\"",
+		"obfs: \"salamander\"",
 		"proxy-groups:",
 	} {
 		if !strings.Contains(payload, want) {
@@ -108,9 +109,6 @@ func TestBuildClashYAMLUsesStructuredProxies(t *testing.T) {
 	}
 	if strings.Contains(payload, "url:") {
 		t.Fatalf("clash payload must not wrap proxies as url fields:\n%s", payload)
-	}
-	if strings.Contains(payload, "obfs:") || strings.Contains(payload, "obfs-password:") {
-		t.Fatalf("clash payload must not include obfs in masquerade mode:\n%s", payload)
 	}
 }
 
@@ -154,8 +152,9 @@ func TestBuildSingBoxJSONUsesDocumentedOutbounds(t *testing.T) {
 	if got := hy2["password"]; got != "hy2/password+token" {
 		t.Fatalf("sing-box hy2 password = %#v", got)
 	}
-	if _, ok := hy2["obfs"]; ok {
-		t.Fatalf("sing-box hy2 must not include obfs in masquerade mode: %#v", hy2["obfs"])
+	obfs, ok := hy2["obfs"].(map[string]any)
+	if !ok || obfs["type"] != "salamander" || obfs["password"] != "obfs secret" {
+		t.Fatalf("sing-box hy2 obfs = %#v", hy2["obfs"])
 	}
 }
 
@@ -195,6 +194,8 @@ func sampleRuntime() RuntimeSettings {
 		VlessPort:        443,
 		Hy2Domain:        "hy2.example.com",
 		Hy2Port:          8443,
+		Hy2ObfsEnabled:   true,
+		Hy2ObfsPassword:  "obfs secret",
 	}
 }
 

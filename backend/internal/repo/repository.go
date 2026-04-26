@@ -38,6 +38,7 @@ func (r *Repository) BootstrapSettings(ctx context.Context, cfg config.Config) e
 		"vless.port":         rawJSONInt(cfg.Xray.VlessPort),
 		"hy2.domain":         rawJSONString(cfg.Hysteria.Domain),
 		"hy2.port":           rawJSONInt(cfg.Hysteria.Port),
+		"hy2.obfs_enabled":   rawJSONBool(cfg.Hysteria.ObfsEnabled),
 		"hy2.bandwidth_up":   rawJSONString(cfg.Hysteria.BandwidthUp),
 		"hy2.bandwidth_down": rawJSONString(cfg.Hysteria.BandwidthDown),
 		"hy2.masquerade_url": rawJSONString(cfg.Hysteria.MasqueradeURL),

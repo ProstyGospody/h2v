@@ -31,12 +31,18 @@
   "trafficStats": {
     "listen": "127.0.0.1:7653",
     "secret": {{ .Hy2TrafficSecret | json }}
-  },
+  }{{ if and .Hy2ObfsEnabled .Hy2ObfsPassword }},
+  "obfs": {
+    "type": "salamander",
+    "salamander": {
+      "password": {{ .Hy2ObfsPassword | json }}
+    }
+  }{{ else }},
   "masquerade": {
     "type": "proxy",
     "proxy": {
       "url": {{ .Hy2MasqueradeURL | json }},
       "rewriteHost": true
     }
-  }
+  }{{ end }}
 }

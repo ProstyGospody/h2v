@@ -209,7 +209,7 @@ func buildVLESS(runtime RuntimeSettings, user *domain.User) string {
 
 // buildHysteria2 emits a Hysteria 2 URI per the official scheme:
 //
-//	hysteria2://AUTH@HOST:PORT/?sni=SNI&insecure=0#NAME
+//	hysteria2://AUTH@HOST:PORT/?sni=SNI&insecure=0&obfs=salamander&obfs-password=PWD#NAME
 //
 // The password is percent-encoded by net/url. Path is "/" to keep parsers that
 // expect an explicit host/path boundary happy; clients ignore it.
@@ -220,6 +220,10 @@ func buildHysteria2(runtime RuntimeSettings, user *domain.User) string {
 	query := url.Values{}
 	query.Set("sni", sni)
 	query.Set("insecure", "0")
+	if runtime.Hy2ObfsEnabled && runtime.Hy2ObfsPassword != "" {
+		query.Set("obfs", "salamander")
+		query.Set("obfs-password", runtime.Hy2ObfsPassword)
+	}
 
 	return (&url.URL{
 		Scheme:   "hysteria2",
