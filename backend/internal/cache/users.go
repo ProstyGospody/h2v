@@ -43,7 +43,7 @@ func NewUsersCache(repository *repo.Repository) *UsersCache {
 }
 
 func (c *UsersCache) LoadAll(ctx context.Context) error {
-	users, err := c.repo.ListConnectableUsers(ctx)
+	users, err := c.repo.ListActiveUsers(ctx)
 	if err != nil {
 		return err
 	}

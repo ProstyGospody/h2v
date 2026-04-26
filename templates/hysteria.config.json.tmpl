@@ -29,7 +29,7 @@
     }
   },
   "trafficStats": {
-    "listen": {{ .Hy2TrafficListen | json }},
+    "listen": "127.0.0.1:7653",
     "secret": {{ .Hy2TrafficSecret | json }}
   }{{ if and .Hy2ObfsEnabled .Hy2ObfsPassword }},
   "obfs": {

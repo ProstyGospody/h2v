@@ -103,24 +103,6 @@ func (r *Repository) GetUserByToken(ctx context.Context, token string) (*domain.
 	return user, nil
 }
 
-func (r *Repository) GetUserByHY2Password(ctx context.Context, password string) (*domain.User, error) {
-	const query = `
-		SELECT id, username, vless_uuid, hy2_password, sub_token, traffic_limit, traffic_used,
-		       expires_at, status, note, created_at, updated_at
-		FROM users
-		WHERE hy2_password = $1
-	`
-	row := r.pool.QueryRow(ctx, query, password)
-	user, err := scanUser(row)
-	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, domain.NewError(404, "user_not_found", "User with given Hysteria password does not exist", err)
-		}
-		return nil, err
-	}
-	return user, nil
-}
-
 func (r *Repository) ListUsers(ctx context.Context, filters domain.UserFilters) ([]domain.User, int, error) {
 	if filters.Page <= 0 {
 		filters.Page = 1
@@ -233,14 +215,12 @@ func (r *Repository) UpdateUserStatus(ctx context.Context, id uuid.UUID, status 
 	return err
 }
 
-func (r *Repository) ListConnectableUsers(ctx context.Context) ([]domain.User, error) {
+func (r *Repository) ListActiveUsers(ctx context.Context) ([]domain.User, error) {
 	rows, err := r.pool.Query(ctx, `
 		SELECT id, username, vless_uuid, hy2_password, sub_token, traffic_limit, traffic_used,
 		       expires_at, status, note, created_at, updated_at
 		FROM users
 		WHERE status = 'active'
-		  AND (expires_at IS NULL OR expires_at >= now())
-		  AND (traffic_limit <= 0 OR traffic_used < traffic_limit)
 	`)
 	if err != nil {
 		return nil, err

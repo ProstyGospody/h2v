@@ -179,7 +179,7 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 		jsonError(w, err)
 		return
 	}
-	setRefreshCookie(w, r, s.cfg, tokens.RefreshToken)
+	setRefreshCookie(w, s.cfg, tokens.RefreshToken)
 	jsonData(w, http.StatusOK, map[string]any{
 		"access_token": tokens.AccessToken,
 		"expires_in":   int(tokens.ExpiresIn.Seconds()),
@@ -203,7 +203,7 @@ func (s *Server) handleRefresh(w http.ResponseWriter, r *http.Request) {
 		jsonError(w, err)
 		return
 	}
-	setRefreshCookie(w, r, s.cfg, tokens.RefreshToken)
+	setRefreshCookie(w, s.cfg, tokens.RefreshToken)
 	jsonData(w, http.StatusOK, map[string]any{
 		"access_token": tokens.AccessToken,
 		"expires_in":   int(tokens.ExpiresIn.Seconds()),
@@ -676,7 +676,7 @@ func (s *Server) handleHY2Auth(w http.ResponseWriter, r *http.Request) {
 		password = hy2AuthFromJSON(r)
 	}
 	if password != "" {
-		allowHY2Auth(w, r.Context(), s, password)
+		allowHY2Auth(w, s, password)
 		return
 	}
 
@@ -693,7 +693,7 @@ func (s *Server) handleHY2Auth(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	allowHY2Auth(w, r.Context(), s, password)
+	allowHY2Auth(w, s, password)
 }
 
 func hy2AuthFromJSON(r *http.Request) string {
@@ -707,8 +707,8 @@ func hy2AuthFromJSON(r *http.Request) string {
 	return stringValue(req["password"])
 }
 
-func allowHY2Auth(w http.ResponseWriter, ctx context.Context, s *Server, password string) {
-	user, ok := s.services.Subscription.CheckPassword(ctx, password)
+func allowHY2Auth(w http.ResponseWriter, s *Server, password string) {
+	user, ok := s.services.Subscription.CheckPasswordCached(password)
 	if !ok || !user.CanConnect() {
 		hy2AuthRequests.WithLabelValues("denied").Inc()
 		jsonError(w, domain.NewError(403, "access_denied", "Access denied", nil))
@@ -847,27 +847,16 @@ func decodeJSON(r *http.Request, target any) error {
 	return decoder.Decode(target)
 }
 
-func setRefreshCookie(w http.ResponseWriter, r *http.Request, cfg config.Config, value string) {
+func setRefreshCookie(w http.ResponseWriter, cfg config.Config, value string) {
 	http.SetCookie(w, &http.Cookie{
 		Name:     refreshCookieName,
 		Value:    value,
 		Path:     "/",
 		HttpOnly: true,
-		Secure:   requestScheme(r) == "https",
+		Secure:   strings.HasPrefix(cfg.Subscription.URLPrefix, "https://"),
 		SameSite: http.SameSiteStrictMode,
 		MaxAge:   int(cfg.Panel.JWTRefreshTTL.Seconds()),
 	})
-}
-
-func requestScheme(r *http.Request) string {
-	proto := strings.ToLower(firstForwardedValue(r.Header.Get("X-Forwarded-Proto")))
-	if proto == "http" || proto == "https" {
-		return proto
-	}
-	if r.TLS != nil {
-		return "https"
-	}
-	return "http"
 }
 
 func actorFromRequest(r *http.Request) services.Actor {
@@ -920,7 +909,14 @@ func requestOrigin(r *http.Request) string {
 		return ""
 	}
 
-	proto := requestScheme(r)
+	proto := strings.ToLower(firstForwardedValue(r.Header.Get("X-Forwarded-Proto")))
+	if proto == "" {
+		if r.TLS != nil {
+			proto = "https"
+		} else {
+			proto = "http"
+		}
+	}
 	if proto != "http" && proto != "https" {
 		proto = "https"
 	}
