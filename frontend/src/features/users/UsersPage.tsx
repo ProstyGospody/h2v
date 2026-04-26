@@ -271,7 +271,7 @@ export function UsersPage() {
         </div>
 
         {selectedIds.length ? (
-          <div className="flex flex-col items-start justify-between gap-3 rounded-lg bg-primary/10 px-4 py-3 md:flex-row md:items-center">
+          <div className="flex flex-col items-start justify-between gap-3 rounded-md bg-primary/10 px-4 py-3 shadow-sm md:flex-row md:items-center">
             <div className="flex items-center gap-2 text-sm">
               <Badge>{selectedIds.length}</Badge>
               <span className="text-muted-foreground">selected</span>
@@ -339,7 +339,7 @@ export function UsersPage() {
           </div>
         ) : null}
 
-        <Card className="overflow-hidden bg-card/95">
+        <Card className="overflow-hidden">
           {users.isLoading ? (
             <CardContent className="space-y-2 p-5">
               {Array.from({ length: 8 }).map((_, i) => (
@@ -600,17 +600,17 @@ export function UsersPage() {
                 </div>
 
                 <div className="space-y-1">
-                  <div className="flex items-center justify-between gap-3 rounded-md px-2 py-2.5 text-sm">
+                  <div className="flex items-center justify-between gap-3 rounded-md bg-muted/30 px-2 py-2.5 text-sm">
                     <span className="text-muted-foreground">Created</span>
                     <span className="text-right text-foreground">{formatDateTime(drawerUser.created_at)}</span>
                   </div>
-                  <div className="flex items-center justify-between gap-3 rounded-md px-2 py-2.5 text-sm">
+                  <div className="flex items-center justify-between gap-3 rounded-md bg-muted/30 px-2 py-2.5 text-sm">
                     <span className="text-muted-foreground">Expires</span>
                     <span className="text-right text-foreground">
                       {drawerUser.expires_at ? formatDateTime(drawerUser.expires_at) : 'Never'}
                     </span>
                   </div>
-                  <div className="flex items-center justify-between gap-3 rounded-md px-2 py-2.5 text-sm">
+                  <div className="flex items-center justify-between gap-3 rounded-md bg-muted/30 px-2 py-2.5 text-sm">
                     <span className="text-muted-foreground">Status</span>
                     <span className="text-right text-foreground">
                       {drawerUser.status === 'active' ? (
@@ -664,7 +664,7 @@ export function UsersPage() {
 
                 <div className="space-y-2">
                   <div className="t-label">Traffic / 7 days</div>
-                  <div className="h-32 rounded-md bg-muted p-2">
+                  <div className="h-32 rounded-md bg-muted/60 p-2">
                     {traffic.isLoading ? (
                       <Skeleton className="h-full w-full" />
                     ) : traffic.data?.length ? (
@@ -885,13 +885,13 @@ function QRDialogContent({
 
 function QRCodePreview({ label, value }: { label: string; value: string }) {
   if (!value) {
-    return <div className="aspect-square w-full rounded-md border border-border bg-surface" />;
+    return <div className="aspect-square w-full rounded-md border border-border/65 bg-surface" />;
   }
 
   return (
     <div
       aria-label={label}
-      className="flex aspect-square w-full items-center justify-center overflow-hidden rounded-md border border-border bg-white p-3"
+      className="flex aspect-square w-full items-center justify-center overflow-hidden rounded-md border border-border/65 bg-white p-3"
       role="img"
     >
       <QRCodeSVG
@@ -911,7 +911,7 @@ function QRCodePreview({ label, value }: { label: string; value: string }) {
 
 function LinkCopyRow({ label, value }: { label: string; value: string }) {
   return (
-    <div className="flex w-full min-w-0 items-center gap-2 overflow-hidden rounded-md bg-muted px-3 py-2">
+    <div className="flex w-full min-w-0 items-center gap-2 overflow-hidden rounded-md bg-muted/60 px-3 py-2 transition-colors hover:bg-muted">
       <div className="min-w-0 flex-1 overflow-hidden">
         <div className="text-xs font-medium text-foreground">{label}</div>
         <div className="truncate font-mono text-[11px] text-muted-foreground">{value || '--'}</div>

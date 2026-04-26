@@ -66,7 +66,7 @@ function ProtectedShell() {
         </aside>
 
         <main className="flex min-w-0 flex-col bg-background">
-          <header className="sticky top-0 z-30 flex h-14 items-center gap-3 bg-background/90 px-4 shadow-soft backdrop-blur supports-backdrop-filter:bg-background/70 lg:hidden">
+          <header className="sticky top-0 z-30 flex h-14 items-center gap-3 bg-background/90 px-4 shadow-sm backdrop-blur supports-backdrop-filter:bg-background/70 lg:hidden">
             <Button
               aria-label="Open navigation"
               className="size-9"

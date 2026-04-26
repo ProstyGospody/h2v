@@ -91,20 +91,18 @@ export function SettingsPage() {
         onValueChange={(value) => setActiveGroup(value as GroupKey)}
         value={currentGroup?.key ?? activeGroup}
       >
-        <TabsList className="h-auto w-full flex-wrap justify-start gap-1 bg-transparent p-0 lg:flex-col lg:items-stretch">
+        <TabsList className="h-auto w-full flex-wrap justify-start gap-1 bg-muted/35 p-1 shadow-sm lg:flex-col lg:items-stretch">
           {groups.map((group) => (
             <TabsTrigger
               className={cn(
-                'h-auto min-w-[120px] justify-between rounded-md px-3 py-2 text-left text-sm',
-                'data-[state=active]:bg-[hsl(var(--primary)/0.08)] data-[state=active]:text-foreground',
-                'data-[state=active]:shadow-[inset_2px_0_0_hsl(var(--primary))]',
+                'h-auto min-w-[120px] justify-between rounded-sm px-3 py-2 text-left text-sm',
                 'lg:w-full',
               )}
               key={group.key}
               value={group.key}
             >
               <span>{group.label}</span>
-              <span className="font-mono text-[10px] text-muted-foreground/60">
+              <span className="rounded bg-muted px-1.5 font-mono text-[10px] text-muted-foreground/70">
                 {group.items.length}
               </span>
             </TabsTrigger>
@@ -119,7 +117,7 @@ export function SettingsPage() {
                   <TabsContent className="mt-0 space-y-3" forceMount value={currentGroup.key}>
                     {currentGroup.items.map((setting) => (
                       <Card key={setting.key}>
-                        <CardContent className="space-y-3 p-5">
+                        <CardContent className="space-y-4 p-5">
                           <div className="flex items-start justify-between gap-4">
                             <div className="min-w-0">
                               <div className="text-sm font-semibold text-foreground">
@@ -129,14 +127,14 @@ export function SettingsPage() {
                                 {setting.key}
                               </div>
                             </div>
-                            <div className="shrink-0 text-[10px] text-muted-foreground">
+                            <div className="shrink-0 font-mono text-[10px] text-muted-foreground">
                               {new Date(setting.updated_at).toLocaleDateString()}
                             </div>
                           </div>
                           <Textarea
                             className={cn(
                               'font-mono text-xs',
-                              draft[setting.key] !== undefined && 'ring-2 ring-primary/30',
+                              draft[setting.key] !== undefined && 'bg-primary/8 ring-2 ring-primary/25',
                             )}
                             onChange={(e) =>
                               setDraft((curr) => ({ ...curr, [setting.key]: e.target.value }))

@@ -266,7 +266,7 @@ export function SubPage() {
             </CardContent>
           </Card>
 
-          <details className="group rounded-lg bg-surface shadow-soft">
+          <details className="group rounded-lg bg-surface shadow-sm">
             <summary className="flex cursor-pointer list-none items-center justify-between px-5 py-4 text-sm font-medium text-foreground">
               <span>How to connect</span>
               <ChevronRight className="size-4 text-muted-foreground transition group-open:rotate-90" />
@@ -293,7 +293,7 @@ export function SubPage() {
             </div>
           </details>
 
-          <details className="group rounded-lg bg-surface shadow-soft">
+          <details className="group rounded-lg bg-surface shadow-sm">
             <summary className="flex cursor-pointer list-none items-center justify-between px-5 py-4 text-sm font-medium text-foreground">
               <span>Advanced - individual keys</span>
               <ChevronRight className="size-4 text-muted-foreground transition group-open:rotate-90" />
@@ -414,7 +414,7 @@ function QRCodePreview({
       <div
         aria-label={label}
         className={cn(
-          'flex aspect-square w-full items-center justify-center overflow-hidden rounded-md border border-border bg-white p-3',
+          'flex aspect-square w-full items-center justify-center overflow-hidden rounded-md border border-border/65 bg-white p-3',
           maxWidthClassName,
         )}
         role="img"
@@ -437,7 +437,7 @@ function QRCodePreview({
   return (
     <div
       className={cn(
-        'aspect-square w-full rounded-md border border-border bg-surface',
+        'aspect-square w-full rounded-md border border-border/65 bg-surface',
         maxWidthClassName,
       )}
     />

@@ -139,7 +139,7 @@ export function DashboardPage() {
               ) : trafficData.length ? (
                 <ChartContainer className="h-full w-full aspect-auto" config={trafficChartConfig}>
                   <BarChart data={trafficData} margin={{ left: 0, right: 8, top: 8, bottom: 0 }}>
-                    <CartesianGrid stroke="hsl(var(--border))" strokeDasharray="3 3" vertical={false} />
+                    <CartesianGrid stroke="hsl(var(--border) / 0.5)" strokeDasharray="3 3" vertical={false} />
                     <XAxis
                       axisLine={false}
                       dataKey="recorded_at"
@@ -187,7 +187,7 @@ export function DashboardPage() {
               data.online_users.map((entry) => (
                 <div
                   key={`${entry.username}-${entry.recorded_at}`}
-                  className="flex items-center justify-between rounded-md px-2 py-2 transition hover:bg-accent/60"
+                  className="flex items-center justify-between rounded-md px-2 py-2 transition hover:bg-muted/45"
                 >
                   <div className="flex min-w-0 items-center gap-2.5">
                     <span className="size-1.5 rounded-full bg-success animate-pulse-ring" />
@@ -221,7 +221,7 @@ export function DashboardPage() {
               const v = row.value.toLowerCase();
               const running = v.includes('run') || v.includes('ok') || v.includes('receiv');
               return (
-                <div className="flex items-center justify-between rounded-md px-2 py-2.5" key={row.label}>
+                <div className="flex items-center justify-between rounded-md px-2 py-2.5 transition hover:bg-muted/35" key={row.label}>
                   <div className="flex items-center gap-2.5">
                     <span
                       className={cn(
@@ -264,7 +264,7 @@ function MetricCard({
   } as const;
 
   return (
-    <Card className="bg-card/95 transition-colors hover:bg-[hsl(var(--surface-elevated))]">
+    <Card className="transition-colors hover:bg-[hsl(var(--surface-elevated))]">
       <CardContent className="flex flex-col gap-3 p-4 sm:p-5">
         <div className="flex items-start justify-between gap-2">
           <span className="t-label">{label}</span>
