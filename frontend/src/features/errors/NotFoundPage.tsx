@@ -16,10 +16,6 @@ export function NotFoundPage() {
             <div className="space-y-2">
               <div className="font-mono text-xs text-faint">404</div>
               <h1 className="t-h1 text-foreground">Page not found</h1>
-              <p className="text-sm text-muted-foreground">
-                The route you tried to reach doesn&apos;t exist or was moved. Head back to the
-                dashboard to continue.
-              </p>
             </div>
 
             <div className="flex items-center justify-center">

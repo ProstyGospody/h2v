@@ -40,7 +40,7 @@ func (s *SettingsService) List(ctx context.Context) ([]domain.Setting, error) {
 	return s.repo.ListSettings(ctx)
 }
 
-func (s *SettingsService) Update(ctx context.Context, values map[string]json.RawMessage, _ Actor) error {
+func (s *SettingsService) Update(ctx context.Context, values map[string]json.RawMessage) error {
 	if err := s.validateUpdate(ctx, values); err != nil {
 		return err
 	}

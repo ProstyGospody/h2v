@@ -92,10 +92,6 @@ func (s *StatsService) Traffic(ctx context.Context, days int) ([]domain.TrafficP
 	return s.repo.GetAggregateTraffic(ctx, days)
 }
 
-func (s *StatsService) Online(ctx context.Context) ([]domain.OnlineUser, error) {
-	return s.repo.GetOnlineUsers(ctx)
-}
-
 func (s *StatsService) Health(ctx context.Context) (*domain.HealthReport, error) {
 	components := map[string]string{"db": "ok", "xray": "ok", "hysteria": "ok", "cache": "ok"}
 	status := "ok"
@@ -136,7 +132,7 @@ func (s *AdminService) List(ctx context.Context) ([]domain.Admin, error) {
 	return s.repo.ListAdmins(ctx)
 }
 
-func (s *AdminService) Create(ctx context.Context, req CreateAdminRequest, _ Actor) (*domain.Admin, error) {
+func (s *AdminService) Create(ctx context.Context, req CreateAdminRequest) (*domain.Admin, error) {
 	if strings.TrimSpace(req.Password) == "" {
 		return nil, domain.NewError(400, "invalid_admin", "Password is required", nil)
 	}
@@ -157,7 +153,7 @@ func (s *AdminService) Create(ctx context.Context, req CreateAdminRequest, _ Act
 	return admin, nil
 }
 
-func (s *AdminService) Update(ctx context.Context, id uuid.UUID, req UpdateAdminRequest, _ Actor) error {
+func (s *AdminService) Update(ctx context.Context, id uuid.UUID, req UpdateAdminRequest) error {
 	hash, err := util.HashPassword(req.Password)
 	if err != nil {
 		return err
@@ -168,7 +164,7 @@ func (s *AdminService) Update(ctx context.Context, id uuid.UUID, req UpdateAdmin
 	return nil
 }
 
-func (s *AdminService) Delete(ctx context.Context, id uuid.UUID, _ Actor) error {
+func (s *AdminService) Delete(ctx context.Context, id uuid.UUID) error {
 	total, err := s.repo.CountAdmins(ctx)
 	if err != nil {
 		return err

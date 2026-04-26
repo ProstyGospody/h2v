@@ -23,8 +23,10 @@ export function usagePercent(used: number, total: number): number {
   return Math.max(0, Math.min(100, (used / total) * 100));
 }
 
-export function formatPercent(value: number): string {
-  return `${Math.round(value)}%`;
+export function formatPercent(value: number | undefined): string {
+  if (typeof value !== 'number' || Number.isNaN(value)) return '--';
+  const clamped = Math.max(0, Math.min(100, value));
+  return `${clamped.toFixed(1)}%`;
 }
 
 export function relativeExpiry(value: string | null): string {

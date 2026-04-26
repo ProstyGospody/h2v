@@ -42,7 +42,7 @@ func (s *UserService) Get(ctx context.Context, id uuid.UUID) (*domain.User, erro
 	return s.repo.GetUserByID(ctx, id)
 }
 
-func (s *UserService) Create(ctx context.Context, req CreateUserRequest, _ Actor) (*domain.User, error) {
+func (s *UserService) Create(ctx context.Context, req CreateUserRequest) (*domain.User, error) {
 	username := req.Username
 	if username == "" {
 		suffix, err := util.RandomToken(4)
@@ -85,7 +85,7 @@ func (s *UserService) Create(ctx context.Context, req CreateUserRequest, _ Actor
 	return user, nil
 }
 
-func (s *UserService) Update(ctx context.Context, id uuid.UUID, req UpdateUserRequest, _ Actor) (*domain.User, error) {
+func (s *UserService) Update(ctx context.Context, id uuid.UUID, req UpdateUserRequest) (*domain.User, error) {
 	user, err := s.repo.GetUserByID(ctx, id)
 	if err != nil {
 		return nil, err
@@ -126,7 +126,7 @@ func (s *UserService) Update(ctx context.Context, id uuid.UUID, req UpdateUserRe
 	return user, nil
 }
 
-func (s *UserService) Delete(ctx context.Context, id uuid.UUID, _ Actor) error {
+func (s *UserService) Delete(ctx context.Context, id uuid.UUID) error {
 	user, err := s.repo.GetUserByID(ctx, id)
 	if err != nil {
 		return err
@@ -141,7 +141,7 @@ func (s *UserService) Delete(ctx context.Context, id uuid.UUID, _ Actor) error {
 	return nil
 }
 
-func (s *UserService) ResetSubscription(ctx context.Context, id uuid.UUID, _ Actor) (*domain.User, error) {
+func (s *UserService) ResetSubscription(ctx context.Context, id uuid.UUID) (*domain.User, error) {
 	user, err := s.repo.GetUserByID(ctx, id)
 	if err != nil {
 		return nil, err
@@ -159,7 +159,7 @@ func (s *UserService) ResetSubscription(ctx context.Context, id uuid.UUID, _ Act
 	return user, nil
 }
 
-func (s *UserService) ResetTraffic(ctx context.Context, id uuid.UUID, _ Actor) (*domain.User, error) {
+func (s *UserService) ResetTraffic(ctx context.Context, id uuid.UUID) (*domain.User, error) {
 	user, err := s.repo.GetUserByID(ctx, id)
 	if err != nil {
 		return nil, err

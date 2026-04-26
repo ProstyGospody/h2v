@@ -134,7 +134,6 @@ func (s *Server) routes(r chi.Router) {
 
 		api.Get("/stats/overview", s.handleStatsOverview)
 		api.Get("/stats/traffic", s.handleStatsTraffic)
-		api.Get("/stats/online", s.handleStatsOnline)
 
 		api.Get("/admins", s.handleAdminsList)
 		api.Post("/admins", s.handleAdminsCreate)
@@ -266,7 +265,7 @@ func (s *Server) handleUsersCreate(w http.ResponseWriter, r *http.Request) {
 		TrafficLimit: req.TrafficLimit,
 		ExpiresAt:    req.ExpiresAt,
 		Note:         req.Note,
-	}, actorFromRequest(r))
+	})
 	if err != nil {
 		jsonError(w, err)
 		return
@@ -328,7 +327,7 @@ func (s *Server) handleUsersUpdate(w http.ResponseWriter, r *http.Request) {
 		ExpiresAt:    req.ExpiresAt,
 		Status:       req.Status,
 		Note:         req.Note,
-	}, actorFromRequest(r))
+	})
 	if err != nil {
 		jsonError(w, err)
 		return
@@ -342,7 +341,7 @@ func (s *Server) handleUsersDelete(w http.ResponseWriter, r *http.Request) {
 		jsonError(w, domain.NewError(400, "invalid_id", "Invalid user id", err))
 		return
 	}
-	if err := s.services.Users.Delete(r.Context(), id, actorFromRequest(r)); err != nil {
+	if err := s.services.Users.Delete(r.Context(), id); err != nil {
 		jsonError(w, err)
 		return
 	}
@@ -355,7 +354,7 @@ func (s *Server) handleUsersResetSub(w http.ResponseWriter, r *http.Request) {
 		jsonError(w, domain.NewError(400, "invalid_id", "Invalid user id", err))
 		return
 	}
-	user, err := s.services.Users.ResetSubscription(r.Context(), id, actorFromRequest(r))
+	user, err := s.services.Users.ResetSubscription(r.Context(), id)
 	if err != nil {
 		jsonError(w, err)
 		return
@@ -374,7 +373,7 @@ func (s *Server) handleUsersResetTraffic(w http.ResponseWriter, r *http.Request)
 		jsonError(w, domain.NewError(400, "invalid_id", "Invalid user id", err))
 		return
 	}
-	user, err := s.services.Users.ResetTraffic(r.Context(), id, actorFromRequest(r))
+	user, err := s.services.Users.ResetTraffic(r.Context(), id)
 	if err != nil {
 		jsonError(w, err)
 		return
@@ -499,7 +498,7 @@ func (s *Server) handleSettingsUpdate(w http.ResponseWriter, r *http.Request) {
 		jsonError(w, domain.NewError(400, "invalid_request", "Invalid request body", err))
 		return
 	}
-	if err := s.services.Settings.Update(r.Context(), values, actorFromRequest(r)); err != nil {
+	if err := s.services.Settings.Update(r.Context(), values); err != nil {
 		jsonError(w, err)
 		return
 	}
@@ -536,15 +535,6 @@ func (s *Server) handleStatsTraffic(w http.ResponseWriter, r *http.Request) {
 	jsonData(w, http.StatusOK, data, nil)
 }
 
-func (s *Server) handleStatsOnline(w http.ResponseWriter, r *http.Request) {
-	data, err := s.services.Stats.Online(r.Context())
-	if err != nil {
-		jsonError(w, err)
-		return
-	}
-	jsonData(w, http.StatusOK, data, nil)
-}
-
 func (s *Server) handleAdminsList(w http.ResponseWriter, r *http.Request) {
 	admins, err := s.services.Admins.List(r.Context())
 	if err != nil {
@@ -568,7 +558,7 @@ func (s *Server) handleAdminsCreate(w http.ResponseWriter, r *http.Request) {
 		Username: req.Username,
 		Password: req.Password,
 		Role:     req.Role,
-	}, actorFromRequest(r))
+	})
 	if err != nil {
 		jsonError(w, err)
 		return
@@ -593,7 +583,7 @@ func (s *Server) handleAdminsUpdate(w http.ResponseWriter, r *http.Request) {
 	if err := s.services.Admins.Update(r.Context(), id, services.UpdateAdminRequest{
 		Password: req.Password,
 		TOTP:     req.TOTP,
-	}, actorFromRequest(r)); err != nil {
+	}); err != nil {
 		jsonError(w, err)
 		return
 	}
@@ -606,7 +596,7 @@ func (s *Server) handleAdminsDelete(w http.ResponseWriter, r *http.Request) {
 		jsonError(w, domain.NewError(400, "invalid_id", "Invalid admin id", err))
 		return
 	}
-	if err := s.services.Admins.Delete(r.Context(), id, actorFromRequest(r)); err != nil {
+	if err := s.services.Admins.Delete(r.Context(), id); err != nil {
 		jsonError(w, err)
 		return
 	}

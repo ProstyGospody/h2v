@@ -62,7 +62,7 @@ func runServe(cfg config.Config, logger *slog.Logger) {
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer cancel()
 
-	pool, repository, svc, scheduler, httpServer := buildApp(ctx, cfg, logger)
+	pool, scheduler, httpServer := buildApp(ctx, cfg, logger)
 	defer pool.Close()
 
 	go scheduler.Start(ctx)
@@ -81,12 +81,10 @@ func runServe(cfg config.Config, logger *slog.Logger) {
 	if err := httpServer.Shutdown(shutdownCtx); err != nil {
 		logger.Error("http shutdown failed", "err", err)
 	}
-	_ = svc
-	_ = repository
 	logger.Info("shutdown complete")
 }
 
-func buildApp(ctx context.Context, cfg config.Config, logger *slog.Logger) (*pgxpool.Pool, *repo.Repository, *services.Services, *tasks.Scheduler, *api.Server) {
+func buildApp(ctx context.Context, cfg config.Config, logger *slog.Logger) (*pgxpool.Pool, *tasks.Scheduler, *api.Server) {
 	pool, err := db.Connect(ctx, cfg.DB)
 	if err != nil {
 		fatal(logger, err)
@@ -138,7 +136,7 @@ func buildApp(ctx context.Context, cfg config.Config, logger *slog.Logger) (*pgx
 	scheduler.Every("backup", 24*time.Hour, tasks.NewBackup(cfg).Run)
 
 	httpServer := api.New(cfg, serviceBundle, logger)
-	return pool, repository, serviceBundle, scheduler, httpServer
+	return pool, scheduler, httpServer
 }
 
 func runMigrate(cfg config.Config, logger *slog.Logger, args []string) {

@@ -10,7 +10,7 @@ import { PageHeader } from '@/components/page-header';
 import { cn } from '@/lib/utils';
 import { apiClient } from '@/shared/api/client';
 import { OverviewStats, TrafficPoint } from '@/shared/api/types';
-import { formatBytes, formatNumber, formatShortDateTime } from '@/shared/lib/format';
+import { formatBytes, formatNumber, formatPercent, formatShortDateTime } from '@/shared/lib/format';
 
 const ranges = ['1', '7', '30'] as const;
 type Range = (typeof ranges)[number];
@@ -21,12 +21,6 @@ const trafficChartConfig = {
     color: 'var(--gradient-accent)',
   },
 } satisfies ChartConfig;
-
-function formatPercent(value: number | undefined) {
-  if (typeof value !== 'number' || Number.isNaN(value)) return '--';
-  const clamped = Math.max(0, Math.min(100, value));
-  return `${clamped.toFixed(1)}%`;
-}
 
 function usageTone(value: number | undefined) {
   const v = value ?? 0;
