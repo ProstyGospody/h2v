@@ -169,13 +169,12 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		Username string `json:"username"`
 		Password string `json:"password"`
-		TOTP     string `json:"totp"`
 	}
 	if err := decodeJSON(r, &req); err != nil {
 		jsonError(w, domain.NewError(400, "invalid_request", "Invalid request body", err))
 		return
 	}
-	tokens, err := s.services.Auth.Login(r.Context(), req.Username, req.Password, req.TOTP)
+	tokens, err := s.services.Auth.Login(r.Context(), req.Username, req.Password)
 	if err != nil {
 		jsonError(w, err)
 		return
@@ -573,8 +572,7 @@ func (s *Server) handleAdminsUpdate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var req struct {
-		Password string  `json:"password"`
-		TOTP     *string `json:"totp"`
+		Password string `json:"password"`
 	}
 	if err := decodeJSON(r, &req); err != nil {
 		jsonError(w, domain.NewError(400, "invalid_request", "Invalid request body", err))
@@ -582,7 +580,6 @@ func (s *Server) handleAdminsUpdate(w http.ResponseWriter, r *http.Request) {
 	}
 	if err := s.services.Admins.Update(r.Context(), id, services.UpdateAdminRequest{
 		Password: req.Password,
-		TOTP:     req.TOTP,
 	}); err != nil {
 		jsonError(w, err)
 		return

@@ -6,7 +6,7 @@ import { Admin } from '@/shared/api/types';
 type AuthContextValue = {
   admin: Admin | null;
   ready: boolean;
-  login: (input: { username: string; password: string; totp?: string }) => Promise<void>;
+  login: (input: { username: string; password: string }) => Promise<void>;
   logout: () => Promise<void>;
 };
 

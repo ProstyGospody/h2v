@@ -556,7 +556,7 @@ func (r *Repository) DeleteConfigHistory(ctx context.Context, core string, id in
 
 func (r *Repository) GetAdminByUsername(ctx context.Context, username string) (*domain.Admin, error) {
 	row := r.pool.QueryRow(ctx, `
-		SELECT id, username, password_hash, totp_secret, role, last_login_at, created_at
+		SELECT id, username, password_hash, role, last_login_at, created_at
 		FROM admins
 		WHERE username = $1
 	`, username)
@@ -572,7 +572,7 @@ func (r *Repository) GetAdminByUsername(ctx context.Context, username string) (*
 
 func (r *Repository) GetAdminByID(ctx context.Context, id uuid.UUID) (*domain.Admin, error) {
 	row := r.pool.QueryRow(ctx, `
-		SELECT id, username, password_hash, totp_secret, role, last_login_at, created_at
+		SELECT id, username, password_hash, role, last_login_at, created_at
 		FROM admins
 		WHERE id = $1
 	`, id)
@@ -588,7 +588,7 @@ func (r *Repository) GetAdminByID(ctx context.Context, id uuid.UUID) (*domain.Ad
 
 func (r *Repository) ListAdmins(ctx context.Context) ([]domain.Admin, error) {
 	rows, err := r.pool.Query(ctx, `
-		SELECT id, username, password_hash, totp_secret, role, last_login_at, created_at
+		SELECT id, username, password_hash, role, last_login_at, created_at
 		FROM admins
 		ORDER BY created_at ASC
 	`)
@@ -618,9 +618,9 @@ func (r *Repository) CountAdmins(ctx context.Context) (int, error) {
 
 func (r *Repository) CreateAdmin(ctx context.Context, admin *domain.Admin) error {
 	_, err := r.pool.Exec(ctx, `
-		INSERT INTO admins (id, username, password_hash, totp_secret, role, last_login_at, created_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7)
-	`, admin.ID, admin.Username, admin.PasswordHash, admin.TOTPSecret, admin.Role, admin.LastLoginAt, admin.CreatedAt)
+		INSERT INTO admins (id, username, password_hash, role, last_login_at, created_at)
+		VALUES ($1, $2, $3, $4, $5, $6)
+	`, admin.ID, admin.Username, admin.PasswordHash, admin.Role, admin.LastLoginAt, admin.CreatedAt)
 	if err != nil {
 		if isUniqueViolation(err) {
 			return domain.NewError(409, "admin_already_exists", "Admin username is already taken", err)
@@ -630,12 +630,12 @@ func (r *Repository) CreateAdmin(ctx context.Context, admin *domain.Admin) error
 	return nil
 }
 
-func (r *Repository) UpdateAdminPassword(ctx context.Context, id uuid.UUID, passwordHash string, totpSecret *string) error {
+func (r *Repository) UpdateAdminPassword(ctx context.Context, id uuid.UUID, passwordHash string) error {
 	_, err := r.pool.Exec(ctx, `
 		UPDATE admins
-		SET password_hash = $2, totp_secret = $3
+		SET password_hash = $2
 		WHERE id = $1
-	`, id, passwordHash, totpSecret)
+	`, id, passwordHash)
 	return err
 }
 
@@ -680,7 +680,6 @@ func scanAdmin(row interface {
 		&admin.ID,
 		&admin.Username,
 		&admin.PasswordHash,
-		&admin.TOTPSecret,
 		&admin.Role,
 		&admin.LastLoginAt,
 		&admin.CreatedAt,

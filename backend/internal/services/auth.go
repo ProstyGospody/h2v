@@ -8,7 +8,6 @@ import (
 
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
-	"github.com/pquerna/otp/totp"
 
 	"github.com/prost/h2v/backend/internal/config"
 	"github.com/prost/h2v/backend/internal/domain"
@@ -38,18 +37,13 @@ func NewAuthService(cfg config.Config, repository *repo.Repository, logger *slog
 	return &AuthService{cfg: cfg, repo: repository, logger: logger}
 }
 
-func (s *AuthService) Login(ctx context.Context, username, password, code string) (*AuthTokens, error) {
+func (s *AuthService) Login(ctx context.Context, username, password string) (*AuthTokens, error) {
 	admin, err := s.repo.GetAdminByUsername(ctx, username)
 	if err != nil {
 		return nil, err
 	}
 	if !util.VerifyPassword(admin.PasswordHash, password) {
 		return nil, domain.NewError(401, "invalid_credentials", "Invalid username or password", nil)
-	}
-	if admin.TOTPSecret != nil && *admin.TOTPSecret != "" {
-		if code == "" || !totp.Validate(code, *admin.TOTPSecret) {
-			return nil, domain.NewError(401, "invalid_totp", "Invalid two-factor code", nil)
-		}
 	}
 	if err := s.repo.TouchAdminLogin(ctx, admin.ID); err != nil {
 		s.logger.Warn("touch admin login failed", "admin", admin.ID, "err", err)
@@ -133,4 +127,3 @@ func (s *AuthService) parse(tokenString, expectedKind string) (*tokenClaims, err
 	}
 	return claims, nil
 }
-

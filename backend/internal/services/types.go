@@ -65,7 +65,6 @@ type CreateAdminRequest struct {
 
 type UpdateAdminRequest struct {
 	Password string
-	TOTP     *string
 }
 
 type Actor struct {

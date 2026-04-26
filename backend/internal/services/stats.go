@@ -154,11 +154,14 @@ func (s *AdminService) Create(ctx context.Context, req CreateAdminRequest) (*dom
 }
 
 func (s *AdminService) Update(ctx context.Context, id uuid.UUID, req UpdateAdminRequest) error {
+	if strings.TrimSpace(req.Password) == "" {
+		return domain.NewError(400, "invalid_admin", "Password is required", nil)
+	}
 	hash, err := util.HashPassword(req.Password)
 	if err != nil {
 		return err
 	}
-	if err := s.repo.UpdateAdminPassword(ctx, id, hash, req.TOTP); err != nil {
+	if err := s.repo.UpdateAdminPassword(ctx, id, hash); err != nil {
 		return err
 	}
 	return nil
@@ -186,4 +189,3 @@ func firstNonEmpty(values ...string) string {
 	}
 	return ""
 }
-

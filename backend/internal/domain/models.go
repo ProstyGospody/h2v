@@ -56,7 +56,6 @@ type Admin struct {
 	ID           uuid.UUID  `json:"id"`
 	Username     string     `json:"username"`
 	PasswordHash string     `json:"-"`
-	TOTPSecret   *string    `json:"totp_secret,omitempty"`
 	Role         string     `json:"role"`
 	LastLoginAt  *time.Time `json:"last_login_at,omitempty"`
 	CreatedAt    time.Time  `json:"created_at"`

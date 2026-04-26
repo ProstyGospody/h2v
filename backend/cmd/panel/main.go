@@ -237,7 +237,7 @@ func runAdminSetPassword(cfg config.Config, logger *slog.Logger, args []string) 
 	if err != nil {
 		fatal(logger, err)
 	}
-	if err := repository.UpdateAdminPassword(ctx, admin.ID, hash, admin.TOTPSecret); err != nil {
+	if err := repository.UpdateAdminPassword(ctx, admin.ID, hash); err != nil {
 		fatal(logger, err)
 	}
 	logger.Info("admin password updated", "username", admin.Username)
