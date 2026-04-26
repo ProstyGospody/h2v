@@ -56,48 +56,48 @@
 
     --radius: 0.625rem;
 
-    --background: 220 14% 5%;
+    --background: 215 58.6% 5.7%;
     --foreground: 210 17% 96%;
 
-    --surface: 220 12% 7%;
-    --surface-elevated: 220 11% 10%;
+    --surface: 215 45% 7.5%;
+    --surface-elevated: 215 36% 10%;
 
-    --card: 220 11% 8%;
+    --card: 215 40% 8.5%;
     --card-foreground: 210 17% 96%;
 
-    --popover: 220 10% 10%;
+    --popover: 215 36% 10%;
     --popover-foreground: 210 17% 96%;
 
-    --primary: 202 95% 46%;
-    --primary-foreground: 0 0% 100%;
-    --gradient-accent: linear-gradient(135deg, hsl(218 86% 45%) 0%, hsl(199 88% 39%) 48%, hsl(268 66% 47%) 100%);
-    --gradient-accent-vertical: linear-gradient(180deg, hsl(218 86% 45%) 0%, hsl(199 88% 39%) 100%);
-    --gradient-accent-soft: linear-gradient(135deg, hsl(218 86% 45% / 0.17) 0%, hsl(199 88% 39% / 0.12) 48%, hsl(268 66% 47% / 0.15) 100%);
-    --gradient-accent-text: linear-gradient(135deg, hsl(216 92% 68%) 0%, hsl(196 88% 62%) 46%, hsl(268 78% 72%) 100%);
+    --primary: 198.4 100% 62.4%;
+    --primary-foreground: 215 58.6% 5.7%;
+    --gradient-accent: linear-gradient(135deg, #3fc4ff 0%, #46d39f 52%, #f4b859 100%);
+    --gradient-accent-vertical: linear-gradient(180deg, #3fc4ff 0%, #46d39f 52%, #f4b859 100%);
+    --gradient-accent-soft: linear-gradient(135deg, rgb(63 196 255 / 0.18) 0%, rgb(70 211 159 / 0.13) 52%, rgb(244 184 89 / 0.16) 100%);
+    --gradient-accent-text: linear-gradient(135deg, #3fc4ff 0%, #46d39f 52%, #f4b859 100%);
 
-    --secondary: 220 9% 12%;
+    --secondary: 215 30% 12%;
     --secondary-foreground: 210 17% 96%;
 
-    --muted: 220 9% 11%;
-    --muted-foreground: 220 8% 63%;
-    --faint: 220 6% 38%;
+    --muted: 215 30% 12%;
+    --muted-foreground: 210 12% 68%;
+    --faint: 213 12% 48%;
 
-    --accent: 220 9% 14%;
+    --accent: 215 32% 13%;
     --accent-foreground: 210 17% 96%;
 
     --destructive: 0 84% 62%;
     --destructive-foreground: 210 17% 96%;
 
-    --success: 160 84% 50%;
+    --success: 157.9 61.6% 55.1%;
     --success-foreground: 220 14% 6%;
 
-    --warning: 38 95% 58%;
+    --warning: 36.8 87.6% 65.3%;
     --warning-foreground: 220 14% 6%;
 
-    --border: 220 8% 16%;
-    --border-strong: 220 8% 22%;
-    --input: 220 8% 16%;
-    --ring: 202 95% 46%;
+    --border: 214 24% 18%;
+    --border-strong: 214 22% 25%;
+    --input: 214 24% 18%;
+    --ring: 198.4 100% 62.4%;
   }
 
   [data-theme="light"] {
@@ -110,12 +110,12 @@
     --card-foreground: 220 14% 8%;
     --popover: 0 0% 100%;
     --popover-foreground: 220 14% 8%;
-    --primary: 202 100% 38%;
-    --primary-foreground: 0 0% 100%;
-    --gradient-accent: linear-gradient(135deg, hsl(218 82% 42%) 0%, hsl(199 82% 36%) 48%, hsl(268 60% 44%) 100%);
-    --gradient-accent-vertical: linear-gradient(180deg, hsl(218 82% 42%) 0%, hsl(199 82% 36%) 100%);
-    --gradient-accent-soft: linear-gradient(135deg, hsl(218 82% 42% / 0.13) 0%, hsl(199 82% 36% / 0.1) 48%, hsl(268 60% 44% / 0.12) 100%);
-    --gradient-accent-text: linear-gradient(135deg, hsl(218 82% 42%) 0%, hsl(199 82% 36%) 46%, hsl(268 60% 44%) 100%);
+    --primary: 198.4 100% 48%;
+    --primary-foreground: 215 58.6% 5.7%;
+    --gradient-accent: linear-gradient(135deg, #3fc4ff 0%, #46d39f 52%, #f4b859 100%);
+    --gradient-accent-vertical: linear-gradient(180deg, #3fc4ff 0%, #46d39f 52%, #f4b859 100%);
+    --gradient-accent-soft: linear-gradient(135deg, rgb(63 196 255 / 0.14) 0%, rgb(70 211 159 / 0.11) 52%, rgb(244 184 89 / 0.14) 100%);
+    --gradient-accent-text: linear-gradient(135deg, #079cdb 0%, #208d65 52%, #b37112 100%);
     --secondary: 40 18% 94%;
     --secondary-foreground: 220 14% 8%;
     --muted: 40 18% 94%;
@@ -125,14 +125,14 @@
     --accent-foreground: 220 14% 8%;
     --destructive: 0 72% 48%;
     --destructive-foreground: 0 0% 100%;
-    --success: 160 70% 32%;
+    --success: 157.9 61.6% 34%;
     --success-foreground: 0 0% 100%;
-    --warning: 38 95% 42%;
+    --warning: 36.8 87.6% 42%;
     --warning-foreground: 220 14% 8%;
     --border: 40 10% 88%;
     --border-strong: 40 8% 78%;
     --input: 40 10% 88%;
-    --ring: 202 100% 38%;
+    --ring: 198.4 100% 48%;
   }
 
   * {

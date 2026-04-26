@@ -14,7 +14,7 @@ function Toaster(props: ToasterProps) {
           title: 'text-sm font-medium',
           description: 'text-xs text-muted-foreground',
           actionButton:
-            'rounded-md bg-accent-gradient px-2.5 py-1 text-xs font-medium text-white',
+            'rounded-md bg-accent-gradient px-2.5 py-1 text-xs font-medium text-primary-foreground',
           cancelButton:
             'rounded-md bg-muted px-2.5 py-1 text-xs font-medium text-muted-foreground',
           success: 'border-success/35 [&_[data-icon]>svg]:text-success',
