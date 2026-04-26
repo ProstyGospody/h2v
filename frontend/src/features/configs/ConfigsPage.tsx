@@ -50,7 +50,7 @@ const cores: Core[] = ['xray', 'hysteria'];
 
 const coreMeta: Record<Core, { icon: typeof FileJson2; label: string; service: string }> = {
   xray: { icon: FileJson2, label: 'Xray', service: 'xray' },
-  hysteria: { icon: Braces, label: 'Hys2', service: 'hysteria' },
+  hysteria: { icon: Braces, label: 'Hysteria 2', service: 'hysteria' },
 };
 
 const ConfigEditor = lazy(() =>
@@ -60,7 +60,7 @@ const ConfigEditor = lazy(() =>
 export function ConfigsPage() {
   return (
     <div className="pb-10">
-      <PageHeader title="Configs" />
+      <PageHeader action={<Badge variant="outline">2 cores</Badge>} title="Configs" />
 
       <div className="grid gap-4 px-page pt-6 xl:grid-cols-2">
         {cores.map((core) => (
@@ -196,20 +196,20 @@ function ConfigCorePanel({ core }: { core: Core }) {
   return (
     <>
       <Card className="min-w-0 overflow-hidden">
-        <CardHeader className="gap-3 bg-muted/25 px-4 py-3 sm:px-5">
-          <div className="flex flex-col gap-3 2xl:flex-row 2xl:items-center 2xl:justify-between">
+        <CardHeader className="border-b border-border/55 bg-surface px-4 py-4 sm:px-5">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
             <div className="flex min-w-0 items-center gap-3">
-              <span className="flex size-8 shrink-0 items-center justify-center rounded-md bg-accent-gradient-soft text-foreground">
+              <span className="flex size-10 shrink-0 items-center justify-center rounded-md bg-accent-gradient-soft text-foreground">
                 <Icon className="size-4" />
               </span>
-              <div className="min-w-0">
-                <CardTitle>{meta.label}</CardTitle>
-                <div className="mt-1 flex flex-wrap items-center gap-1.5 font-mono text-[11px] text-muted-foreground">
-                  <span>{stats.lines}L</span>
-                  <span className="text-muted-foreground/40">·</span>
+              <div className="min-w-0 space-y-1">
+                <CardTitle className="truncate">{meta.label}</CardTitle>
+                <div className="flex flex-wrap items-center gap-2 font-mono text-[11px] text-muted-foreground">
+                  <span>{meta.service}</span>
+                  <span className="text-muted-foreground/35">/</span>
+                  <span>{stats.lines} lines</span>
+                  <span className="text-muted-foreground/35">/</span>
                   <span>{formatBytes(stats.bytes)}</span>
-                  <span className="text-muted-foreground/40">·</span>
-                  <span>{diffStats.changed} changed</span>
                 </div>
               </div>
             </div>
@@ -222,16 +222,16 @@ function ConfigCorePanel({ core }: { core: Core }) {
             />
           </div>
 
-          <div className="flex flex-wrap items-center gap-1.5">
-            <Button disabled={config.isFetching} onClick={reloadConfig} size="sm" variant="ghost">
+          <div className="flex flex-wrap items-center gap-1.5 rounded-md border border-border/45 bg-card p-1.5">
+            <Button disabled={config.isFetching} onClick={reloadConfig} size="sm" variant="outline">
               <RefreshCw className={cn(config.isFetching && 'animate-spin')} />
               Reload
             </Button>
-            <Button disabled={!dirty} onClick={resetDraft} size="sm" variant="ghost">
+            <Button disabled={!dirty} onClick={resetDraft} size="sm" variant="outline">
               <RotateCcw />
               Reset
             </Button>
-            <Button disabled={!config.data || !jsonState.valid} onClick={formatDraft} size="sm" variant="ghost">
+            <Button disabled={!config.data || !jsonState.valid} onClick={formatDraft} size="sm" variant="outline">
               <Wand2 />
               Format
             </Button>
@@ -248,11 +248,11 @@ function ConfigCorePanel({ core }: { core: Core }) {
           </div>
         </CardHeader>
 
-        <CardContent className="px-0 pb-0">
+        <CardContent className="flex min-h-[calc(100vh-178px)] flex-col p-0">
           {config.isLoading ? (
-            <Skeleton className="h-[56vh] min-h-[390px] w-full rounded-none" />
+            <Skeleton className="m-3 h-[58vh] min-h-[420px] w-auto sm:m-4" />
           ) : config.isError ? (
-            <div className="flex h-[56vh] min-h-[390px] flex-col items-center justify-center gap-3 px-6 text-center">
+            <div className="m-3 flex h-[58vh] min-h-[420px] flex-col items-center justify-center gap-3 rounded-md border border-border/65 bg-card px-6 text-center sm:m-4">
               <XCircle className="size-8 text-destructive" />
               <div className="text-base font-semibold">Unable to load {meta.label}</div>
               <p className="max-w-xl text-sm text-muted-foreground">{errorMessage(config.error)}</p>
@@ -262,9 +262,9 @@ function ConfigCorePanel({ core }: { core: Core }) {
               </Button>
             </div>
           ) : (
-            <Suspense fallback={<Skeleton className="h-[56vh] min-h-[390px] w-full rounded-none" />}>
+            <Suspense fallback={<Skeleton className="m-3 h-[58vh] min-h-[420px] w-auto sm:m-4" />}>
               <ConfigEditor
-                className="h-[56vh] min-h-[390px] rounded-none border-x-0 border-border/70"
+                className="m-3 h-[58vh] min-h-[420px] sm:m-4"
                 label={`${meta.label} configuration editor`}
                 onChange={(nextValue) => {
                   setDraft(nextValue);
@@ -275,26 +275,41 @@ function ConfigCorePanel({ core }: { core: Core }) {
             </Suspense>
           )}
 
-          <div className="grid bg-muted/15 lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)]">
-            <section className="space-y-3 p-4">
-              <div className="text-xs font-medium text-foreground">State</div>
-              <InfoRow label="Service" value={meta.service} />
-              <InfoRow label="JSON" value={jsonState.valid ? 'Valid syntax' : 'Syntax error'} />
+          <div className="grid border-t border-border/55 bg-surface/70 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
+            <section className="space-y-3 border-b border-border/45 p-4 lg:border-b-0 lg:border-r">
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2 text-xs font-medium text-foreground">
+                  <FileCode2 className="size-3.5 text-muted-foreground" />
+                  Review
+                </div>
+                <Badge variant={dirty ? 'warning' : 'secondary'}>{dirty ? 'Modified' : 'Synced'}</Badge>
+              </div>
+              <div className="grid grid-cols-3 gap-2">
+                <ConfigMetric label="Current" value={`${diffStats.currentLines}`} />
+                <ConfigMetric label="New" value={`${diffStats.nextLines}`} />
+                <ConfigMetric label="Changed" value={`${diffStats.changed}`} />
+              </div>
+              <InfoRow label="Syntax" value={jsonState.valid ? 'Valid JSON' : 'JSON error'} />
               <InfoRow label="Server check" value={validationLabel(validation, validateMutation.isPending)} />
-              <InfoRow label="Unsaved" value={dirty ? 'Yes' : 'No'} />
+              <InfoRow label="Apply" value={readyToApply ? 'Ready' : 'Locked'} />
               {!jsonState.valid && !config.isLoading ? (
-                <div className="rounded-md bg-destructive/10 px-3 py-2 text-xs text-destructive">
+                <div className="rounded-md border border-destructive/25 bg-destructive/10 px-3 py-2 text-xs text-destructive">
                   {jsonState.message}
                 </div>
               ) : null}
             </section>
 
-            <section className="min-w-0 p-3">
-              <div className="mb-2 flex items-center gap-2 px-1 text-xs font-medium text-foreground">
-                <FileClock className="size-3.5 text-muted-foreground" />
-                History
+            <section className="min-w-0 p-4">
+              <div className="mb-3 flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2 text-xs font-medium text-foreground">
+                  <FileClock className="size-3.5 text-muted-foreground" />
+                  History
+                </div>
+                <span className="font-mono text-[11px] text-muted-foreground">
+                  {history.data?.length ?? 0}
+                </span>
               </div>
-              <div className="max-h-56 space-y-1 overflow-auto pr-1">
+              <div className="max-h-64 space-y-1 overflow-auto pr-1">
                 {history.isLoading ? (
                   Array.from({ length: 3 }).map((_, index) => <Skeleton className="h-12 w-full" key={index} />)
                 ) : history.isError ? (
@@ -427,28 +442,35 @@ function HistoryItem({
   restoreDisabled: boolean;
 }) {
   return (
-    <div className="flex items-center justify-between gap-3 rounded-md px-2 py-2 transition hover:bg-muted/45">
+    <div className="flex items-center justify-between gap-3 rounded-md border border-transparent px-2 py-2 transition hover:border-border/45 hover:bg-muted/45">
       <div className="min-w-0">
-        <div className="font-mono text-xs text-foreground">v{entry.id}</div>
-        <div className="mt-0.5 truncate text-[11px] text-muted-foreground">
-          {formatShortDateTime(entry.applied_at)}
+        <div className="flex items-center gap-2">
+          <div className="font-mono text-xs text-foreground">v{entry.id}</div>
+          <div className="truncate text-[11px] text-muted-foreground">{formatShortDateTime(entry.applied_at)}</div>
         </div>
         {entry.note ? <div className="mt-0.5 truncate text-[11px] text-muted-foreground/70">{entry.note}</div> : null}
       </div>
       <div className="flex shrink-0 items-center gap-1">
-        <Button disabled={restoreDisabled} onClick={onRestore} size="sm" variant="ghost">
+        <Button
+          aria-label={`Restore version ${entry.id}`}
+          disabled={restoreDisabled}
+          onClick={onRestore}
+          size="icon-sm"
+          title="Restore"
+          variant="ghost"
+        >
           <Undo2 />
-          Restore
         </Button>
         <Button
           className="text-destructive hover:text-destructive"
+          aria-label={`Delete version ${entry.id}`}
           disabled={deleteDisabled}
           onClick={onDelete}
-          size="sm"
+          size="icon-sm"
+          title="Delete"
           variant="ghost"
         >
           <Trash2 />
-          Delete
         </Button>
       </div>
     </div>
@@ -460,6 +482,15 @@ function InfoRow({ label, value }: { label: string; value: string }) {
     <div className="flex items-center justify-between gap-4 text-sm">
       <span className="text-muted-foreground">{label}</span>
       <span className="min-w-0 truncate font-mono text-xs text-foreground">{value}</span>
+    </div>
+  );
+}
+
+function ConfigMetric({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="min-w-0 rounded-md border border-border/45 bg-card px-2.5 py-2">
+      <div className="truncate text-[10px] uppercase tracking-[0.06em] text-muted-foreground">{label}</div>
+      <div className="mt-1 truncate font-mono text-sm font-medium text-foreground">{value}</div>
     </div>
   );
 }
