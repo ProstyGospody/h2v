@@ -163,7 +163,7 @@ function AppBrand({ compact = false }: { compact?: boolean }) {
           compact ? 'text-xl' : 'text-2xl',
         )}
       >
-        MyPanel
+        h2v
       </span>
     </div>
   );

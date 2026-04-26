@@ -161,7 +161,7 @@ export function SubPage() {
             <div className="mx-auto flex size-12 items-center justify-center rounded-md bg-accent-gradient-soft text-foreground">
               <ShieldCheck className="size-6" />
             </div>
-            <div className="t-hero text-accent-gradient">MyVPN</div>
+            <div className="t-hero text-accent-gradient">h2v</div>
           </header>
 
           <Card>

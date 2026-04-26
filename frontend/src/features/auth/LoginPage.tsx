@@ -39,7 +39,7 @@ export function LoginPage() {
               <ShieldCheck className="size-5" />
             </div>
             <span className="block font-serif text-2xl italic leading-none tracking-[-0.02em] text-accent-gradient">
-              MyPanel
+              h2v
             </span>
           </div>
 
