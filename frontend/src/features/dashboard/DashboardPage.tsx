@@ -141,9 +141,8 @@ export function DashboardPage() {
                   <BarChart data={trafficData} margin={{ left: 0, right: 8, top: 8, bottom: 0 }}>
                     <defs>
                       <linearGradient id="dashboardTrafficGradient" x1="0" x2="0" y1="0" y2="1">
-                        <stop offset="0%" stopColor="hsl(218 86% 45%)" />
-                        <stop offset="55%" stopColor="hsl(199 88% 39%)" />
-                        <stop offset="100%" stopColor="hsl(268 66% 47%)" />
+                        <stop offset="0%" stopColor="var(--accent-primary)" />
+                        <stop offset="100%" stopColor="var(--accent-secondary)" />
                       </linearGradient>
                     </defs>
                     <CartesianGrid stroke="hsl(var(--border) / 0.5)" strokeDasharray="3 3" vertical={false} />
@@ -163,7 +162,7 @@ export function DashboardPage() {
                       width={64}
                     />
                     <ChartTooltip
-                      cursor={{ fill: 'hsl(var(--accent))', opacity: 0.35 }}
+                      cursor={{ fill: 'url(#dashboardTrafficGradient)', opacity: 0.18 }}
                       content={
                         <ChartTooltipContent
                           formatter={(value) => [formatBytes(Number(value)), 'Traffic']}

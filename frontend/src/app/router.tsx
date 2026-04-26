@@ -127,7 +127,7 @@ function SidebarBody({
 
       <div className="p-3 pt-2">
         <button
-          className="group flex w-full items-center gap-3 rounded-md px-2 py-2 text-left transition hover:bg-accent"
+          className="group flex w-full items-center gap-3 rounded-md px-2 py-2 text-left transition hover:bg-[image:var(--gradient-accent-soft)]"
           onClick={async () => {
             onNavigate?.();
             await logout();
@@ -178,7 +178,7 @@ function SidebarLink({
   to: LinkTo;
 }) {
   const base =
-    'group relative flex items-center gap-3 rounded-md px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground';
+    'group relative flex items-center gap-3 rounded-md px-3 py-2 text-sm text-muted-foreground transition hover:bg-[image:var(--gradient-accent-soft)] hover:text-foreground';
   const active =
     'group relative flex items-center gap-3 rounded-md bg-accent-gradient-soft px-3 py-2 text-sm font-medium text-foreground before:absolute before:inset-y-1.5 before:left-0 before:w-0.5 before:rounded-r-full before:bg-accent-gradient-vertical';
 

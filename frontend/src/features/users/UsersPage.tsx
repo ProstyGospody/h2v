@@ -675,13 +675,12 @@ export function UsersPage() {
                         <BarChart data={traffic.data.map((p) => ({ ...p, total: p.uplink + p.downlink }))}>
                           <defs>
                             <linearGradient id="userTrafficGradient" x1="0" x2="0" y1="0" y2="1">
-                              <stop offset="0%" stopColor="hsl(218 86% 45%)" />
-                              <stop offset="55%" stopColor="hsl(199 88% 39%)" />
-                              <stop offset="100%" stopColor="hsl(268 66% 47%)" />
+                              <stop offset="0%" stopColor="var(--accent-primary)" />
+                              <stop offset="100%" stopColor="var(--accent-secondary)" />
                             </linearGradient>
                           </defs>
                           <ChartTooltip
-                            cursor={{ fill: 'hsl(var(--accent))', opacity: 0.3 }}
+                            cursor={{ fill: 'url(#userTrafficGradient)', opacity: 0.18 }}
                             content={
                               <ChartTooltipContent
                                 formatter={(v) => [formatBytes(Number(v)), 'Traffic']}

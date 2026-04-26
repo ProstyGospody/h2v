@@ -49,7 +49,7 @@ function DropdownMenuItem({
       data-variant={variant}
       className={cn(
         "relative flex cursor-pointer select-none items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-none transition-colors",
-        'focus:bg-accent focus:text-foreground',
+        'focus:bg-[image:var(--gradient-accent-soft)] focus:text-foreground',
         'data-[disabled]:pointer-events-none data-[disabled]:opacity-50',
         'data-[variant=destructive]:text-destructive data-[variant=destructive]:focus:bg-destructive/12 data-[variant=destructive]:focus:text-destructive',
         'data-[inset]:pl-8',
