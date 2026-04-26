@@ -63,31 +63,29 @@ function ProtectedShell() {
 
   return (
     <div className="min-h-screen bg-app-background text-foreground">
-      <div className="grid min-h-screen grid-cols-1 lg:grid-cols-[260px_1fr]">
-        <aside className="hidden border-r border-border/55 bg-sidebar-panel lg:block">
-          <SidebarBody admin={admin} logout={logout} />
-        </aside>
+      <aside className="fixed inset-y-0 left-0 z-40 hidden w-[260px] border-r border-border/55 bg-sidebar-panel lg:block">
+        <SidebarBody admin={admin} logout={logout} />
+      </aside>
 
-        <main className="flex min-w-0 flex-col bg-transparent">
-          <header className="sticky top-0 z-30 flex h-14 items-center gap-3 bg-background/90 px-4 shadow-sm backdrop-blur supports-backdrop-filter:bg-background/70 lg:hidden">
-            <Button
-              aria-label="Open navigation"
-              className="size-9"
-              onClick={() => setNavOpen(true)}
-              size="icon"
-              variant="ghost"
-            >
-              <Menu className="size-5" />
-            </Button>
-            <AppBrand compact />
-            <span className="ml-auto truncate text-xs text-muted-foreground">
-              {currentLink.label}
-            </span>
-          </header>
+      <main className="flex min-w-0 flex-col bg-transparent lg:pl-[260px]">
+        <header className="sticky top-0 z-30 flex h-14 items-center gap-3 bg-background/90 px-4 shadow-sm backdrop-blur supports-backdrop-filter:bg-background/70 lg:hidden">
+          <Button
+            aria-label="Open navigation"
+            className="size-9"
+            onClick={() => setNavOpen(true)}
+            size="icon"
+            variant="ghost"
+          >
+            <Menu className="size-5" />
+          </Button>
+          <AppBrand compact />
+          <span className="ml-auto truncate text-xs text-muted-foreground">
+            {currentLink.label}
+          </span>
+        </header>
 
-          <Outlet />
-        </main>
-      </div>
+        <Outlet />
+      </main>
 
       <Sheet onOpenChange={setNavOpen} open={navOpen}>
         <SheetContent className="w-70 bg-sidebar-panel p-0" side="left">
@@ -103,12 +101,12 @@ function SidebarBody({
   logout,
   onNavigate,
 }: {
-  admin: { username: string };
+  admin: { username: string; role?: string };
   logout: () => Promise<void> | void;
   onNavigate?: () => void;
 }) {
   return (
-    <div className="flex h-full flex-col">
+    <div className="flex h-dvh flex-col">
       <div className="flex h-16 items-center px-5">
         <AppBrand />
       </div>
@@ -128,24 +126,33 @@ function SidebarBody({
         </nav>
       </div>
 
-      <div className="p-3 pt-2">
-        <button
-          className="group flex w-full items-center gap-3 rounded-md px-2 py-2 text-left transition hover:bg-[image:var(--gradient-accent-soft)]"
-          onClick={async () => {
-            onNavigate?.();
-            await logout();
-          }}
-          type="button"
-        >
-          <div className="flex size-9 shrink-0 items-center justify-center rounded-md bg-accent-gradient-soft font-mono text-sm font-semibold text-accent-gradient">
-            {admin.username.slice(0, 1).toUpperCase()}
+      <div className="border-t border-border/55 p-3">
+        <div className="rounded-lg border border-border/60 bg-card p-2 shadow-sm">
+          <div className="flex items-center gap-2.5 px-2 py-1.5">
+            <div className="flex size-8 shrink-0 items-center justify-center rounded-md border border-border/60 bg-muted font-mono text-xs font-semibold text-foreground">
+              {admin.username.slice(0, 1).toUpperCase()}
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="truncate text-sm font-medium text-foreground">{admin.username}</div>
+              <div className="truncate text-[11px] capitalize text-muted-foreground">
+                {admin.role ?? 'admin'}
+              </div>
+            </div>
           </div>
-          <div className="min-w-0 flex-1">
-            <div className="truncate text-sm font-medium text-foreground">{admin.username}</div>
-            <div className="truncate text-[11px] text-muted-foreground">Sign out</div>
-          </div>
-          <LogOut className="size-4 text-muted-foreground transition group-hover:text-foreground" />
-        </button>
+          <Button
+            className="mt-1 h-8 w-full justify-start gap-2 px-2 text-muted-foreground"
+            onClick={async () => {
+              onNavigate?.();
+              await logout();
+            }}
+            size="sm"
+            type="button"
+            variant="ghost"
+          >
+            <LogOut className="size-4" />
+            Sign out
+          </Button>
+        </div>
       </div>
     </div>
   );

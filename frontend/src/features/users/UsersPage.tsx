@@ -278,6 +278,21 @@ export function UsersPage() {
             </div>
             <div className="flex flex-wrap items-center gap-2">
               <Button
+                disabled={busyAction === 'enable'}
+                onClick={() =>
+                  runBulk('enable', (id) =>
+                    apiClient.request(`/users/${id}`, {
+                      body: JSON.stringify({ status: 'active' }),
+                      method: 'PATCH',
+                    }),
+                  )
+                }
+                size="sm"
+                variant="secondary"
+              >
+                Enable
+              </Button>
+              <Button
                 disabled={busyAction === 'disable'}
                 onClick={() =>
                   runBulk('disable', (id) =>

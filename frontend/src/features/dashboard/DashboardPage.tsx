@@ -1,6 +1,6 @@
 import { useMemo, useState, type ComponentType } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Activity, ArrowDown, Ban, Cpu, HardDrive, Radio, Users } from 'lucide-react';
+import { Activity, Ban, Cpu, HardDrive, Radio, Users } from 'lucide-react';
 import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from 'recharts';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from '@/components/ui/chart';
@@ -61,15 +61,22 @@ export function DashboardPage() {
       <PageHeader
         title="Overview"
         action={
-          <Tabs onValueChange={(v) => setDays(v as Range)} value={days}>
-            <TabsList>
-              {ranges.map((r) => (
-                <TabsTrigger key={r} value={r}>
-                  {r}D
-                </TabsTrigger>
+          <>
+            <div className="flex flex-wrap items-center gap-1.5">
+              {kernelRows.map((row) => (
+                <KernelChip key={row.label} label={row.label} value={row.value} />
               ))}
-            </TabsList>
-          </Tabs>
+            </div>
+            <Tabs onValueChange={(v) => setDays(v as Range)} value={days}>
+              <TabsList>
+                {ranges.map((r) => (
+                  <TabsTrigger key={r} value={r}>
+                    {r}D
+                  </TabsTrigger>
+                ))}
+              </TabsList>
+            </Tabs>
+          </>
         }
       />
 
@@ -116,7 +123,7 @@ export function DashboardPage() {
         />
       </div>
 
-      <div className="grid gap-3 px-page pt-4 sm:gap-4 xl:grid-cols-[1.75fr_1fr]">
+      <div className="px-page pt-4">
         <Card>
           <CardHeader>
             <div className="flex items-center justify-between gap-3">
@@ -127,7 +134,7 @@ export function DashboardPage() {
             </div>
           </CardHeader>
           <CardContent>
-            <div className="h-70 sm:h-80">
+            <div className="h-80 sm:h-96 xl:h-[420px]">
               {traffic.isLoading ? (
                 <Skeleton className="h-full w-full" />
               ) : trafficData.length ? (
@@ -175,69 +182,26 @@ export function DashboardPage() {
             </div>
           </CardContent>
         </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Online now</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-1">
-            {overview.isLoading ? (
-              Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-12 w-full" />)
-            ) : data?.online_users?.length ? (
-              data.online_users.map((entry) => (
-                <div
-                  key={`${entry.username}-${entry.recorded_at}`}
-                  className="flex items-center justify-between rounded-md px-2 py-2 transition hover:bg-muted/45"
-                >
-                  <div className="flex min-w-0 items-center gap-2.5">
-                    <span className="size-1.5 rounded-full bg-success animate-pulse-ring" />
-                    <div className="min-w-0">
-                      <div className="truncate text-sm font-medium text-foreground">{entry.username}</div>
-                      <div className="truncate text-[11px] text-muted-foreground">
-                        {formatShortDateTime(entry.recorded_at)}
-                      </div>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-1 font-mono text-xs text-foreground">
-                    <ArrowDown className="size-3 text-foreground" />
-                    {formatBytes(entry.bytes)}
-                  </div>
-                </div>
-              ))
-            ) : (
-              <div className="py-10 text-center text-sm text-muted-foreground">No active sessions.</div>
-            )}
-          </CardContent>
-        </Card>
       </div>
+    </div>
+  );
+}
 
-      <div className="grid gap-3 px-page pt-4 sm:gap-4">
-        <Card>
-          <CardHeader>
-            <CardTitle>Kernels</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-1">
-            {kernelRows.map((row) => {
-              const v = row.value.toLowerCase();
-              const running = v.includes('run') || v.includes('ok') || v.includes('receiv');
-              return (
-                <div className="flex items-center justify-between rounded-md px-2 py-2.5 transition hover:bg-muted/35" key={row.label}>
-                  <div className="flex items-center gap-2.5">
-                    <span
-                      className={cn(
-                        'size-1.5 rounded-full',
-                        running ? 'bg-success animate-pulse-ring' : 'bg-warning',
-                      )}
-                    />
-                    <span className="text-sm text-foreground">{row.label}</span>
-                  </div>
-                  <span className="font-mono text-xs text-muted-foreground">{row.value}</span>
-                </div>
-              );
-            })}
-          </CardContent>
-        </Card>
-      </div>
+function KernelChip({ label, value }: { label: string; value: string }) {
+  const normalized = value.toLowerCase();
+  const running = normalized.includes('run') || normalized.includes('ok') || normalized.includes('receiv');
+  const waiting = normalized.includes('wait') || normalized.includes('unknown');
+
+  return (
+    <div className="inline-flex h-8 max-w-full items-center gap-2 rounded-md border border-border/60 bg-card px-2.5 text-xs shadow-sm">
+      <span
+        className={cn(
+          'size-1.5 shrink-0 rounded-full',
+          running ? 'bg-success animate-pulse-ring' : waiting ? 'bg-muted-foreground/60' : 'bg-warning',
+        )}
+      />
+      <span className="font-medium text-foreground">{label}</span>
+      <span className="max-w-36 truncate font-mono text-[11px] text-muted-foreground">{value}</span>
     </div>
   );
 }
