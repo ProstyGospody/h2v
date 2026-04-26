@@ -32,9 +32,6 @@ export function LoginPage() {
 
   return (
     <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-app-background px-4 py-10 text-foreground">
-      <div aria-hidden className="absolute inset-0 bg-grid opacity-30" />
-      <div aria-hidden className="absolute inset-0 bg-radial-primary" />
-
       <Card className="relative w-full max-w-100">
         <CardContent className="space-y-7 p-7 sm:p-8">
           <div className="flex flex-col items-center gap-3 text-center">

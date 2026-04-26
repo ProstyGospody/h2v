@@ -156,7 +156,6 @@ export function SubPage() {
   return (
     <div className="min-h-screen bg-app-background text-foreground" data-theme={theme}>
       <div className="relative min-h-screen">
-        <div aria-hidden className="absolute inset-0 bg-grid opacity-40" />
         <div className="relative mx-auto w-full max-w-120 space-y-6 px-4 py-10 sm:py-14">
           <header className="space-y-5 text-center">
             <div className="mx-auto flex size-12 items-center justify-center rounded-md bg-accent-gradient-soft text-foreground">

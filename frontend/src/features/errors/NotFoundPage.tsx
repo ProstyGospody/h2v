@@ -6,9 +6,6 @@ import { Card, CardContent } from '@/components/ui/card';
 export function NotFoundPage() {
   return (
     <div className="relative min-h-screen overflow-hidden bg-app-background px-4 py-10 text-foreground">
-      <div aria-hidden className="absolute inset-0 bg-grid opacity-30" />
-      <div aria-hidden className="absolute inset-0 bg-radial-primary" />
-
       <div className="relative mx-auto flex min-h-screen w-full max-w-120 flex-col items-center justify-center">
         <Card className="w-full">
           <CardContent className="space-y-6 p-8 text-center">
