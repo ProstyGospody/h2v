@@ -123,7 +123,7 @@ func Load() Config {
 			TrafficSecret: getenv("HY2_TRAFFIC_SECRET", ""),
 			Domain:        getenv("HY2_DOMAIN", getenv("PANEL_DOMAIN", "panel.example.com")),
 			Port:          getenvInt("HY2_PORT", 8443),
-			ObfsEnabled:   getenvBool("HY2_OBFS_ENABLED", true),
+			ObfsEnabled:   getenvBool("HY2_OBFS_ENABLED", false),
 			ObfsPassword:  getenv("HY2_OBFS_PASSWORD", ""),
 			BandwidthUp:   getenv("HY2_BANDWIDTH_UP", "1 gbps"),
 			BandwidthDown: getenv("HY2_BANDWIDTH_DOWN", "1 gbps"),

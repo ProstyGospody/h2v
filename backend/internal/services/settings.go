@@ -31,13 +31,27 @@ func (s *SettingsService) GetAll(ctx context.Context) (map[string]json.RawMessag
 	}
 	result := make(map[string]json.RawMessage, len(items))
 	for _, item := range items {
+		if isDeprecatedSetting(item.Key) {
+			continue
+		}
 		result[item.Key] = item.Value
 	}
 	return result, nil
 }
 
 func (s *SettingsService) List(ctx context.Context) ([]domain.Setting, error) {
-	return s.repo.ListSettings(ctx)
+	items, err := s.repo.ListSettings(ctx)
+	if err != nil {
+		return nil, err
+	}
+	filtered := items[:0]
+	for _, item := range items {
+		if isDeprecatedSetting(item.Key) {
+			continue
+		}
+		filtered = append(filtered, item)
+	}
+	return filtered, nil
 }
 
 func (s *SettingsService) Update(ctx context.Context, values map[string]json.RawMessage, _ Actor) error {
@@ -79,7 +93,6 @@ func (s *SettingsService) Runtime(ctx context.Context) (RuntimeSettings, error) 
 		runtime.VlessPort = intOr(values, "vless.port", runtime.VlessPort)
 		runtime.Hy2Domain = stringOr(values, "hy2.domain", runtime.Hy2Domain)
 		runtime.Hy2Port = intOr(values, "hy2.port", runtime.Hy2Port)
-		runtime.Hy2ObfsEnabled = boolOr(values, "hy2.obfs_enabled", runtime.Hy2ObfsEnabled)
 		runtime.Hy2BandwidthUp = stringOr(values, "hy2.bandwidth_up", runtime.Hy2BandwidthUp)
 		runtime.Hy2BandwidthDown = stringOr(values, "hy2.bandwidth_down", runtime.Hy2BandwidthDown)
 		runtime.Hy2MasqueradeURL = stringOr(values, "hy2.masquerade_url", runtime.Hy2MasqueradeURL)
@@ -104,6 +117,10 @@ func (s *SettingsService) Runtime(ctx context.Context) (RuntimeSettings, error) 
 	}
 
 	return runtime, nil
+}
+
+func isDeprecatedSetting(key string) bool {
+	return key == "hy2.obfs_enabled"
 }
 
 func DefaultRuntime(cfg config.Config) RuntimeSettings {
