@@ -159,7 +159,7 @@ export function SubPage() {
         <div aria-hidden className="absolute inset-0 bg-grid opacity-40" />
         <div className="relative mx-auto w-full max-w-120 space-y-6 px-4 py-10 sm:py-14">
           <header className="space-y-5 text-center">
-            <div className="mx-auto flex size-12 items-center justify-center rounded-md border border-primary/25 bg-primary/10 text-primary">
+            <div className="mx-auto flex size-12 items-center justify-center rounded-md bg-primary/10 text-primary">
               <ShieldCheck className="size-6" />
             </div>
             <div className="t-hero">MyVPN</div>
@@ -218,7 +218,7 @@ export function SubPage() {
                       </span>
                     </div>
                   </div>
-                  <div className="grid gap-5 border-t border-border pt-5 sm:grid-cols-2">
+                  <div className="grid gap-5 pt-1 sm:grid-cols-2">
                     <div className="space-y-1.5">
                       <div className="t-label">Used</div>
                       <div className="text-xl font-semibold text-foreground">
@@ -252,7 +252,7 @@ export function SubPage() {
             <CardContent className="space-y-2 p-4">
               {clientLinks[os].map((client) => (
                 <a
-                  className="group flex min-h-12 items-center gap-3 rounded-md border border-border bg-surface-elevated px-3 py-3 transition hover:border-primary/30 hover:bg-[hsl(var(--primary)/0.06)]"
+                  className="group flex min-h-12 items-center gap-3 rounded-md bg-surface-elevated px-3 py-3 transition hover:bg-[hsl(var(--primary)/0.06)]"
                   href={client.href}
                   key={client.label}
                   rel="noreferrer"
@@ -266,22 +266,22 @@ export function SubPage() {
             </CardContent>
           </Card>
 
-          <details className="group rounded-lg border border-border bg-surface">
+          <details className="group rounded-lg bg-surface shadow-soft">
             <summary className="flex cursor-pointer list-none items-center justify-between px-5 py-4 text-sm font-medium text-foreground">
               <span>How to connect</span>
               <ChevronRight className="size-4 text-muted-foreground transition group-open:rotate-90" />
             </summary>
-            <div className="space-y-3 border-t border-border px-5 py-5">
+            <div className="space-y-3 bg-muted/20 px-5 py-5">
               {helpSections.map((section) => (
                 <div
-                  className="rounded-md border border-border bg-surface-elevated p-4"
+                  className="rounded-md bg-surface-elevated p-4"
                   key={section.title}
                 >
                   <div className="mb-3 t-label">{section.title}</div>
                   <ol className="space-y-2 text-sm text-muted-foreground">
                     {section.steps.map((step, index) => (
                       <li className="flex gap-3" key={step}>
-                        <span className="mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full border border-border bg-surface font-mono text-[10px] text-muted-foreground">
+                        <span className="mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full bg-surface font-mono text-[10px] text-muted-foreground">
                           {index + 1}
                         </span>
                         <span>{step}</span>
@@ -293,12 +293,12 @@ export function SubPage() {
             </div>
           </details>
 
-          <details className="group rounded-lg border border-border bg-surface">
+          <details className="group rounded-lg bg-surface shadow-soft">
             <summary className="flex cursor-pointer list-none items-center justify-between px-5 py-4 text-sm font-medium text-foreground">
               <span>Advanced - individual keys</span>
               <ChevronRight className="size-4 text-muted-foreground transition group-open:rotate-90" />
             </summary>
-            <div className="space-y-4 border-t border-border px-5 py-5">
+            <div className="space-y-4 bg-muted/20 px-5 py-5">
               {subscription.isLoading ? (
                 <>
                   <Skeleton className="h-32 w-full" />
@@ -313,7 +313,7 @@ export function SubPage() {
                       { label: 'Hysteria 2', value: data?.hysteria2 ?? '' },
                     ].map((item) => (
                       <div
-                        className="space-y-3 rounded-md border border-border bg-surface-elevated p-4"
+                        className="space-y-3 rounded-md bg-surface-elevated p-4"
                         key={item.label}
                       >
                         <div className="t-label">{item.label}</div>

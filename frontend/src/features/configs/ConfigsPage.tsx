@@ -195,11 +195,11 @@ function ConfigCorePanel({ core }: { core: Core }) {
 
   return (
     <>
-      <Card className="min-w-0 overflow-hidden">
-        <CardHeader className="gap-3 border-b bg-muted/30 px-4 py-3 sm:px-5">
+      <Card className="min-w-0 overflow-hidden bg-card/95">
+        <CardHeader className="gap-3 bg-muted/20 px-4 py-3 sm:px-5">
           <div className="flex flex-col gap-3 2xl:flex-row 2xl:items-center 2xl:justify-between">
             <div className="flex min-w-0 items-center gap-3">
-              <span className="flex size-8 shrink-0 items-center justify-center rounded-md bg-primary/12 text-primary ring-1 ring-inset ring-primary/25">
+              <span className="flex size-8 shrink-0 items-center justify-center rounded-md bg-primary/12 text-primary">
                 <Icon className="size-4" />
               </span>
               <div className="min-w-0">
@@ -275,15 +275,15 @@ function ConfigCorePanel({ core }: { core: Core }) {
             </Suspense>
           )}
 
-          <div className="grid border-t lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)]">
-            <section className="space-y-3 border-b p-4 lg:border-b-0 lg:border-r">
+          <div className="grid bg-muted/20 lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)]">
+            <section className="space-y-3 p-4">
               <div className="text-xs font-medium text-foreground">State</div>
               <InfoRow label="Service" value={meta.service} />
               <InfoRow label="JSON" value={jsonState.valid ? 'Valid syntax' : 'Syntax error'} />
               <InfoRow label="Server check" value={validationLabel(validation, validateMutation.isPending)} />
               <InfoRow label="Unsaved" value={dirty ? 'Yes' : 'No'} />
               {!jsonState.valid && !config.isLoading ? (
-                <div className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-destructive">
+                <div className="rounded-md bg-destructive/10 px-3 py-2 text-xs text-destructive">
                   {jsonState.message}
                 </div>
               ) : null}
@@ -466,7 +466,7 @@ function InfoRow({ label, value }: { label: string; value: string }) {
 
 function DiffMetric({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-md border px-3 py-2">
+    <div className="rounded-md bg-muted/65 px-3 py-2">
       <div className="text-[11px] text-muted-foreground">{label}</div>
       <div className="mt-1 font-mono text-sm text-foreground">{value}</div>
     </div>
@@ -475,8 +475,8 @@ function DiffMetric({ label, value }: { label: string; value: string }) {
 
 function DiffPanel({ label, value }: { label: string; value: string }) {
   return (
-    <div className="flex h-[42vh] min-h-0 flex-col overflow-hidden rounded-md border">
-      <div className="border-b px-3 py-2 text-xs font-medium text-muted-foreground">{label}</div>
+    <div className="flex h-[42vh] min-h-0 flex-col overflow-hidden rounded-md bg-muted/60">
+      <div className="bg-background/35 px-3 py-2 text-xs font-medium text-muted-foreground">{label}</div>
       <pre className="min-h-0 flex-1 overflow-auto p-3 font-mono text-xs leading-5">{value}</pre>
     </div>
   );

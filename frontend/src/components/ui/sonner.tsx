@@ -10,7 +10,7 @@ function Toaster(props: ToasterProps) {
       toastOptions={{
         classNames: {
           toast:
-            'group toast rounded-lg border bg-popover px-4 py-3 text-sm text-popover-foreground shadow-overlay',
+            'group toast rounded-lg border border-border/45 bg-popover px-4 py-3 text-sm text-popover-foreground shadow-overlay',
           title: 'text-sm font-medium',
           description: 'text-xs text-muted-foreground',
           actionButton:
@@ -20,7 +20,7 @@ function Toaster(props: ToasterProps) {
           success: 'border-success/35 [&_[data-icon]>svg]:text-success',
           error: 'border-destructive/40 [&_[data-icon]>svg]:text-destructive',
           warning: 'border-warning/35 [&_[data-icon]>svg]:text-warning',
-          info: 'border-border',
+          info: 'border-border/45',
         },
       }}
       {...props}

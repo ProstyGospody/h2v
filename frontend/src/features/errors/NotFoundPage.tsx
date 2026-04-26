@@ -12,7 +12,7 @@ export function NotFoundPage() {
       <div className="relative mx-auto flex min-h-screen w-full max-w-120 flex-col items-center justify-center">
         <Card className="w-full">
           <CardContent className="space-y-6 p-8 text-center">
-            <div className="mx-auto flex size-12 items-center justify-center rounded-md bg-surface-elevated text-muted-foreground ring-1 ring-inset ring-border">
+            <div className="mx-auto flex size-12 items-center justify-center rounded-md bg-surface-elevated text-muted-foreground">
               <Compass className="size-5" />
             </div>
 

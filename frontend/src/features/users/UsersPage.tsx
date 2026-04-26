@@ -36,7 +36,6 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Separator } from '@/components/ui/separator';
 import {
   Sheet,
   SheetContent,
@@ -272,7 +271,7 @@ export function UsersPage() {
         </div>
 
         {selectedIds.length ? (
-          <div className="flex flex-col items-start justify-between gap-3 rounded-lg border border-primary/25 bg-primary/8 px-4 py-3 md:flex-row md:items-center">
+          <div className="flex flex-col items-start justify-between gap-3 rounded-lg bg-primary/10 px-4 py-3 md:flex-row md:items-center">
             <div className="flex items-center gap-2 text-sm">
               <Badge>{selectedIds.length}</Badge>
               <span className="text-muted-foreground">selected</span>
@@ -340,7 +339,7 @@ export function UsersPage() {
           </div>
         ) : null}
 
-        <Card className="overflow-hidden">
+        <Card className="overflow-hidden bg-card/95">
           {users.isLoading ? (
             <CardContent className="space-y-2 p-5">
               {Array.from({ length: 8 }).map((_, i) => (
@@ -600,18 +599,18 @@ export function UsersPage() {
                   </div>
                 </div>
 
-                <div className="divide-y">
-                  <div className="flex items-center justify-between gap-3 py-2.5 text-sm">
+                <div className="space-y-1">
+                  <div className="flex items-center justify-between gap-3 rounded-md px-2 py-2.5 text-sm">
                     <span className="text-muted-foreground">Created</span>
                     <span className="text-right text-foreground">{formatDateTime(drawerUser.created_at)}</span>
                   </div>
-                  <div className="flex items-center justify-between gap-3 py-2.5 text-sm">
+                  <div className="flex items-center justify-between gap-3 rounded-md px-2 py-2.5 text-sm">
                     <span className="text-muted-foreground">Expires</span>
                     <span className="text-right text-foreground">
                       {drawerUser.expires_at ? formatDateTime(drawerUser.expires_at) : 'Never'}
                     </span>
                   </div>
-                  <div className="flex items-center justify-between gap-3 py-2.5 text-sm">
+                  <div className="flex items-center justify-between gap-3 rounded-md px-2 py-2.5 text-sm">
                     <span className="text-muted-foreground">Status</span>
                     <span className="text-right text-foreground">
                       {drawerUser.status === 'active' ? (
@@ -629,8 +628,6 @@ export function UsersPage() {
                     </span>
                   </div>
                 </div>
-
-                <Separator />
 
                 <div className="flex flex-wrap gap-2">
                   <Button onClick={() => setQrUserId(drawerUser.id)} size="sm" variant="secondary">
@@ -878,7 +875,7 @@ function QRDialogContent({
           </div>
         </div>
       ) : (
-        <div className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-6 text-center text-sm text-destructive">
+        <div className="rounded-md bg-destructive/10 px-3 py-6 text-center text-sm text-destructive">
           Unable to load QR data.
         </div>
       )}

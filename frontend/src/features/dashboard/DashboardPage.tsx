@@ -216,12 +216,12 @@ export function DashboardPage() {
           <CardHeader>
             <CardTitle>Kernels</CardTitle>
           </CardHeader>
-          <CardContent className="divide-y divide-border/70">
+          <CardContent className="space-y-1">
             {kernelRows.map((row) => {
               const v = row.value.toLowerCase();
               const running = v.includes('run') || v.includes('ok') || v.includes('receiv');
               return (
-                <div className="flex items-center justify-between py-2.5" key={row.label}>
+                <div className="flex items-center justify-between rounded-md px-2 py-2.5" key={row.label}>
                   <div className="flex items-center gap-2.5">
                     <span
                       className={cn(
@@ -258,19 +258,19 @@ function MetricCard({
   value: string;
 }) {
   const accentClasses = {
-    primary: 'bg-primary/12 text-primary ring-primary/25',
-    success: 'bg-success/12 text-success ring-success/25',
-    muted: 'bg-muted text-muted-foreground ring-border',
+    primary: 'bg-primary/12 text-primary',
+    success: 'bg-success/12 text-success',
+    muted: 'bg-muted text-muted-foreground',
   } as const;
 
   return (
-    <Card className="transition-colors hover:border-border-strong">
+    <Card className="bg-card/95 transition-colors hover:bg-[hsl(var(--surface-elevated))]">
       <CardContent className="flex flex-col gap-3 p-4 sm:p-5">
         <div className="flex items-start justify-between gap-2">
           <span className="t-label">{label}</span>
           <span
             className={cn(
-              'flex size-8 shrink-0 items-center justify-center rounded-md ring-1 ring-inset',
+              'flex size-8 shrink-0 items-center justify-center rounded-md',
               accentClasses[accent],
             )}
           >
