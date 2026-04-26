@@ -240,7 +240,7 @@ export function UsersPage() {
         }
       />
 
-      <div className="space-y-4 px-5 pt-6 sm:px-8">
+      <div className="space-y-4 px-page pt-6">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
           <div className="relative w-full lg:max-w-sm">
             <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
@@ -272,7 +272,7 @@ export function UsersPage() {
         </div>
 
         {selectedIds.length ? (
-          <div className="flex flex-col items-start justify-between gap-3 rounded-lg bg-primary/8 px-4 py-3 md:flex-row md:items-center">
+          <div className="flex flex-col items-start justify-between gap-3 rounded-lg border border-primary/25 bg-primary/8 px-4 py-3 md:flex-row md:items-center">
             <div className="flex items-center gap-2 text-sm">
               <Badge>{selectedIds.length}</Badge>
               <span className="text-muted-foreground">selected</span>

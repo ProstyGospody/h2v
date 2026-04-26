@@ -1,9 +1,10 @@
-import { type ComponentType } from 'react';
-import { Link, Outlet, createRootRoute, createRoute, createRouter } from '@tanstack/react-router';
+import { useState, type ComponentType } from 'react';
+import { Link, Outlet, createRootRoute, createRoute, createRouter, useRouterState } from '@tanstack/react-router';
 import {
   FileCode2,
   LayoutDashboard,
   LogOut,
+  Menu,
   Settings2,
   ShieldCheck,
   Users,
@@ -11,6 +12,7 @@ import {
 import { AppProviders } from '@/app/providers';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
+import { Sheet, SheetContent } from '@/components/ui/sheet';
 import { LoginPage } from '@/features/auth/LoginPage';
 import { useAuth } from '@/features/auth/useAuth';
 import { ConfigsPage } from '@/features/configs/ConfigsPage';
@@ -23,6 +25,17 @@ import { cn } from '@/lib/utils';
 
 type LinkTo = '/' | '/users' | '/settings' | '/configs';
 
+const primaryLinks: Array<{
+  icon: ComponentType<{ className?: string }>;
+  label: string;
+  to: LinkTo;
+}> = [
+  { icon: LayoutDashboard, label: 'Dashboard', to: '/' },
+  { icon: Users, label: 'Users', to: '/users' },
+  { icon: FileCode2, label: 'Configs', to: '/configs' },
+  { icon: Settings2, label: 'Settings', to: '/settings' },
+];
+
 function RootLayout() {
   return (
     <AppProviders>
@@ -33,6 +46,9 @@ function RootLayout() {
 
 function ProtectedShell() {
   const { admin, logout, ready } = useAuth();
+  const [navOpen, setNavOpen] = useState(false);
+  const pathname = useRouterState({ select: (s) => s.location.pathname });
+  const currentLink = primaryLinks.find((link) => link.to === pathname) ?? primaryLinks[0];
 
   if (!ready) {
     return (
@@ -43,78 +59,95 @@ function ProtectedShell() {
   }
   if (!admin) return <LoginPage />;
 
-  const primaryLinks = [
-    { icon: LayoutDashboard, label: 'Dashboard', to: '/' as const },
-    { icon: Users, label: 'Users', to: '/users' as const },
-    { icon: FileCode2, label: 'Configs', to: '/configs' as const },
-    { icon: Settings2, label: 'Settings', to: '/settings' as const },
-  ];
-
   return (
     <div className="min-h-screen bg-background text-foreground">
-      <div className="grid min-h-screen grid-cols-1 lg:grid-cols-[280px_1fr]">
-        <aside className="border-b lg:border-b-0 lg:border-r">
-          <div className="flex h-full flex-col">
-            <div className="flex h-16 items-center px-6">
-              <AppBrand />
-            </div>
-
-            <Separator />
-
-            <div className="flex-1 overflow-y-auto px-4 py-4">
-              <nav className="space-y-1">
-                {primaryLinks.map((link) => (
-                  <SidebarLink key={link.to} icon={link.icon} label={link.label} to={link.to} />
-                ))}
-              </nav>
-            </div>
-
-            <Separator />
-
-            <div className="space-y-1.5 p-4">
-              <button
-                className="group flex w-full items-center gap-3 rounded-md px-3 py-2.5 text-left transition hover:bg-accent"
-                onClick={async () => {
-                  await logout();
-                }}
-                type="button"
-              >
-                <div className="flex size-9 items-center justify-center rounded-md bg-muted font-mono text-sm font-semibold text-primary">
-                  {admin.username.slice(0, 1).toUpperCase()}
-                </div>
-                <div className="min-w-0 flex-1">
-                  <div className="truncate text-base text-foreground">{admin.username}</div>
-                </div>
-                <LogOut className="size-5 text-muted-foreground transition group-hover:text-foreground" />
-              </button>
-            </div>
-          </div>
+      <div className="grid min-h-screen grid-cols-1 lg:grid-cols-[260px_1fr]">
+        <aside className="hidden border-r bg-surface lg:block">
+          <SidebarBody admin={admin} logout={logout} />
         </aside>
 
-        <main className="min-w-0 bg-background">
-          <div className="border-b px-4 py-3 lg:hidden">
-            <div className="flex items-center justify-between gap-3">
-              <AppBrand compact />
-              <Button
-                aria-label="Sign out"
-                onClick={async () => {
-                  await logout();
-                }}
-                size="icon"
-                variant="ghost"
-              >
-                <LogOut />
-              </Button>
-            </div>
-            <div className="mt-3 flex gap-1.5 overflow-x-auto pb-1">
-              {primaryLinks.map((link) => (
-                <PillLink key={link.to} label={link.label} to={link.to} />
-              ))}
-            </div>
-          </div>
+        <main className="flex min-w-0 flex-col bg-background">
+          <header className="sticky top-0 z-30 flex h-14 items-center gap-3 border-b bg-background/85 px-4 backdrop-blur supports-backdrop-filter:bg-background/65 lg:hidden">
+            <Button
+              aria-label="Open navigation"
+              className="size-9"
+              onClick={() => setNavOpen(true)}
+              size="icon"
+              variant="ghost"
+            >
+              <Menu className="size-5" />
+            </Button>
+            <AppBrand compact />
+            <span className="ml-auto truncate text-xs text-muted-foreground">
+              {currentLink.label}
+            </span>
+          </header>
 
           <Outlet />
         </main>
+      </div>
+
+      <Sheet onOpenChange={setNavOpen} open={navOpen}>
+        <SheetContent className="w-70 p-0" side="left">
+          <SidebarBody admin={admin} logout={logout} onNavigate={() => setNavOpen(false)} />
+        </SheetContent>
+      </Sheet>
+    </div>
+  );
+}
+
+function SidebarBody({
+  admin,
+  logout,
+  onNavigate,
+}: {
+  admin: { username: string };
+  logout: () => Promise<void> | void;
+  onNavigate?: () => void;
+}) {
+  return (
+    <div className="flex h-full flex-col">
+      <div className="flex h-16 items-center px-5">
+        <AppBrand />
+      </div>
+
+      <Separator />
+
+      <div className="flex-1 overflow-y-auto px-3 py-4">
+        <div className="px-2 pb-2 t-label">Workspace</div>
+        <nav className="space-y-0.5">
+          {primaryLinks.map((link) => (
+            <SidebarLink
+              icon={link.icon}
+              key={link.to}
+              label={link.label}
+              onClick={onNavigate}
+              to={link.to}
+            />
+          ))}
+        </nav>
+      </div>
+
+      <Separator />
+
+      <div className="p-3">
+        <button
+          className="group flex w-full items-center gap-3 rounded-md px-2 py-2 text-left transition hover:bg-accent"
+          onClick={async () => {
+            onNavigate?.();
+            await logout();
+          }}
+          type="button"
+        >
+          <div className="flex size-9 shrink-0 items-center justify-center rounded-md bg-primary/12 font-mono text-sm font-semibold text-primary ring-1 ring-inset ring-primary/20">
+            {admin.username.slice(0, 1).toUpperCase()}
+          </div>
+          <div className="min-w-0 flex-1">
+            <div className="truncate text-sm font-medium text-foreground">{admin.username}</div>
+            <div className="truncate text-[11px] text-muted-foreground">Sign out</div>
+          </div>
+          <LogOut className="size-4 text-muted-foreground transition group-hover:text-foreground" />
+        </button>
       </div>
     </div>
   );
@@ -123,7 +156,7 @@ function ProtectedShell() {
 function AppBrand({ compact = false }: { compact?: boolean }) {
   return (
     <div className="flex items-center gap-2.5">
-      <div className="flex size-9 items-center justify-center rounded-md bg-primary/12 text-primary">
+      <div className="relative flex size-9 items-center justify-center rounded-md bg-primary/15 text-primary ring-1 ring-inset ring-primary/30">
         <ShieldCheck className="size-5" />
       </div>
       <span
@@ -141,31 +174,29 @@ function AppBrand({ compact = false }: { compact?: boolean }) {
 function SidebarLink({
   icon: Icon,
   label,
+  onClick,
   to,
 }: {
   icon: ComponentType<{ className?: string }>;
   label: string;
+  onClick?: () => void;
   to: LinkTo;
 }) {
   const base =
-    'group flex items-center gap-3 rounded-md px-3 py-2.5 text-base text-muted-foreground transition hover:bg-accent hover:text-foreground';
+    'group relative flex items-center gap-3 rounded-md px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground';
   const active =
-    'group flex items-center gap-3 rounded-md bg-[hsl(var(--primary)/0.08)] px-3 py-2.5 text-base font-medium text-foreground shadow-[inset_2px_0_0_hsl(var(--primary))]';
+    'group relative flex items-center gap-3 rounded-md bg-[hsl(var(--primary)/0.1)] px-3 py-2 text-sm font-medium text-foreground before:absolute before:inset-y-1.5 before:left-0 before:w-0.5 before:rounded-r-full before:bg-primary';
 
   return (
-    <Link activeOptions={{ exact: true }} activeProps={{ className: active }} className={base} to={to}>
-      <Icon className="size-5" />
+    <Link
+      activeOptions={{ exact: true }}
+      activeProps={{ className: active }}
+      className={base}
+      onClick={onClick}
+      to={to}
+    >
+      <Icon className="size-4 shrink-0" />
       <span>{label}</span>
-    </Link>
-  );
-}
-
-function PillLink({ label, to }: { label: string; to: LinkTo }) {
-  const base = 'shrink-0 rounded-md bg-muted px-3 py-1.5 text-xs font-medium text-muted-foreground';
-  const active = 'shrink-0 rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground';
-  return (
-    <Link activeOptions={{ exact: true }} activeProps={{ className: active }} className={base} to={to}>
-      {label}
     </Link>
   );
 }

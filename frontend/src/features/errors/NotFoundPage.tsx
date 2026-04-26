@@ -6,16 +6,13 @@ import { Card, CardContent } from '@/components/ui/card';
 export function NotFoundPage() {
   return (
     <div className="relative min-h-screen overflow-hidden bg-background px-4 py-10 text-foreground">
-      <div aria-hidden className="absolute inset-0 bg-grid opacity-40" />
-      <div
-        aria-hidden
-        className="absolute inset-x-0 top-[-20%] h-[55%] bg-[radial-gradient(ellipse_at_top,hsl(var(--primary)/0.1),transparent_70%)]"
-      />
+      <div aria-hidden className="absolute inset-0 bg-grid opacity-30" />
+      <div aria-hidden className="absolute inset-0 bg-radial-primary" />
 
-      <div className="relative mx-auto flex min-h-screen w-full max-w-[480px] flex-col items-center justify-center">
+      <div className="relative mx-auto flex min-h-screen w-full max-w-120 flex-col items-center justify-center">
         <Card className="w-full">
           <CardContent className="space-y-6 p-8 text-center">
-            <div className="mx-auto flex size-12 items-center justify-center rounded-md border border-border bg-surface-elevated text-muted-foreground">
+            <div className="mx-auto flex size-12 items-center justify-center rounded-md bg-surface-elevated text-muted-foreground ring-1 ring-inset ring-border">
               <Compass className="size-5" />
             </div>
 
@@ -23,7 +20,7 @@ export function NotFoundPage() {
               <div className="font-mono text-xs text-faint">404</div>
               <h1 className="t-h1 text-foreground">Page not found</h1>
               <p className="text-sm text-muted-foreground">
-                The route you tried to reach doesn't exist or was moved. Head back to the
+                The route you tried to reach doesn&apos;t exist or was moved. Head back to the
                 dashboard to continue.
               </p>
             </div>

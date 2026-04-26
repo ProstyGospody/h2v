@@ -6,17 +6,20 @@ function Toaster(props: ToasterProps) {
       theme="dark"
       className="toaster group"
       position="bottom-right"
+      offset={16}
       toastOptions={{
         classNames: {
           toast:
-            'group toast rounded-md border bg-popover px-4 py-3 text-sm text-popover-foreground shadow-[0_16px_48px_-12px_rgba(0,0,0,0.6)]',
+            'group toast rounded-lg border bg-popover px-4 py-3 text-sm text-popover-foreground shadow-overlay',
           title: 'text-sm font-medium',
           description: 'text-xs text-muted-foreground',
-          actionButton: 'rounded-md bg-primary px-2.5 py-1 text-xs font-medium text-primary-foreground',
-          cancelButton: 'rounded-md bg-muted px-2.5 py-1 text-xs font-medium text-muted-foreground',
-          success: 'border-success/30',
-          error: 'border-destructive/35',
-          warning: 'border-warning/30',
+          actionButton:
+            'rounded-md bg-primary px-2.5 py-1 text-xs font-medium text-primary-foreground',
+          cancelButton:
+            'rounded-md bg-muted px-2.5 py-1 text-xs font-medium text-muted-foreground',
+          success: 'border-success/35 [&_[data-icon]>svg]:text-success',
+          error: 'border-destructive/40 [&_[data-icon]>svg]:text-destructive',
+          warning: 'border-warning/35 [&_[data-icon]>svg]:text-warning',
           info: 'border-border',
         },
       }}

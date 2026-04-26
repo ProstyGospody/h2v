@@ -62,7 +62,7 @@ export function ConfigsPage() {
     <div className="pb-10">
       <PageHeader title="Configs" />
 
-      <div className="grid gap-4 px-5 pt-6 sm:px-8 xl:grid-cols-2">
+      <div className="grid gap-4 px-page pt-6 xl:grid-cols-2">
         {cores.map((core) => (
           <ConfigCorePanel core={core} key={core} />
         ))}

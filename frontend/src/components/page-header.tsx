@@ -1,16 +1,33 @@
 import { Separator } from '@/components/ui/separator';
+import { cn } from '@/lib/utils';
 
 interface PageHeaderProps {
   title: string;
+  description?: React.ReactNode;
   action?: React.ReactNode;
+  className?: string;
 }
 
-export function PageHeader({ title, action }: PageHeaderProps) {
+export function PageHeader({ action, className, description, title }: PageHeaderProps) {
   return (
     <>
-      <div className="flex items-center justify-between px-4 py-6">
-        <h1 className="text-2xl font-semibold text-foreground">{title}</h1>
-        {action && <div className="flex items-center gap-2">{action}</div>}
+      <div
+        className={cn(
+          'flex flex-col gap-3 px-page py-5 sm:flex-row sm:items-center sm:justify-between sm:gap-4 sm:py-6',
+          className,
+        )}
+      >
+        <div className="min-w-0 space-y-1">
+          <h1 className="truncate text-xl font-semibold leading-none tracking-tight text-foreground sm:text-2xl">
+            {title}
+          </h1>
+          {description ? (
+            <p className="text-sm text-muted-foreground">{description}</p>
+          ) : null}
+        </div>
+        {action ? (
+          <div className="flex shrink-0 flex-wrap items-center gap-2">{action}</div>
+        ) : null}
       </div>
       <Separator />
     </>

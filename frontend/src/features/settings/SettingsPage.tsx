@@ -87,7 +87,7 @@ export function SettingsPage() {
       />
 
       <Tabs
-        className="gap-6 px-5 pt-6 sm:px-8 lg:grid lg:grid-cols-[200px_1fr] lg:items-start"
+        className="gap-6 px-page pt-6 lg:grid lg:grid-cols-[200px_1fr] lg:items-start"
         onValueChange={(value) => setActiveGroup(value as GroupKey)}
         value={currentGroup?.key ?? activeGroup}
       >

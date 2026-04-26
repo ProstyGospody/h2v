@@ -31,16 +31,22 @@ export function LoginPage() {
   }, [admin, navigate]);
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background px-4 py-10 text-foreground">
-      <Card className="w-full max-w-[380px]">
-        <CardContent className="space-y-7 p-7">
-          <div className="flex items-center justify-center gap-2.5">
-            <div className="flex size-8 items-center justify-center rounded-md bg-primary/12 text-primary">
-              <ShieldCheck className="size-4" />
+    <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-background px-4 py-10 text-foreground">
+      <div aria-hidden className="absolute inset-0 bg-grid opacity-30" />
+      <div aria-hidden className="absolute inset-0 bg-radial-primary" />
+
+      <Card className="relative w-full max-w-100">
+        <CardContent className="space-y-7 p-7 sm:p-8">
+          <div className="flex flex-col items-center gap-3 text-center">
+            <div className="flex size-11 items-center justify-center rounded-md bg-primary/15 text-primary ring-1 ring-inset ring-primary/30">
+              <ShieldCheck className="size-5" />
             </div>
-            <span className="font-serif text-2xl italic leading-none tracking-[-0.02em]">
-              MyPanel
-            </span>
+            <div className="space-y-1">
+              <span className="block font-serif text-2xl italic leading-none tracking-[-0.02em]">
+                MyPanel
+              </span>
+              <p className="text-xs text-muted-foreground">Sign in to your admin account</p>
+            </div>
           </div>
 
           <form
@@ -50,12 +56,12 @@ export function LoginPage() {
               navigate({ to: '/' });
             })}
           >
-            <div className="space-y-2">
+            <div className="space-y-1.5">
               <Label htmlFor="username">Username</Label>
               <Input autoComplete="username" id="username" {...form.register('username')} />
             </div>
 
-            <div className="space-y-2">
+            <div className="space-y-1.5">
               <Label htmlFor="password">Password</Label>
               <div className="relative">
                 <Input
@@ -76,8 +82,8 @@ export function LoginPage() {
               </div>
             </div>
 
-            <Button className="w-full" disabled={form.formState.isSubmitting} type="submit">
-              Sign in
+            <Button className="w-full" disabled={form.formState.isSubmitting} size="lg" type="submit">
+              {form.formState.isSubmitting ? 'Signing in...' : 'Sign in'}
             </Button>
           </form>
         </CardContent>
