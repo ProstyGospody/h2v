@@ -158,6 +158,8 @@ type RuntimeSettings struct {
 	RealityPrivateKey  string
 	RealityServerNames []string
 	RealityShortIDs    []string
+	XrayAPIHost         string
+	XrayAPIPort         int
 	VlessPort          int
 	Hy2Domain          string
 	Hy2Port            int
@@ -166,6 +168,7 @@ type RuntimeSettings struct {
 	Hy2BandwidthUp     string
 	Hy2BandwidthDown   string
 	Hy2MasqueradeURL   string
+	Hy2TrafficListen   string
 	Hy2TrafficSecret   string
 	Hy2CertPath        string
 	Hy2KeyPath         string

@@ -221,6 +221,8 @@ func (r *Repository) ListActiveUsers(ctx context.Context) ([]domain.User, error)
 		       expires_at, status, note, created_at, updated_at
 		FROM users
 		WHERE status = 'active'
+		  AND (expires_at IS NULL OR expires_at >= now())
+		  AND (traffic_limit <= 0 OR traffic_used < traffic_limit)
 	`)
 	if err != nil {
 		return nil, err

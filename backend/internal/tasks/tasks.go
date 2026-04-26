@@ -1,6 +1,8 @@
 package tasks
 
 import (
+	"bytes"
+	"compress/gzip"
 	"context"
 	"fmt"
 	"log/slog"
@@ -9,6 +11,8 @@ import (
 	"path/filepath"
 	"runtime/debug"
 	"sort"
+	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -234,16 +238,43 @@ func (b *Backup) Run(ctx context.Context) error {
 	}
 	filename := fmt.Sprintf("panel-%s.sql.gz", time.Now().UTC().Format("2006-01-02"))
 	path := filepath.Join(b.cfg.Backup.Dir, filename)
-	cmd := exec.CommandContext(ctx, "sh", "-c", fmt.Sprintf("pg_dump -h %s -p %d -U %s %s | gzip > %s",
-		b.cfg.DB.Host,
-		b.cfg.DB.Port,
-		b.cfg.DB.User,
+	tmp, err := os.CreateTemp(b.cfg.Backup.Dir, filename+".*.tmp")
+	if err != nil {
+		return err
+	}
+	tmpName := tmp.Name()
+	defer os.Remove(tmpName)
+
+	gz := gzip.NewWriter(tmp)
+	cmd := exec.CommandContext(ctx, "pg_dump",
+		"-h", b.cfg.DB.Host,
+		"-p", strconv.Itoa(b.cfg.DB.Port),
+		"-U", b.cfg.DB.User,
 		b.cfg.DB.Name,
-		path,
-	))
+	)
 	cmd.Env = append(os.Environ(), "PGPASSWORD="+b.cfg.DB.Password)
-	if out, err := cmd.CombinedOutput(); err != nil {
-		return fmt.Errorf("backup failed: %s", string(out))
+	cmd.Stdout = gz
+	var stderr bytes.Buffer
+	cmd.Stderr = &stderr
+
+	if err := cmd.Run(); err != nil {
+		_ = gz.Close()
+		_ = tmp.Close()
+		msg := strings.TrimSpace(stderr.String())
+		if msg == "" {
+			return fmt.Errorf("backup failed: %w", err)
+		}
+		return fmt.Errorf("backup failed: %s: %w", msg, err)
+	}
+	if err := gz.Close(); err != nil {
+		_ = tmp.Close()
+		return fmt.Errorf("finish gzip backup: %w", err)
+	}
+	if err := tmp.Close(); err != nil {
+		return err
+	}
+	if err := os.Rename(tmpName, path); err != nil {
+		return err
 	}
 	return rotateOldFiles(b.cfg.Backup.Dir, b.cfg.Backup.RetentionDays)
 }

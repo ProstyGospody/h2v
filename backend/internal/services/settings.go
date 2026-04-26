@@ -4,6 +4,10 @@ import (
 	"context"
 	"encoding/json"
 	"log/slog"
+	"net"
+	"net/url"
+	"strconv"
+	"strings"
 
 	"github.com/prost/h2v/backend/internal/config"
 	"github.com/prost/h2v/backend/internal/domain"
@@ -107,6 +111,7 @@ func (s *SettingsService) Runtime(ctx context.Context) (RuntimeSettings, error) 
 }
 
 func DefaultRuntime(cfg config.Config) RuntimeSettings {
+	xrayAPIHost, xrayAPIPort := splitHostPortOrDefault(cfg.Xray.APIAddr, "127.0.0.1", 10085)
 	return RuntimeSettings{
 		PanelDomain:        cfg.Panel.Domain,
 		PanelPort:          cfg.Panel.Port,
@@ -117,6 +122,8 @@ func DefaultRuntime(cfg config.Config) RuntimeSettings {
 		RealityPrivateKey:  cfg.Xray.RealityPrivKey,
 		RealityServerNames: []string{cfg.Xray.RealitySNI},
 		RealityShortIDs:    normalizeShortIDs(cfg.Xray.RealityShortIDs),
+		XrayAPIHost:         xrayAPIHost,
+		XrayAPIPort:         xrayAPIPort,
 		VlessPort:          cfg.Xray.VlessPort,
 		Hy2Domain:          cfg.Hysteria.Domain,
 		Hy2Port:            cfg.Hysteria.Port,
@@ -125,6 +132,7 @@ func DefaultRuntime(cfg config.Config) RuntimeSettings {
 		Hy2BandwidthUp:     cfg.Hysteria.BandwidthUp,
 		Hy2BandwidthDown:   cfg.Hysteria.BandwidthDown,
 		Hy2MasqueradeURL:   cfg.Hysteria.MasqueradeURL,
+		Hy2TrafficListen:   listenAddressFromURL(cfg.Hysteria.TrafficURL, "127.0.0.1:7653"),
 		Hy2TrafficSecret:   cfg.Hysteria.TrafficSecret,
 		Hy2CertPath:        cfg.Hysteria.CertPath,
 		Hy2KeyPath:         cfg.Hysteria.KeyPath,
@@ -194,6 +202,39 @@ func dedupeNonEmpty(values []string) []string {
 		out = append(out, v)
 	}
 	return out
+}
+
+func splitHostPortOrDefault(addr, fallbackHost string, fallbackPort int) (string, int) {
+	addr = strings.TrimSpace(addr)
+	if addr == "" {
+		return fallbackHost, fallbackPort
+	}
+	host, portRaw, err := net.SplitHostPort(addr)
+	if err == nil {
+		port, err := strconv.Atoi(portRaw)
+		if err == nil && port > 0 {
+			if host == "" {
+				host = fallbackHost
+			}
+			return host, port
+		}
+	}
+	if !strings.Contains(addr, ":") {
+		return addr, fallbackPort
+	}
+	return fallbackHost, fallbackPort
+}
+
+func listenAddressFromURL(raw, fallback string) string {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return fallback
+	}
+	parsed, err := url.Parse(raw)
+	if err == nil && parsed.Host != "" {
+		return parsed.Host
+	}
+	return raw
 }
 
 // normalizeShortIDs keeps Reality shortIds valid per Xray docs: empty string

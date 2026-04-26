@@ -7,9 +7,14 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"net"
+	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
+	"strconv"
+	"strings"
 	"sync"
 	"text/template"
 	"time"
@@ -28,6 +33,8 @@ var templateFuncs = template.FuncMap{
 		return string(b), nil
 	},
 }
+
+var bandwidthPattern = regexp.MustCompile(`^\d+(\.\d+)?\s*(bps|kbps|mbps|gbps|tbps)$`)
 
 type ConfigService struct {
 	cfg       config.Config
@@ -183,13 +190,133 @@ func (s *ConfigService) Validate(ctx context.Context, core string, content []byt
 		if err := json.Unmarshal(content, &payload); err != nil {
 			return domain.NewError(400, "invalid_config", "Configuration contains JSON errors", err)
 		}
-		if _, ok := payload["listen"]; !ok {
-			return domain.NewError(400, "invalid_config", "listen is required", nil)
-		}
-		return nil
+		return validateHysteriaPayload(payload)
 	default:
 		return domain.NewError(400, "invalid_core", "Core must be xray or hysteria", nil)
 	}
+}
+
+func validateHysteriaPayload(payload map[string]any) error {
+	listen, ok := stringField(payload, "listen")
+	if !ok || strings.TrimSpace(listen) == "" {
+		return domain.NewError(400, "invalid_config", "listen is required", nil)
+	}
+	if err := validateListenAddress("listen", listen); err != nil {
+		return err
+	}
+
+	tlsConfig, ok := objectField(payload, "tls")
+	if !ok {
+		return domain.NewError(400, "invalid_config", "tls object is required", nil)
+	}
+	if cert, ok := stringField(tlsConfig, "cert"); !ok || strings.TrimSpace(cert) == "" {
+		return domain.NewError(400, "invalid_config", "tls.cert is required", nil)
+	}
+	if key, ok := stringField(tlsConfig, "key"); !ok || strings.TrimSpace(key) == "" {
+		return domain.NewError(400, "invalid_config", "tls.key is required", nil)
+	}
+
+	authConfig, ok := objectField(payload, "auth")
+	if !ok {
+		return domain.NewError(400, "invalid_config", "auth object is required", nil)
+	}
+	authType, _ := stringField(authConfig, "type")
+	if authType != "http" {
+		return domain.NewError(400, "invalid_config", "auth.type must be http", nil)
+	}
+	httpAuth, ok := objectField(authConfig, "http")
+	if !ok {
+		return domain.NewError(400, "invalid_config", "auth.http object is required", nil)
+	}
+	authURL, ok := stringField(httpAuth, "url")
+	if !ok || strings.TrimSpace(authURL) == "" {
+		return domain.NewError(400, "invalid_config", "auth.http.url is required", nil)
+	}
+	parsedAuthURL, err := url.Parse(authURL)
+	if err != nil || parsedAuthURL.Host == "" || (parsedAuthURL.Scheme != "http" && parsedAuthURL.Scheme != "https") {
+		return domain.NewError(400, "invalid_config", "auth.http.url must be an absolute http or https URL", err)
+	}
+
+	bandwidth, ok := objectField(payload, "bandwidth")
+	if !ok {
+		return domain.NewError(400, "invalid_config", "bandwidth object is required", nil)
+	}
+	if err := validateBandwidthField(bandwidth, "up"); err != nil {
+		return err
+	}
+	if err := validateBandwidthField(bandwidth, "down"); err != nil {
+		return err
+	}
+
+	trafficStats, ok := objectField(payload, "trafficStats")
+	if !ok {
+		return domain.NewError(400, "invalid_config", "trafficStats object is required", nil)
+	}
+	trafficListen, ok := stringField(trafficStats, "listen")
+	if !ok || strings.TrimSpace(trafficListen) == "" {
+		return domain.NewError(400, "invalid_config", "trafficStats.listen is required", nil)
+	}
+	if err := validateListenAddress("trafficStats.listen", trafficListen); err != nil {
+		return err
+	}
+
+	if obfs, ok := objectField(payload, "obfs"); ok {
+		obfsType, _ := stringField(obfs, "type")
+		if obfsType != "salamander" {
+			return domain.NewError(400, "invalid_config", "obfs.type must be salamander", nil)
+		}
+		salamander, ok := objectField(obfs, "salamander")
+		if !ok {
+			return domain.NewError(400, "invalid_config", "obfs.salamander object is required", nil)
+		}
+		password, ok := stringField(salamander, "password")
+		if !ok || strings.TrimSpace(password) == "" {
+			return domain.NewError(400, "invalid_config", "obfs.salamander.password is required", nil)
+		}
+	}
+
+	return nil
+}
+
+func objectField(payload map[string]any, key string) (map[string]any, bool) {
+	value, ok := payload[key]
+	if !ok {
+		return nil, false
+	}
+	result, ok := value.(map[string]any)
+	return result, ok
+}
+
+func stringField(payload map[string]any, key string) (string, bool) {
+	value, ok := payload[key]
+	if !ok {
+		return "", false
+	}
+	result, ok := value.(string)
+	return result, ok
+}
+
+func validateBandwidthField(payload map[string]any, key string) error {
+	value, ok := stringField(payload, key)
+	if !ok || strings.TrimSpace(value) == "" {
+		return domain.NewError(400, "invalid_config", "bandwidth."+key+" is required", nil)
+	}
+	if !bandwidthPattern.MatchString(strings.ToLower(strings.TrimSpace(value))) {
+		return domain.NewError(400, "invalid_config", "bandwidth."+key+" must use bps, kbps, mbps, gbps, or tbps", nil)
+	}
+	return nil
+}
+
+func validateListenAddress(field, value string) error {
+	_, portRaw, err := net.SplitHostPort(strings.TrimSpace(value))
+	if err != nil {
+		return domain.NewError(400, "invalid_config", field+" must be host:port or :port", err)
+	}
+	port, err := strconv.Atoi(portRaw)
+	if err != nil || port <= 0 || port > 65535 {
+		return domain.NewError(400, "invalid_config", field+" has invalid port", err)
+	}
+	return nil
 }
 
 func (s *ConfigService) Apply(ctx context.Context, core string, content []byte, actor Actor) error {
