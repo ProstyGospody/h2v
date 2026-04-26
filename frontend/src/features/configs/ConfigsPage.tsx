@@ -222,7 +222,7 @@ function ConfigCorePanel({ core }: { core: Core }) {
             />
           </div>
 
-          <div className="flex flex-wrap items-center gap-2.5 pt-1 sm:gap-3">
+          <div className="flex flex-wrap items-center gap-2.5 py-2 sm:gap-3 sm:py-2.5">
             <Button disabled={config.isFetching} onClick={reloadConfig} size="sm" variant="outline">
               <RefreshCw className={cn(config.isFetching && 'animate-spin')} />
               Reload
