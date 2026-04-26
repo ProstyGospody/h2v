@@ -196,7 +196,7 @@ function ConfigCorePanel({ core }: { core: Core }) {
   return (
     <>
       <Card className="min-w-0 overflow-hidden">
-        <CardHeader className="border-b border-border/55 bg-surface px-4 py-4 sm:px-5">
+        <CardHeader className="border-b border-border/55 bg-surface px-5 py-5 sm:px-6">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
             <div className="flex min-w-0 items-center gap-3">
               <span className="flex size-10 shrink-0 items-center justify-center rounded-md bg-accent-gradient-soft text-foreground">
@@ -222,7 +222,7 @@ function ConfigCorePanel({ core }: { core: Core }) {
             />
           </div>
 
-          <div className="flex flex-wrap items-center gap-1.5 rounded-md border border-border/45 bg-card p-1.5">
+          <div className="flex flex-wrap items-center gap-2.5 pt-1 sm:gap-3">
             <Button disabled={config.isFetching} onClick={reloadConfig} size="sm" variant="outline">
               <RefreshCw className={cn(config.isFetching && 'animate-spin')} />
               Reload
@@ -235,7 +235,7 @@ function ConfigCorePanel({ core }: { core: Core }) {
               <Wand2 />
               Format
             </Button>
-            <div className="ml-auto flex items-center gap-1.5">
+            <div className="ml-auto flex items-center gap-2.5 sm:gap-3">
               <Button disabled={!canValidate} onClick={() => validateMutation.mutate()} size="sm" variant="secondary">
                 <CheckCircle2 />
                 Validate
