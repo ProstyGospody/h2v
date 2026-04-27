@@ -95,6 +95,7 @@ const masqueradePresets: URLPreset[] = [
 
 const vlessPortPresets = [443, 8443, 8444, 2053, 2083];
 const hy2PortPresets = [443, 8443, 8444, 2083, 9443];
+const bandwidthPresets = ['100 mbps', '500 mbps', '1 gbps', '2 gbps', '5 gbps'];
 
 export function SettingsPage() {
   const queryClient = useQueryClient();
@@ -206,21 +207,18 @@ export function SettingsPage() {
                 title="Public endpoints"
               >
                 <TextControl
-                  helper="Host used in generated VLESS links."
                   label="Panel domain"
                   onChange={(value) => setValue('panel.domain', value)}
                   placeholder="panel.example.com"
                   value={values.string('panel.domain')}
                 />
                 <TextControl
-                  helper="Base URL for subscription links returned by backend."
                   label="Subscription URL"
                   onChange={(value) => setValue('subscription.url_prefix', value)}
                   placeholder="https://panel.example.com"
                   value={values.string('subscription.url_prefix')}
                 />
                 <TextControl
-                  helper="Host used in generated Hysteria 2 links."
                   label="Hysteria domain"
                   onChange={(value) => setValue('hy2.domain', value)}
                   placeholder="panel.example.com"
@@ -251,14 +249,12 @@ export function SettingsPage() {
                   value={currentRealityPreset?.label ?? 'Custom'}
                 />
                 <TextControl
-                  helper="Server name sent to clients."
                   label="SNI"
                   onChange={(value) => setValue('reality.sni', value)}
                   placeholder="www.cloudflare.com"
                   value={values.string('reality.sni')}
                 />
                 <TextControl
-                  helper="Reality destination in Xray config."
                   label="Destination"
                   onChange={(value) => setValue('reality.dest', value)}
                   placeholder="www.cloudflare.com:443"
@@ -272,7 +268,6 @@ export function SettingsPage() {
                 title="Keys and short ID"
               >
                 <SecretControl
-                  helper="Private key written into Xray config."
                   label="Private key"
                   generating={generateReality.isPending}
                   onChange={(value) => setValue('reality.private_key', value)}
@@ -281,7 +276,6 @@ export function SettingsPage() {
                   value={values.string('reality.private_key')}
                 />
                 <SecretControl
-                  helper="Public key embedded into user VLESS URLs."
                   label="Public key"
                   generating={generateReality.isPending}
                   onChange={(value) => setValue('reality.public_key', value)}
@@ -290,7 +284,6 @@ export function SettingsPage() {
                   value={values.string('reality.public_key')}
                 />
                 <SecretControl
-                  helper="Primary short ID used in config and subscription URLs."
                   label="Short ID"
                   onChange={(value) => setValue('reality.short_ids', [value])}
                   onGenerate={() => setValue('reality.short_ids', [randomHex(8)])}
@@ -318,24 +311,25 @@ export function SettingsPage() {
                 />
                 <BandwidthControl
                   label="Upload bandwidth"
-                  onChange={(value) => setValue('hy2.bandwidth_up', formatBandwidth(value))}
-                  value={parseBandwidthMbps(values.string('hy2.bandwidth_up'))}
+                  onChange={(value) => setValue('hy2.bandwidth_up', value)}
+                  presets={bandwidthPresets}
+                  value={values.string('hy2.bandwidth_up')}
                 />
                 <BandwidthControl
                   label="Download bandwidth"
-                  onChange={(value) => setValue('hy2.bandwidth_down', formatBandwidth(value))}
-                  value={parseBandwidthMbps(values.string('hy2.bandwidth_down'))}
+                  onChange={(value) => setValue('hy2.bandwidth_down', value)}
+                  presets={bandwidthPresets}
+                  value={values.string('hy2.bandwidth_down')}
                 />
                 <ToggleControl
-                  label="Obfuscation"
-                  offLabel="Off"
+                  label="Hysteria mode"
+                  offLabel="Masquerade"
                   onChange={(value) => setValue('hy2.obfs_enabled', value)}
-                  onLabel="Salamander"
+                  onLabel="Obfs"
                   value={values.bool('hy2.obfs_enabled')}
                 />
                 {values.bool('hy2.obfs_enabled') ? (
                   <SecretControl
-                    helper="Used in Hysteria config and Hysteria user URLs."
                     label="Obfs password"
                     onChange={(value) => setValue('hy2.obfs_password', value)}
                     onGenerate={() => setValue('hy2.obfs_password', randomSecret(24))}
@@ -345,7 +339,7 @@ export function SettingsPage() {
                 ) : (
                   <>
                     <SelectControl
-                      label="Masquerade target"
+                      label="Masquerade"
                       onChange={(value) => {
                         if (value !== 'Custom') setValue('hy2.masquerade_url', value);
                       }}
@@ -356,7 +350,6 @@ export function SettingsPage() {
                       value={currentMasqueradePreset?.value ?? 'Custom'}
                     />
                     <TextControl
-                      helper="Fallback website proxied by Hysteria when obfs is disabled."
                       label="Masquerade URL"
                       onChange={(value) => setValue('hy2.masquerade_url', value)}
                       placeholder="https://www.bing.com"
@@ -365,7 +358,6 @@ export function SettingsPage() {
                   </>
                 )}
                 <SecretControl
-                  helper="Secret for Hysteria traffic stats endpoint."
                   label="Traffic stats secret"
                   onChange={(value) => setValue('hy2.traffic_secret', value)}
                   onGenerate={() => setValue('hy2.traffic_secret', randomSecret(32))}
@@ -411,13 +403,11 @@ function SettingsSection({
 }
 
 function TextControl({
-  helper,
   label,
   onChange,
   placeholder,
   value,
 }: {
-  helper?: string;
   label: string;
   onChange: (value: string) => void;
   placeholder?: string;
@@ -427,14 +417,12 @@ function TextControl({
     <div className="space-y-2">
       <Label>{label}</Label>
       <Input onChange={(event) => onChange(event.target.value)} placeholder={placeholder} value={value} />
-      {helper ? <p className="text-xs text-muted-foreground">{helper}</p> : null}
     </div>
   );
 }
 
 function SecretControl({
   generating,
-  helper,
   label,
   onChange,
   onGenerate,
@@ -442,7 +430,6 @@ function SecretControl({
   value,
 }: {
   generating?: boolean;
-  helper?: string;
   label: string;
   onChange: (value: string) => void;
   onGenerate: () => void;
@@ -472,7 +459,6 @@ function SecretControl({
           <RefreshCw className={cn('size-4', generating && 'animate-spin')} />
         </Button>
       </div>
-      {helper ? <p className="text-xs text-muted-foreground">{helper}</p> : null}
     </div>
   );
 }
@@ -494,19 +480,7 @@ function PortControl({
 }) {
   return (
     <div className="space-y-3">
-      <div className="flex items-center justify-between gap-3">
-        <Label>{label}</Label>
-        <span className="font-mono text-xs text-foreground">{value}</span>
-      </div>
-      <input
-        className="h-2 w-full cursor-pointer accent-primary"
-        max={max}
-        min={min}
-        onChange={(event) => onChange(Number(event.target.value))}
-        step={1}
-        type="range"
-        value={value}
-      />
+      <Label>{label}</Label>
       <div className="flex flex-wrap gap-1.5">
         {presets.map((port) => (
           <Button
@@ -521,6 +495,16 @@ function PortControl({
           </Button>
         ))}
       </div>
+      <Input
+        className="font-mono"
+        inputMode="numeric"
+        max={max}
+        min={min}
+        onChange={(event) => onChange(event.target.value === '' ? 0 : Number(event.target.value))}
+        step={1}
+        type="number"
+        value={Number.isFinite(value) ? String(value) : ''}
+      />
     </div>
   );
 }
@@ -528,41 +512,39 @@ function PortControl({
 function BandwidthControl({
   label,
   onChange,
+  presets,
   value,
 }: {
   label: string;
-  onChange: (value: number) => void;
-  value: number;
+  onChange: (value: string) => void;
+  presets: string[];
+  value: string;
 }) {
+  const normalizedValue = value.trim().toLowerCase();
+
   return (
     <div className="space-y-3">
-      <div className="flex items-center justify-between gap-3">
-        <Label>{label}</Label>
-        <span className="font-mono text-xs text-foreground">{formatBandwidth(value)}</span>
-      </div>
-      <input
-        className="h-2 w-full cursor-pointer accent-primary"
-        max={5000}
-        min={10}
-        onChange={(event) => onChange(Number(event.target.value))}
-        step={10}
-        type="range"
-        value={value}
-      />
+      <Label>{label}</Label>
       <div className="flex flex-wrap gap-1.5">
-        {[100, 500, 1000, 2000, 5000].map((preset) => (
+        {presets.map((preset) => (
           <Button
             className="h-7 px-2.5 text-xs"
             key={preset}
             onClick={() => onChange(preset)}
             size="sm"
             type="button"
-            variant={value === preset ? 'default' : 'secondary'}
+            variant={normalizedValue === preset ? 'default' : 'secondary'}
           >
-            {formatBandwidth(preset)}
+            {preset}
           </Button>
         ))}
       </div>
+      <Input
+        className="font-mono"
+        onChange={(event) => onChange(event.target.value)}
+        placeholder="1 gbps"
+        value={value}
+      />
     </div>
   );
 }
@@ -789,22 +771,6 @@ function findRealityPreset(sni: string, dest: string): RealityPreset | undefined
 
 function findURLPreset(value: string, presets: URLPreset[]): URLPreset | undefined {
   return presets.find((preset) => preset.value === value);
-}
-
-function parseBandwidthMbps(value: string): number {
-  const match = value.trim().toLowerCase().match(/^(\d+(?:\.\d+)?)\s*(g|gbps|m|mbps)$/);
-  if (!match) return 1000;
-  const amount = Number(match[1]);
-  const unit = match[2];
-  const mbps = unit.startsWith('g') ? amount * 1000 : amount;
-  return Math.max(10, Math.min(5000, Math.round(mbps)));
-}
-
-function formatBandwidth(mbps: number): string {
-  if (mbps >= 1000 && mbps % 1000 === 0) {
-    return `${mbps / 1000} gbps`;
-  }
-  return `${mbps} mbps`;
 }
 
 function validPort(value: number): boolean {
