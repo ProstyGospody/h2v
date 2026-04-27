@@ -12,8 +12,6 @@ import {
 import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { CoreLogo, type CoreLogoName } from '@/components/core-logo';
 import {
   Dialog,
   DialogContent,
@@ -23,23 +21,40 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Skeleton } from '@/components/ui/skeleton';
+import { CoreLogo, type CoreLogoName } from '@/components/core-logo';
 import { PageHeader } from '@/components/page-header';
 import { cn } from '@/lib/utils';
 import { apiClient, ApiError } from '@/shared/api/client';
 import { formatBytes } from '@/shared/lib/format';
 
-type ValidationState = 'idle' | 'valid' | 'invalid';
 type Core = 'xray' | 'hysteria';
+type ValidationState = 'idle' | 'valid' | 'invalid';
 
 type ConfigResponse = {
   content: string;
 };
 
+type CoreMeta = {
+  label: string;
+  logo: CoreLogoName;
+  service: string;
+};
+
+type JsonState =
+  | {
+      message?: undefined;
+      valid: true;
+    }
+  | {
+      message: string;
+      valid: false;
+    };
+
 const cores: Core[] = ['xray', 'hysteria'];
 
-const coreMeta: Record<Core, { label: string; logo: CoreLogoName; service: string }> = {
-  xray: { label: 'Xray', logo: 'xray', service: 'xray' },
+const coreMeta: Record<Core, CoreMeta> = {
   hysteria: { label: 'Hysteria 2', logo: 'hysteria', service: 'hysteria' },
+  xray: { label: 'Xray', logo: 'xray', service: 'xray' },
 };
 
 const ConfigEditor = lazy(() =>
@@ -53,20 +68,20 @@ export function ConfigsPage() {
 
       <div className="grid gap-4 px-page pt-6 xl:grid-cols-2">
         {cores.map((core) => (
-          <ConfigCorePanel core={core} key={core} />
+          <ConfigPanel core={core} key={core} />
         ))}
       </div>
     </div>
   );
 }
 
-function ConfigCorePanel({ core }: { core: Core }) {
+function ConfigPanel({ core }: { core: Core }) {
   const queryClient = useQueryClient();
   const meta = coreMeta[core];
 
   const [draft, setDraft] = useState<string | null>(null);
-  const [validation, setValidation] = useState<ValidationState>('idle');
   const [diffOpen, setDiffOpen] = useState(false);
+  const [validation, setValidation] = useState<ValidationState>('idle');
 
   const config = useQuery({
     queryKey: ['configs', core],
@@ -74,10 +89,9 @@ function ConfigCorePanel({ core }: { core: Core }) {
   });
 
   useEffect(() => {
-    if (config.data?.content !== undefined) {
-      setDraft(config.data.content);
-      setValidation('idle');
-    }
+    if (config.data?.content === undefined) return;
+    setDraft(config.data.content);
+    setValidation('idle');
   }, [config.data?.content]);
 
   const original = config.data?.content ?? '';
@@ -87,7 +101,7 @@ function ConfigCorePanel({ core }: { core: Core }) {
   const stats = useMemo(() => contentStats(content), [content]);
   const diffStats = useMemo(() => summarizeDiff(original, content), [original, content]);
 
-  const validateMutation = useMutation({
+  const validate = useMutation({
     mutationFn: () =>
       apiClient.request(`/configs/${core}/validate`, {
         body: JSON.stringify({ content }),
@@ -103,7 +117,7 @@ function ConfigCorePanel({ core }: { core: Core }) {
     },
   });
 
-  const applyMutation = useMutation({
+  const apply = useMutation({
     mutationFn: () =>
       apiClient.request(`/configs/${core}/apply`, {
         body: JSON.stringify({ content }),
@@ -120,15 +134,19 @@ function ConfigCorePanel({ core }: { core: Core }) {
     },
   });
 
-  const canValidate = Boolean(config.data && dirty && jsonState.valid && !validateMutation.isPending);
-  const readyToApply = dirty && validation === 'valid' && jsonState.valid && !applyMutation.isPending;
+  const canValidate = Boolean(config.data && dirty && jsonState.valid && !validate.isPending);
+  const canApply = dirty && validation === 'valid' && jsonState.valid && !apply.isPending;
 
   async function reloadConfig() {
     const result = await config.refetch();
-    if (result.data?.content !== undefined) {
-      setDraft(result.data.content);
-      setValidation('idle');
-    }
+    if (result.data?.content === undefined) return;
+    setDraft(result.data.content);
+    setValidation('idle');
+  }
+
+  function updateDraft(nextValue: string) {
+    setDraft(nextValue);
+    setValidation('idle');
   }
 
   function resetDraft() {
@@ -148,66 +166,76 @@ function ConfigCorePanel({ core }: { core: Core }) {
 
   return (
     <>
-      <Card className="min-w-0 overflow-hidden">
-        <CardHeader className="border-b border-border/55 bg-surface px-5 py-5 sm:px-6">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-            <div className="flex min-w-0 items-center gap-3">
-              <span className="flex size-10 shrink-0 items-center justify-center rounded-md bg-accent-gradient-soft text-foreground">
-                <CoreLogo className="size-5" core={meta.logo} />
-              </span>
-              <div className="min-w-0 space-y-1">
-                <CardTitle className="truncate">{meta.label}</CardTitle>
-                <div className="flex flex-wrap items-center gap-2 font-mono text-[11px] text-muted-foreground">
-                  <span>{meta.service}</span>
-                  <span className="text-muted-foreground/35">/</span>
-                  <span>{stats.lines} lines</span>
-                  <span className="text-muted-foreground/35">/</span>
-                  <span>{formatBytes(stats.bytes)}</span>
+      <section className="min-w-0 overflow-hidden rounded-lg border border-border/65 bg-card shadow-sm">
+        <div className="border-b border-border/55 bg-surface px-4 py-4 sm:px-5">
+          <div className="flex flex-col gap-4">
+            <div className="flex items-start justify-between gap-4">
+              <div className="flex min-w-0 items-center gap-3">
+                <span className="flex size-10 shrink-0 items-center justify-center rounded-md bg-accent-gradient-soft">
+                  <CoreLogo className="size-5" core={meta.logo} />
+                </span>
+                <div className="min-w-0">
+                  <h2 className="truncate text-base font-semibold leading-6 text-foreground">
+                    {meta.label}
+                  </h2>
+                  <div className="mt-0.5 flex flex-wrap items-center gap-2 font-mono text-[11px] text-muted-foreground">
+                    <span>{meta.service}</span>
+                    <span className="text-muted-foreground/35">/</span>
+                    <span>{stats.lines} lines</span>
+                    <span className="text-muted-foreground/35">/</span>
+                    <span>{formatBytes(stats.bytes)}</span>
+                  </div>
                 </div>
               </div>
+              <ConfigStatus
+                dirty={dirty}
+                isChecking={validate.isPending}
+                isLoading={config.isLoading}
+                jsonState={jsonState}
+                validation={validation}
+              />
             </div>
-            <EditorStatus
-              dirty={dirty}
-              isChecking={validateMutation.isPending}
-              isLoading={config.isLoading}
-              jsonState={jsonState}
-              validation={validation}
-            />
-          </div>
 
-          <div className="flex flex-wrap items-center gap-2.5 py-2 sm:gap-3 sm:py-2.5">
-            <Button disabled={config.isFetching} onClick={reloadConfig} size="sm" variant="outline">
-              <RefreshCw className={cn(config.isFetching && 'animate-spin')} />
-              Reload
-            </Button>
-            <Button disabled={!dirty} onClick={resetDraft} size="sm" variant="outline">
-              <RotateCcw />
-              Reset
-            </Button>
-            <Button disabled={!config.data || !jsonState.valid} onClick={formatDraft} size="sm" variant="outline">
-              <Wand2 />
-              Format
-            </Button>
-            <div className="ml-auto flex items-center gap-2.5 sm:gap-3">
-              <Button disabled={!canValidate} onClick={() => validateMutation.mutate()} size="sm" variant="secondary">
-                <CheckCircle2 />
-                Validate
+            <div className="flex flex-wrap items-center gap-2">
+              <Button disabled={config.isFetching} onClick={reloadConfig} size="sm" variant="outline">
+                <RefreshCw className={cn(config.isFetching && 'animate-spin')} />
+                Reload
               </Button>
-              <Button disabled={!readyToApply} onClick={() => setDiffOpen(true)} size="sm">
-                <PlayCircle />
-                Apply
+              <Button disabled={!dirty} onClick={resetDraft} size="sm" variant="outline">
+                <RotateCcw />
+                Reset
               </Button>
+              <Button disabled={!config.data || !jsonState.valid} onClick={formatDraft} size="sm" variant="outline">
+                <Wand2 />
+                Format
+              </Button>
+              <div className="ml-auto flex items-center gap-2">
+                <Button disabled={!canValidate} onClick={() => validate.mutate()} size="sm" variant="secondary">
+                  <CheckCircle2 />
+                  Validate
+                </Button>
+                <Button disabled={!canApply} onClick={() => setDiffOpen(true)} size="sm">
+                  <PlayCircle />
+                  Apply
+                </Button>
+              </div>
             </div>
-          </div>
-        </CardHeader>
 
-        <CardContent className="p-0">
+            {!jsonState.valid && !config.isLoading ? (
+              <div className="rounded-md border border-destructive/25 bg-destructive/10 px-3 py-2 text-xs text-destructive">
+                {jsonState.message}
+              </div>
+            ) : null}
+          </div>
+        </div>
+
+        <div className="p-3 sm:p-4">
           {config.isLoading ? (
-            <Skeleton className="m-3 h-[68vh] min-h-[520px] w-auto sm:m-4 xl:h-[calc(100vh-236px)] xl:min-h-[620px]" />
+            <Skeleton className="h-[68vh] min-h-[520px] w-full xl:h-[calc(100vh-256px)] xl:min-h-[620px]" />
           ) : config.isError ? (
-            <div className="m-3 flex h-[68vh] min-h-[520px] flex-col items-center justify-center gap-3 rounded-md border border-border/65 bg-card px-6 text-center sm:m-4 xl:h-[calc(100vh-236px)] xl:min-h-[620px]">
+            <div className="flex h-[68vh] min-h-[520px] flex-col items-center justify-center gap-3 rounded-md border border-border/65 bg-card px-6 text-center xl:h-[calc(100vh-256px)] xl:min-h-[620px]">
               <XCircle className="size-8 text-destructive" />
-              <div className="text-base font-semibold">Unable to load {meta.label}</div>
+              <div className="text-base font-semibold text-foreground">Unable to load {meta.label}</div>
               <p className="max-w-xl text-sm text-muted-foreground">{errorMessage(config.error)}</p>
               <Button onClick={() => config.refetch()} size="sm" variant="secondary">
                 <RefreshCw />
@@ -215,20 +243,21 @@ function ConfigCorePanel({ core }: { core: Core }) {
               </Button>
             </div>
           ) : (
-            <Suspense fallback={<Skeleton className="m-3 h-[68vh] min-h-[520px] w-auto sm:m-4 xl:h-[calc(100vh-236px)] xl:min-h-[620px]" />}>
+            <Suspense
+              fallback={
+                <Skeleton className="h-[68vh] min-h-[520px] w-full xl:h-[calc(100vh-256px)] xl:min-h-[620px]" />
+              }
+            >
               <ConfigEditor
-                className="m-3 h-[68vh] min-h-[520px] sm:m-4 xl:h-[calc(100vh-236px)] xl:min-h-[620px]"
+                className="h-[68vh] min-h-[520px] xl:h-[calc(100vh-256px)] xl:min-h-[620px]"
                 label={`${meta.label} configuration editor`}
-                onChange={(nextValue) => {
-                  setDraft(nextValue);
-                  setValidation('idle');
-                }}
+                onChange={updateDraft}
                 value={content}
               />
             </Suspense>
           )}
-        </CardContent>
-      </Card>
+        </div>
+      </section>
 
       <Dialog onOpenChange={setDiffOpen} open={diffOpen}>
         <DialogContent className="max-h-[92vh] overflow-hidden sm:max-w-6xl">
@@ -257,7 +286,7 @@ function ConfigCorePanel({ core }: { core: Core }) {
             <Button onClick={() => setDiffOpen(false)} variant="secondary">
               Cancel
             </Button>
-            <Button disabled={applyMutation.isPending} onClick={() => applyMutation.mutate()}>
+            <Button disabled={apply.isPending} onClick={() => apply.mutate()}>
               <PlayCircle />
               Apply
             </Button>
@@ -268,7 +297,7 @@ function ConfigCorePanel({ core }: { core: Core }) {
   );
 }
 
-function EditorStatus({
+function ConfigStatus({
   dirty,
   isChecking,
   isLoading,
@@ -281,9 +310,7 @@ function EditorStatus({
   jsonState: JsonState;
   validation: ValidationState;
 }) {
-  if (isLoading) {
-    return <Badge variant="secondary">Loading</Badge>;
-  }
+  if (isLoading) return <Badge variant="secondary">Loading</Badge>;
   if (isChecking) {
     return (
       <Badge variant="secondary">
@@ -300,9 +327,7 @@ function EditorStatus({
       </Badge>
     );
   }
-  if (!dirty) {
-    return <Badge variant="secondary">No changes</Badge>;
-  }
+  if (!dirty) return <Badge variant="secondary">Synced</Badge>;
   if (validation === 'valid') {
     return (
       <Badge variant="success">
@@ -319,7 +344,7 @@ function EditorStatus({
       </Badge>
     );
   }
-  return <Badge variant="warning">Needs validation</Badge>;
+  return <Badge variant="warning">Modified</Badge>;
 }
 
 function DiffMetric({ label, value }: { label: string; value: string }) {
@@ -339,16 +364,6 @@ function DiffPanel({ label, value }: { label: string; value: string }) {
     </div>
   );
 }
-
-type JsonState =
-  | {
-      message?: undefined;
-      valid: true;
-    }
-  | {
-      message: string;
-      valid: false;
-    };
 
 function inspectJson(value: string): JsonState {
   try {
