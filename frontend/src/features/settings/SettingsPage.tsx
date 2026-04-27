@@ -176,18 +176,29 @@ export function SettingsPage() {
       <PageHeader
         title="Settings"
         action={
-          hasDraft ? (
-            <>
-              <Button disabled={save.isPending} onClick={() => setDraft({})} size="sm" variant="ghost">
-                <RotateCcw />
-                Discard
-              </Button>
-              <Button disabled={save.isPending || hasIssues} onClick={() => save.mutate()} size="sm">
-                <Save />
-                Save
-              </Button>
-            </>
-          ) : null
+          <>
+            <Button
+              aria-label={showSecrets ? 'Hide secrets' : 'Show secrets'}
+              className="size-10"
+              onClick={() => setShowSecrets((value) => !value)}
+              size="icon"
+              type="button"
+            >
+              {showSecrets ? <EyeOff className="size-5" /> : <Eye className="size-5" />}
+            </Button>
+            {hasDraft ? (
+              <>
+                <Button disabled={save.isPending} onClick={() => setDraft({})} size="sm" variant="ghost">
+                  <RotateCcw />
+                  Discard
+                </Button>
+                <Button disabled={save.isPending || hasIssues} onClick={() => save.mutate()} size="sm">
+                  <Save />
+                  Save
+                </Button>
+              </>
+            ) : null}
+          </>
         }
       />
 
@@ -263,17 +274,6 @@ export function SettingsPage() {
               </SettingsSection>
 
               <SettingsSection
-                action={
-                  <Button
-                    aria-label={showSecrets ? 'Hide secrets' : 'Show secrets'}
-                    className="size-8"
-                    onClick={() => setShowSecrets((value) => !value)}
-                    size="icon"
-                    type="button"
-                  >
-                    {showSecrets ? <EyeOff /> : <Eye />}
-                  </Button>
-                }
                 icon={ShieldCheck}
                 kicker="Reality"
                 title="Keys and short ID"
@@ -381,13 +381,11 @@ export function SettingsPage() {
 }
 
 function SettingsSection({
-  action,
   children,
   icon: Icon,
   kicker,
   title,
 }: {
-  action?: ReactNode;
   children: ReactNode;
   icon: ComponentType<{ className?: string }>;
   kicker: string;
@@ -406,7 +404,6 @@ function SettingsSection({
               <h2 className="truncate text-base font-semibold leading-6 text-foreground">{title}</h2>
             </div>
           </div>
-          {action ? <div className="shrink-0">{action}</div> : null}
         </div>
         <div className="space-y-5">{children}</div>
       </CardContent>
