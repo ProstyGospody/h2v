@@ -6,12 +6,9 @@ import {
   EyeOff,
   Globe2,
   KeyRound,
-  Network,
-  Radio,
   RefreshCw,
   RotateCcw,
   Save,
-  ShieldCheck,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
@@ -19,6 +16,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
+import { CoreLogo, type CoreLogoName } from '@/components/core-logo';
 import { PageHeader } from '@/components/page-header';
 import { cn } from '@/lib/utils';
 import { apiClient, ApiError } from '@/shared/api/client';
@@ -212,166 +210,170 @@ export function SettingsPage() {
             {hasIssues ? <SettingsIssues issues={issues} /> : null}
 
             <section className="grid gap-5 xl:grid-cols-2">
-              <SettingsSection
-                icon={Globe2}
-                kicker="Links"
-                title="Public endpoints"
-              >
-                <TextControl
-                  label="Panel domain"
-                  onChange={(value) => setValue('panel.domain', value)}
-                  placeholder="panel.example.com"
-                  value={values.string('panel.domain')}
-                />
-                <TextControl
-                  label="Subscription URL"
-                  onChange={(value) => setValue('subscription.url_prefix', value)}
-                  placeholder="https://panel.example.com"
-                  value={values.string('subscription.url_prefix')}
-                />
-                <TextControl
-                  label="Hysteria domain"
-                  onChange={(value) => setValue('hy2.domain', value)}
-                  placeholder="panel.example.com"
-                  value={values.string('hy2.domain')}
-                />
-              </SettingsSection>
-
-              <SettingsSection
-                icon={Network}
-                kicker="VLESS"
-                title="Reality inbound"
-              >
-                <PortControl
-                  label="VLESS port"
-                  max={65535}
-                  min={1}
-                  onChange={(value) => setValue('vless.port', value)}
-                  presets={vlessPortPresets}
-                  value={values.number('vless.port')}
-                />
-                <SelectControl
-                  label="Reality target"
-                  onChange={(value) => setRealityPreset(value)}
-                  options={[
-                    ...realityPresets.map((item) => ({ label: item.label, value: item.label })),
-                    { label: 'Custom', value: 'Custom' },
-                  ]}
-                  value={currentRealityPreset?.label ?? 'Custom'}
-                />
-                <TextControl
-                  label="SNI"
-                  onChange={(value) => setValue('reality.sni', value)}
-                  placeholder="www.cloudflare.com"
-                  value={values.string('reality.sni')}
-                />
-                <TextControl
-                  label="Destination"
-                  onChange={(value) => setValue('reality.dest', value)}
-                  placeholder="www.cloudflare.com:443"
-                  value={values.string('reality.dest')}
-                />
-              </SettingsSection>
-
-              <SettingsSection
-                icon={ShieldCheck}
-                kicker="Reality"
-                title="Keys and short ID"
-              >
-                <SecretControl
-                  label="Private key"
-                  generating={generateReality.isPending}
-                  onChange={(value) => setValue('reality.private_key', value)}
-                  onGenerate={() => generateReality.mutate()}
-                  reveal={showSecrets}
-                  value={values.string('reality.private_key')}
-                />
-                <SecretControl
-                  label="Public key"
-                  generating={generateReality.isPending}
-                  onChange={(value) => setValue('reality.public_key', value)}
-                  onGenerate={() => generateReality.mutate()}
-                  reveal={showSecrets}
-                  value={values.string('reality.public_key')}
-                />
-                <SecretControl
-                  label="Short ID"
-                  onChange={(value) => setValue('reality.short_ids', [value])}
-                  onGenerate={() => setValue('reality.short_ids', [randomHex(8)])}
-                  reveal
-                  value={firstNonEmpty(values.stringArray('reality.short_ids'))}
-                />
-              </SettingsSection>
-
-              <SettingsSection
-                icon={Radio}
-                kicker="Hysteria 2"
-                title="Transport"
-              >
-                <PortControl
-                  label="Hysteria port"
-                  max={65535}
-                  min={1}
-                  onChange={(value) => setValue('hy2.port', value)}
-                  presets={hy2PortPresets}
-                  value={values.number('hy2.port')}
-                />
-                <BandwidthControl
-                  label="Upload bandwidth"
-                  onChange={(value) => setValue('hy2.bandwidth_up', value)}
-                  presets={bandwidthPresets}
-                  value={values.string('hy2.bandwidth_up')}
-                />
-                <BandwidthControl
-                  label="Download bandwidth"
-                  onChange={(value) => setValue('hy2.bandwidth_down', value)}
-                  presets={bandwidthPresets}
-                  value={values.string('hy2.bandwidth_down')}
-                />
-                <ToggleControl
-                  label="Hysteria mode"
-                  offLabel="Masquerade"
-                  onChange={(value) => setValue('hy2.obfs_enabled', value)}
-                  onLabel="Obfs"
-                  value={values.bool('hy2.obfs_enabled')}
-                />
-                {values.bool('hy2.obfs_enabled') ? (
-                  <SecretControl
-                    label="Obfs password"
-                    onChange={(value) => setValue('hy2.obfs_password', value)}
-                    onGenerate={() => setValue('hy2.obfs_password', randomSecret(24))}
-                    reveal={showSecrets}
-                    value={values.string('hy2.obfs_password')}
+              <div className="space-y-5">
+                <SettingsSection
+                  kicker="VLESS"
+                  logo="xray"
+                  title="Reality inbound"
+                >
+                  <PortControl
+                    label="VLESS port"
+                    max={65535}
+                    min={1}
+                    onChange={(value) => setValue('vless.port', value)}
+                    presets={vlessPortPresets}
+                    value={values.number('vless.port')}
                   />
-                ) : (
-                  <>
-                    <SelectControl
-                      label="Masquerade"
-                      onChange={(value) => {
-                        if (value !== 'Custom') setValue('hy2.masquerade_url', value);
-                      }}
-                      options={[
-                        ...masqueradePresets.map((item) => ({ label: item.label, value: item.value })),
-                        { label: 'Custom', value: 'Custom' },
-                      ]}
-                      value={currentMasqueradePreset?.value ?? 'Custom'}
+                  <SelectControl
+                    label="Reality target"
+                    onChange={(value) => setRealityPreset(value)}
+                    options={[
+                      ...realityPresets.map((item) => ({ label: item.label, value: item.label })),
+                      { label: 'Custom', value: 'Custom' },
+                    ]}
+                    value={currentRealityPreset?.label ?? 'Custom'}
+                  />
+                  <TextControl
+                    label="SNI"
+                    onChange={(value) => setValue('reality.sni', value)}
+                    placeholder="www.cloudflare.com"
+                    value={values.string('reality.sni')}
+                  />
+                  <TextControl
+                    label="Destination"
+                    onChange={(value) => setValue('reality.dest', value)}
+                    placeholder="www.cloudflare.com:443"
+                    value={values.string('reality.dest')}
+                  />
+                </SettingsSection>
+
+                <SettingsSection
+                  kicker="VLESS"
+                  logo="xray"
+                  title="Reality keys"
+                >
+                  <SecretControl
+                    label="Private key"
+                    generating={generateReality.isPending}
+                    onChange={(value) => setValue('reality.private_key', value)}
+                    onGenerate={() => generateReality.mutate()}
+                    reveal={showSecrets}
+                    value={values.string('reality.private_key')}
+                  />
+                  <SecretControl
+                    label="Public key"
+                    generating={generateReality.isPending}
+                    onChange={(value) => setValue('reality.public_key', value)}
+                    onGenerate={() => generateReality.mutate()}
+                    reveal={showSecrets}
+                    value={values.string('reality.public_key')}
+                  />
+                  <SecretControl
+                    label="Short ID"
+                    onChange={(value) => setValue('reality.short_ids', [value])}
+                    onGenerate={() => setValue('reality.short_ids', [randomHex(8)])}
+                    reveal
+                    value={firstNonEmpty(values.stringArray('reality.short_ids'))}
+                  />
+                </SettingsSection>
+              </div>
+
+              <div className="space-y-5">
+                <SettingsSection
+                  kicker="Hysteria 2"
+                  logo="hysteria"
+                  title="Transport"
+                >
+                  <PortControl
+                    label="Hysteria port"
+                    max={65535}
+                    min={1}
+                    onChange={(value) => setValue('hy2.port', value)}
+                    presets={hy2PortPresets}
+                    value={values.number('hy2.port')}
+                  />
+                  <BandwidthControl
+                    label="Upload bandwidth"
+                    onChange={(value) => setValue('hy2.bandwidth_up', value)}
+                    presets={bandwidthPresets}
+                    value={values.string('hy2.bandwidth_up')}
+                  />
+                  <BandwidthControl
+                    label="Download bandwidth"
+                    onChange={(value) => setValue('hy2.bandwidth_down', value)}
+                    presets={bandwidthPresets}
+                    value={values.string('hy2.bandwidth_down')}
+                  />
+                  <ToggleControl
+                    label="Hysteria mode"
+                    offLabel="Masquerade"
+                    onChange={(value) => setValue('hy2.obfs_enabled', value)}
+                    onLabel="Obfs"
+                    value={values.bool('hy2.obfs_enabled')}
+                  />
+                  {values.bool('hy2.obfs_enabled') ? (
+                    <SecretControl
+                      label="Obfs password"
+                      onChange={(value) => setValue('hy2.obfs_password', value)}
+                      onGenerate={() => setValue('hy2.obfs_password', randomSecret(24))}
+                      reveal={showSecrets}
+                      value={values.string('hy2.obfs_password')}
                     />
-                    <TextControl
-                      label="Masquerade URL"
-                      onChange={(value) => setValue('hy2.masquerade_url', value)}
-                      placeholder="https://www.bing.com"
-                      value={values.string('hy2.masquerade_url')}
-                    />
-                  </>
-                )}
-                <SecretControl
-                  label="Traffic stats secret"
-                  onChange={(value) => setValue('hy2.traffic_secret', value)}
-                  onGenerate={() => setValue('hy2.traffic_secret', randomSecret(32))}
-                  reveal={showSecrets}
-                  value={values.string('hy2.traffic_secret')}
-                />
-              </SettingsSection>
+                  ) : (
+                    <>
+                      <SelectControl
+                        label="Masquerade"
+                        onChange={(value) => {
+                          if (value !== 'Custom') setValue('hy2.masquerade_url', value);
+                        }}
+                        options={[
+                          ...masqueradePresets.map((item) => ({ label: item.label, value: item.value })),
+                          { label: 'Custom', value: 'Custom' },
+                        ]}
+                        value={currentMasqueradePreset?.value ?? 'Custom'}
+                      />
+                      <TextControl
+                        label="Masquerade URL"
+                        onChange={(value) => setValue('hy2.masquerade_url', value)}
+                        placeholder="https://www.bing.com"
+                        value={values.string('hy2.masquerade_url')}
+                      />
+                    </>
+                  )}
+                  <SecretControl
+                    label="Traffic stats secret"
+                    onChange={(value) => setValue('hy2.traffic_secret', value)}
+                    onGenerate={() => setValue('hy2.traffic_secret', randomSecret(32))}
+                    reveal={showSecrets}
+                    value={values.string('hy2.traffic_secret')}
+                  />
+                </SettingsSection>
+
+                <SettingsSection
+                  icon={Globe2}
+                  kicker="Links"
+                  title="Public endpoints"
+                >
+                  <TextControl
+                    label="Panel domain"
+                    onChange={(value) => setValue('panel.domain', value)}
+                    placeholder="panel.example.com"
+                    value={values.string('panel.domain')}
+                  />
+                  <TextControl
+                    label="Subscription URL"
+                    onChange={(value) => setValue('subscription.url_prefix', value)}
+                    placeholder="https://panel.example.com"
+                    value={values.string('subscription.url_prefix')}
+                  />
+                  <TextControl
+                    label="Hysteria domain"
+                    onChange={(value) => setValue('hy2.domain', value)}
+                    placeholder="panel.example.com"
+                    value={values.string('hy2.domain')}
+                  />
+                </SettingsSection>
+              </div>
             </section>
           </>
         )}
@@ -384,11 +386,13 @@ function SettingsSection({
   children,
   icon: Icon,
   kicker,
+  logo,
   title,
 }: {
   children: ReactNode;
-  icon: ComponentType<{ className?: string }>;
+  icon?: ComponentType<{ className?: string }>;
   kicker: string;
+  logo?: CoreLogoName;
   title: string;
 }) {
   return (
@@ -397,7 +401,11 @@ function SettingsSection({
         <div className="flex items-start justify-between gap-4">
           <div className="flex min-w-0 items-center gap-3">
             <span className="flex size-9 shrink-0 items-center justify-center rounded-md bg-accent-gradient-soft">
-              <Icon className="size-4" />
+              {logo ? (
+                <CoreLogo className="size-5" core={logo} />
+              ) : Icon ? (
+                <Icon className="size-4" />
+              ) : null}
             </span>
             <div className="min-w-0">
               <div className="t-label">{kicker}</div>

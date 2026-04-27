@@ -38,7 +38,7 @@ export function LoginPage() {
             <div className="flex size-11 items-center justify-center rounded-md bg-accent-gradient-soft text-foreground">
               <ShieldCheck className="size-5" />
             </div>
-            <span className="block font-serif text-2xl italic leading-none tracking-[-0.02em] text-accent-gradient">
+            <span className="block font-serif text-2xl italic leading-none text-accent-gradient">
               h2v
             </span>
           </div>

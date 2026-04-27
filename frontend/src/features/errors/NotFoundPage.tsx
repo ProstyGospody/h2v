@@ -15,7 +15,7 @@ export function NotFoundPage() {
 
             <div className="space-y-2">
               <div className="font-mono text-xs text-faint">404</div>
-              <h1 className="t-h1 text-foreground">Page not found</h1>
+              <h1 className="font-serif text-4xl font-normal italic leading-tight text-white">Page not found</h1>
             </div>
 
             <div className="flex items-center justify-center">

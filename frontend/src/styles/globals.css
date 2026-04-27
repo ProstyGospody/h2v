@@ -50,9 +50,9 @@
   :root {
     color-scheme: dark;
 
-    --font-app-sans: "Geist", "Inter", ui-sans-serif, system-ui, sans-serif;
-    --font-app-serif: "Instrument Serif", ui-serif, Georgia, serif;
-    --font-app-mono: "JetBrains Mono", ui-monospace, "SF Mono", monospace;
+    --font-app-sans: "Geist", sans-serif;
+    --font-app-serif: "Instrument Serif", serif;
+    --font-app-mono: "JetBrains Mono", monospace;
 
     --radius: 0.625rem;
 
@@ -170,8 +170,7 @@
   }
 
   code,
-  pre,
-  .mono {
+  pre {
     font-family: var(--font-app-mono);
     font-feature-settings: "liga" off, "calt" off;
   }
@@ -227,36 +226,20 @@
     color: hsl(var(--muted-foreground));
   }
 
-  .t-h1 {
-    font-family: var(--font-serif);
-    font-size: clamp(28px, 4vw, 36px);
-    font-weight: 400;
-    line-height: 1.1;
-    letter-spacing: -0.015em;
-  }
-
   .t-hero {
     font-family: var(--font-serif);
     font-size: clamp(52px, 10vw, 72px);
     font-style: italic;
     font-weight: 400;
     line-height: 0.95;
-    letter-spacing: -0.02em;
-  }
-
-  .t-display {
-    font-family: var(--font-serif);
-    font-size: clamp(40px, 8vw, 48px);
-    font-weight: 400;
-    line-height: 1.05;
-    letter-spacing: -0.015em;
+    letter-spacing: 0;
   }
 
   .t-metric {
     font-size: 28px;
     font-weight: 600;
     line-height: 1.1;
-    letter-spacing: -0.02em;
+    letter-spacing: 0;
     font-variant-numeric: tabular-nums;
   }
 

@@ -1,6 +1,14 @@
 import { useMemo, useState, type ComponentType } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Activity, Ban, Cpu, HardDrive, Radio, Users } from 'lucide-react';
+import {
+  Activity,
+  ArrowUpDown,
+  Gauge,
+  MemoryStick,
+  UserCheck,
+  UserX,
+  Wifi,
+} from 'lucide-react';
 import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from 'recharts';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from '@/components/ui/chart';
@@ -104,41 +112,41 @@ export function DashboardPage() {
 
       <div className="grid gap-3 px-page pt-6 sm:gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6">
         <MetricCard
-          icon={Users}
+          icon={UserCheck}
           label="Active users"
           loading={overview.isLoading}
           value={formatNumber(data?.active_users ?? 0)}
         />
         <MetricCard
-          icon={Activity}
+          icon={ArrowUpDown}
           label="Today traffic"
           loading={overview.isLoading}
           value={formatBytes(data?.today_traffic ?? 0)}
         />
         <MetricCard
           bar={{ percent: cpuPercent ?? 0, tone: usageTone(cpuPercent) }}
-          icon={Cpu}
+          icon={Gauge}
           label="CPU"
           loading={overview.isLoading}
           value={formatPercent(cpuPercent)}
         />
         <MetricCard
           bar={{ percent: memoryPercent ?? 0, tone: usageTone(memoryPercent) }}
-          icon={HardDrive}
+          icon={MemoryStick}
           label="Memory"
           loading={overview.isLoading}
           value={formatPercent(memoryPercent)}
         />
         <MetricCard
           accent="success"
-          icon={Radio}
+          icon={Wifi}
           label="Online"
           loading={overview.isLoading}
           value={formatNumber(data?.online_users?.length ?? 0)}
         />
         <MetricCard
           accent="muted"
-          icon={Ban}
+          icon={UserX}
           label="Disabled"
           loading={overview.isLoading}
           value={formatNumber(data?.disabled_users ?? 0)}

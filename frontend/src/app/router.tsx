@@ -166,7 +166,7 @@ function AppBrand({ compact = false }: { compact?: boolean }) {
       </div>
       <span
         className={cn(
-          'font-serif italic leading-none tracking-[-0.02em] text-accent-gradient',
+          'font-serif italic leading-none text-accent-gradient',
           compact ? 'text-xl' : 'text-2xl',
         )}
       >
