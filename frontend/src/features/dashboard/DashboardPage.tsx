@@ -10,7 +10,7 @@ import {
   Wifi,
 } from 'lucide-react';
 import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from 'recharts';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from '@/components/ui/chart';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -156,8 +156,7 @@ export function DashboardPage() {
       <div className="px-page pt-4">
         <Card>
           <CardHeader>
-            <div className="flex items-center justify-between gap-3">
-              <CardTitle>Transfer</CardTitle>
+            <div className="flex items-center justify-end gap-3">
               <span className="font-mono text-[11px] uppercase tracking-wider text-muted-foreground">
                 last {days}d
               </span>
