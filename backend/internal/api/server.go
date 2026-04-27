@@ -128,6 +128,7 @@ func (s *Server) routes(r chi.Router) {
 
 		api.Get("/settings", s.handleSettingsList)
 		api.Patch("/settings", s.handleSettingsUpdate)
+		api.Post("/settings/reality-keypair", s.handleSettingsRealityKeyPair)
 
 		api.Get("/stats/overview", s.handleStatsOverview)
 		api.Get("/stats/traffic", s.handleStatsTraffic)
@@ -476,6 +477,15 @@ func (s *Server) handleSettingsUpdate(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	jsonData(w, http.StatusOK, map[string]any{"updated": true}, nil)
+}
+
+func (s *Server) handleSettingsRealityKeyPair(w http.ResponseWriter, _ *http.Request) {
+	keyPair, err := s.services.Settings.GenerateRealityKeyPair()
+	if err != nil {
+		jsonError(w, err)
+		return
+	}
+	jsonData(w, http.StatusOK, keyPair, nil)
 }
 
 func (s *Server) handleStatsOverview(w http.ResponseWriter, r *http.Request) {

@@ -2,6 +2,9 @@ package services
 
 import (
 	"context"
+	"crypto/ecdh"
+	"crypto/rand"
+	"encoding/base64"
 	"encoding/json"
 	"log/slog"
 
@@ -14,6 +17,11 @@ type SettingsService struct {
 	cfg    config.Config
 	repo   *repo.Repository
 	logger *slog.Logger
+}
+
+type RealityKeyPair struct {
+	PrivateKey string `json:"private_key"`
+	PublicKey  string `json:"public_key"`
 }
 
 func NewSettingsService(cfg config.Config, repository *repo.Repository, logger *slog.Logger) *SettingsService {
@@ -47,6 +55,17 @@ func (s *SettingsService) Update(ctx context.Context, values map[string]json.Raw
 	return s.repo.UpsertSettings(ctx, values)
 }
 
+func (s *SettingsService) GenerateRealityKeyPair() (*RealityKeyPair, error) {
+	key, err := ecdh.X25519().GenerateKey(rand.Reader)
+	if err != nil {
+		return nil, err
+	}
+	return &RealityKeyPair{
+		PrivateKey: base64.RawURLEncoding.EncodeToString(key.Bytes()),
+		PublicKey:  base64.RawURLEncoding.EncodeToString(key.PublicKey().Bytes()),
+	}, nil
+}
+
 func (s *SettingsService) validateUpdate(ctx context.Context, values map[string]json.RawMessage) error {
 	runtime := DefaultRuntime(s.cfg)
 	current, err := s.GetAll(ctx)
@@ -74,15 +93,19 @@ func (s *SettingsService) Runtime(ctx context.Context) (RuntimeSettings, error) 
 		runtime.PanelDomain = stringOr(values, "panel.domain", runtime.PanelDomain)
 		runtime.RealitySNI = stringOr(values, "reality.sni", runtime.RealitySNI)
 		runtime.RealityDest = stringOr(values, "reality.dest", runtime.RealityDest)
+		runtime.RealityPrivateKey = stringOr(values, "reality.private_key", runtime.RealityPrivateKey)
 		runtime.RealityPublicKey = stringOr(values, "reality.public_key", runtime.RealityPublicKey)
 		runtime.RealityShortIDs = stringsOr(values, "reality.short_ids", runtime.RealityShortIDs)
 		runtime.VlessPort = intOr(values, "vless.port", runtime.VlessPort)
+		runtime.SubURLPrefix = stringOr(values, "subscription.url_prefix", runtime.SubURLPrefix)
 		runtime.Hy2Domain = stringOr(values, "hy2.domain", runtime.Hy2Domain)
 		runtime.Hy2Port = intOr(values, "hy2.port", runtime.Hy2Port)
 		runtime.Hy2ObfsEnabled = boolOr(values, "hy2.obfs_enabled", runtime.Hy2ObfsEnabled)
+		runtime.Hy2ObfsPassword = stringOr(values, "hy2.obfs_password", runtime.Hy2ObfsPassword)
 		runtime.Hy2BandwidthUp = stringOr(values, "hy2.bandwidth_up", runtime.Hy2BandwidthUp)
 		runtime.Hy2BandwidthDown = stringOr(values, "hy2.bandwidth_down", runtime.Hy2BandwidthDown)
 		runtime.Hy2MasqueradeURL = stringOr(values, "hy2.masquerade_url", runtime.Hy2MasqueradeURL)
+		runtime.Hy2TrafficSecret = stringOr(values, "hy2.traffic_secret", runtime.Hy2TrafficSecret)
 	}
 
 	runtime.RealityServerNames = dedupeNonEmpty(append([]string{runtime.RealitySNI}, runtime.RealityServerNames...))

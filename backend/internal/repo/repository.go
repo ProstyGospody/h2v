@@ -30,18 +30,22 @@ func (r *Repository) Ping(ctx context.Context) error {
 
 func (r *Repository) BootstrapSettings(ctx context.Context, cfg config.Config) error {
 	settings := map[string]json.RawMessage{
-		"panel.domain":       rawJSONString(cfg.Panel.Domain),
-		"reality.sni":        rawJSONString(cfg.Xray.RealitySNI),
-		"reality.dest":       rawJSONString(cfg.Xray.RealityDest),
-		"reality.public_key": rawJSONString(cfg.Xray.RealityPubKey),
-		"reality.short_ids":  rawJSONArray(cfg.Xray.RealityShortIDs),
-		"vless.port":         rawJSONInt(cfg.Xray.VlessPort),
-		"hy2.domain":         rawJSONString(cfg.Hysteria.Domain),
-		"hy2.port":           rawJSONInt(cfg.Hysteria.Port),
-		"hy2.obfs_enabled":   rawJSONBool(cfg.Hysteria.ObfsEnabled),
-		"hy2.bandwidth_up":   rawJSONString(cfg.Hysteria.BandwidthUp),
-		"hy2.bandwidth_down": rawJSONString(cfg.Hysteria.BandwidthDown),
-		"hy2.masquerade_url": rawJSONString(cfg.Hysteria.MasqueradeURL),
+		"panel.domain":            rawJSONString(cfg.Panel.Domain),
+		"subscription.url_prefix": rawJSONString(cfg.Subscription.URLPrefix),
+		"reality.sni":             rawJSONString(cfg.Xray.RealitySNI),
+		"reality.dest":            rawJSONString(cfg.Xray.RealityDest),
+		"reality.private_key":     rawJSONString(cfg.Xray.RealityPrivKey),
+		"reality.public_key":      rawJSONString(cfg.Xray.RealityPubKey),
+		"reality.short_ids":       rawJSONArray(cfg.Xray.RealityShortIDs),
+		"vless.port":              rawJSONInt(cfg.Xray.VlessPort),
+		"hy2.domain":              rawJSONString(cfg.Hysteria.Domain),
+		"hy2.port":                rawJSONInt(cfg.Hysteria.Port),
+		"hy2.obfs_enabled":        rawJSONBool(cfg.Hysteria.ObfsEnabled),
+		"hy2.obfs_password":       rawJSONString(cfg.Hysteria.ObfsPassword),
+		"hy2.bandwidth_up":        rawJSONString(cfg.Hysteria.BandwidthUp),
+		"hy2.bandwidth_down":      rawJSONString(cfg.Hysteria.BandwidthDown),
+		"hy2.masquerade_url":      rawJSONString(cfg.Hysteria.MasqueradeURL),
+		"hy2.traffic_secret":      rawJSONString(cfg.Hysteria.TrafficSecret),
 	}
 	return r.InsertMissingSettings(ctx, settings)
 }
