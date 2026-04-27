@@ -1,11 +1,12 @@
 import { useMemo, useState, type ComponentType } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Activity, Ban, Cpu, HardDrive, Radio, Server, Users } from 'lucide-react';
+import { Activity, Ban, Cpu, HardDrive, Radio, Users } from 'lucide-react';
 import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from 'recharts';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from '@/components/ui/chart';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { CoreLogo, type CoreLogoName } from '@/components/core-logo';
 import { PageHeader } from '@/components/page-header';
 import { cn } from '@/lib/utils';
 import { apiClient } from '@/shared/api/client';
@@ -25,8 +26,9 @@ const trafficChartConfig = {
 type StatusTone = 'ok' | 'warn' | 'idle';
 
 type HeaderStatus = {
-  icon: ComponentType<{ className?: string }>;
+  icon?: ComponentType<{ className?: string }>;
   label: string;
+  logo?: CoreLogoName;
   tone: StatusTone;
   value: string;
 };
@@ -61,14 +63,14 @@ export function DashboardPage() {
   );
   const headerStatuses: HeaderStatus[] = [
     {
-      icon: Server,
       label: 'Xray',
+      logo: 'xray',
       tone: statusTone(data?.xray_status),
       value: statusLabel(data?.xray_status),
     },
     {
-      icon: Radio,
-      label: 'Hysteria',
+      label: 'Hysteria 2',
+      logo: 'hysteria',
       tone: statusTone(data?.hysteria_status),
       value: statusLabel(data?.hysteria_status),
     },
@@ -209,28 +211,22 @@ export function DashboardPage() {
 
 function HeaderStatusStrip({ items }: { items: HeaderStatus[] }) {
   return (
-    <div className="grid w-full grid-cols-3 overflow-hidden rounded-md border border-border/60 bg-card shadow-sm sm:w-auto">
-      {items.map((item, index) => {
+    <div className="flex w-full flex-wrap items-center gap-x-5 gap-y-2 sm:w-auto">
+      {items.map((item) => {
         const Icon = item.icon;
         return (
-          <div
-            className={cn(
-              'flex min-w-0 items-center gap-2 px-2.5 py-2',
-              index > 0 && 'border-l border-border/55',
-            )}
-            key={item.label}
-          >
+          <div className="flex min-w-0 items-center gap-2" key={item.label}>
             <span
               className={cn(
-                'flex size-7 shrink-0 items-center justify-center rounded-md',
-                item.tone === 'ok'
-                  ? 'bg-success/12 text-success'
-                  : item.tone === 'warn'
-                    ? 'bg-warning/12 text-warning'
-                    : 'bg-muted text-muted-foreground',
+                'flex size-5 shrink-0 items-center justify-center',
+                statusIconTone(item.tone),
               )}
             >
-              <Icon className="size-3.5" />
+              {item.logo ? (
+                <CoreLogo className="size-5" core={item.logo} />
+              ) : Icon ? (
+                <Icon className="size-4" />
+              ) : null}
             </span>
             <span className="min-w-0">
               <span className="block truncate text-[10px] font-medium uppercase leading-3 tracking-[0.06em] text-muted-foreground">
@@ -250,6 +246,12 @@ function HeaderStatusStrip({ items }: { items: HeaderStatus[] }) {
 function statusTone(value: string | undefined): StatusTone {
   if (!value) return 'idle';
   return value.toLowerCase().startsWith('fail') ? 'warn' : 'ok';
+}
+
+function statusIconTone(tone: StatusTone): string {
+  if (tone === 'ok') return 'text-success';
+  if (tone === 'warn') return 'text-warning';
+  return 'text-muted-foreground';
 }
 
 function statusLabel(value: string | undefined): string {

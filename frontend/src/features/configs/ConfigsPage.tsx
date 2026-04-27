@@ -2,9 +2,7 @@ import { lazy, Suspense, useEffect, useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   AlertTriangle,
-  Braces,
   CheckCircle2,
-  FileJson2,
   PlayCircle,
   RefreshCw,
   RotateCcw,
@@ -15,6 +13,7 @@ import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { CoreLogo, type CoreLogoName } from '@/components/core-logo';
 import {
   Dialog,
   DialogContent,
@@ -38,9 +37,9 @@ type ConfigResponse = {
 
 const cores: Core[] = ['xray', 'hysteria'];
 
-const coreMeta: Record<Core, { icon: typeof FileJson2; label: string; service: string }> = {
-  xray: { icon: FileJson2, label: 'Xray', service: 'xray' },
-  hysteria: { icon: Braces, label: 'Hysteria 2', service: 'hysteria' },
+const coreMeta: Record<Core, { label: string; logo: CoreLogoName; service: string }> = {
+  xray: { label: 'Xray', logo: 'xray', service: 'xray' },
+  hysteria: { label: 'Hysteria 2', logo: 'hysteria', service: 'hysteria' },
 };
 
 const ConfigEditor = lazy(() =>
@@ -64,7 +63,6 @@ export function ConfigsPage() {
 function ConfigCorePanel({ core }: { core: Core }) {
   const queryClient = useQueryClient();
   const meta = coreMeta[core];
-  const Icon = meta.icon;
 
   const [draft, setDraft] = useState<string | null>(null);
   const [validation, setValidation] = useState<ValidationState>('idle');
@@ -155,7 +153,7 @@ function ConfigCorePanel({ core }: { core: Core }) {
           <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
             <div className="flex min-w-0 items-center gap-3">
               <span className="flex size-10 shrink-0 items-center justify-center rounded-md bg-accent-gradient-soft text-foreground">
-                <Icon className="size-4" />
+                <CoreLogo className="size-5" core={meta.logo} />
               </span>
               <div className="min-w-0 space-y-1">
                 <CardTitle className="truncate">{meta.label}</CardTitle>

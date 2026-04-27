@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Xray">
+  <defs>
+    <linearGradient id="xray-edge" x1="8" x2="56" y1="8" y2="56" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#fff7b8"/>
+      <stop offset=".45" stop-color="#ffffff"/>
+      <stop offset="1" stop-color="#f08a24"/>
+    </linearGradient>
+    <linearGradient id="xray-core" x1="18" x2="46" y1="12" y2="52" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#241010"/>
+      <stop offset=".55" stop-color="#080808"/>
+      <stop offset="1" stop-color="#5a160c"/>
+    </linearGradient>
+  </defs>
+  <path fill="url(#xray-edge)" d="M19.4 7.5h11.1l6.4 13.2 7.1-13.2h11.4L42.9 31.4 55.7 56.5H44.2L36.7 41 28 56.5H16.6l14.2-25.1L19.4 7.5Z"/>
+  <path fill="url(#xray-core)" d="M27.5 14.2h4.7l5 10.7 5.8-10.7h4.8L38.7 31.4l9.1 18.4h-4.9l-6.1-12.5-7 12.5h-4.9l9.9-18.4-7.3-17.2Z"/>
+</svg>
