@@ -6,7 +6,6 @@ import {
   LogOut,
   Menu,
   Settings2,
-  ShieldCheck,
   UserCog,
   Users,
 } from 'lucide-react';
@@ -160,14 +159,11 @@ function SidebarBody({
 
 function AppBrand({ compact = false }: { compact?: boolean }) {
   return (
-    <div className="flex items-center gap-2.5">
-      <div className="relative flex size-9 items-center justify-center rounded-md bg-accent-gradient-soft text-foreground">
-        <ShieldCheck className="size-5" />
-      </div>
+    <div className="flex items-center">
       <span
         className={cn(
           'font-serif italic leading-none text-accent-gradient',
-          compact ? 'text-xl' : 'text-2xl',
+          compact ? 'text-2xl' : 'text-[34px]',
         )}
       >
         h2v

@@ -2,12 +2,12 @@ import { useMemo, useState, type ComponentType } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import {
   Activity,
-  ArrowUpDown,
-  Gauge,
+  ChartNetwork,
+  CircleGauge,
   MemoryStick,
-  UserCheck,
-  UserX,
-  Wifi,
+  UserRoundCheck,
+  UserRoundX,
+  WifiHigh,
 } from 'lucide-react';
 import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from 'recharts';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
@@ -112,20 +112,20 @@ export function DashboardPage() {
 
       <div className="grid gap-3 px-page pt-6 sm:gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6">
         <MetricCard
-          icon={UserCheck}
+          icon={UserRoundCheck}
           label="Active users"
           loading={overview.isLoading}
           value={formatNumber(data?.active_users ?? 0)}
         />
         <MetricCard
-          icon={ArrowUpDown}
+          icon={ChartNetwork}
           label="Today traffic"
           loading={overview.isLoading}
           value={formatBytes(data?.today_traffic ?? 0)}
         />
         <MetricCard
           bar={{ percent: cpuPercent ?? 0, tone: usageTone(cpuPercent) }}
-          icon={Gauge}
+          icon={CircleGauge}
           label="CPU"
           loading={overview.isLoading}
           value={formatPercent(cpuPercent)}
@@ -138,15 +138,13 @@ export function DashboardPage() {
           value={formatPercent(memoryPercent)}
         />
         <MetricCard
-          accent="success"
-          icon={Wifi}
+          icon={WifiHigh}
           label="Online"
           loading={overview.isLoading}
           value={formatNumber(data?.online_users?.length ?? 0)}
         />
         <MetricCard
-          accent="muted"
-          icon={UserX}
+          icon={UserRoundX}
           label="Disabled"
           loading={overview.isLoading}
           value={formatNumber(data?.disabled_users ?? 0)}
@@ -267,26 +265,18 @@ function statusLabel(value: string | undefined): string {
 }
 
 function MetricCard({
-  accent = 'primary',
   bar,
   icon: Icon,
   label,
   loading,
   value,
 }: {
-  accent?: 'primary' | 'success' | 'muted';
   bar?: { percent: number; tone: string };
   icon: ComponentType<{ className?: string }>;
   label: string;
   loading?: boolean;
   value: string;
 }) {
-  const accentClasses = {
-    primary: 'bg-accent-gradient-soft text-foreground',
-    success: 'bg-success/12 text-success',
-    muted: 'bg-muted text-muted-foreground',
-  } as const;
-
   return (
     <Card className="transition-colors hover:bg-[hsl(var(--surface-elevated))]">
       <CardContent className="flex flex-col gap-3 p-4 sm:p-5">
@@ -294,11 +284,10 @@ function MetricCard({
           <span className="t-label">{label}</span>
           <span
             className={cn(
-              'flex size-8 shrink-0 items-center justify-center rounded-md',
-              accentClasses[accent],
+              'flex size-10 shrink-0 items-center justify-center rounded-md bg-muted/65 text-primary',
             )}
           >
-            <Icon className="size-4" />
+            <Icon className="size-5" />
           </span>
         </div>
         {loading ? (
