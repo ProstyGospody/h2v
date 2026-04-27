@@ -16,7 +16,6 @@ import (
 
 	"github.com/prost/h2v/backend/internal/config"
 	"github.com/prost/h2v/backend/internal/domain"
-	"github.com/prost/h2v/backend/internal/repo"
 )
 
 var templateFuncs = template.FuncMap{
@@ -31,7 +30,6 @@ var templateFuncs = template.FuncMap{
 
 type ConfigService struct {
 	cfg       config.Config
-	repo      *repo.Repository
 	settings  *SettingsService
 	systemctl SystemctlAdapter
 	xray      XrayAdapter
@@ -41,10 +39,9 @@ type ConfigService struct {
 	reconcileMu sync.Mutex
 }
 
-func NewConfigService(cfg config.Config, repository *repo.Repository, settings *SettingsService, systemctl SystemctlAdapter, xray XrayAdapter, hysteria HysteriaAdapter, logger *slog.Logger) *ConfigService {
+func NewConfigService(cfg config.Config, settings *SettingsService, systemctl SystemctlAdapter, xray XrayAdapter, hysteria HysteriaAdapter, logger *slog.Logger) *ConfigService {
 	return &ConfigService{
 		cfg:       cfg,
-		repo:      repository,
 		settings:  settings,
 		systemctl: systemctl,
 		xray:      xray,
@@ -90,8 +87,7 @@ func (s *ConfigService) Render(ctx context.Context, core string) ([]byte, error)
 
 // ReconcileXray regenerates the Xray config from the current runtime (which
 // includes the active client list from the database) and restarts the kernel
-// so the new client UUIDs take effect. Unlike Apply, it does not log to config
-// history — this path is for system-driven updates after user changes.
+// so the new client UUIDs take effect.
 func (s *ConfigService) ReconcileXray(ctx context.Context) error {
 	return s.ReconcileCore(ctx, "xray")
 }
@@ -192,7 +188,7 @@ func (s *ConfigService) Validate(ctx context.Context, core string, content []byt
 	}
 }
 
-func (s *ConfigService) Apply(ctx context.Context, core string, content []byte, actor Actor) error {
+func (s *ConfigService) Apply(ctx context.Context, core string, content []byte) error {
 	if err := s.Validate(ctx, core, content); err != nil {
 		return err
 	}
@@ -212,12 +208,6 @@ func (s *ConfigService) Apply(ctx context.Context, core string, content []byte, 
 		return err
 	}
 
-	if s.repo != nil {
-		if err := s.repo.SaveConfigHistory(ctx, core, string(content), actor.AdminID, "manual apply"); err != nil {
-			return err
-		}
-	}
-
 	if err := s.systemctl.Restart(ctx, core); err != nil {
 		_ = restoreFile(bak, path)
 		_ = s.systemctl.Restart(ctx, core)
@@ -230,37 +220,6 @@ func (s *ConfigService) Apply(ctx context.Context, core string, content []byte, 
 	}
 
 	return nil
-}
-
-func (s *ConfigService) History(ctx context.Context, core string) ([]domain.ConfigHistory, error) {
-	if _, err := s.pathForCore(core); err != nil {
-		return nil, err
-	}
-	if s.repo == nil {
-		return []domain.ConfigHistory{}, nil
-	}
-	return s.repo.ListConfigHistory(ctx, core, 20)
-}
-
-func (s *ConfigService) Restore(ctx context.Context, id int64, actor Actor) error {
-	if s.repo == nil {
-		return domain.NewError(500, "repository_unavailable", "Repository is not available", nil)
-	}
-	entry, err := s.repo.GetConfigHistory(ctx, id)
-	if err != nil {
-		return err
-	}
-	return s.Apply(ctx, entry.Core, []byte(entry.Content), actor)
-}
-
-func (s *ConfigService) DeleteHistory(ctx context.Context, core string, id int64) error {
-	if _, err := s.pathForCore(core); err != nil {
-		return err
-	}
-	if s.repo == nil {
-		return domain.NewError(500, "repository_unavailable", "Repository is not available", nil)
-	}
-	return s.repo.DeleteConfigHistory(ctx, core, id)
 }
 
 func (s *ConfigService) waitHealthy(ctx context.Context, core string) error {

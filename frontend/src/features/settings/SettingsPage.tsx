@@ -10,6 +10,7 @@ import { PageHeader } from '@/components/page-header';
 import { cn } from '@/lib/utils';
 import { apiClient } from '@/shared/api/client';
 import { Setting } from '@/shared/api/types';
+import { formatDate } from '@/shared/lib/format';
 
 type GroupKey = 'protocols' | 'domains' | 'security' | 'misc';
 
@@ -128,7 +129,7 @@ export function SettingsPage() {
                               </div>
                             </div>
                             <div className="shrink-0 font-mono text-[10px] text-muted-foreground">
-                              {new Date(setting.updated_at).toLocaleDateString()}
+                              {formatDate(setting.updated_at)}
                             </div>
                           </div>
                           <Textarea

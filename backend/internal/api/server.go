@@ -125,9 +125,6 @@ func (s *Server) routes(r chi.Router) {
 		api.Get("/configs/{core}", s.handleConfigGet)
 		api.Post("/configs/{core}/validate", s.handleConfigValidate)
 		api.Post("/configs/{core}/apply", s.handleConfigApply)
-		api.Get("/configs/{core}/history", s.handleConfigHistory)
-		api.Delete("/configs/{core}/history/{historyID}", s.handleConfigHistoryDelete)
-		api.Post("/configs/{core}/restore/{historyID}", s.handleConfigRestore)
 
 		api.Get("/settings", s.handleSettingsList)
 		api.Patch("/settings", s.handleSettingsUpdate)
@@ -440,46 +437,11 @@ func (s *Server) handleConfigApply(w http.ResponseWriter, r *http.Request) {
 		jsonError(w, domain.NewError(400, "invalid_request", "Invalid request body", err))
 		return
 	}
-	if err := s.services.Configs.Apply(r.Context(), chi.URLParam(r, "core"), []byte(req.Content), actorFromRequest(r)); err != nil {
+	if err := s.services.Configs.Apply(r.Context(), chi.URLParam(r, "core"), []byte(req.Content)); err != nil {
 		jsonError(w, err)
 		return
 	}
 	jsonData(w, http.StatusOK, map[string]any{"applied": true}, nil)
-}
-
-func (s *Server) handleConfigHistory(w http.ResponseWriter, r *http.Request) {
-	items, err := s.services.Configs.History(r.Context(), chi.URLParam(r, "core"))
-	if err != nil {
-		jsonError(w, err)
-		return
-	}
-	jsonData(w, http.StatusOK, items, nil)
-}
-
-func (s *Server) handleConfigRestore(w http.ResponseWriter, r *http.Request) {
-	historyID, err := strconv.ParseInt(chi.URLParam(r, "historyID"), 10, 64)
-	if err != nil {
-		jsonError(w, domain.NewError(400, "invalid_history_id", "Invalid history id", err))
-		return
-	}
-	if err := s.services.Configs.Restore(r.Context(), historyID, actorFromRequest(r)); err != nil {
-		jsonError(w, err)
-		return
-	}
-	jsonData(w, http.StatusOK, map[string]any{"restored": true}, nil)
-}
-
-func (s *Server) handleConfigHistoryDelete(w http.ResponseWriter, r *http.Request) {
-	historyID, err := strconv.ParseInt(chi.URLParam(r, "historyID"), 10, 64)
-	if err != nil {
-		jsonError(w, domain.NewError(400, "invalid_history_id", "Invalid history id", err))
-		return
-	}
-	if err := s.services.Configs.DeleteHistory(r.Context(), chi.URLParam(r, "core"), historyID); err != nil {
-		jsonError(w, err)
-		return
-	}
-	jsonData(w, http.StatusOK, map[string]any{"deleted": true}, nil)
 }
 
 func (s *Server) handleSettingsList(w http.ResponseWriter, r *http.Request) {
@@ -857,17 +819,6 @@ func setRefreshCookie(w http.ResponseWriter, cfg config.Config, value string) {
 		SameSite: http.SameSiteStrictMode,
 		MaxAge:   int(cfg.Panel.JWTRefreshTTL.Seconds()),
 	})
-}
-
-func actorFromRequest(r *http.Request) services.Actor {
-	actor := services.Actor{}
-	claims, _ := r.Context().Value(claimsContextKey).(*domain.Claims)
-	if claims != nil && claims.AdminID != "" {
-		if id, err := uuid.Parse(claims.AdminID); err == nil {
-			actor.AdminID = &id
-		}
-	}
-	return actor
 }
 
 func intQuery(r *http.Request, key string, fallback int) int {

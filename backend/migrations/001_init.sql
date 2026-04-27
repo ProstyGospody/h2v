@@ -46,18 +46,7 @@ CREATE TABLE IF NOT EXISTS settings (
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-CREATE TABLE IF NOT EXISTS config_history (
-    id BIGSERIAL PRIMARY KEY,
-    core TEXT NOT NULL,
-    content TEXT NOT NULL,
-    applied_by UUID REFERENCES admins(id),
-    applied_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-    note TEXT NOT NULL DEFAULT ''
-);
-CREATE INDEX IF NOT EXISTS idx_config_history_core_time ON config_history(core, applied_at DESC);
-
 -- +goose Down
-DROP TABLE IF EXISTS config_history;
 DROP TABLE IF EXISTS settings;
 DROP TABLE IF EXISTS admins;
 DROP TABLE IF EXISTS traffic_log;

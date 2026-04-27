@@ -5,8 +5,6 @@ import (
 	"log/slog"
 	"time"
 
-	"github.com/google/uuid"
-
 	"github.com/prost/h2v/backend/internal/config"
 	"github.com/prost/h2v/backend/internal/domain"
 	"github.com/prost/h2v/backend/internal/repo"
@@ -67,10 +65,6 @@ type UpdateAdminRequest struct {
 	Password string
 }
 
-type Actor struct {
-	AdminID *uuid.UUID
-}
-
 type ServiceDeps struct {
 	Config    config.Config
 	Repo      *repo.Repository
@@ -95,7 +89,7 @@ type SubscriptionCache interface {
 func New(deps ServiceDeps) *Services {
 	settings := NewSettingsService(deps.Config, deps.Repo, deps.Logger)
 	subscription := NewSubscriptionService(deps.Repo, settings, deps.Cache)
-	configs := NewConfigService(deps.Config, deps.Repo, settings, deps.Systemctl, deps.Xray, deps.Hysteria, deps.Logger)
+	configs := NewConfigService(deps.Config, settings, deps.Systemctl, deps.Xray, deps.Hysteria, deps.Logger)
 
 	return &Services{
 		Auth:         NewAuthService(deps.Config, deps.Repo, deps.Logger),

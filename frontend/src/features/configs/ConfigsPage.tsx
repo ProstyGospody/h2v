@@ -4,14 +4,10 @@ import {
   AlertTriangle,
   Braces,
   CheckCircle2,
-  FileClock,
-  FileCode2,
   FileJson2,
   PlayCircle,
   RefreshCw,
   RotateCcw,
-  Trash2,
-  Undo2,
   Wand2,
   XCircle,
 } from 'lucide-react';
@@ -31,19 +27,13 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { PageHeader } from '@/components/page-header';
 import { cn } from '@/lib/utils';
 import { apiClient, ApiError } from '@/shared/api/client';
-import { formatBytes, formatShortDateTime } from '@/shared/lib/format';
+import { formatBytes } from '@/shared/lib/format';
 
 type ValidationState = 'idle' | 'valid' | 'invalid';
 type Core = 'xray' | 'hysteria';
 
 type ConfigResponse = {
   content: string;
-};
-
-type ConfigHistoryEntry = {
-  applied_at: string;
-  id: number;
-  note: string;
 };
 
 const cores: Core[] = ['xray', 'hysteria'];
@@ -60,7 +50,7 @@ const ConfigEditor = lazy(() =>
 export function ConfigsPage() {
   return (
     <div className="pb-10">
-      <PageHeader action={<Badge variant="outline">2 cores</Badge>} title="Configs" />
+      <PageHeader title="Configs" />
 
       <div className="grid gap-4 px-page pt-6 xl:grid-cols-2">
         {cores.map((core) => (
@@ -83,11 +73,6 @@ function ConfigCorePanel({ core }: { core: Core }) {
   const config = useQuery({
     queryKey: ['configs', core],
     queryFn: () => apiClient.request<ConfigResponse>(`/configs/${core}`),
-  });
-
-  const history = useQuery({
-    queryKey: ['configs', core, 'history'],
-    queryFn: () => apiClient.request<ConfigHistoryEntry[]>(`/configs/${core}/history`),
   });
 
   useEffect(() => {
@@ -133,37 +118,7 @@ function ConfigCorePanel({ core }: { core: Core }) {
       toast.success(`${meta.label} configuration applied`);
       setDiffOpen(false);
       setValidation('idle');
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ['configs', core] }),
-        queryClient.invalidateQueries({ queryKey: ['configs', core, 'history'] }),
-      ]);
-    },
-  });
-
-  const restoreMutation = useMutation({
-    mutationFn: (id: number) => apiClient.request(`/configs/${core}/restore/${id}`, { method: 'POST' }),
-    onError: (error) => {
-      toast.error(error instanceof ApiError ? error.message : `Unable to restore ${meta.label} version`);
-    },
-    onSuccess: async () => {
-      toast.success(`${meta.label} previous version restored`);
-      setDiffOpen(false);
-      setValidation('idle');
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ['configs', core] }),
-        queryClient.invalidateQueries({ queryKey: ['configs', core, 'history'] }),
-      ]);
-    },
-  });
-
-  const deleteHistoryMutation = useMutation({
-    mutationFn: (id: number) => apiClient.request(`/configs/${core}/history/${id}`, { method: 'DELETE' }),
-    onError: (error) => {
-      toast.error(error instanceof ApiError ? error.message : `Unable to delete ${meta.label} history entry`);
-    },
-    onSuccess: async () => {
-      toast.success(`${meta.label} history entry deleted`);
-      await queryClient.invalidateQueries({ queryKey: ['configs', core, 'history'] });
+      await queryClient.invalidateQueries({ queryKey: ['configs', core] });
     },
   });
 
@@ -248,11 +203,11 @@ function ConfigCorePanel({ core }: { core: Core }) {
           </div>
         </CardHeader>
 
-        <CardContent className="flex min-h-[calc(100vh-178px)] flex-col p-0">
+        <CardContent className="p-0">
           {config.isLoading ? (
-            <Skeleton className="m-3 h-[58vh] min-h-[420px] w-auto sm:m-4" />
+            <Skeleton className="m-3 h-[68vh] min-h-[520px] w-auto sm:m-4 xl:h-[calc(100vh-236px)] xl:min-h-[620px]" />
           ) : config.isError ? (
-            <div className="m-3 flex h-[58vh] min-h-[420px] flex-col items-center justify-center gap-3 rounded-md border border-border/65 bg-card px-6 text-center sm:m-4">
+            <div className="m-3 flex h-[68vh] min-h-[520px] flex-col items-center justify-center gap-3 rounded-md border border-border/65 bg-card px-6 text-center sm:m-4 xl:h-[calc(100vh-236px)] xl:min-h-[620px]">
               <XCircle className="size-8 text-destructive" />
               <div className="text-base font-semibold">Unable to load {meta.label}</div>
               <p className="max-w-xl text-sm text-muted-foreground">{errorMessage(config.error)}</p>
@@ -262,9 +217,9 @@ function ConfigCorePanel({ core }: { core: Core }) {
               </Button>
             </div>
           ) : (
-            <Suspense fallback={<Skeleton className="m-3 h-[58vh] min-h-[420px] w-auto sm:m-4" />}>
+            <Suspense fallback={<Skeleton className="m-3 h-[68vh] min-h-[520px] w-auto sm:m-4 xl:h-[calc(100vh-236px)] xl:min-h-[620px]" />}>
               <ConfigEditor
-                className="m-3 h-[58vh] min-h-[420px] sm:m-4"
+                className="m-3 h-[68vh] min-h-[520px] sm:m-4 xl:h-[calc(100vh-236px)] xl:min-h-[620px]"
                 label={`${meta.label} configuration editor`}
                 onChange={(nextValue) => {
                   setDraft(nextValue);
@@ -274,65 +229,6 @@ function ConfigCorePanel({ core }: { core: Core }) {
               />
             </Suspense>
           )}
-
-          <div className="grid border-t border-border/55 bg-surface/70 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
-            <section className="space-y-3 border-b border-border/45 p-4 lg:border-b-0 lg:border-r">
-              <div className="flex items-center justify-between gap-3">
-                <div className="flex items-center gap-2 text-xs font-medium text-foreground">
-                  <FileCode2 className="size-3.5 text-muted-foreground" />
-                  Review
-                </div>
-                <Badge variant={dirty ? 'warning' : 'secondary'}>{dirty ? 'Modified' : 'Synced'}</Badge>
-              </div>
-              <div className="grid grid-cols-3 gap-2">
-                <ConfigMetric label="Current" value={`${diffStats.currentLines}`} />
-                <ConfigMetric label="New" value={`${diffStats.nextLines}`} />
-                <ConfigMetric label="Changed" value={`${diffStats.changed}`} />
-              </div>
-              <InfoRow label="Syntax" value={jsonState.valid ? 'Valid JSON' : 'JSON error'} />
-              <InfoRow label="Server check" value={validationLabel(validation, validateMutation.isPending)} />
-              <InfoRow label="Apply" value={readyToApply ? 'Ready' : 'Locked'} />
-              {!jsonState.valid && !config.isLoading ? (
-                <div className="rounded-md border border-destructive/25 bg-destructive/10 px-3 py-2 text-xs text-destructive">
-                  {jsonState.message}
-                </div>
-              ) : null}
-            </section>
-
-            <section className="min-w-0 p-4">
-              <div className="mb-3 flex items-center justify-between gap-3">
-                <div className="flex items-center gap-2 text-xs font-medium text-foreground">
-                  <FileClock className="size-3.5 text-muted-foreground" />
-                  History
-                </div>
-                <span className="font-mono text-[11px] text-muted-foreground">
-                  {history.data?.length ?? 0}
-                </span>
-              </div>
-              <div className="max-h-64 space-y-1 overflow-auto pr-1">
-                {history.isLoading ? (
-                  Array.from({ length: 3 }).map((_, index) => <Skeleton className="h-12 w-full" key={index} />)
-                ) : history.isError ? (
-                  <div className="px-3 py-6 text-center text-xs text-destructive">Failed to load history</div>
-                ) : history.data?.length ? (
-                  history.data.map((entry) => (
-                    <HistoryItem
-                      deleteDisabled={
-                        deleteHistoryMutation.isPending && deleteHistoryMutation.variables === entry.id
-                      }
-                      entry={entry}
-                      key={entry.id}
-                      onDelete={() => deleteHistoryMutation.mutate(entry.id)}
-                      onRestore={() => restoreMutation.mutate(entry.id)}
-                      restoreDisabled={restoreMutation.isPending && restoreMutation.variables === entry.id}
-                    />
-                  ))
-                ) : (
-                  <div className="px-3 py-6 text-center text-xs text-muted-foreground">No applied versions yet.</div>
-                )}
-              </div>
-            </section>
-          </div>
         </CardContent>
       </Card>
 
@@ -428,73 +324,6 @@ function EditorStatus({
   return <Badge variant="warning">Needs validation</Badge>;
 }
 
-function HistoryItem({
-  deleteDisabled,
-  entry,
-  onDelete,
-  onRestore,
-  restoreDisabled,
-}: {
-  deleteDisabled: boolean;
-  entry: ConfigHistoryEntry;
-  onDelete: () => void;
-  onRestore: () => void;
-  restoreDisabled: boolean;
-}) {
-  return (
-    <div className="flex items-center justify-between gap-3 rounded-md border border-transparent px-2 py-2 transition hover:border-border/45 hover:bg-muted/45">
-      <div className="min-w-0">
-        <div className="flex items-center gap-2">
-          <div className="font-mono text-xs text-foreground">v{entry.id}</div>
-          <div className="truncate text-[11px] text-muted-foreground">{formatShortDateTime(entry.applied_at)}</div>
-        </div>
-        {entry.note ? <div className="mt-0.5 truncate text-[11px] text-muted-foreground/70">{entry.note}</div> : null}
-      </div>
-      <div className="flex shrink-0 items-center gap-1">
-        <Button
-          aria-label={`Restore version ${entry.id}`}
-          disabled={restoreDisabled}
-          onClick={onRestore}
-          size="icon-sm"
-          title="Restore"
-          variant="ghost"
-        >
-          <Undo2 />
-        </Button>
-        <Button
-          className="text-destructive hover:text-destructive"
-          aria-label={`Delete version ${entry.id}`}
-          disabled={deleteDisabled}
-          onClick={onDelete}
-          size="icon-sm"
-          title="Delete"
-          variant="ghost"
-        >
-          <Trash2 />
-        </Button>
-      </div>
-    </div>
-  );
-}
-
-function InfoRow({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="flex items-center justify-between gap-4 text-sm">
-      <span className="text-muted-foreground">{label}</span>
-      <span className="min-w-0 truncate font-mono text-xs text-foreground">{value}</span>
-    </div>
-  );
-}
-
-function ConfigMetric({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="min-w-0 rounded-md border border-border/45 bg-card px-2.5 py-2">
-      <div className="truncate text-[10px] uppercase tracking-[0.06em] text-muted-foreground">{label}</div>
-      <div className="mt-1 truncate font-mono text-sm font-medium text-foreground">{value}</div>
-    </div>
-  );
-}
-
 function DiffMetric({ label, value }: { label: string; value: string }) {
   return (
     <div className="rounded-md bg-muted/55 px-3 py-2">
@@ -557,13 +386,6 @@ function summarizeDiff(current: string, next: string) {
     currentLines: currentLines.length,
     nextLines: nextLines.length,
   };
-}
-
-function validationLabel(validation: ValidationState, isChecking: boolean): string {
-  if (isChecking) return 'Checking';
-  if (validation === 'valid') return 'Valid';
-  if (validation === 'invalid') return 'Invalid';
-  return 'Not checked';
 }
 
 function errorMessage(error: unknown): string {

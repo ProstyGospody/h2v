@@ -16,7 +16,7 @@ export function PageHeader({ action, className, description, title }: PageHeader
       )}
     >
       <div className="min-w-0 space-y-1">
-        <h1 className="truncate text-xl font-semibold leading-none tracking-tight text-foreground sm:text-2xl">
+        <h1 className="truncate text-xl font-semibold leading-tight text-foreground sm:text-2xl">
           {title}
         </h1>
         {description ? (
@@ -24,7 +24,7 @@ export function PageHeader({ action, className, description, title }: PageHeader
         ) : null}
       </div>
       {action ? (
-        <div className="flex shrink-0 flex-wrap items-center gap-2">{action}</div>
+        <div className="flex w-full shrink-0 flex-wrap items-center gap-2 sm:w-auto">{action}</div>
       ) : null}
     </div>
   );

@@ -262,7 +262,7 @@ func runConfig(cfg config.Config, logger *slog.Logger, args []string) {
 
 	repository := repo.New(pool)
 	settingsSvc := services.NewSettingsService(cfg, repository, logger)
-	configSvc := services.NewConfigService(cfg, repository, settingsSvc, systemctl.New(true), xray.NewClient(cfg.Xray, logger), hysteria.NewClient(cfg.Hysteria, logger), logger)
+	configSvc := services.NewConfigService(cfg, settingsSvc, systemctl.New(true), xray.NewClient(cfg.Xray, logger), hysteria.NewClient(cfg.Hysteria, logger), logger)
 	content, err := configSvc.Render(ctx, *core)
 	if err != nil {
 		fatal(logger, err)

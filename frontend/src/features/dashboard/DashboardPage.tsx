@@ -1,6 +1,6 @@
 import { useMemo, useState, type ComponentType } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Activity, Ban, Cpu, HardDrive, Radio, Users } from 'lucide-react';
+import { Activity, Ban, Cpu, HardDrive, Radio, Server, Users } from 'lucide-react';
 import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from 'recharts';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from '@/components/ui/chart';
@@ -10,17 +10,26 @@ import { PageHeader } from '@/components/page-header';
 import { cn } from '@/lib/utils';
 import { apiClient } from '@/shared/api/client';
 import { OverviewStats, TrafficPoint } from '@/shared/api/types';
-import { formatBytes, formatNumber, formatPercent, formatShortDateTime } from '@/shared/lib/format';
+import { formatBytes, formatDate, formatNumber, formatPercent, formatShortDateTime } from '@/shared/lib/format';
 
 const ranges = ['1', '7', '30'] as const;
 type Range = (typeof ranges)[number];
 
 const trafficChartConfig = {
   total: {
-    label: 'Traffic',
+    label: 'Transfer',
     color: 'var(--gradient-accent)',
   },
 } satisfies ChartConfig;
+
+type StatusTone = 'ok' | 'warn' | 'idle';
+
+type HeaderStatus = {
+  icon: ComponentType<{ className?: string }>;
+  label: string;
+  tone: StatusTone;
+  value: string;
+};
 
 function usageTone(value: number | undefined) {
   const v = value ?? 0;
@@ -50,10 +59,25 @@ export function DashboardPage() {
     () => (traffic.data ?? []).map((p) => ({ recorded_at: p.recorded_at, total: p.uplink + p.downlink })),
     [traffic.data],
   );
-  const kernelRows = [
-    { label: 'Xray', value: data?.xray_status ?? 'Unknown' },
-    { label: 'Hysteria', value: data?.hysteria_status ?? 'Unknown' },
-    { label: 'Traffic feed', value: traffic.data?.length ? 'Receiving' : 'Waiting' },
+  const headerStatuses: HeaderStatus[] = [
+    {
+      icon: Server,
+      label: 'Xray',
+      tone: statusTone(data?.xray_status),
+      value: statusLabel(data?.xray_status),
+    },
+    {
+      icon: Radio,
+      label: 'Hysteria',
+      tone: statusTone(data?.hysteria_status),
+      value: statusLabel(data?.hysteria_status),
+    },
+    {
+      icon: Activity,
+      label: 'Feed',
+      tone: traffic.isError ? 'warn' : traffic.isLoading ? 'idle' : traffic.data?.length ? 'ok' : 'warn',
+      value: traffic.isError ? 'Issue' : traffic.isLoading ? 'Syncing' : traffic.data?.length ? 'Receiving' : 'Waiting',
+    },
   ];
 
   return (
@@ -62,11 +86,7 @@ export function DashboardPage() {
         title="Overview"
         action={
           <>
-            <div className="flex flex-wrap items-center gap-1.5">
-              {kernelRows.map((row) => (
-                <KernelChip key={row.label} label={row.label} value={row.value} />
-              ))}
-            </div>
+            <HeaderStatusStrip items={headerStatuses} />
             <Tabs onValueChange={(v) => setDays(v as Range)} value={days}>
               <TabsList>
                 {ranges.map((r) => (
@@ -127,7 +147,7 @@ export function DashboardPage() {
         <Card>
           <CardHeader>
             <div className="flex items-center justify-between gap-3">
-              <CardTitle>Traffic</CardTitle>
+              <CardTitle>Transfer</CardTitle>
               <span className="font-mono text-[11px] uppercase tracking-wider text-muted-foreground">
                 last {days}d
               </span>
@@ -152,7 +172,7 @@ export function DashboardPage() {
                       dataKey="recorded_at"
                       minTickGap={30}
                       tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 11 }}
-                      tickFormatter={(v) => new Date(v).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                      tickFormatter={(v) => formatDate(String(v), 'MMM d')}
                       tickLine={false}
                     />
                     <YAxis
@@ -166,7 +186,7 @@ export function DashboardPage() {
                       cursor={{ fill: 'url(#dashboardTrafficGradient)', opacity: 0.18 }}
                       content={
                         <ChartTooltipContent
-                          formatter={(value) => [formatBytes(Number(value)), 'Traffic']}
+                          formatter={(value) => [formatBytes(Number(value)), 'Total']}
                           labelFormatter={(v) => formatShortDateTime(String(v))}
                         />
                       }
@@ -176,7 +196,7 @@ export function DashboardPage() {
                 </ChartContainer>
               ) : (
                 <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
-                  No traffic samples yet.
+                  No samples yet.
                 </div>
               )}
             </div>
@@ -187,23 +207,54 @@ export function DashboardPage() {
   );
 }
 
-function KernelChip({ label, value }: { label: string; value: string }) {
-  const normalized = value.toLowerCase();
-  const running = normalized.includes('run') || normalized.includes('ok') || normalized.includes('receiv');
-  const waiting = normalized.includes('wait') || normalized.includes('unknown');
-
+function HeaderStatusStrip({ items }: { items: HeaderStatus[] }) {
   return (
-    <div className="inline-flex h-8 max-w-full items-center gap-2 rounded-md border border-border/60 bg-card px-2.5 text-xs shadow-sm">
-      <span
-        className={cn(
-          'size-1.5 shrink-0 rounded-full',
-          running ? 'bg-success animate-pulse-ring' : waiting ? 'bg-muted-foreground/60' : 'bg-warning',
-        )}
-      />
-      <span className="font-medium text-foreground">{label}</span>
-      <span className="max-w-36 truncate font-mono text-[11px] text-muted-foreground">{value}</span>
+    <div className="grid w-full grid-cols-3 overflow-hidden rounded-md border border-border/60 bg-card shadow-sm sm:w-auto">
+      {items.map((item, index) => {
+        const Icon = item.icon;
+        return (
+          <div
+            className={cn(
+              'flex min-w-0 items-center gap-2 px-2.5 py-2',
+              index > 0 && 'border-l border-border/55',
+            )}
+            key={item.label}
+          >
+            <span
+              className={cn(
+                'flex size-7 shrink-0 items-center justify-center rounded-md',
+                item.tone === 'ok'
+                  ? 'bg-success/12 text-success'
+                  : item.tone === 'warn'
+                    ? 'bg-warning/12 text-warning'
+                    : 'bg-muted text-muted-foreground',
+              )}
+            >
+              <Icon className="size-3.5" />
+            </span>
+            <span className="min-w-0">
+              <span className="block truncate text-[10px] font-medium uppercase leading-3 tracking-[0.06em] text-muted-foreground">
+                {item.label}
+              </span>
+              <span className="block truncate font-mono text-[11px] leading-4 text-foreground">
+                {item.value}
+              </span>
+            </span>
+          </div>
+        );
+      })}
     </div>
   );
+}
+
+function statusTone(value: string | undefined): StatusTone {
+  if (!value) return 'idle';
+  return value.toLowerCase().startsWith('fail') ? 'warn' : 'ok';
+}
+
+function statusLabel(value: string | undefined): string {
+  if (!value) return 'Unknown';
+  return value.toLowerCase().startsWith('fail') ? 'Issue' : 'Online';
 }
 
 function MetricCard({

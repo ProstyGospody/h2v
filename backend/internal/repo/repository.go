@@ -492,68 +492,6 @@ func (r *Repository) InsertMissingSettings(ctx context.Context, values map[strin
 	return tx.Commit(ctx)
 }
 
-func (r *Repository) ListConfigHistory(ctx context.Context, core string, limit int) ([]domain.ConfigHistory, error) {
-	if limit <= 0 {
-		limit = 20
-	}
-	rows, err := r.pool.Query(ctx, `
-		SELECT id, core, content, applied_by, applied_at, note
-		FROM config_history
-		WHERE core = $1
-		ORDER BY applied_at DESC
-		LIMIT $2
-	`, core, limit)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	history := make([]domain.ConfigHistory, 0, limit)
-	for rows.Next() {
-		var item domain.ConfigHistory
-		if err := rows.Scan(&item.ID, &item.Core, &item.Content, &item.AppliedBy, &item.AppliedAt, &item.Note); err != nil {
-			return nil, err
-		}
-		history = append(history, item)
-	}
-	return history, rows.Err()
-}
-
-func (r *Repository) SaveConfigHistory(ctx context.Context, core, content string, adminID *uuid.UUID, note string) error {
-	_, err := r.pool.Exec(ctx, `
-		INSERT INTO config_history (core, content, applied_by, note)
-		VALUES ($1, $2, $3, $4)
-	`, core, content, adminID, note)
-	return err
-}
-
-func (r *Repository) GetConfigHistory(ctx context.Context, id int64) (*domain.ConfigHistory, error) {
-	row := r.pool.QueryRow(ctx, `
-		SELECT id, core, content, applied_by, applied_at, note
-		FROM config_history
-		WHERE id = $1
-	`, id)
-	var item domain.ConfigHistory
-	if err := row.Scan(&item.ID, &item.Core, &item.Content, &item.AppliedBy, &item.AppliedAt, &item.Note); err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, domain.NewError(404, "config_history_not_found", "Config history entry does not exist", err)
-		}
-		return nil, err
-	}
-	return &item, nil
-}
-
-func (r *Repository) DeleteConfigHistory(ctx context.Context, core string, id int64) error {
-	tag, err := r.pool.Exec(ctx, `DELETE FROM config_history WHERE id = $1 AND core = $2`, id, core)
-	if err != nil {
-		return err
-	}
-	if tag.RowsAffected() == 0 {
-		return domain.NewError(404, "config_history_not_found", "Config history entry does not exist", nil)
-	}
-	return nil
-}
-
 func (r *Repository) GetAdminByUsername(ctx context.Context, username string) (*domain.Admin, error) {
 	row := r.pool.QueryRow(ctx, `
 		SELECT id, username, password_hash, role, last_login_at, created_at

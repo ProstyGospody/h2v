@@ -67,15 +67,6 @@ type Setting struct {
 	UpdatedAt time.Time       `json:"updated_at"`
 }
 
-type ConfigHistory struct {
-	ID        int64      `json:"id"`
-	Core      string     `json:"core"`
-	Content   string     `json:"content"`
-	AppliedBy *uuid.UUID `json:"applied_by,omitempty"`
-	AppliedAt time.Time  `json:"applied_at"`
-	Note      string     `json:"note"`
-}
-
 type TrafficPoint struct {
 	RecordedAt time.Time `json:"recorded_at"`
 	Uplink     int64     `json:"uplink"`
