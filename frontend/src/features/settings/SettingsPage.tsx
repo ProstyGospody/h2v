@@ -424,7 +424,7 @@ function TextControl({
   value: string;
 }) {
   return (
-    <div className="space-y-2.5">
+    <div className="space-y-3">
       <Label>{label}</Label>
       <Input onChange={(event) => onChange(event.target.value)} placeholder={placeholder} value={value} />
     </div>
@@ -447,7 +447,7 @@ function SecretControl({
   value: string;
 }) {
   return (
-    <div className="space-y-2.5">
+    <div className="space-y-3">
       <Label>{label}</Label>
       <div className="relative">
         <KeyRound className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
@@ -489,12 +489,12 @@ function PortControl({
   value: number;
 }) {
   return (
-    <div className="space-y-2.5">
+    <div className="space-y-3">
       <Label>{label}</Label>
-      <div className="flex flex-wrap items-center gap-2">
+      <div className="flex flex-wrap items-center gap-2.5">
         {presets.map((port) => (
           <Button
-            className="h-8 px-3 text-xs"
+            className="h-9 min-w-[48px] px-3.5 text-xs leading-none"
             key={port}
             onClick={() => onChange(port)}
             size="sm"
@@ -505,7 +505,7 @@ function PortControl({
           </Button>
         ))}
         <Input
-          className="h-8 w-28 shrink-0 font-mono text-xs"
+          className="h-9 w-28 shrink-0 font-mono text-xs"
           inputMode="numeric"
           max={max}
           min={min}
@@ -533,12 +533,12 @@ function BandwidthControl({
   const normalizedValue = value.trim().toLowerCase();
 
   return (
-    <div className="space-y-2.5">
+    <div className="space-y-3">
       <Label>{label}</Label>
-      <div className="flex flex-wrap items-center gap-2">
+      <div className="flex flex-wrap items-center gap-2.5">
         {presets.map((preset) => (
           <Button
-            className="h-8 px-3 text-xs"
+            className="h-9 min-w-[78px] px-3.5 text-xs leading-none"
             key={preset}
             onClick={() => onChange(preset)}
             size="sm"
@@ -549,7 +549,7 @@ function BandwidthControl({
           </Button>
         ))}
         <Input
-          className="h-8 w-32 shrink-0 font-mono text-xs"
+          className="h-9 w-32 shrink-0 font-mono text-xs"
           onChange={(event) => onChange(event.target.value)}
           placeholder="1 gbps"
           value={value}
@@ -573,13 +573,25 @@ function ToggleControl({
   value: boolean;
 }) {
   return (
-    <div className="space-y-2.5">
+    <div className="space-y-3">
       <Label>{label}</Label>
       <div className="grid grid-cols-2 gap-1 rounded-md bg-muted/45 p-1">
-        <Button onClick={() => onChange(true)} size="sm" type="button" variant={value ? 'default' : 'ghost'}>
+        <Button
+          className="h-9 px-4 text-xs leading-none"
+          onClick={() => onChange(true)}
+          size="sm"
+          type="button"
+          variant={value ? 'default' : 'ghost'}
+        >
           {onLabel}
         </Button>
-        <Button onClick={() => onChange(false)} size="sm" type="button" variant={!value ? 'default' : 'ghost'}>
+        <Button
+          className="h-9 px-4 text-xs leading-none"
+          onClick={() => onChange(false)}
+          size="sm"
+          type="button"
+          variant={!value ? 'default' : 'ghost'}
+        >
           {offLabel}
         </Button>
       </div>
@@ -599,7 +611,7 @@ function SelectControl({
   value: string;
 }) {
   return (
-    <div className="space-y-2.5">
+    <div className="space-y-3">
       <Label>{label}</Label>
       <select
         className={cn(
