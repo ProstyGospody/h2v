@@ -95,7 +95,7 @@ const masqueradePresets: URLPreset[] = [
 
 const vlessPortPresets = [443, 8443, 8444, 2053, 2083];
 const hy2PortPresets = [443, 8443, 8444, 2083, 9443];
-const bandwidthPresets = ['100 mbps', '500 mbps', '1 gbps', '2 gbps', '5 gbps'];
+const bandwidthPresets = ['100 mbps', '500 mbps', '1 gbps'];
 
 export function SettingsPage() {
   const queryClient = useQueryClient();
@@ -263,6 +263,17 @@ export function SettingsPage() {
               </SettingsSection>
 
               <SettingsSection
+                action={
+                  <Button
+                    aria-label={showSecrets ? 'Hide secrets' : 'Show secrets'}
+                    className="size-8"
+                    onClick={() => setShowSecrets((value) => !value)}
+                    size="icon"
+                    type="button"
+                  >
+                    {showSecrets ? <EyeOff /> : <Eye />}
+                  </Button>
+                }
                 icon={ShieldCheck}
                 kicker="Reality"
                 title="Keys and short ID"
@@ -290,10 +301,6 @@ export function SettingsPage() {
                   reveal
                   value={firstNonEmpty(values.stringArray('reality.short_ids'))}
                 />
-                <Button onClick={() => setShowSecrets((value) => !value)} size="sm" type="button" variant="outline">
-                  {showSecrets ? <EyeOff /> : <Eye />}
-                  {showSecrets ? 'Hide secrets' : 'Show secrets'}
-                </Button>
               </SettingsSection>
 
               <SettingsSection
@@ -374,11 +381,13 @@ export function SettingsPage() {
 }
 
 function SettingsSection({
+  action,
   children,
   icon: Icon,
   kicker,
   title,
 }: {
+  action?: ReactNode;
   children: ReactNode;
   icon: ComponentType<{ className?: string }>;
   kicker: string;
@@ -387,14 +396,17 @@ function SettingsSection({
   return (
     <Card>
       <CardContent className="space-y-6 p-6">
-        <div className="flex items-center gap-3">
-          <span className="flex size-9 shrink-0 items-center justify-center rounded-md bg-accent-gradient-soft">
-            <Icon className="size-4" />
-          </span>
-          <div className="min-w-0">
-            <div className="t-label">{kicker}</div>
-            <h2 className="truncate text-base font-semibold leading-6 text-foreground">{title}</h2>
+        <div className="flex items-start justify-between gap-4">
+          <div className="flex min-w-0 items-center gap-3">
+            <span className="flex size-9 shrink-0 items-center justify-center rounded-md bg-accent-gradient-soft">
+              <Icon className="size-4" />
+            </span>
+            <div className="min-w-0">
+              <div className="t-label">{kicker}</div>
+              <h2 className="truncate text-base font-semibold leading-6 text-foreground">{title}</h2>
+            </div>
           </div>
+          {action ? <div className="shrink-0">{action}</div> : null}
         </div>
         <div className="space-y-5">{children}</div>
       </CardContent>
