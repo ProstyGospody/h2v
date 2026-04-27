@@ -245,13 +245,6 @@ export function SettingsPage() {
                     placeholder="www.cloudflare.com:443"
                     value={values.string('reality.dest')}
                   />
-                </SettingsSection>
-
-                <SettingsSection
-                  kicker="VLESS"
-                  logo="xray"
-                  title="Reality keys"
-                >
                   <SecretControl
                     label="Private key"
                     generating={generateReality.isPending}
@@ -645,7 +638,7 @@ function SettingsIssues({ issues }: { issues: string[] }) {
 function SettingsSkeleton() {
   return (
     <section className="grid gap-4 xl:grid-cols-2">
-      {Array.from({ length: 4 }).map((_, index) => (
+      {Array.from({ length: 3 }).map((_, index) => (
         <Card key={index}>
           <CardContent className="space-y-5 p-5">
             <Skeleton className="h-10 w-52" />
