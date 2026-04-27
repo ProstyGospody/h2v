@@ -424,7 +424,7 @@ function TextControl({
   value: string;
 }) {
   return (
-    <div className="space-y-3">
+    <div className="space-y-[13px]">
       <Label>{label}</Label>
       <Input onChange={(event) => onChange(event.target.value)} placeholder={placeholder} value={value} />
     </div>
@@ -447,7 +447,7 @@ function SecretControl({
   value: string;
 }) {
   return (
-    <div className="space-y-3">
+    <div className="space-y-[13px]">
       <Label>{label}</Label>
       <div className="relative">
         <KeyRound className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
@@ -489,7 +489,7 @@ function PortControl({
   value: number;
 }) {
   return (
-    <div className="space-y-3">
+    <div className="space-y-[13px]">
       <Label>{label}</Label>
       <div className="flex flex-wrap items-center gap-2.5">
         {presets.map((port) => (
@@ -533,7 +533,7 @@ function BandwidthControl({
   const normalizedValue = value.trim().toLowerCase();
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-[13px]">
       <Label>{label}</Label>
       <div className="flex flex-wrap items-center gap-2.5">
         {presets.map((preset) => (
@@ -573,7 +573,7 @@ function ToggleControl({
   value: boolean;
 }) {
   return (
-    <div className="space-y-3">
+    <div className="space-y-[13px]">
       <Label>{label}</Label>
       <div className="grid grid-cols-2 gap-1 rounded-md bg-muted/45 p-1">
         <Button
@@ -611,7 +611,7 @@ function SelectControl({
   value: string;
 }) {
   return (
-    <div className="space-y-3">
+    <div className="space-y-[13px]">
       <Label>{label}</Label>
       <select
         className={cn(
