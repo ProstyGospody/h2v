@@ -494,7 +494,6 @@ function PortControl({
       <div className="flex flex-wrap items-center gap-2.5">
         {presets.map((port) => (
           <Button
-            className="h-9 min-w-[48px] px-3.5 text-xs leading-none"
             key={port}
             onClick={() => onChange(port)}
             size="sm"
@@ -538,7 +537,6 @@ function BandwidthControl({
       <div className="flex flex-wrap items-center gap-2.5">
         {presets.map((preset) => (
           <Button
-            className="h-9 min-w-[78px] px-3.5 text-xs leading-none"
             key={preset}
             onClick={() => onChange(preset)}
             size="sm"
@@ -577,7 +575,6 @@ function ToggleControl({
       <Label>{label}</Label>
       <div className="grid grid-cols-2 gap-1 rounded-md bg-muted/45 p-1">
         <Button
-          className="h-9 px-4 text-xs leading-none"
           onClick={() => onChange(true)}
           size="sm"
           type="button"
@@ -586,7 +583,6 @@ function ToggleControl({
           {onLabel}
         </Button>
         <Button
-          className="h-9 px-4 text-xs leading-none"
           onClick={() => onChange(false)}
           size="sm"
           type="button"

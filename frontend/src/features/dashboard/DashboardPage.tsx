@@ -121,15 +121,15 @@ export function DashboardPage() {
 
       <div className="grid gap-3 px-page pt-6 sm:gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6">
         <MetricCard
-          icon={ChartNetwork}
-          label="Network Speed"
-          loading={overview.isLoading}
-          value={
+          footer={
             <NetworkSpeedValue
               rx={data?.network_rx_bytes_per_second ?? 0}
               tx={data?.network_tx_bytes_per_second ?? 0}
             />
           }
+          icon={ChartNetwork}
+          label="Network Speed"
+          loading={overview.isLoading}
         />
         <MetricCard
           icon={ChartNoAxesColumnIncreasing}
@@ -269,12 +269,12 @@ function statusTone(value: string | undefined): StatusTone {
 
 function NetworkSpeedValue({ rx, tx }: { rx: number; tx: number }) {
   return (
-    <div className="flex flex-col gap-1 text-sm font-semibold leading-5 text-foreground">
-      <span className="flex items-center gap-1.5">
+    <div className="flex min-w-0 items-center justify-between gap-3 text-xs font-semibold leading-none text-foreground">
+      <span className="flex min-w-0 items-center gap-1.5">
         <ArrowDown className="size-3.5 text-primary" />
         {formatBytesPerSecond(rx)}
       </span>
-      <span className="flex items-center gap-1.5">
+      <span className="flex min-w-0 items-center gap-1.5">
         <ArrowUp className="size-3.5 text-primary" />
         {formatBytesPerSecond(tx)}
       </span>
@@ -295,20 +295,22 @@ function statusLabel(value: string | undefined): string {
 
 function MetricCard({
   bar,
+  footer,
   icon: Icon,
   label,
   loading,
   value,
 }: {
   bar?: { percent: number; tone: string };
+  footer?: ReactNode;
   icon: ComponentType<{ className?: string }>;
   label: string;
   loading?: boolean;
-  value: ReactNode;
+  value?: ReactNode;
 }) {
   return (
-    <Card className="transition-colors hover:bg-[hsl(var(--surface-elevated))]">
-      <CardContent className="flex flex-col gap-3 p-4 sm:p-5">
+    <Card className="h-full transition-colors hover:bg-[hsl(var(--surface-elevated))]">
+      <CardContent className="flex h-full flex-col gap-3 p-4 sm:p-5">
         <div className="flex items-start justify-between gap-2">
           <span className="t-label">{label}</span>
           <span
@@ -320,11 +322,17 @@ function MetricCard({
           </span>
         </div>
         {loading ? (
-          <Skeleton className="h-7 w-24" />
+          value !== undefined && value !== null ? (
+            <Skeleton className="h-7 w-24" />
+          ) : (
+            <div className="h-7" />
+          )
         ) : typeof value === 'string' ? (
           <div className="t-metric text-foreground">{value}</div>
-        ) : (
+        ) : value !== undefined && value !== null ? (
           value
+        ) : (
+          <div className="h-7" />
         )}
         {bar ? (
           loading ? (
@@ -337,6 +345,11 @@ function MetricCard({
               />
             </div>
           )
+        ) : null}
+        {footer ? (
+          <div className="mt-auto">
+            {loading ? <Skeleton className="h-4 w-full" /> : footer}
+          </div>
         ) : null}
       </CardContent>
     </Card>
