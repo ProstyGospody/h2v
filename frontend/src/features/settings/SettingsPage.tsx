@@ -191,7 +191,7 @@ export function SettingsPage() {
         }
       />
 
-      <div className="space-y-4 px-page pt-6">
+      <div className="space-y-5 px-page pt-7">
         {settings.isLoading ? (
           <SettingsSkeleton />
         ) : settings.isError ? (
@@ -200,7 +200,7 @@ export function SettingsPage() {
           <>
             {hasIssues ? <SettingsIssues issues={issues} /> : null}
 
-            <section className="grid gap-4 xl:grid-cols-2">
+            <section className="grid gap-5 xl:grid-cols-2">
               <SettingsSection
                 icon={Globe2}
                 kicker="Links"
@@ -386,7 +386,7 @@ function SettingsSection({
 }) {
   return (
     <Card>
-      <CardContent className="space-y-5 p-5">
+      <CardContent className="space-y-6 p-6">
         <div className="flex items-center gap-3">
           <span className="flex size-9 shrink-0 items-center justify-center rounded-md bg-accent-gradient-soft">
             <Icon className="size-4" />
@@ -396,7 +396,7 @@ function SettingsSection({
             <h2 className="truncate text-base font-semibold leading-6 text-foreground">{title}</h2>
           </div>
         </div>
-        <div className="space-y-4">{children}</div>
+        <div className="space-y-5">{children}</div>
       </CardContent>
     </Card>
   );
@@ -414,7 +414,7 @@ function TextControl({
   value: string;
 }) {
   return (
-    <div className="space-y-2">
+    <div className="space-y-2.5">
       <Label>{label}</Label>
       <Input onChange={(event) => onChange(event.target.value)} placeholder={placeholder} value={value} />
     </div>
@@ -437,7 +437,7 @@ function SecretControl({
   value: string;
 }) {
   return (
-    <div className="space-y-2">
+    <div className="space-y-2.5">
       <Label>{label}</Label>
       <div className="relative">
         <KeyRound className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
@@ -479,12 +479,12 @@ function PortControl({
   value: number;
 }) {
   return (
-    <div className="space-y-3">
+    <div className="space-y-2.5">
       <Label>{label}</Label>
-      <div className="flex flex-wrap gap-1.5">
+      <div className="flex flex-wrap items-center gap-2">
         {presets.map((port) => (
           <Button
-            className="h-7 px-2.5 text-xs"
+            className="h-8 px-3 text-xs"
             key={port}
             onClick={() => onChange(port)}
             size="sm"
@@ -494,17 +494,17 @@ function PortControl({
             {port}
           </Button>
         ))}
+        <Input
+          className="h-8 w-28 shrink-0 font-mono text-xs"
+          inputMode="numeric"
+          max={max}
+          min={min}
+          onChange={(event) => onChange(event.target.value === '' ? 0 : Number(event.target.value))}
+          step={1}
+          type="number"
+          value={Number.isFinite(value) ? String(value) : ''}
+        />
       </div>
-      <Input
-        className="font-mono"
-        inputMode="numeric"
-        max={max}
-        min={min}
-        onChange={(event) => onChange(event.target.value === '' ? 0 : Number(event.target.value))}
-        step={1}
-        type="number"
-        value={Number.isFinite(value) ? String(value) : ''}
-      />
     </div>
   );
 }
@@ -523,12 +523,12 @@ function BandwidthControl({
   const normalizedValue = value.trim().toLowerCase();
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-2.5">
       <Label>{label}</Label>
-      <div className="flex flex-wrap gap-1.5">
+      <div className="flex flex-wrap items-center gap-2">
         {presets.map((preset) => (
           <Button
-            className="h-7 px-2.5 text-xs"
+            className="h-8 px-3 text-xs"
             key={preset}
             onClick={() => onChange(preset)}
             size="sm"
@@ -538,13 +538,13 @@ function BandwidthControl({
             {preset}
           </Button>
         ))}
+        <Input
+          className="h-8 w-32 shrink-0 font-mono text-xs"
+          onChange={(event) => onChange(event.target.value)}
+          placeholder="1 gbps"
+          value={value}
+        />
       </div>
-      <Input
-        className="font-mono"
-        onChange={(event) => onChange(event.target.value)}
-        placeholder="1 gbps"
-        value={value}
-      />
     </div>
   );
 }
@@ -563,7 +563,7 @@ function ToggleControl({
   value: boolean;
 }) {
   return (
-    <div className="space-y-2">
+    <div className="space-y-2.5">
       <Label>{label}</Label>
       <div className="grid grid-cols-2 gap-1 rounded-md bg-muted/45 p-1">
         <Button onClick={() => onChange(true)} size="sm" type="button" variant={value ? 'default' : 'ghost'}>
@@ -589,7 +589,7 @@ function SelectControl({
   value: string;
 }) {
   return (
-    <div className="space-y-2">
+    <div className="space-y-2.5">
       <Label>{label}</Label>
       <select
         className={cn(
