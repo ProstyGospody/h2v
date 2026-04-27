@@ -6,7 +6,13 @@ import (
 	"crypto/rand"
 	"encoding/base64"
 	"encoding/json"
+	"fmt"
 	"log/slog"
+	"net"
+	"net/url"
+	"regexp"
+	"strconv"
+	"strings"
 
 	"github.com/prost/h2v/backend/internal/config"
 	"github.com/prost/h2v/backend/internal/domain"
@@ -23,6 +29,11 @@ type RealityKeyPair struct {
 	PrivateKey string `json:"private_key"`
 	PublicKey  string `json:"public_key"`
 }
+
+var (
+	bandwidthPattern = regexp.MustCompile(`(?i)^\d+(?:\.\d+)?\s*(g|gbps|m|mbps)$`)
+	shortIDPattern   = regexp.MustCompile(`^[0-9a-fA-F]{0,16}$`)
+)
 
 func NewSettingsService(cfg config.Config, repository *repo.Repository, logger *slog.Logger) *SettingsService {
 	return &SettingsService{cfg: cfg, repo: repository, logger: logger}
@@ -49,10 +60,14 @@ func (s *SettingsService) List(ctx context.Context) ([]domain.Setting, error) {
 }
 
 func (s *SettingsService) Update(ctx context.Context, values map[string]json.RawMessage) error {
-	if err := s.validateUpdate(ctx, values); err != nil {
+	normalized, err := normalizeSettingsUpdate(values)
+	if err != nil {
 		return err
 	}
-	return s.repo.UpsertSettings(ctx, values)
+	if err := s.validateUpdate(ctx, normalized); err != nil {
+		return err
+	}
+	return s.repo.UpsertSettings(ctx, normalized)
 }
 
 func (s *SettingsService) GenerateRealityKeyPair() (*RealityKeyPair, error) {
@@ -70,15 +85,19 @@ func (s *SettingsService) validateUpdate(ctx context.Context, values map[string]
 	runtime := DefaultRuntime(s.cfg)
 	current, err := s.GetAll(ctx)
 	if err == nil {
-		runtime.PanelDomain = stringOr(current, "panel.domain", runtime.PanelDomain)
-		runtime.VlessPort = intOr(current, "vless.port", runtime.VlessPort)
+		applyRuntimeValues(&runtime, current)
 	}
 
-	runtime.PanelDomain = stringOr(values, "panel.domain", runtime.PanelDomain)
-	runtime.VlessPort = intOr(values, "vless.port", runtime.VlessPort)
+	applyRuntimeValues(&runtime, values)
 
 	if runtime.PanelDomain != "" && runtime.PanelDomain != "panel.example.com" && runtime.VlessPort == 443 {
 		return domain.NewError(400, "port_conflict", "VLESS port 443 conflicts with Caddy panel HTTPS; use a different VLESS port", nil)
+	}
+	if touchesAny(values, "hy2.obfs_enabled", "hy2.obfs_password") && runtime.Hy2ObfsEnabled && runtime.Hy2ObfsPassword == "" {
+		return domain.NewError(400, "invalid_setting", "Hysteria obfs password is required when obfuscation is enabled", nil)
+	}
+	if touchesAny(values, "reality.private_key", "reality.public_key") && (runtime.RealityPrivateKey == "" || runtime.RealityPublicKey == "") {
+		return domain.NewError(400, "invalid_setting", "Reality private and public keys must be saved together", nil)
 	}
 	return nil
 }
@@ -90,22 +109,7 @@ func (s *SettingsService) Runtime(ctx context.Context) (RuntimeSettings, error) 
 	if err != nil {
 		s.logger.Warn("settings lookup failed, falling back to env defaults", "err", err)
 	} else {
-		runtime.PanelDomain = stringOr(values, "panel.domain", runtime.PanelDomain)
-		runtime.RealitySNI = stringOr(values, "reality.sni", runtime.RealitySNI)
-		runtime.RealityDest = stringOr(values, "reality.dest", runtime.RealityDest)
-		runtime.RealityPrivateKey = stringOr(values, "reality.private_key", runtime.RealityPrivateKey)
-		runtime.RealityPublicKey = stringOr(values, "reality.public_key", runtime.RealityPublicKey)
-		runtime.RealityShortIDs = stringsOr(values, "reality.short_ids", runtime.RealityShortIDs)
-		runtime.VlessPort = intOr(values, "vless.port", runtime.VlessPort)
-		runtime.SubURLPrefix = stringOr(values, "subscription.url_prefix", runtime.SubURLPrefix)
-		runtime.Hy2Domain = stringOr(values, "hy2.domain", runtime.Hy2Domain)
-		runtime.Hy2Port = intOr(values, "hy2.port", runtime.Hy2Port)
-		runtime.Hy2ObfsEnabled = boolOr(values, "hy2.obfs_enabled", runtime.Hy2ObfsEnabled)
-		runtime.Hy2ObfsPassword = stringOr(values, "hy2.obfs_password", runtime.Hy2ObfsPassword)
-		runtime.Hy2BandwidthUp = stringOr(values, "hy2.bandwidth_up", runtime.Hy2BandwidthUp)
-		runtime.Hy2BandwidthDown = stringOr(values, "hy2.bandwidth_down", runtime.Hy2BandwidthDown)
-		runtime.Hy2MasqueradeURL = stringOr(values, "hy2.masquerade_url", runtime.Hy2MasqueradeURL)
-		runtime.Hy2TrafficSecret = stringOr(values, "hy2.traffic_secret", runtime.Hy2TrafficSecret)
+		applyRuntimeValues(&runtime, values)
 	}
 
 	runtime.RealityServerNames = dedupeNonEmpty(append([]string{runtime.RealitySNI}, runtime.RealityServerNames...))
@@ -153,6 +157,148 @@ func DefaultRuntime(cfg config.Config) RuntimeSettings {
 		Hy2KeyPath:         cfg.Hysteria.KeyPath,
 		Clients:            nil,
 	}
+}
+
+func applyRuntimeValues(runtime *RuntimeSettings, values map[string]json.RawMessage) {
+	runtime.PanelDomain = stringOr(values, "panel.domain", runtime.PanelDomain)
+	runtime.RealitySNI = stringOr(values, "reality.sni", runtime.RealitySNI)
+	runtime.RealityDest = stringOr(values, "reality.dest", runtime.RealityDest)
+	runtime.RealityPrivateKey = stringOr(values, "reality.private_key", runtime.RealityPrivateKey)
+	runtime.RealityPublicKey = stringOr(values, "reality.public_key", runtime.RealityPublicKey)
+	runtime.RealityShortIDs = stringsOr(values, "reality.short_ids", runtime.RealityShortIDs)
+	runtime.VlessPort = intOr(values, "vless.port", runtime.VlessPort)
+	runtime.SubURLPrefix = stringOr(values, "subscription.url_prefix", runtime.SubURLPrefix)
+	runtime.Hy2Domain = stringOr(values, "hy2.domain", runtime.Hy2Domain)
+	runtime.Hy2Port = intOr(values, "hy2.port", runtime.Hy2Port)
+	runtime.Hy2ObfsEnabled = boolOr(values, "hy2.obfs_enabled", runtime.Hy2ObfsEnabled)
+	runtime.Hy2ObfsPassword = stringOr(values, "hy2.obfs_password", runtime.Hy2ObfsPassword)
+	runtime.Hy2BandwidthUp = stringOr(values, "hy2.bandwidth_up", runtime.Hy2BandwidthUp)
+	runtime.Hy2BandwidthDown = stringOr(values, "hy2.bandwidth_down", runtime.Hy2BandwidthDown)
+	runtime.Hy2MasqueradeURL = stringOr(values, "hy2.masquerade_url", runtime.Hy2MasqueradeURL)
+	runtime.Hy2TrafficSecret = stringOr(values, "hy2.traffic_secret", runtime.Hy2TrafficSecret)
+}
+
+func normalizeSettingsUpdate(values map[string]json.RawMessage) (map[string]json.RawMessage, error) {
+	normalized := make(map[string]json.RawMessage, len(values))
+	for key, raw := range values {
+		value, err := normalizeSettingValue(key, raw)
+		if err != nil {
+			return nil, err
+		}
+		encoded, err := json.Marshal(value)
+		if err != nil {
+			return nil, err
+		}
+		normalized[key] = encoded
+	}
+	return normalized, nil
+}
+
+func normalizeSettingValue(key string, raw json.RawMessage) (any, error) {
+	switch key {
+	case "vless.port", "hy2.port":
+		var value int
+		if err := json.Unmarshal(raw, &value); err != nil || !validRuntimePort(value) {
+			return nil, invalidSetting(key, "must be an integer between 1 and 65535")
+		}
+		return value, nil
+	case "hy2.obfs_enabled":
+		var value bool
+		if err := json.Unmarshal(raw, &value); err != nil {
+			return nil, invalidSetting(key, "must be a boolean")
+		}
+		return value, nil
+	case "reality.short_ids":
+		var values []string
+		if err := json.Unmarshal(raw, &values); err != nil {
+			return nil, invalidSetting(key, "must be a string array")
+		}
+		values = normalizeShortIDs(values)
+		for _, value := range values {
+			if !validRealityShortID(value) {
+				return nil, invalidSetting(key, "must contain empty or even-length hex values up to 16 characters")
+			}
+		}
+		return values, nil
+	case "panel.domain", "hy2.domain", "reality.sni", "reality.dest", "reality.private_key", "reality.public_key",
+		"subscription.url_prefix", "hy2.obfs_password", "hy2.bandwidth_up", "hy2.bandwidth_down",
+		"hy2.masquerade_url", "hy2.traffic_secret":
+		var value string
+		if err := json.Unmarshal(raw, &value); err != nil {
+			return nil, invalidSetting(key, "must be a string")
+		}
+		return normalizeStringSetting(key, value)
+	default:
+		return nil, invalidSetting(key, "is not editable")
+	}
+}
+
+func normalizeStringSetting(key, value string) (string, error) {
+	value = strings.TrimSpace(value)
+	switch key {
+	case "panel.domain", "hy2.domain", "reality.sni":
+		if value == "" {
+			return "", invalidSetting(key, "cannot be empty")
+		}
+	case "reality.dest":
+		if !validHostPort(value) {
+			return "", invalidSetting(key, "must be a host:port value")
+		}
+	case "subscription.url_prefix":
+		value = strings.TrimRight(value, "/")
+		if !validHTTPURL(value) {
+			return "", invalidSetting(key, "must be a valid http or https URL")
+		}
+	case "hy2.masquerade_url":
+		if !validHTTPURL(value) {
+			return "", invalidSetting(key, "must be a valid http or https URL")
+		}
+	case "hy2.bandwidth_up", "hy2.bandwidth_down":
+		value = strings.ToLower(value)
+		if !bandwidthPattern.MatchString(value) {
+			return "", invalidSetting(key, "must use mbps or gbps")
+		}
+	case "reality.private_key", "reality.public_key":
+		if value == "" {
+			return "", invalidSetting(key, "cannot be empty")
+		}
+	}
+	return value, nil
+}
+
+func invalidSetting(key, reason string) error {
+	return domain.NewError(400, "invalid_setting", fmt.Sprintf("%s %s", key, reason), nil)
+}
+
+func validRuntimePort(value int) bool {
+	return value >= 1 && value <= 65535
+}
+
+func validHTTPURL(value string) bool {
+	parsed, err := url.Parse(value)
+	return err == nil && (parsed.Scheme == "http" || parsed.Scheme == "https") && parsed.Host != ""
+}
+
+func validHostPort(value string) bool {
+	host, port, err := net.SplitHostPort(value)
+	if err != nil || host == "" || port == "" {
+		return false
+	}
+	portNumber, err := strconv.Atoi(port)
+	return err == nil && validRuntimePort(portNumber)
+}
+
+func validRealityShortID(value string) bool {
+	return len(value)%2 == 0 && shortIDPattern.MatchString(value)
+}
+
+func touchesAny(values map[string]json.RawMessage, keys ...string) bool {
+	for _, key := range keys {
+		if _, ok := values[key]; ok {
+			return true
+		}
+	}
+	return false
 }
 
 func stringOr(values map[string]json.RawMessage, key, fallback string) string {
@@ -227,7 +373,7 @@ func normalizeShortIDs(values []string) []string {
 	seen := make(map[string]struct{}, len(values))
 	out := make([]string, 0, len(values))
 	for _, raw := range values {
-		trimmed := raw
+		trimmed := strings.TrimSpace(raw)
 		if _, ok := seen[trimmed]; ok {
 			continue
 		}

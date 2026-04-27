@@ -1,81 +1,132 @@
-import { useEffect, useMemo, useState, type ComponentType } from 'react';
+import { useMemo, useState, type ComponentType, type ReactNode } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   AlertTriangle,
-  CheckCircle2,
+  Eye,
+  EyeOff,
   Globe2,
+  KeyRound,
   Network,
+  Radio,
+  RefreshCw,
   RotateCcw,
   Save,
   ShieldCheck,
-  SlidersHorizontal,
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Textarea } from '@/components/ui/textarea';
 import { PageHeader } from '@/components/page-header';
 import { cn } from '@/lib/utils';
 import { apiClient, ApiError } from '@/shared/api/client';
 import { Setting } from '@/shared/api/types';
-import { formatDate } from '@/shared/lib/format';
 
-type GroupKey = 'protocols' | 'domains' | 'security' | 'misc';
+type SettingKey =
+  | 'hy2.bandwidth_down'
+  | 'hy2.bandwidth_up'
+  | 'hy2.domain'
+  | 'hy2.masquerade_url'
+  | 'hy2.obfs_enabled'
+  | 'hy2.obfs_password'
+  | 'hy2.port'
+  | 'hy2.traffic_secret'
+  | 'panel.domain'
+  | 'reality.dest'
+  | 'reality.private_key'
+  | 'reality.public_key'
+  | 'reality.short_ids'
+  | 'reality.sni'
+  | 'subscription.url_prefix'
+  | 'vless.port';
 
-type GroupMeta = {
-  icon: ComponentType<{ className?: string }>;
+type SettingValue = boolean | number | string | string[];
+type SettingsDraft = Partial<Record<SettingKey, SettingValue>>;
+
+type RealityPreset = {
+  dest: string;
   label: string;
+  sni: string;
 };
 
-type Group = GroupMeta & {
-  items: Setting[];
-  key: GroupKey;
+type URLPreset = {
+  label: string;
+  value: string;
 };
 
-const groupOrder: GroupKey[] = ['protocols', 'domains', 'security', 'misc'];
-
-const groupMeta: Record<GroupKey, GroupMeta> = {
-  domains: { icon: Globe2, label: 'Domains' },
-  misc: { icon: SlidersHorizontal, label: 'Misc' },
-  protocols: { icon: Network, label: 'Protocols' },
-  security: { icon: ShieldCheck, label: 'Security' },
+type RealityKeyPair = {
+  private_key: string;
+  public_key: string;
 };
+
+const fallbackValues: Record<SettingKey, SettingValue> = {
+  'hy2.bandwidth_down': '1 gbps',
+  'hy2.bandwidth_up': '1 gbps',
+  'hy2.domain': 'panel.example.com',
+  'hy2.masquerade_url': 'https://www.bing.com',
+  'hy2.obfs_enabled': true,
+  'hy2.obfs_password': '',
+  'hy2.port': 8443,
+  'hy2.traffic_secret': '',
+  'panel.domain': 'panel.example.com',
+  'reality.dest': 'www.cloudflare.com:443',
+  'reality.private_key': '',
+  'reality.public_key': '',
+  'reality.short_ids': [''],
+  'reality.sni': 'www.cloudflare.com',
+  'subscription.url_prefix': 'https://panel.example.com',
+  'vless.port': 8444,
+};
+
+const realityPresets: RealityPreset[] = [
+  { label: 'Cloudflare', sni: 'www.cloudflare.com', dest: 'www.cloudflare.com:443' },
+  { label: 'Microsoft', sni: 'www.microsoft.com', dest: 'www.microsoft.com:443' },
+  { label: 'Apple', sni: 'www.apple.com', dest: 'www.apple.com:443' },
+  { label: 'Google', sni: 'www.google.com', dest: 'www.google.com:443' },
+];
+
+const masqueradePresets: URLPreset[] = [
+  { label: 'Bing', value: 'https://www.bing.com' },
+  { label: 'Cloudflare', value: 'https://www.cloudflare.com' },
+  { label: 'Wikipedia', value: 'https://www.wikipedia.org' },
+];
+
+const vlessPortPresets = [443, 8443, 8444, 2053, 2083];
+const hy2PortPresets = [443, 8443, 8444, 2083, 9443];
 
 export function SettingsPage() {
   const queryClient = useQueryClient();
-  const [activeGroup, setActiveGroup] = useState<GroupKey>('protocols');
-  const [draft, setDraft] = useState<Record<string, string>>({});
+  const [draft, setDraft] = useState<SettingsDraft>({});
+  const [showSecrets, setShowSecrets] = useState(false);
 
   const settings = useQuery({
     queryKey: ['settings'],
     queryFn: () => apiClient.request<Setting[]>('/settings'),
   });
 
-  const groups = useMemo(() => buildGroups(settings.data ?? []), [settings.data]);
-  const currentGroup = groups.find((group) => group.key === activeGroup) ?? groups[0];
-  const draftErrors = useMemo(() => validateDraft(draft), [draft]);
+  const values = useMemo(
+    () => createSettingsValues(settings.data ?? [], draft),
+    [settings.data, draft],
+  );
+  const originalValues = useMemo(
+    () => createSettingsValues(settings.data ?? [], {}),
+    [settings.data],
+  );
+  const issues = useMemo(() => validateDraft(draft, values), [draft, values]);
   const hasDraft = Object.keys(draft).length > 0;
-  const hasInvalidDraft = Object.keys(draftErrors).length > 0;
-
-  useEffect(() => {
-    if (groups.length && !groups.some((group) => group.key === activeGroup)) {
-      setActiveGroup(groups[0].key);
-    }
-  }, [activeGroup, groups]);
+  const hasIssues = issues.length > 0;
+  const currentRealityPreset = findRealityPreset(values.string('reality.sni'), values.string('reality.dest'));
+  const currentMasqueradePreset = findURLPreset(values.string('hy2.masquerade_url'), masqueradePresets);
 
   const save = useMutation({
     mutationFn: () =>
       apiClient.request('/settings', {
-        body: JSON.stringify(buildPayload(draft)),
+        body: JSON.stringify(normalizeDraftForSave(draft)),
         method: 'PATCH',
       }),
     onError: (error) => {
-      if (error instanceof InvalidSettingsJSONError) {
-        toast.error(error.message);
-        return;
-      }
       toast.error(error instanceof ApiError ? error.message : 'Unable to update settings');
     },
     onSuccess: async () => {
@@ -85,16 +136,38 @@ export function SettingsPage() {
     },
   });
 
-  function updateSetting(setting: Setting, value: string) {
-    const original = settingText(setting.value);
+  const generateReality = useMutation({
+    mutationFn: () =>
+      apiClient.request<RealityKeyPair>('/settings/reality-keypair', {
+        method: 'POST',
+      }),
+    onError: (error) => {
+      toast.error(error instanceof ApiError ? error.message : 'Unable to generate Reality keys');
+    },
+    onSuccess: (keyPair) => {
+      setValue('reality.private_key', keyPair.private_key);
+      setValue('reality.public_key', keyPair.public_key);
+      toast.success('Reality key pair generated');
+    },
+  });
+
+  function setValue(key: SettingKey, value: SettingValue) {
     setDraft((current) => {
-      if (value === original) {
-        const next = { ...current };
-        delete next[setting.key];
-        return next;
+      const next = { ...current };
+      if (sameSettingValue(value, originalValues.value(key))) {
+        delete next[key];
+      } else {
+        next[key] = value;
       }
-      return { ...current, [setting.key]: value };
+      return next;
     });
+  }
+
+  function setRealityPreset(label: string) {
+    const preset = realityPresets.find((item) => item.label === label);
+    if (!preset) return;
+    setValue('reality.sni', preset.sni);
+    setValue('reality.dest', preset.dest);
   }
 
   return (
@@ -108,11 +181,7 @@ export function SettingsPage() {
                 <RotateCcw />
                 Discard
               </Button>
-              <Button
-                disabled={save.isPending || hasInvalidDraft}
-                onClick={() => save.mutate()}
-                size="sm"
-              >
+              <Button disabled={save.isPending || hasIssues} onClick={() => save.mutate()} size="sm">
                 <Save />
                 Save
               </Button>
@@ -123,151 +192,467 @@ export function SettingsPage() {
 
       <div className="space-y-4 px-page pt-6">
         {settings.isLoading ? (
-          <>
-            <Skeleton className="h-10 w-full max-w-2xl" />
-            <SettingsSkeleton />
-          </>
+          <SettingsSkeleton />
         ) : settings.isError ? (
           <SettingsError error={settings.error} onRetry={() => settings.refetch()} />
-        ) : currentGroup ? (
+        ) : (
           <>
-            <GroupPicker active={currentGroup.key} groups={groups} onChange={setActiveGroup} />
-            <section className="grid gap-3 xl:grid-cols-2">
-              {currentGroup.items.map((setting) => (
-                <SettingCard
-                  draftError={draftErrors[setting.key]}
-                  draftValue={draft[setting.key]}
-                  key={setting.key}
-                  onChange={(value) => updateSetting(setting, value)}
-                  setting={setting}
+            {hasIssues ? <SettingsIssues issues={issues} /> : null}
+
+            <section className="grid gap-4 xl:grid-cols-2">
+              <SettingsSection
+                icon={Globe2}
+                kicker="Links"
+                title="Public endpoints"
+              >
+                <TextControl
+                  helper="Host used in generated VLESS links."
+                  label="Panel domain"
+                  onChange={(value) => setValue('panel.domain', value)}
+                  placeholder="panel.example.com"
+                  value={values.string('panel.domain')}
                 />
-              ))}
+                <TextControl
+                  helper="Base URL for subscription links returned by backend."
+                  label="Subscription URL"
+                  onChange={(value) => setValue('subscription.url_prefix', value)}
+                  placeholder="https://panel.example.com"
+                  value={values.string('subscription.url_prefix')}
+                />
+                <TextControl
+                  helper="Host used in generated Hysteria 2 links."
+                  label="Hysteria domain"
+                  onChange={(value) => setValue('hy2.domain', value)}
+                  placeholder="panel.example.com"
+                  value={values.string('hy2.domain')}
+                />
+              </SettingsSection>
+
+              <SettingsSection
+                icon={Network}
+                kicker="VLESS"
+                title="Reality inbound"
+              >
+                <PortControl
+                  label="VLESS port"
+                  max={65535}
+                  min={1}
+                  onChange={(value) => setValue('vless.port', value)}
+                  presets={vlessPortPresets}
+                  value={values.number('vless.port')}
+                />
+                <SelectControl
+                  label="Reality target"
+                  onChange={(value) => setRealityPreset(value)}
+                  options={[
+                    ...realityPresets.map((item) => ({ label: item.label, value: item.label })),
+                    { label: 'Custom', value: 'Custom' },
+                  ]}
+                  value={currentRealityPreset?.label ?? 'Custom'}
+                />
+                <TextControl
+                  helper="Server name sent to clients."
+                  label="SNI"
+                  onChange={(value) => setValue('reality.sni', value)}
+                  placeholder="www.cloudflare.com"
+                  value={values.string('reality.sni')}
+                />
+                <TextControl
+                  helper="Reality destination in Xray config."
+                  label="Destination"
+                  onChange={(value) => setValue('reality.dest', value)}
+                  placeholder="www.cloudflare.com:443"
+                  value={values.string('reality.dest')}
+                />
+              </SettingsSection>
+
+              <SettingsSection
+                icon={ShieldCheck}
+                kicker="Reality"
+                title="Keys and short ID"
+              >
+                <SecretControl
+                  helper="Private key written into Xray config."
+                  label="Private key"
+                  generating={generateReality.isPending}
+                  onChange={(value) => setValue('reality.private_key', value)}
+                  onGenerate={() => generateReality.mutate()}
+                  reveal={showSecrets}
+                  value={values.string('reality.private_key')}
+                />
+                <SecretControl
+                  helper="Public key embedded into user VLESS URLs."
+                  label="Public key"
+                  generating={generateReality.isPending}
+                  onChange={(value) => setValue('reality.public_key', value)}
+                  onGenerate={() => generateReality.mutate()}
+                  reveal={showSecrets}
+                  value={values.string('reality.public_key')}
+                />
+                <SecretControl
+                  helper="Primary short ID used in config and subscription URLs."
+                  label="Short ID"
+                  onChange={(value) => setValue('reality.short_ids', [value])}
+                  onGenerate={() => setValue('reality.short_ids', [randomHex(8)])}
+                  reveal
+                  value={firstNonEmpty(values.stringArray('reality.short_ids'))}
+                />
+                <Button onClick={() => setShowSecrets((value) => !value)} size="sm" type="button" variant="outline">
+                  {showSecrets ? <EyeOff /> : <Eye />}
+                  {showSecrets ? 'Hide secrets' : 'Show secrets'}
+                </Button>
+              </SettingsSection>
+
+              <SettingsSection
+                icon={Radio}
+                kicker="Hysteria 2"
+                title="Transport"
+              >
+                <PortControl
+                  label="Hysteria port"
+                  max={65535}
+                  min={1}
+                  onChange={(value) => setValue('hy2.port', value)}
+                  presets={hy2PortPresets}
+                  value={values.number('hy2.port')}
+                />
+                <BandwidthControl
+                  label="Upload bandwidth"
+                  onChange={(value) => setValue('hy2.bandwidth_up', formatBandwidth(value))}
+                  value={parseBandwidthMbps(values.string('hy2.bandwidth_up'))}
+                />
+                <BandwidthControl
+                  label="Download bandwidth"
+                  onChange={(value) => setValue('hy2.bandwidth_down', formatBandwidth(value))}
+                  value={parseBandwidthMbps(values.string('hy2.bandwidth_down'))}
+                />
+                <ToggleControl
+                  label="Obfuscation"
+                  offLabel="Off"
+                  onChange={(value) => setValue('hy2.obfs_enabled', value)}
+                  onLabel="Salamander"
+                  value={values.bool('hy2.obfs_enabled')}
+                />
+                {values.bool('hy2.obfs_enabled') ? (
+                  <SecretControl
+                    helper="Used in Hysteria config and Hysteria user URLs."
+                    label="Obfs password"
+                    onChange={(value) => setValue('hy2.obfs_password', value)}
+                    onGenerate={() => setValue('hy2.obfs_password', randomSecret(24))}
+                    reveal={showSecrets}
+                    value={values.string('hy2.obfs_password')}
+                  />
+                ) : (
+                  <>
+                    <SelectControl
+                      label="Masquerade target"
+                      onChange={(value) => {
+                        if (value !== 'Custom') setValue('hy2.masquerade_url', value);
+                      }}
+                      options={[
+                        ...masqueradePresets.map((item) => ({ label: item.label, value: item.value })),
+                        { label: 'Custom', value: 'Custom' },
+                      ]}
+                      value={currentMasqueradePreset?.value ?? 'Custom'}
+                    />
+                    <TextControl
+                      helper="Fallback website proxied by Hysteria when obfs is disabled."
+                      label="Masquerade URL"
+                      onChange={(value) => setValue('hy2.masquerade_url', value)}
+                      placeholder="https://www.bing.com"
+                      value={values.string('hy2.masquerade_url')}
+                    />
+                  </>
+                )}
+                <SecretControl
+                  helper="Secret for Hysteria traffic stats endpoint."
+                  label="Traffic stats secret"
+                  onChange={(value) => setValue('hy2.traffic_secret', value)}
+                  onGenerate={() => setValue('hy2.traffic_secret', randomSecret(32))}
+                  reveal={showSecrets}
+                  value={values.string('hy2.traffic_secret')}
+                />
+              </SettingsSection>
             </section>
           </>
-        ) : (
-          <EmptySettings />
         )}
       </div>
     </div>
   );
 }
 
-function GroupPicker({
-  active,
-  groups,
-  onChange,
+function SettingsSection({
+  children,
+  icon: Icon,
+  kicker,
+  title,
 }: {
-  active: GroupKey;
-  groups: Group[];
-  onChange: (key: GroupKey) => void;
+  children: ReactNode;
+  icon: ComponentType<{ className?: string }>;
+  kicker: string;
+  title: string;
 }) {
   return (
-    <div className="flex flex-wrap items-center gap-2">
-      {groups.map((group) => {
-        const Icon = group.icon;
-        const selected = group.key === active;
-        return (
-          <Button
-            className={cn('justify-start', !selected && 'text-muted-foreground')}
-            key={group.key}
-            onClick={() => onChange(group.key)}
-            size="sm"
-            type="button"
-            variant={selected ? 'default' : 'outline'}
-          >
-            <Icon />
-            {group.label}
-            <span className="ml-1 rounded bg-background/35 px-1.5 font-mono text-[10px]">
-              {group.items.length}
-            </span>
-          </Button>
-        );
-      })}
-    </div>
-  );
-}
-
-function SettingCard({
-  draftError,
-  draftValue,
-  onChange,
-  setting,
-}: {
-  draftError?: string;
-  draftValue?: string;
-  onChange: (value: string) => void;
-  setting: Setting;
-}) {
-  const original = settingText(setting.value);
-  const value = draftValue ?? original;
-  const dirty = draftValue !== undefined;
-  const rows = Math.min(12, Math.max(4, value.split('\n').length));
-
-  return (
-    <Card className={cn('overflow-hidden', dirty && 'border-ring/55')}>
-      <CardContent className="space-y-4 p-5">
-        <div className="flex items-start justify-between gap-4">
+    <Card>
+      <CardContent className="space-y-5 p-5">
+        <div className="flex items-center gap-3">
+          <span className="flex size-9 shrink-0 items-center justify-center rounded-md bg-accent-gradient-soft">
+            <Icon className="size-4" />
+          </span>
           <div className="min-w-0">
-            <div className="truncate text-sm font-semibold text-foreground">{titleize(setting.key)}</div>
-            <div className="mt-0.5 truncate font-mono text-[11px] text-muted-foreground/70">
-              {setting.key}
-            </div>
-          </div>
-          <div className="flex shrink-0 flex-col items-end gap-1">
-            {draftError ? (
-              <Badge variant="destructive">
-                <AlertTriangle />
-                JSON
-              </Badge>
-            ) : dirty ? (
-              <Badge variant="warning">Modified</Badge>
-            ) : (
-              <Badge variant="secondary">Synced</Badge>
-            )}
-            <span className="font-mono text-[10px] text-muted-foreground">
-              {formatDate(setting.updated_at)}
-            </span>
+            <div className="t-label">{kicker}</div>
+            <h2 className="truncate text-base font-semibold leading-6 text-foreground">{title}</h2>
           </div>
         </div>
-
-        <Textarea
-          className={cn(
-            'resize-y font-mono text-xs leading-5',
-            dirty && 'bg-accent-gradient-soft ring-2 ring-ring/20',
-            draftError && 'border-destructive/60 ring-2 ring-destructive/20',
-          )}
-          onChange={(event) => onChange(event.target.value)}
-          rows={rows}
-          value={value}
-        />
-
-        <div className="flex min-h-5 items-center gap-2 text-xs">
-          {draftError ? (
-            <>
-              <AlertTriangle className="size-3.5 shrink-0 text-destructive" />
-              <span className="truncate text-destructive">{draftError}</span>
-            </>
-          ) : (
-            <>
-              <CheckCircle2 className="size-3.5 shrink-0 text-success" />
-              <span className="text-muted-foreground">Valid JSON</span>
-            </>
-          )}
-        </div>
+        <div className="space-y-4">{children}</div>
       </CardContent>
     </Card>
   );
 }
 
+function TextControl({
+  helper,
+  label,
+  onChange,
+  placeholder,
+  value,
+}: {
+  helper?: string;
+  label: string;
+  onChange: (value: string) => void;
+  placeholder?: string;
+  value: string;
+}) {
+  return (
+    <div className="space-y-2">
+      <Label>{label}</Label>
+      <Input onChange={(event) => onChange(event.target.value)} placeholder={placeholder} value={value} />
+      {helper ? <p className="text-xs text-muted-foreground">{helper}</p> : null}
+    </div>
+  );
+}
+
+function SecretControl({
+  generating,
+  helper,
+  label,
+  onChange,
+  onGenerate,
+  reveal,
+  value,
+}: {
+  generating?: boolean;
+  helper?: string;
+  label: string;
+  onChange: (value: string) => void;
+  onGenerate: () => void;
+  reveal: boolean;
+  value: string;
+}) {
+  return (
+    <div className="space-y-2">
+      <Label>{label}</Label>
+      <div className="relative">
+        <KeyRound className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+        <Input
+          className="pl-9 pr-11 font-mono"
+          onChange={(event) => onChange(event.target.value)}
+          type={reveal ? 'text' : 'password'}
+          value={value}
+        />
+        <Button
+          aria-label={`Regenerate ${label}`}
+          className="absolute inset-y-0 right-0 h-full w-10 rounded-l-none"
+          disabled={generating}
+          onClick={onGenerate}
+          size="icon"
+          type="button"
+          variant="ghost"
+        >
+          <RefreshCw className={cn('size-4', generating && 'animate-spin')} />
+        </Button>
+      </div>
+      {helper ? <p className="text-xs text-muted-foreground">{helper}</p> : null}
+    </div>
+  );
+}
+
+function PortControl({
+  label,
+  max,
+  min,
+  onChange,
+  presets,
+  value,
+}: {
+  label: string;
+  max: number;
+  min: number;
+  onChange: (value: number) => void;
+  presets: number[];
+  value: number;
+}) {
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center justify-between gap-3">
+        <Label>{label}</Label>
+        <span className="font-mono text-xs text-foreground">{value}</span>
+      </div>
+      <input
+        className="h-2 w-full cursor-pointer accent-primary"
+        max={max}
+        min={min}
+        onChange={(event) => onChange(Number(event.target.value))}
+        step={1}
+        type="range"
+        value={value}
+      />
+      <div className="flex flex-wrap gap-1.5">
+        {presets.map((port) => (
+          <Button
+            className="h-7 px-2.5 text-xs"
+            key={port}
+            onClick={() => onChange(port)}
+            size="sm"
+            type="button"
+            variant={value === port ? 'default' : 'secondary'}
+          >
+            {port}
+          </Button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function BandwidthControl({
+  label,
+  onChange,
+  value,
+}: {
+  label: string;
+  onChange: (value: number) => void;
+  value: number;
+}) {
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center justify-between gap-3">
+        <Label>{label}</Label>
+        <span className="font-mono text-xs text-foreground">{formatBandwidth(value)}</span>
+      </div>
+      <input
+        className="h-2 w-full cursor-pointer accent-primary"
+        max={5000}
+        min={10}
+        onChange={(event) => onChange(Number(event.target.value))}
+        step={10}
+        type="range"
+        value={value}
+      />
+      <div className="flex flex-wrap gap-1.5">
+        {[100, 500, 1000, 2000, 5000].map((preset) => (
+          <Button
+            className="h-7 px-2.5 text-xs"
+            key={preset}
+            onClick={() => onChange(preset)}
+            size="sm"
+            type="button"
+            variant={value === preset ? 'default' : 'secondary'}
+          >
+            {formatBandwidth(preset)}
+          </Button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function ToggleControl({
+  label,
+  offLabel,
+  onChange,
+  onLabel,
+  value,
+}: {
+  label: string;
+  offLabel: string;
+  onChange: (value: boolean) => void;
+  onLabel: string;
+  value: boolean;
+}) {
+  return (
+    <div className="space-y-2">
+      <Label>{label}</Label>
+      <div className="grid grid-cols-2 gap-1 rounded-md bg-muted/45 p-1">
+        <Button onClick={() => onChange(true)} size="sm" type="button" variant={value ? 'default' : 'ghost'}>
+          {onLabel}
+        </Button>
+        <Button onClick={() => onChange(false)} size="sm" type="button" variant={!value ? 'default' : 'ghost'}>
+          {offLabel}
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+function SelectControl({
+  label,
+  onChange,
+  options,
+  value,
+}: {
+  label: string;
+  onChange: (value: string) => void;
+  options: Array<{ label: string; value: string }>;
+  value: string;
+}) {
+  return (
+    <div className="space-y-2">
+      <Label>{label}</Label>
+      <select
+        className={cn(
+          'h-9 w-full rounded-md border border-transparent bg-muted/65 px-3 text-sm text-foreground shadow-xs outline-none transition-colors',
+          'hover:bg-muted focus-visible:border-ring/45 focus-visible:bg-background focus-visible:ring-2 focus-visible:ring-ring/35',
+        )}
+        onChange={(event) => onChange(event.target.value)}
+        value={value}
+      >
+        {options.map((option) => (
+          <option key={option.value} value={option.value}>
+            {option.label}
+          </option>
+        ))}
+      </select>
+    </div>
+  );
+}
+
+function SettingsIssues({ issues }: { issues: string[] }) {
+  return (
+    <div className="rounded-md border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+      <div className="flex items-center gap-2 font-medium">
+        <AlertTriangle className="size-4" />
+        Settings need attention
+      </div>
+      <ul className="mt-2 space-y-1 text-xs">
+        {issues.map((issue) => (
+          <li key={issue}>{issue}</li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
 function SettingsSkeleton() {
   return (
-    <section className="grid gap-3 xl:grid-cols-2">
+    <section className="grid gap-4 xl:grid-cols-2">
       {Array.from({ length: 4 }).map((_, index) => (
         <Card key={index}>
-          <CardContent className="space-y-4 p-5">
-            <Skeleton className="h-5 w-48" />
-            <Skeleton className="h-28 w-full" />
-            <Skeleton className="h-4 w-24" />
+          <CardContent className="space-y-5 p-5">
+            <Skeleton className="h-10 w-52" />
+            <Skeleton className="h-20 w-full" />
+            <Skeleton className="h-20 w-full" />
+            <Skeleton className="h-9 w-36" />
           </CardContent>
         </Card>
       ))}
@@ -290,85 +675,95 @@ function SettingsError({ error, onRetry }: { error: unknown; onRetry: () => void
   );
 }
 
-function EmptySettings() {
-  return (
-    <Card>
-      <CardContent className="flex min-h-64 flex-col items-center justify-center gap-3 px-6 py-12 text-center">
-        <div className="space-y-1">
-          <div className="text-base font-semibold text-foreground">No settings</div>
-          <p className="max-w-md text-sm text-muted-foreground">
-            Settings bootstrap has not created any values yet.
-          </p>
-        </div>
-      </CardContent>
-    </Card>
-  );
-}
+function createSettingsValues(items: Setting[], draft: SettingsDraft) {
+  const map = new Map(items.map((item) => [item.key, item.value]));
 
-function buildGroups(items: Setting[]): Group[] {
-  const buckets: Record<GroupKey, Setting[]> = {
-    domains: [],
-    misc: [],
-    protocols: [],
-    security: [],
+  function value(key: SettingKey): SettingValue {
+    return draft[key] ?? coerceSettingValue(key, map.get(key));
+  }
+
+  return {
+    bool: (key: SettingKey) => {
+      const raw = value(key);
+      return typeof raw === 'boolean' ? raw : Boolean(fallbackValues[key]);
+    },
+    number: (key: SettingKey) => {
+      const raw = value(key);
+      return typeof raw === 'number' ? raw : Number(fallbackValues[key]);
+    },
+    string: (key: SettingKey) => {
+      const raw = value(key);
+      return typeof raw === 'string' ? raw : String(fallbackValues[key] ?? '');
+    },
+    stringArray: (key: SettingKey) => {
+      const raw = value(key);
+      return Array.isArray(raw) ? raw.map(String) : asStringArray(fallbackValues[key]);
+    },
+    value,
   };
-
-  for (const item of items) {
-    const key = item.key;
-    if (key.startsWith('vless.') || key.startsWith('hy2.')) {
-      buckets.protocols.push(item);
-      continue;
-    }
-    if (key.includes('public_key') || key.includes('short_ids')) {
-      buckets.security.push(item);
-      continue;
-    }
-    if (
-      key.includes('domain') ||
-      key.includes('sni') ||
-      key.includes('dest') ||
-      key.includes('masquerade')
-    ) {
-      buckets.domains.push(item);
-      continue;
-    }
-    buckets.misc.push(item);
-  }
-
-  return groupOrder
-    .map((key) => ({ ...groupMeta[key], items: buckets[key], key }))
-    .filter((group) => group.items.length);
 }
 
-function buildPayload(draft: Record<string, string>) {
-  const payload: Record<string, unknown> = {};
-  for (const [key, value] of Object.entries(draft)) {
-    try {
-      payload[key] = JSON.parse(value);
-    } catch {
-      throw new InvalidSettingsJSONError(`Invalid JSON in ${key}`);
+function coerceSettingValue(key: SettingKey, value: unknown): SettingValue {
+  const fallback = fallbackValues[key];
+  if (Array.isArray(fallback)) return Array.isArray(value) ? value.map(String) : fallback;
+  if (typeof fallback === 'boolean') return typeof value === 'boolean' ? value : fallback;
+  if (typeof fallback === 'number') return typeof value === 'number' ? value : fallback;
+  return typeof value === 'string' ? value : String(fallback);
+}
+
+function validateDraft(draft: SettingsDraft, values: ReturnType<typeof createSettingsValues>) {
+  const issues: string[] = [];
+  for (const key of Object.keys(draft) as SettingKey[]) {
+    if ((key.endsWith('.port') || key === 'vless.port') && !validPort(values.number(key))) {
+      issues.push(`${settingLabel(key)} must be between 1 and 65535.`);
+    }
+    if ((key.includes('domain') || key === 'reality.sni') && values.string(key).trim() === '') {
+      issues.push(`${settingLabel(key)} cannot be empty.`);
+    }
+    if ((key === 'subscription.url_prefix' || key === 'hy2.masquerade_url') && !validURL(values.string(key))) {
+      issues.push(`${settingLabel(key)} must be a valid http or https URL.`);
+    }
+    if (key === 'reality.dest' && !validHostPort(values.string(key))) {
+      issues.push('Reality / Dest must be a host:port value.');
+    }
+    if (key === 'reality.short_ids' && !values.stringArray(key).every(validRealityShortID)) {
+      issues.push('Reality / Short Ids must contain empty or even-length hex values up to 16 characters.');
+    }
+    if ((key === 'hy2.bandwidth_up' || key === 'hy2.bandwidth_down') && !validBandwidth(values.string(key))) {
+      issues.push(`${settingLabel(key)} must use mbps or gbps.`);
     }
   }
-  return payload;
-}
-
-function validateDraft(draft: Record<string, string>) {
-  const errors: Record<string, string> = {};
-  for (const [key, value] of Object.entries(draft)) {
-    try {
-      JSON.parse(value);
-    } catch (error) {
-      errors[key] = error instanceof Error ? error.message : 'Invalid JSON';
+  if (draft['hy2.obfs_enabled'] === true || draft['hy2.obfs_password'] !== undefined) {
+    if (values.bool('hy2.obfs_enabled') && values.string('hy2.obfs_password').trim() === '') {
+      issues.push('Obfs password is required when Hysteria obfuscation is enabled.');
     }
   }
-  return errors;
+  if (draft['reality.private_key'] !== undefined || draft['reality.public_key'] !== undefined) {
+    if (values.string('reality.private_key').trim() === '' || values.string('reality.public_key').trim() === '') {
+      issues.push('Reality private and public keys must be saved together.');
+    }
+  }
+  return issues;
 }
 
-function settingText(value: unknown): string {
-  return JSON.stringify(value, null, 2) ?? 'null';
+function normalizeDraftForSave(draft: SettingsDraft): SettingsDraft {
+  const normalized: SettingsDraft = {};
+  for (const [key, value] of Object.entries(draft) as Array<[SettingKey, SettingValue]>) {
+    if (typeof value === 'string') {
+      const trimmed = value.trim();
+      normalized[key] = key === 'subscription.url_prefix' ? trimmed.replace(/\/+$/, '') : trimmed;
+      continue;
+    }
+    if (Array.isArray(value)) {
+      normalized[key] = value.map((item) => item.trim());
+      continue;
+    }
+    normalized[key] = value;
+  }
+  return normalized;
 }
 
-function titleize(key: string): string {
+function settingLabel(key: SettingKey): string {
   return key
     .split('.')
     .map((part) => part.split('_').join(' '))
@@ -376,10 +771,90 @@ function titleize(key: string): string {
     .join(' / ');
 }
 
+function sameSettingValue(left: SettingValue, right: SettingValue): boolean {
+  return JSON.stringify(left) === JSON.stringify(right);
+}
+
+function asStringArray(value: SettingValue): string[] {
+  return Array.isArray(value) ? value.map(String) : [String(value)];
+}
+
+function firstNonEmpty(values: string[]): string {
+  return values.find((value) => value.trim() !== '') ?? '';
+}
+
+function findRealityPreset(sni: string, dest: string): RealityPreset | undefined {
+  return realityPresets.find((preset) => preset.sni === sni && preset.dest === dest);
+}
+
+function findURLPreset(value: string, presets: URLPreset[]): URLPreset | undefined {
+  return presets.find((preset) => preset.value === value);
+}
+
+function parseBandwidthMbps(value: string): number {
+  const match = value.trim().toLowerCase().match(/^(\d+(?:\.\d+)?)\s*(g|gbps|m|mbps)$/);
+  if (!match) return 1000;
+  const amount = Number(match[1]);
+  const unit = match[2];
+  const mbps = unit.startsWith('g') ? amount * 1000 : amount;
+  return Math.max(10, Math.min(5000, Math.round(mbps)));
+}
+
+function formatBandwidth(mbps: number): string {
+  if (mbps >= 1000 && mbps % 1000 === 0) {
+    return `${mbps / 1000} gbps`;
+  }
+  return `${mbps} mbps`;
+}
+
+function validPort(value: number): boolean {
+  return Number.isInteger(value) && value >= 1 && value <= 65535;
+}
+
+function validURL(value: string): boolean {
+  try {
+    const parsed = new URL(value.trim());
+    return parsed.protocol === 'http:' || parsed.protocol === 'https:';
+  } catch {
+    return false;
+  }
+}
+
+function validHostPort(value: string): boolean {
+  try {
+    const parsed = new URL(`tcp://${value.trim()}`);
+    return parsed.hostname !== '' && parsed.pathname === '' && validPort(Number(parsed.port));
+  } catch {
+    return false;
+  }
+}
+
+function validRealityShortID(value: string): boolean {
+  return value.length % 2 === 0 && /^[0-9a-fA-F]{0,16}$/.test(value);
+}
+
+function validBandwidth(value: string): boolean {
+  return /^\d+(?:\.\d+)?\s*(g|gbps|m|mbps)$/i.test(value.trim());
+}
+
+function randomHex(bytes: number): string {
+  const data = new Uint8Array(bytes);
+  crypto.getRandomValues(data);
+  return Array.from(data, (byte) => byte.toString(16).padStart(2, '0')).join('');
+}
+
+function randomSecret(bytes: number): string {
+  const data = new Uint8Array(bytes);
+  crypto.getRandomValues(data);
+  let binary = '';
+  for (const byte of data) {
+    binary += String.fromCharCode(byte);
+  }
+  return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+
 function errorMessage(error: unknown): string {
   if (error instanceof ApiError) return error.message;
   if (error instanceof Error) return error.message;
   return 'Request failed';
 }
-
-class InvalidSettingsJSONError extends Error {}
