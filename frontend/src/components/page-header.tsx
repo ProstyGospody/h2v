@@ -17,7 +17,7 @@ export function PageHeader({ action, className, description, title }: PageHeader
     >
       <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
         <div className="min-w-0 space-y-1">
-          <h1 className="truncate text-xl font-semibold leading-[1.18] tracking-tight text-foreground sm:text-2xl">
+          <h1 className="max-w-full whitespace-nowrap text-xl font-semibold leading-none tracking-tight text-foreground sm:text-2xl">
             {title}
           </h1>
           {description ? (
