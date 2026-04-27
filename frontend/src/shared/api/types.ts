@@ -43,13 +43,14 @@ export type TrafficPoint = {
 };
 
 export type OverviewStats = {
-  active_users: number;
   expired_users: number;
   limited_users: number;
   disabled_users: number;
   today_traffic: number;
   cpu_usage_percent: number;
   memory_usage_percent: number;
+  network_rx_bytes_per_second: number;
+  network_tx_bytes_per_second: number;
   xray_status: string;
   hysteria_status: string;
   online_users: Array<{ username: string; recorded_at: string; bytes: number }>;

@@ -22,6 +22,7 @@ type StatsService struct {
 	startedAt time.Time
 	metricsMu sync.Mutex
 	prevCPU   *util.CPUSample
+	prevNet   *util.NetworkSample
 }
 
 func NewStatsService(repository *repo.Repository, xray XrayAdapter, hysteria HysteriaAdapter, cache SubscriptionCache, version string, startedAt time.Time) *StatsService {
@@ -35,6 +36,9 @@ func NewStatsService(repository *repo.Repository, xray XrayAdapter, hysteria Hys
 	}
 	if sample, err := util.ReadCPUSample(); err == nil {
 		service.prevCPU = &sample
+	}
+	if sample, err := util.ReadNetworkSample(); err == nil {
+		service.prevNet = &sample
 	}
 	return service
 }
@@ -74,17 +78,30 @@ func (s *StatsService) Overview(ctx context.Context) (*domain.OverviewStats, err
 		memoryUsage = value
 	}
 
+	networkRxBPS := int64(0)
+	networkTxBPS := int64(0)
+	if curr, err := util.ReadNetworkSample(); err == nil {
+		s.metricsMu.Lock()
+		prev := s.prevNet
+		s.prevNet = &curr
+		s.metricsMu.Unlock()
+		if prev != nil {
+			networkRxBPS, networkTxBPS = util.NetworkBytesPerSecond(*prev, curr)
+		}
+	}
+
 	return &domain.OverviewStats{
-		ActiveUsers:         counts[string(domain.StatusActive)],
-		ExpiredUsers:        counts[string(domain.StatusExpired)],
-		LimitedUsers:        counts[string(domain.StatusLimited)],
-		DisabledUsers:       counts[string(domain.StatusDisabled)],
-		TodayTraffic:        todayTraffic,
-		CPUUsagePercent:     cpuUsage,
-		MemoryUsagePercent:  memoryUsage,
-		XrayStatus:          xrayStatus,
-		HysteriaStatus:      hyStatus,
-		OnlineUsers:         online,
+		ExpiredUsers:            counts[string(domain.StatusExpired)],
+		LimitedUsers:            counts[string(domain.StatusLimited)],
+		DisabledUsers:           counts[string(domain.StatusDisabled)],
+		TodayTraffic:            todayTraffic,
+		CPUUsagePercent:         cpuUsage,
+		MemoryUsagePercent:      memoryUsage,
+		NetworkRxBytesPerSecond: networkRxBPS,
+		NetworkTxBytesPerSecond: networkTxBPS,
+		XrayStatus:              xrayStatus,
+		HysteriaStatus:          hyStatus,
+		OnlineUsers:             online,
 	}, nil
 }
 

@@ -1,11 +1,13 @@
-import { useMemo, useState, type ComponentType } from 'react';
+import { useMemo, useState, type ComponentType, type ReactNode } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import {
   Activity,
+  ArrowDown,
+  ArrowUp,
+  ChartNoAxesColumnIncreasing,
   ChartNetwork,
   CircleGauge,
   MemoryStick,
-  UserRoundCheck,
   UserRoundX,
   WifiHigh,
 } from 'lucide-react';
@@ -19,7 +21,14 @@ import { PageHeader } from '@/components/page-header';
 import { cn } from '@/lib/utils';
 import { apiClient } from '@/shared/api/client';
 import { OverviewStats, TrafficPoint } from '@/shared/api/types';
-import { formatBytes, formatDate, formatNumber, formatPercent, formatShortDateTime } from '@/shared/lib/format';
+import {
+  formatBytes,
+  formatBytesPerSecond,
+  formatDate,
+  formatNumber,
+  formatPercent,
+  formatShortDateTime,
+} from '@/shared/lib/format';
 
 const ranges = ['1', '7', '30'] as const;
 type Range = (typeof ranges)[number];
@@ -112,13 +121,18 @@ export function DashboardPage() {
 
       <div className="grid gap-3 px-page pt-6 sm:gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6">
         <MetricCard
-          icon={UserRoundCheck}
-          label="Active users"
+          icon={ChartNetwork}
+          label="Network Speed"
           loading={overview.isLoading}
-          value={formatNumber(data?.active_users ?? 0)}
+          value={
+            <NetworkSpeedValue
+              rx={data?.network_rx_bytes_per_second ?? 0}
+              tx={data?.network_tx_bytes_per_second ?? 0}
+            />
+          }
         />
         <MetricCard
-          icon={ChartNetwork}
+          icon={ChartNoAxesColumnIncreasing}
           label="Today traffic"
           loading={overview.isLoading}
           value={formatBytes(data?.today_traffic ?? 0)}
@@ -253,6 +267,21 @@ function statusTone(value: string | undefined): StatusTone {
   return value.toLowerCase().startsWith('fail') ? 'warn' : 'ok';
 }
 
+function NetworkSpeedValue({ rx, tx }: { rx: number; tx: number }) {
+  return (
+    <div className="flex flex-col gap-1 text-sm font-semibold leading-5 text-foreground">
+      <span className="flex items-center gap-1.5">
+        <ArrowDown className="size-3.5 text-primary" />
+        {formatBytesPerSecond(rx)}
+      </span>
+      <span className="flex items-center gap-1.5">
+        <ArrowUp className="size-3.5 text-primary" />
+        {formatBytesPerSecond(tx)}
+      </span>
+    </div>
+  );
+}
+
 function statusIconTone(tone: StatusTone): string {
   if (tone === 'ok') return 'text-success';
   if (tone === 'warn') return 'text-warning';
@@ -275,7 +304,7 @@ function MetricCard({
   icon: ComponentType<{ className?: string }>;
   label: string;
   loading?: boolean;
-  value: string;
+  value: ReactNode;
 }) {
   return (
     <Card className="transition-colors hover:bg-[hsl(var(--surface-elevated))]">
@@ -292,8 +321,10 @@ function MetricCard({
         </div>
         {loading ? (
           <Skeleton className="h-7 w-24" />
-        ) : (
+        ) : typeof value === 'string' ? (
           <div className="t-metric text-foreground">{value}</div>
+        ) : (
+          value
         )}
         {bar ? (
           loading ? (

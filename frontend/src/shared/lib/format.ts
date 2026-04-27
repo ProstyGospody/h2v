@@ -12,6 +12,10 @@ export function formatBytes(value: number): string {
   return `${size.toFixed(size > 10 ? 0 : 1)} ${units[index]}`;
 }
 
+export function formatBytesPerSecond(value: number): string {
+  return `${formatBytes(value)}/s`;
+}
+
 export function formatNumber(value: number): string {
   return new Intl.NumberFormat('en-US').format(value);
 }

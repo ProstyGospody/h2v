@@ -85,16 +85,17 @@ type OnlineUser struct {
 }
 
 type OverviewStats struct {
-	ActiveUsers    int64        `json:"active_users"`
-	ExpiredUsers   int64        `json:"expired_users"`
-	LimitedUsers   int64        `json:"limited_users"`
-	DisabledUsers  int64        `json:"disabled_users"`
-	TodayTraffic   int64        `json:"today_traffic"`
-	CPUUsagePercent    float64      `json:"cpu_usage_percent"`
-	MemoryUsagePercent float64      `json:"memory_usage_percent"`
-	XrayStatus     string       `json:"xray_status"`
-	HysteriaStatus string       `json:"hysteria_status"`
-	OnlineUsers    []OnlineUser `json:"online_users"`
+	ExpiredUsers                 int64        `json:"expired_users"`
+	LimitedUsers                 int64        `json:"limited_users"`
+	DisabledUsers                int64        `json:"disabled_users"`
+	TodayTraffic                 int64        `json:"today_traffic"`
+	CPUUsagePercent              float64      `json:"cpu_usage_percent"`
+	MemoryUsagePercent           float64      `json:"memory_usage_percent"`
+	NetworkRxBytesPerSecond      int64        `json:"network_rx_bytes_per_second"`
+	NetworkTxBytesPerSecond      int64        `json:"network_tx_bytes_per_second"`
+	XrayStatus                   string       `json:"xray_status"`
+	HysteriaStatus               string       `json:"hysteria_status"`
+	OnlineUsers                  []OnlineUser `json:"online_users"`
 }
 
 type SubscriptionLinks struct {
