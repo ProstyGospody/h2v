@@ -41,14 +41,17 @@ type DBConfig struct {
 }
 
 type XrayConfig struct {
-	Binary         string
-	APIAddr        string
-	ConfigPath     string
-	VlessPort      int
-	RealityDest    string
-	RealitySNI     string
-	RealityPrivKey string
-	RealityPubKey  string
+	Binary          string
+	APIAddr         string
+	ConfigPath      string
+	GeodataDir      string
+	GeoIPURL        string
+	GeositeURL      string
+	VlessPort       int
+	RealityDest     string
+	RealitySNI      string
+	RealityPrivKey  string
+	RealityPubKey   string
 	RealityShortIDs []string
 }
 
@@ -111,6 +114,9 @@ func Load() Config {
 			Binary:          getenv("XRAY_BINARY", "/usr/local/bin/xray"),
 			APIAddr:         getenv("XRAY_API_ADDR", "127.0.0.1:10085"),
 			ConfigPath:      getenv("XRAY_CONFIG_PATH", filepath.Join(rootDir, "configs", "xray", "config.json")),
+			GeodataDir:      getenv("XRAY_GEODATA_DIR", "/usr/local/share/xray"),
+			GeoIPURL:        getenv("XRAY_GEOIP_URL", "https://github.com/v2fly/geoip/releases/latest/download/geoip.dat"),
+			GeositeURL:      getenv("XRAY_GEOSITE_URL", "https://github.com/v2fly/domain-list-community/releases/latest/download/dlc.dat"),
 			VlessPort:       getenvInt("VLESS_PORT", 8444),
 			RealityDest:     getenv("REALITY_DEST", "www.cloudflare.com:443"),
 			RealitySNI:      getenv("REALITY_SNI", "www.cloudflare.com"),

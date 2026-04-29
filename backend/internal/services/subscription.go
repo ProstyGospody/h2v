@@ -184,6 +184,8 @@ type RuntimeSettings struct {
 	Hy2TrafficSecret   string
 	Hy2CertPath        string
 	Hy2KeyPath         string
+	GeoIPPath          string
+	GeositePath        string
 	Clients            []ClientEntry
 }
 

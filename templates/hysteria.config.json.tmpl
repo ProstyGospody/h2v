@@ -31,6 +31,15 @@
   "trafficStats": {
     "listen": "127.0.0.1:7653",
     "secret": {{ .Hy2TrafficSecret | json }}
+  },
+  "acl": {
+    "inline": [
+      "reject(geosite:category-ads-all)",
+      "reject(geosite:category-ru)",
+      "reject(geoip:ru)"
+    ],
+    "geoip": {{ .GeoIPPath | json }},
+    "geosite": {{ .GeositePath | json }}
   }{{ if and .Hy2ObfsEnabled .Hy2ObfsPassword }},
   "obfs": {
     "type": "salamander",

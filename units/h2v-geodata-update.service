@@ -1,0 +1,11 @@
+[Unit]
+Description=Update VPN core GeoIP and Geosite data
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+Environment=PANEL_ENV_FILE=/opt/mypanel/.env
+ExecStart=/opt/mypanel/bin/panel geodata update
+ExecStartPost=/bin/systemctl try-restart xray.service
+ExecStartPost=/bin/systemctl try-restart hysteria.service

@@ -169,6 +169,9 @@ func (s *ConfigService) Validate(ctx context.Context, core string, content []byt
 			}
 			_ = tmp.Close()
 			cmd := exec.CommandContext(ctx, s.cfg.Xray.Binary, "test", "-c", tmp.Name())
+			if s.cfg.Xray.GeodataDir != "" {
+				cmd.Env = append(os.Environ(), "XRAY_LOCATION_ASSET="+s.cfg.Xray.GeodataDir)
+			}
 			if out, err := cmd.CombinedOutput(); err != nil {
 				return domain.NewError(400, "invalid_config", "Xray configuration test failed", fmt.Errorf("%s", out))
 			}

@@ -10,6 +10,7 @@ import (
 	"log/slog"
 	"net"
 	"net/url"
+	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
@@ -157,6 +158,8 @@ func DefaultRuntime(cfg config.Config) RuntimeSettings {
 		Hy2TrafficSecret:   cfg.Hysteria.TrafficSecret,
 		Hy2CertPath:        cfg.Hysteria.CertPath,
 		Hy2KeyPath:         cfg.Hysteria.KeyPath,
+		GeoIPPath:          filepath.Join(cfg.Xray.GeodataDir, "geoip.dat"),
+		GeositePath:        filepath.Join(cfg.Xray.GeodataDir, "geosite.dat"),
 		Clients:            nil,
 	}
 }

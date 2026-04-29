@@ -14,6 +14,9 @@ BUILD_STATE_DIR="${INSTALL_DIR}/build"
 GO_VERSION="${GO_VERSION:-1.22.12}"
 NODE_VERSION="${NODE_VERSION:-22.22.2}"
 NPM_VERSION="${NPM_VERSION:-10.9.7}"
+XRAY_GEODATA_DIR_DEFAULT="/usr/local/share/xray"
+XRAY_GEOIP_URL_DEFAULT="https://github.com/v2fly/geoip/releases/latest/download/geoip.dat"
+XRAY_GEOSITE_URL_DEFAULT="https://github.com/v2fly/domain-list-community/releases/latest/download/dlc.dat"
 
 FIRST_INSTALL=false
 NEEDS_CONFIG=false
@@ -258,6 +261,32 @@ render_core_configs() {
   chown panel:xray "${INSTALL_DIR}/configs/xray/config.json" 2>/dev/null || true
   chown panel:hysteria "${INSTALL_DIR}/configs/hysteria/config.json" 2>/dev/null || true
   chmod 0640 "${INSTALL_DIR}/configs/xray/config.json" "${INSTALL_DIR}/configs/hysteria/config.json" 2>/dev/null || true
+}
+
+update_geodata() {
+  [[ -x "${INSTALL_DIR}/bin/panel" ]] || fail "panel binary missing; cannot update core geodata"
+  local geodata_dir out status=0
+  geodata_dir="$(env_get XRAY_GEODATA_DIR || true)"
+  geodata_dir="${geodata_dir:-${XRAY_GEODATA_DIR_DEFAULT}}"
+  install -d -m 0755 "${geodata_dir}"
+
+  out="$(PANEL_ENV_FILE="${ENV_FILE}" "${INSTALL_DIR}/bin/panel" geodata update 2>&1)" || status=$?
+  if [[ ${status} -ne 0 ]]; then
+    if [[ -s "${geodata_dir}/geoip.dat" && -s "${geodata_dir}/geosite.dat" ]]; then
+      warn "geodata update failed; keeping existing geoip.dat/geosite.dat"
+      printf '%s\n' "${out}"
+      return
+    fi
+    red "${out}"
+    fail "geodata update failed"
+  fi
+
+  if getent group xray >/dev/null 2>&1; then
+    chown -R root:xray "${geodata_dir}" 2>/dev/null || true
+  fi
+  chmod 0755 "${geodata_dir}" 2>/dev/null || true
+  chmod 0644 "${geodata_dir}/geoip.dat" "${geodata_dir}/geosite.dat" 2>/dev/null || true
+  substep "geoip.dat/geosite.dat updated in ${geodata_dir}"
 }
 
 grant_cert_access() {
@@ -562,6 +591,14 @@ ensure_env() {
   if [[ -n "${HY2_PORT_INPUT}" ]]; then
     env_set HY2_PORT "${HY2_PORT_INPUT}"
   fi
+
+  local geodata_dir
+  geodata_dir="$(env_get XRAY_GEODATA_DIR || true)"
+  geodata_dir="${geodata_dir:-${XRAY_GEODATA_DIR_DEFAULT}}"
+  env_set_default XRAY_GEODATA_DIR "${geodata_dir}"
+  env_set_default XRAY_LOCATION_ASSET "${geodata_dir}"
+  env_set_default XRAY_GEOIP_URL "${XRAY_GEOIP_URL_DEFAULT}"
+  env_set_default XRAY_GEOSITE_URL "${XRAY_GEOSITE_URL_DEFAULT}"
 }
 
 env_get() {
@@ -600,6 +637,16 @@ env_set() {
   chmod 600 "${tmp}"
   chown panel:panel "${tmp}"
   mv "${tmp}" "${ENV_FILE}"
+}
+
+env_set_default() {
+  local key="${1}"
+  local value="${2}"
+  local current
+  current="$(env_get "${key}" || true)"
+  if [[ -z "${current}" ]]; then
+    env_set "${key}" "${value}"
+  fi
 }
 
 panel_domain_is_real() {
@@ -837,7 +884,16 @@ install_templates() {
 
 install_units() {
   cp "${SOURCE_DIR}/units/"*.service /etc/systemd/system/
+  cp "${SOURCE_DIR}/units/"*.timer /etc/systemd/system/
   systemctl daemon-reload
+}
+
+setup_geodata_timer() {
+  if ! systemctl enable --now h2v-geodata-update.timer >/dev/null 2>&1; then
+    warn "failed to enable h2v-geodata-update.timer; run panel geodata update manually if needed"
+    return
+  fi
+  substep "h2v-geodata-update.timer enabled"
 }
 
 install_sudoers() {
@@ -955,7 +1011,7 @@ install_all() {
   collect_install_inputs
 
   STAGE_INDEX=0
-  STAGE_TOTAL=12
+  STAGE_TOTAL=13
 
   step "deps" "Installing Ubuntu dependencies"
   ensure_base_packages
@@ -993,9 +1049,14 @@ install_all() {
   build_artifacts
   success "backend binary and frontend bundle built"
 
+  step "geodata" "Downloading GeoIP and Geosite data"
+  update_geodata
+  success "routing data ready for Xray and Hysteria 2"
+
   step "units" "Installing systemd units"
   install_units
   install_sudoers
+  setup_geodata_timer
   success "systemd units installed"
 
   step "migrate" "Running database migrations"
@@ -1089,6 +1150,18 @@ update_all() {
   install_all
 }
 
+update_geodata_command() {
+  require_root
+  [[ -f "${ENV_FILE}" ]] || fail "${ENV_FILE} not found"
+  banner "Core geodata update" "geoip.dat + geosite.dat"
+  STAGE_INDEX=0
+  STAGE_TOTAL=1
+  step "geodata" "Downloading GeoIP and Geosite data"
+  update_geodata
+  success "routing data ready for Xray and Hysteria 2"
+  systemctl try-restart xray.service hysteria.service >/dev/null 2>&1 || true
+}
+
 uninstall_all() {
   require_root
   banner "h2v panel uninstaller" "stopping services and removing ${INSTALL_DIR}"
@@ -1096,12 +1169,13 @@ uninstall_all() {
   STAGE_TOTAL=2
 
   step "stop" "Stopping and disabling services"
-  systemctl disable --now panel hysteria xray 2>/dev/null || true
-  success "panel/hysteria/xray services stopped"
+  systemctl disable --now panel hysteria xray h2v-geodata-update.timer h2v-geodata-update.service 2>/dev/null || true
+  success "panel/hysteria/xray services and geodata timer stopped"
 
   step "purge" "Removing application files and units"
   rm -rf "${INSTALL_DIR}"
   rm -f /etc/systemd/system/panel.service /etc/systemd/system/xray.service /etc/systemd/system/hysteria.service
+  rm -f /etc/systemd/system/h2v-geodata-update.service /etc/systemd/system/h2v-geodata-update.timer
   rm -f /etc/sudoers.d/mypanel-systemctl
   systemctl daemon-reload
   success "${INSTALL_DIR} and systemd units removed"
@@ -1163,6 +1237,7 @@ reset_admin() {
 case "${1:-install}" in
   install) install_all ;;
   update|reinstall) update_all ;;
+  geodata|update-geodata) update_geodata_command ;;
   uninstall) uninstall_all ;;
   reset-admin) reset_admin "${2:-}" "${3:-}" ;;
   backup) backup_db ;;
@@ -1174,6 +1249,7 @@ h2v panel installer
 Usage:
   install.sh install                         full install (interactive prompts)
   install.sh update | reinstall              re-run install against existing .env
+  install.sh geodata | update-geodata        refresh core geoip.dat/geosite.dat
   install.sh uninstall                       remove /opt/mypanel and systemd units
   install.sh reset-admin [user] [pw]         reset admin password
   install.sh backup                          dump database to data/backups
@@ -1186,7 +1262,7 @@ Env overrides:
 USAGE
     ;;
   *)
-    red "Usage: $0 {install|update|reinstall|uninstall|reset-admin [username] [password]|backup|restore <file>|help}"
+    red "Usage: $0 {install|update|reinstall|geodata|update-geodata|uninstall|reset-admin [username] [password]|backup|restore <file>|help}"
     exit 1
     ;;
 esac

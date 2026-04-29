@@ -41,7 +41,7 @@ func main() {
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{}))
 
 	if len(os.Args) < 2 {
-		fatal(logger, errors.New("expected subcommand: serve | migrate up | admin create | admin set-password | config render"))
+		fatal(logger, errors.New("expected subcommand: serve | migrate up | admin create | admin set-password | config render | geodata update"))
 	}
 
 	switch os.Args[1] {
@@ -53,6 +53,8 @@ func main() {
 		runAdmin(cfg, logger, os.Args[2:])
 	case "config":
 		runConfig(cfg, logger, os.Args[2:])
+	case "geodata":
+		runGeodata(cfg, logger, os.Args[2:])
 	default:
 		fatal(logger, fmt.Errorf("unknown subcommand %q", os.Args[1]))
 	}
@@ -278,6 +280,17 @@ func runConfig(cfg config.Config, logger *slog.Logger, args []string) {
 		fatal(logger, err)
 	}
 	logger.Info("config rendered", "path", target)
+}
+
+func runGeodata(cfg config.Config, logger *slog.Logger, args []string) {
+	if len(args) == 0 || args[0] != "update" {
+		fatal(logger, errors.New("usage: panel geodata update"))
+	}
+	ctx := context.Background()
+	if err := services.NewGeodataService(cfg.Xray, logger).Update(ctx); err != nil {
+		fatal(logger, err)
+	}
+	logger.Info("core geodata update complete", "dir", cfg.Xray.GeodataDir)
 }
 
 func fatal(logger *slog.Logger, err error) {

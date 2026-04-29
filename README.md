@@ -13,6 +13,7 @@ On a fresh Ubuntu host it also bootstraps the exact build toolchain it needs: Go
 Frontend package versions are pinned exactly in [frontend/package.json](./frontend/package.json), and the Go toolchain is pinned in [backend/go.mod](./backend/go.mod).
 The installer also persists the generated frontend `package-lock.json` under `/opt/mypanel/build/` and reuses it on later rebuilds, so repeated installs on the same host keep the same npm dependency graph.
 For immutable source rebuilds, run the installer with an explicit tag or commit via `H2V_REF`; `main` remains mutable by definition.
+GeoIP/Geosite assets for Xray routing and Hysteria 2 ACL are refreshed during install and then daily by `h2v-geodata-update.timer`; to refresh them manually run `/opt/mypanel/install.sh geodata` or `PANEL_ENV_FILE=/opt/mypanel/.env /opt/mypanel/bin/panel geodata update`.
 
 This repository is split into:
 
