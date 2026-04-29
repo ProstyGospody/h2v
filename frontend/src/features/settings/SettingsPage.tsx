@@ -448,47 +448,15 @@ function SubscriptionURLControl({
   onChange: (value: string) => void;
   value: string;
 }) {
-  const parts = subscriptionURLParts(value);
-
-  function update(next: Partial<typeof parts>) {
-    const scheme = next.scheme ?? parts.scheme;
-    const host = next.host ?? parts.host;
-    onChange(`${scheme}://${sanitizeURLHost(host)}`);
-  }
-
   return (
     <div className="space-y-[13px]">
       <Label>{label}</Label>
-      <div className="flex flex-col gap-2 sm:flex-row">
-        <div className="grid w-full grid-cols-2 gap-1 rounded-md bg-muted/45 p-1 sm:w-36">
-          {(['https', 'http'] as const).map((scheme) => (
-            <Button
-              className="h-7 px-2 text-[11px]"
-              key={scheme}
-              onClick={() => update({ scheme })}
-              size="sm"
-              type="button"
-              variant={parts.scheme === scheme ? 'default' : 'ghost'}
-            >
-              {scheme}
-            </Button>
-          ))}
-        </div>
-        <Input
-          className="h-9 min-w-0 flex-1 font-mono text-xs"
-          onChange={(event) => {
-            const raw = event.target.value;
-            if (/^[a-z][a-z0-9+.-]*:\/\//i.test(raw)) {
-              const next = subscriptionURLParts(raw);
-              onChange(`${next.scheme}://${next.host}`);
-              return;
-            }
-            update({ host: raw });
-          }}
-          placeholder="panel.example.com"
-          value={parts.host}
-        />
-      </div>
+      <Input
+        className="font-mono text-xs"
+        onChange={(event) => onChange(subscriptionURLFromHost(event.target.value))}
+        placeholder="panel.example.com"
+        value={subscriptionURLHost(value)}
+      />
     </div>
   );
 }
@@ -862,27 +830,7 @@ function findURLPreset(value: string, presets: URLPreset[]): URLPreset | undefin
   return presets.find((preset) => preset.value === value);
 }
 
-function subscriptionURLParts(value: string): { host: string; scheme: 'http' | 'https' } {
-  const trimmed = value.trim();
-  if (trimmed === '') {
-    return { host: '', scheme: 'https' };
-  }
-  const raw = /^[a-z][a-z0-9+.-]*:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
-  try {
-    const parsed = new URL(raw);
-    return {
-      host: parsed.host,
-      scheme: parsed.protocol === 'http:' ? 'http' : 'https',
-    };
-  } catch {
-    return {
-      host: sanitizeURLHost(trimmed),
-      scheme: trimmed.toLowerCase().startsWith('http://') ? 'http' : 'https',
-    };
-  }
-}
-
-function sanitizeURLHost(value: string): string {
+function subscriptionURLHost(value: string): string {
   const trimmed = value.trim();
   if (trimmed === '') {
     return '';
@@ -895,9 +843,13 @@ function sanitizeURLHost(value: string): string {
   }
 }
 
+function subscriptionURLFromHost(value: string): string {
+  const host = subscriptionURLHost(value);
+  return host ? `https://${host}` : '';
+}
+
 function normalizeSubscriptionURLForSave(value: string): string {
-  const parts = subscriptionURLParts(value);
-  return `${parts.scheme}://${parts.host}`.replace(/\/+$/, '');
+  return subscriptionURLFromHost(value).replace(/\/+$/, '');
 }
 
 function sanitizeCredential(value: string): string {

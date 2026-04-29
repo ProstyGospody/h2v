@@ -206,7 +206,7 @@ function ServiceStatusPanel({
             <CoreLogo className="size-5" core={item.logo} />
           </span>
           <span className="min-w-0 flex-1">
-            <span className="block truncate font-serif text-[18px] italic leading-none text-accent-gradient">
+            <span className="block truncate font-serif text-[18px] italic leading-none text-foreground">
               {item.label}
             </span>
           </span>
