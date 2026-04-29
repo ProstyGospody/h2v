@@ -496,7 +496,7 @@ func (s *Server) handleSettingsRealityKeyPair(w http.ResponseWriter, _ *http.Req
 func (s *Server) handleGeodataUpdate(w http.ResponseWriter, r *http.Request) {
 	if err := s.services.Geodata.UpdateAndRestart(r.Context()); err != nil {
 		s.logger.Error("geodata update failed", "err", err)
-		jsonError(w, domain.NewError(http.StatusInternalServerError, "geodata_update_failed", "Unable to update GeoIP/Geosite data", err))
+		jsonError(w, domain.NewError(http.StatusInternalServerError, "geodata_update_failed", fmt.Sprintf("Unable to update GeoIP/Geosite data: %v", err), err))
 		return
 	}
 	jsonData(w, http.StatusOK, map[string]any{"updated": true}, nil)

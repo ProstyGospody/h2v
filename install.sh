@@ -14,7 +14,8 @@ BUILD_STATE_DIR="${INSTALL_DIR}/build"
 GO_VERSION="${GO_VERSION:-1.22.12}"
 NODE_VERSION="${NODE_VERSION:-22.22.2}"
 NPM_VERSION="${NPM_VERSION:-10.9.7}"
-XRAY_GEODATA_DIR_DEFAULT="/usr/local/share/xray"
+XRAY_GEODATA_DIR_DEFAULT="${INSTALL_DIR}/data/geodata"
+XRAY_GEODATA_DIR_LEGACY="/usr/local/share/xray"
 XRAY_GEOIP_URL_DEFAULT="https://github.com/v2fly/geoip/releases/latest/download/geoip.dat"
 XRAY_GEOSITE_URL_DEFAULT="https://github.com/v2fly/domain-list-community/releases/latest/download/dlc.dat"
 
@@ -281,7 +282,9 @@ update_geodata() {
     fail "geodata update failed"
   fi
 
-  if getent group xray >/dev/null 2>&1; then
+  if [[ "${geodata_dir}" == "${INSTALL_DIR}/data" || "${geodata_dir}" == "${INSTALL_DIR}/data/"* ]]; then
+    chown -R panel:panel "${geodata_dir}" 2>/dev/null || true
+  elif getent group xray >/dev/null 2>&1; then
     chown -R root:xray "${geodata_dir}" 2>/dev/null || true
   fi
   chmod 0755 "${geodata_dir}" 2>/dev/null || true
@@ -552,6 +555,7 @@ ensure_dirs() {
     "${INSTALL_DIR}/logs"
   chown -R panel:panel "${INSTALL_DIR}"
   chmod 0755 "${INSTALL_DIR}" "${INSTALL_DIR}/configs"
+  chmod 0755 "${INSTALL_DIR}/data" 2>/dev/null || true
   if getent group xray >/dev/null; then
     chown panel:xray "${INSTALL_DIR}/configs/xray"
     chmod 2750 "${INSTALL_DIR}/configs/xray"
@@ -594,9 +598,12 @@ ensure_env() {
 
   local geodata_dir
   geodata_dir="$(env_get XRAY_GEODATA_DIR || true)"
+  if [[ -z "${geodata_dir}" || "${geodata_dir}" == "${XRAY_GEODATA_DIR_LEGACY}" ]]; then
+    geodata_dir="${XRAY_GEODATA_DIR_DEFAULT}"
+    env_set XRAY_GEODATA_DIR "${geodata_dir}"
+  fi
   geodata_dir="${geodata_dir:-${XRAY_GEODATA_DIR_DEFAULT}}"
-  env_set_default XRAY_GEODATA_DIR "${geodata_dir}"
-  env_set_default XRAY_LOCATION_ASSET "${geodata_dir}"
+  env_set XRAY_LOCATION_ASSET "${geodata_dir}"
   env_set_default XRAY_GEOIP_URL "${XRAY_GEOIP_URL_DEFAULT}"
   env_set_default XRAY_GEOSITE_URL "${XRAY_GEOSITE_URL_DEFAULT}"
 }

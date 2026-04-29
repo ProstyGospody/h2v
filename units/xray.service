@@ -5,7 +5,7 @@ After=network.target nss-lookup.target
 
 [Service]
 User=xray
-Environment=XRAY_LOCATION_ASSET=/usr/local/share/xray
+Environment=XRAY_LOCATION_ASSET=/opt/mypanel/data/geodata
 EnvironmentFile=-/opt/mypanel/.env
 CapabilityBoundingSet=CAP_NET_ADMIN CAP_NET_BIND_SERVICE
 AmbientCapabilities=CAP_NET_ADMIN CAP_NET_BIND_SERVICE
