@@ -1,11 +1,11 @@
 import { useEffect, useMemo, useRef } from 'react';
 import { json, jsonParseLinter } from '@codemirror/lang-json';
-import { HighlightStyle, syntaxHighlighting } from '@codemirror/language';
+import { bracketMatching, HighlightStyle, syntaxHighlighting } from '@codemirror/language';
 import { linter, lintGutter } from '@codemirror/lint';
 import { EditorState, type Extension } from '@codemirror/state';
-import { EditorView } from '@codemirror/view';
+import { EditorView, highlightActiveLine, highlightActiveLineGutter, lineNumbers } from '@codemirror/view';
 import { tags } from '@lezer/highlight';
-import { basicSetup } from 'codemirror';
+import { minimalSetup } from 'codemirror';
 import { cn } from '@/lib/utils';
 
 type ConfigEditorProps = {
@@ -28,6 +28,14 @@ const configHighlightStyle = HighlightStyle.define([
   { tag: tags.comment, color: '#758197', fontStyle: 'italic' },
   { tag: tags.invalid, color: '#ff8b8b', textDecoration: 'none' },
 ]);
+
+const configEditorSetup: Extension = [
+  minimalSetup,
+  lineNumbers(),
+  highlightActiveLineGutter(),
+  bracketMatching(),
+  highlightActiveLine(),
+];
 
 const configEditorTheme = EditorView.theme(
   {
@@ -57,8 +65,8 @@ const configEditorTheme = EditorView.theme(
       borderRight: '1px solid hsl(var(--border) / 0.55)',
       color: '#697589',
     },
-    '.cm-foldGutter': {
-      display: 'none',
+    '.cm-gutterElement': {
+      lineHeight: '1.62',
     },
     '.cm-lineNumbers .cm-gutterElement': {
       minWidth: '44px',
@@ -155,7 +163,7 @@ export function ConfigEditor({
 
   const extensions = useMemo<Extension[]>(
     () => [
-      basicSetup,
+      configEditorSetup,
       json(),
       syntaxHighlighting(configHighlightStyle),
       lintGutter(),
