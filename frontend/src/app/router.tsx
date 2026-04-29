@@ -155,32 +155,30 @@ function SidebarBody({
         </div>
       </div>
 
-      <div className="border-t border-border/55 p-3">
-        <div className="rounded-lg border border-border/60 bg-card p-2 shadow-sm">
-          <div className="flex items-center gap-2.5 px-2 py-1.5">
-            <div className="flex size-8 shrink-0 items-center justify-center rounded-md border border-border/60 bg-muted font-mono text-xs font-semibold text-foreground">
-              {admin.username.slice(0, 1).toUpperCase()}
-            </div>
-            <div className="min-w-0 flex-1">
-              <div className="truncate text-sm font-medium text-foreground">{admin.username}</div>
-              <div className="truncate text-[11px] capitalize text-muted-foreground">
-                {admin.role ?? 'admin'}
-              </div>
-            </div>
-            <Button
-              className="h-8 shrink-0 gap-1.5 px-2 text-[11px] text-muted-foreground"
-              onClick={async () => {
-                onNavigate?.();
-                await logout();
-              }}
-              size="sm"
-              type="button"
-              variant="ghost"
-            >
-              <LogOut className="size-4" />
-              Sign out
-            </Button>
+      <div className="border-t border-border/55 px-5 py-4">
+        <div className="flex items-center gap-2.5">
+          <div className="flex size-7 shrink-0 items-center justify-center rounded-md border border-border/55 bg-muted/45 font-mono text-[11px] font-semibold text-foreground">
+            {admin.username.slice(0, 1).toUpperCase()}
           </div>
+          <div className="min-w-0 flex-1">
+            <div className="truncate text-sm font-medium leading-5 text-foreground">{admin.username}</div>
+            <div className="truncate text-[11px] capitalize leading-4 text-muted-foreground">
+              {admin.role ?? 'admin'}
+            </div>
+          </div>
+          <Button
+            aria-label="Sign out"
+            className="size-8 shrink-0 text-muted-foreground"
+            onClick={async () => {
+              onNavigate?.();
+              await logout();
+            }}
+            size="icon-sm"
+            type="button"
+            variant="ghost"
+          >
+            <LogOut className="size-4" />
+          </Button>
         </div>
       </div>
     </div>
@@ -198,30 +196,27 @@ function ServiceStatusPanel({
   }>;
 }) {
   return (
-    <div className="rounded-lg border border-border/60 bg-card/80 p-2 shadow-sm">
-      <div className="space-y-1">
-        {items.map((item) => (
-          <div
-            className="flex items-center gap-2.5 rounded-md px-2 py-2 transition-colors hover:bg-muted/45"
-            key={item.label}
-          >
-            <span className="flex size-8 shrink-0 items-center justify-center rounded-md border border-border/55 bg-muted/55">
-              <CoreLogo className="size-5" core={item.logo} />
+    <div className="space-y-1 px-1">
+      {items.map((item) => (
+        <div
+          className="flex items-center gap-2.5 rounded-md px-1 py-1.5 transition-colors hover:bg-muted/25"
+          key={item.label}
+        >
+          <span className="flex size-6 shrink-0 items-center justify-center">
+            <CoreLogo className="size-5" core={item.logo} />
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="block truncate font-serif text-[18px] italic leading-none text-accent-gradient">
+              {item.label}
             </span>
-            <span className="min-w-0 flex-1">
-              <span className="block truncate text-sm font-medium text-foreground">{item.label}</span>
-              <span className="block truncate font-mono text-[11px] leading-4 text-muted-foreground">
-                {item.value}
-              </span>
-            </span>
-            <span
-              aria-label={item.value}
-              className={cn('size-2.5 shrink-0 rounded-full ring-4', serviceDotTone(item.tone))}
-              title={item.value}
-            />
-          </div>
-        ))}
-      </div>
+          </span>
+          <span
+            aria-label={item.value}
+            className={cn('size-2 shrink-0 rounded-full ring-2', serviceDotTone(item.tone))}
+            title={item.value}
+          />
+        </div>
+      ))}
     </div>
   );
 }
@@ -236,7 +231,7 @@ function serviceStatusLabel(value: string | undefined, isLoading: boolean, isErr
   if (isError) return 'Issue';
   if (isLoading && !value) return 'Syncing';
   if (!value) return 'Unknown';
-  return value.toLowerCase().startsWith('fail') ? 'Issue' : 'Online';
+  return value.toLowerCase().startsWith('fail') ? 'Issue' : 'OK';
 }
 
 function serviceDotTone(tone: StatusTone): string {

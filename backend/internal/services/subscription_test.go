@@ -85,6 +85,14 @@ func TestEncodedLinks(t *testing.T) {
 	}
 }
 
+func TestBuildSubscriptionURLUsesCredentialSegment(t *testing.T) {
+	got := buildSubscriptionURL("https://panel.example.com/", "sub_credential", "user-token")
+	want := "https://panel.example.com/sub/sub_credential/user-token"
+	if got != want {
+		t.Fatalf("subscription url = %q, want %q", got, want)
+	}
+}
+
 func TestBuildClashYAMLUsesStructuredProxies(t *testing.T) {
 	payload, err := (&SubscriptionService{}).BuildClashYAML(sampleLinks())
 	if err != nil {

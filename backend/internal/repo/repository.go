@@ -30,8 +30,9 @@ func (r *Repository) Ping(ctx context.Context) error {
 
 func (r *Repository) BootstrapSettings(ctx context.Context, cfg config.Config) error {
 	settings := map[string]json.RawMessage{
-		"panel.domain":            rawJSONString(cfg.Panel.Domain),
-		"subscription.url_prefix": rawJSONString(cfg.Subscription.URLPrefix),
+		"panel.domain":             rawJSONString(cfg.Panel.Domain),
+		"subscription.credential":  rawJSONString(cfg.Subscription.Credential),
+		"subscription.url_prefix":  rawJSONString(cfg.Subscription.URLPrefix),
 		"reality.sni":             rawJSONString(cfg.Xray.RealitySNI),
 		"reality.dest":            rawJSONString(cfg.Xray.RealityDest),
 		"reality.private_key":     rawJSONString(cfg.Xray.RealityPrivKey),

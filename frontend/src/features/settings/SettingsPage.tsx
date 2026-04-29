@@ -37,6 +37,7 @@ type SettingKey =
   | 'reality.public_key'
   | 'reality.short_ids'
   | 'reality.sni'
+  | 'subscription.credential'
   | 'subscription.url_prefix'
   | 'vless.port';
 
@@ -74,6 +75,7 @@ const fallbackValues: Record<SettingKey, SettingValue> = {
   'reality.public_key': '',
   'reality.short_ids': [''],
   'reality.sni': 'www.cloudflare.com',
+  'subscription.credential': '',
   'subscription.url_prefix': 'https://panel.example.com',
   'vless.port': 8444,
 };
@@ -353,11 +355,17 @@ export function SettingsPage() {
                     placeholder="panel.example.com"
                     value={values.string('panel.domain')}
                   />
-                  <TextControl
+                  <SubscriptionURLControl
                     label="Subscription URL"
                     onChange={(value) => setValue('subscription.url_prefix', value)}
-                    placeholder="https://panel.example.com"
                     value={values.string('subscription.url_prefix')}
+                  />
+                  <SecretControl
+                    label="Subscription cred."
+                    onChange={(value) => setValue('subscription.credential', value)}
+                    onGenerate={() => setValue('subscription.credential', randomSecret(18))}
+                    reveal={showSecrets}
+                    value={values.string('subscription.credential')}
                   />
                   <TextControl
                     label="Hysteria domain"
@@ -427,6 +435,60 @@ function TextControl({
     <div className="space-y-[13px]">
       <Label>{label}</Label>
       <Input onChange={(event) => onChange(event.target.value)} placeholder={placeholder} value={value} />
+    </div>
+  );
+}
+
+function SubscriptionURLControl({
+  label,
+  onChange,
+  value,
+}: {
+  label: string;
+  onChange: (value: string) => void;
+  value: string;
+}) {
+  const parts = subscriptionURLParts(value);
+
+  function update(next: Partial<typeof parts>) {
+    const scheme = next.scheme ?? parts.scheme;
+    const host = next.host ?? parts.host;
+    onChange(`${scheme}://${sanitizeURLHost(host)}`);
+  }
+
+  return (
+    <div className="space-y-[13px]">
+      <Label>{label}</Label>
+      <div className="flex flex-col gap-2 sm:flex-row">
+        <div className="grid w-full grid-cols-2 gap-1 rounded-md bg-muted/45 p-1 sm:w-36">
+          {(['https', 'http'] as const).map((scheme) => (
+            <Button
+              className="h-7 px-2 text-[11px]"
+              key={scheme}
+              onClick={() => update({ scheme })}
+              size="sm"
+              type="button"
+              variant={parts.scheme === scheme ? 'default' : 'ghost'}
+            >
+              {scheme}
+            </Button>
+          ))}
+        </div>
+        <Input
+          className="h-9 min-w-0 flex-1 font-mono text-xs"
+          onChange={(event) => {
+            const raw = event.target.value;
+            if (/^[a-z][a-z0-9+.-]*:\/\//i.test(raw)) {
+              const next = subscriptionURLParts(raw);
+              onChange(`${next.scheme}://${next.host}`);
+              return;
+            }
+            update({ host: raw });
+          }}
+          placeholder="panel.example.com"
+          value={parts.host}
+        />
+      </div>
     </div>
   );
 }
@@ -723,6 +785,9 @@ function validateDraft(draft: SettingsDraft, values: ReturnType<typeof createSet
     if ((key === 'subscription.url_prefix' || key === 'hy2.masquerade_url') && !validURL(values.string(key))) {
       issues.push(`${settingLabel(key)} must be a valid http or https URL.`);
     }
+    if (key === 'subscription.credential' && !validSubscriptionCredential(values.string(key))) {
+      issues.push('Subscription / Credential must be empty or 8-96 URL-safe characters.');
+    }
     if (key === 'reality.dest' && !validHostPort(values.string(key))) {
       issues.push('Reality / Dest must be a host:port value.');
     }
@@ -751,7 +816,13 @@ function normalizeDraftForSave(draft: SettingsDraft): SettingsDraft {
   for (const [key, value] of Object.entries(draft) as Array<[SettingKey, SettingValue]>) {
     if (typeof value === 'string') {
       const trimmed = value.trim();
-      normalized[key] = key === 'subscription.url_prefix' ? trimmed.replace(/\/+$/, '') : trimmed;
+      if (key === 'subscription.url_prefix') {
+        normalized[key] = normalizeSubscriptionURLForSave(trimmed);
+      } else if (key === 'subscription.credential') {
+        normalized[key] = sanitizeCredential(trimmed);
+      } else {
+        normalized[key] = trimmed;
+      }
       continue;
     }
     if (Array.isArray(value)) {
@@ -791,6 +862,48 @@ function findURLPreset(value: string, presets: URLPreset[]): URLPreset | undefin
   return presets.find((preset) => preset.value === value);
 }
 
+function subscriptionURLParts(value: string): { host: string; scheme: 'http' | 'https' } {
+  const trimmed = value.trim();
+  if (trimmed === '') {
+    return { host: '', scheme: 'https' };
+  }
+  const raw = /^[a-z][a-z0-9+.-]*:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
+  try {
+    const parsed = new URL(raw);
+    return {
+      host: parsed.host,
+      scheme: parsed.protocol === 'http:' ? 'http' : 'https',
+    };
+  } catch {
+    return {
+      host: sanitizeURLHost(trimmed),
+      scheme: trimmed.toLowerCase().startsWith('http://') ? 'http' : 'https',
+    };
+  }
+}
+
+function sanitizeURLHost(value: string): string {
+  const trimmed = value.trim();
+  if (trimmed === '') {
+    return '';
+  }
+  const raw = /^[a-z][a-z0-9+.-]*:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
+  try {
+    return new URL(raw).host;
+  } catch {
+    return trimmed.replace(/^https?:\/\//i, '').split('/')[0].replace(/\/+$/, '');
+  }
+}
+
+function normalizeSubscriptionURLForSave(value: string): string {
+  const parts = subscriptionURLParts(value);
+  return `${parts.scheme}://${parts.host}`.replace(/\/+$/, '');
+}
+
+function sanitizeCredential(value: string): string {
+  return value.trim().replace(/^\/+|\/+$/g, '');
+}
+
 function validPort(value: number): boolean {
   return Number.isInteger(value) && value >= 1 && value <= 65535;
 }
@@ -815,6 +928,11 @@ function validHostPort(value: string): boolean {
 
 function validRealityShortID(value: string): boolean {
   return value.length % 2 === 0 && /^[0-9a-fA-F]{0,16}$/.test(value);
+}
+
+function validSubscriptionCredential(value: string): boolean {
+  const credential = sanitizeCredential(value);
+  return credential === '' || /^[A-Za-z0-9_-]{8,96}$/.test(credential);
 }
 
 function validBandwidth(value: string): boolean {
