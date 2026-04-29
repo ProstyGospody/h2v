@@ -90,11 +90,11 @@ function ConfigPanel({ core }: { core: Core }) {
 
   useEffect(() => {
     if (config.data?.content === undefined) return;
-    setDraft(config.data.content);
+    setDraft(normalizeConfigText(config.data.content));
     setValidation('idle');
   }, [config.data?.content]);
 
-  const original = config.data?.content ?? '';
+  const original = normalizeConfigText(config.data?.content ?? '');
   const content = draft ?? original;
   const dirty = Boolean(config.data && content !== original);
   const jsonState = useMemo(() => inspectJson(content), [content]);
@@ -140,7 +140,7 @@ function ConfigPanel({ core }: { core: Core }) {
   async function reloadConfig() {
     const result = await config.refetch();
     if (result.data?.content === undefined) return;
-    setDraft(result.data.content);
+    setDraft(normalizeConfigText(result.data.content));
     setValidation('idle');
   }
 
@@ -394,6 +394,10 @@ function inspectJson(value: string): JsonState {
       valid: false,
     };
   }
+}
+
+function normalizeConfigText(value: string): string {
+  return value.replace(/^(?:[ \t]*\r?\n)+/, '');
 }
 
 function contentStats(value: string) {
