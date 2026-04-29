@@ -16,14 +16,20 @@ import (
 const minGeodataBytes = 1024
 
 type GeodataService struct {
-	cfg    config.XrayConfig
-	client *http.Client
-	logger *slog.Logger
+	cfg       config.XrayConfig
+	systemctl SystemctlAdapter
+	client    *http.Client
+	logger    *slog.Logger
 }
 
-func NewGeodataService(cfg config.XrayConfig, logger *slog.Logger) *GeodataService {
+func NewGeodataService(cfg config.XrayConfig, logger *slog.Logger, systemctl ...SystemctlAdapter) *GeodataService {
+	var controller SystemctlAdapter
+	if len(systemctl) > 0 {
+		controller = systemctl[0]
+	}
 	return &GeodataService{
-		cfg: cfg,
+		cfg:       cfg,
+		systemctl: controller,
 		client: &http.Client{
 			Timeout: 60 * time.Second,
 		},
@@ -58,6 +64,21 @@ func (s *GeodataService) Update(ctx context.Context) error {
 			return err
 		}
 		s.logger.Info("core geodata updated", "file", file.name, "path", target)
+	}
+	return nil
+}
+
+func (s *GeodataService) UpdateAndRestart(ctx context.Context) error {
+	if err := s.Update(ctx); err != nil {
+		return err
+	}
+	if s.systemctl == nil {
+		return nil
+	}
+	for _, core := range []string{"xray", "hysteria"} {
+		if err := s.systemctl.Restart(ctx, core); err != nil {
+			return fmt.Errorf("restart %s after geodata update: %w", core, err)
+		}
 	}
 	return nil
 }

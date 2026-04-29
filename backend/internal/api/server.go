@@ -131,6 +131,9 @@ func (s *Server) routes(r chi.Router) {
 		api.Get("/settings", s.handleSettingsList)
 		api.Patch("/settings", s.handleSettingsUpdate)
 		api.Post("/settings/reality-keypair", s.handleSettingsRealityKeyPair)
+		api.Post("/geodata/update", s.handleGeodataUpdate)
+		api.Get("/backup/export", s.handleBackupExport)
+		api.Post("/backup/import", s.handleBackupImport)
 
 		api.Get("/stats/overview", s.handleStatsOverview)
 		api.Get("/stats/traffic", s.handleStatsTraffic)
@@ -488,6 +491,38 @@ func (s *Server) handleSettingsRealityKeyPair(w http.ResponseWriter, _ *http.Req
 		return
 	}
 	jsonData(w, http.StatusOK, keyPair, nil)
+}
+
+func (s *Server) handleGeodataUpdate(w http.ResponseWriter, r *http.Request) {
+	if err := s.services.Geodata.UpdateAndRestart(r.Context()); err != nil {
+		s.logger.Error("geodata update failed", "err", err)
+		jsonError(w, domain.NewError(http.StatusInternalServerError, "geodata_update_failed", "Unable to update GeoIP/Geosite data", err))
+		return
+	}
+	jsonData(w, http.StatusOK, map[string]any{"updated": true}, nil)
+}
+
+func (s *Server) handleBackupExport(w http.ResponseWriter, r *http.Request) {
+	backup, err := s.services.Backup.Export(r.Context())
+	if err != nil {
+		jsonError(w, err)
+		return
+	}
+	jsonData(w, http.StatusOK, backup, nil)
+}
+
+func (s *Server) handleBackupImport(w http.ResponseWriter, r *http.Request) {
+	var backup services.PanelBackup
+	if err := decodeJSON(r, &backup); err != nil {
+		jsonError(w, domain.NewError(400, "invalid_request", "Invalid request body", err))
+		return
+	}
+	summary, err := s.services.Backup.Import(r.Context(), backup)
+	if err != nil {
+		jsonError(w, err)
+		return
+	}
+	jsonData(w, http.StatusOK, summary, nil)
 }
 
 func (s *Server) handleStatsOverview(w http.ResponseWriter, r *http.Request) {

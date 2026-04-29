@@ -1,7 +1,8 @@
-import { useMemo, useState, type ComponentType, type ReactNode } from 'react';
+import { useMemo, useRef, useState, type ChangeEvent, type ComponentType, type ReactNode } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   AlertTriangle,
+  Download,
   Eye,
   EyeOff,
   Globe2,
@@ -9,6 +10,7 @@ import {
   RefreshCw,
   RotateCcw,
   Save,
+  Upload,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
@@ -60,6 +62,14 @@ type RealityKeyPair = {
   public_key: string;
 };
 
+type PanelBackup = Record<string, unknown>;
+
+type BackupImportSummary = {
+  settings: number;
+  users: number;
+  configs: number;
+};
+
 const fallbackValues: Record<SettingKey, SettingValue> = {
   'hy2.bandwidth_down': '1 gbps',
   'hy2.bandwidth_up': '1 gbps',
@@ -101,6 +111,7 @@ export function SettingsPage() {
   const queryClient = useQueryClient();
   const [draft, setDraft] = useState<SettingsDraft>({});
   const [showSecrets, setShowSecrets] = useState(false);
+  const backupInputRef = useRef<HTMLInputElement>(null);
 
   const settings = useQuery({
     queryKey: ['settings'],
@@ -152,6 +163,46 @@ export function SettingsPage() {
     },
   });
 
+  const exportBackup = useMutation({
+    mutationFn: () => apiClient.request<PanelBackup>('/backup/export'),
+    onError: (error) => {
+      toast.error(error instanceof ApiError ? error.message : 'Unable to export backup');
+    },
+    onSuccess: (backup) => {
+      downloadBackupFile(backup);
+      toast.success('Backup downloaded');
+    },
+  });
+
+  const importBackup = useMutation({
+    mutationFn: (backup: PanelBackup) =>
+      apiClient.request<BackupImportSummary>('/backup/import', {
+        body: JSON.stringify(backup),
+        method: 'POST',
+      }),
+    onError: (error) => {
+      toast.error(error instanceof ApiError ? error.message : 'Unable to import backup');
+    },
+    onSuccess: async () => {
+      toast.success('Backup restored');
+      setDraft({});
+      await queryClient.invalidateQueries();
+    },
+  });
+
+  const updateGeodata = useMutation({
+    mutationFn: () =>
+      apiClient.request<{ updated: boolean }>('/geodata/update', {
+        method: 'POST',
+      }),
+    onError: (error) => {
+      toast.error(error instanceof ApiError ? error.message : 'Unable to update GeoIP/Geosite data');
+    },
+    onSuccess: () => {
+      toast.success('GeoIP/Geosite data updated');
+    },
+  });
+
   function setValue(key: SettingKey, value: SettingValue) {
     setDraft((current) => {
       const next = { ...current };
@@ -171,6 +222,20 @@ export function SettingsPage() {
     setValue('reality.dest', preset.dest);
   }
 
+  async function handleBackupUpload(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.currentTarget.files?.[0];
+    event.currentTarget.value = '';
+    if (!file) return;
+    if (!window.confirm('Import backup and replace current settings, users, and protocol configs?')) return;
+
+    try {
+      const payload = JSON.parse(await file.text()) as PanelBackup;
+      importBackup.mutate(payload);
+    } catch {
+      toast.error('Backup file is not valid JSON');
+    }
+  }
+
   return (
     <div className="pb-10">
       <PageHeader
@@ -185,6 +250,43 @@ export function SettingsPage() {
               type="button"
             >
               {showSecrets ? <EyeOff className="size-5" /> : <Eye className="size-5" />}
+            </Button>
+            <Button
+              disabled={exportBackup.isPending}
+              onClick={() => exportBackup.mutate()}
+              size="sm"
+              type="button"
+              variant="secondary"
+            >
+              <Download />
+              Download
+            </Button>
+            <Button
+              disabled={importBackup.isPending}
+              onClick={() => backupInputRef.current?.click()}
+              size="sm"
+              type="button"
+              variant="secondary"
+            >
+              <Upload />
+              Upload
+            </Button>
+            <input
+              ref={backupInputRef}
+              accept="application/json,.json"
+              className="hidden"
+              onChange={handleBackupUpload}
+              type="file"
+            />
+            <Button
+              disabled={updateGeodata.isPending}
+              onClick={() => updateGeodata.mutate()}
+              size="sm"
+              type="button"
+              variant="secondary"
+            >
+              <RefreshCw className={cn(updateGeodata.isPending && 'animate-spin')} />
+              Update Geo
             </Button>
             {hasDraft ? (
               <>
@@ -381,6 +483,19 @@ export function SettingsPage() {
       </div>
     </div>
   );
+}
+
+function downloadBackupFile(backup: PanelBackup) {
+  const json = JSON.stringify(backup, null, 2);
+  const blob = new Blob([json], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = `h2v-backup-${new Date().toISOString().replace(/[:.]/g, '-')}.json`;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
 }
 
 function SettingsSection({

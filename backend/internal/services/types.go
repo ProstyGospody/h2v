@@ -36,6 +36,7 @@ type Services struct {
 	Settings     *SettingsService
 	Configs      *ConfigService
 	Geodata      *GeodataService
+	Backup       *BackupService
 	Stats        *StatsService
 	Admins       *AdminService
 }
@@ -98,7 +99,8 @@ func New(deps ServiceDeps) *Services {
 		Subscription: subscription,
 		Settings:     settings,
 		Configs:      configs,
-		Geodata:      NewGeodataService(deps.Config.Xray, deps.Logger),
+		Geodata:      NewGeodataService(deps.Config.Xray, deps.Logger, deps.Systemctl),
+		Backup:       NewBackupService(deps.Repo, settings, configs, deps.Cache),
 		Stats:        NewStatsService(deps.Repo, deps.Xray, deps.Hysteria, deps.Cache, deps.Version, deps.StartedAt),
 		Admins:       NewAdminService(deps.Repo),
 	}

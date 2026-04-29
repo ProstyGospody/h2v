@@ -175,6 +175,85 @@ func (r *Repository) ListUsers(ctx context.Context, filters domain.UserFilters) 
 	return users, total, rows.Err()
 }
 
+func (r *Repository) ListAllUsers(ctx context.Context) ([]domain.User, error) {
+	rows, err := r.pool.Query(ctx, `
+		SELECT id, username, vless_uuid, hy2_password, sub_token, traffic_limit, traffic_used,
+		       expires_at, status, note, created_at, updated_at
+		FROM users
+		ORDER BY created_at ASC
+	`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	users := make([]domain.User, 0, 64)
+	for rows.Next() {
+		user, err := scanUser(rows)
+		if err != nil {
+			return nil, err
+		}
+		users = append(users, *user)
+	}
+	return users, rows.Err()
+}
+
+func (r *Repository) ReplaceUsers(ctx context.Context, users []domain.User) error {
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+
+	if len(users) == 0 {
+		if _, err := tx.Exec(ctx, `DELETE FROM users`); err != nil {
+			return err
+		}
+		return tx.Commit(ctx)
+	}
+
+	placeholders := make([]string, 0, len(users))
+	args := make([]any, 0, len(users))
+	for i, user := range users {
+		placeholders = append(placeholders, fmt.Sprintf("$%d", i+1))
+		args = append(args, user.ID)
+	}
+	if _, err := tx.Exec(ctx, `DELETE FROM users WHERE id NOT IN (`+strings.Join(placeholders, ",")+`)`, args...); err != nil {
+		return err
+	}
+
+	for _, user := range users {
+		if _, err := tx.Exec(ctx, `
+			INSERT INTO users (
+				id, username, vless_uuid, hy2_password, sub_token,
+				traffic_limit, traffic_used, expires_at, status, note, created_at, updated_at
+			)
+			VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
+			ON CONFLICT (id) DO UPDATE
+			SET username = EXCLUDED.username,
+			    vless_uuid = EXCLUDED.vless_uuid,
+			    hy2_password = EXCLUDED.hy2_password,
+			    sub_token = EXCLUDED.sub_token,
+			    traffic_limit = EXCLUDED.traffic_limit,
+			    traffic_used = EXCLUDED.traffic_used,
+			    expires_at = EXCLUDED.expires_at,
+			    status = EXCLUDED.status,
+			    note = EXCLUDED.note,
+			    created_at = EXCLUDED.created_at,
+			    updated_at = EXCLUDED.updated_at
+		`,
+			user.ID, user.Username, user.VlessUUID, user.Hy2Password, user.SubToken,
+			user.TrafficLimit, user.TrafficUsed, user.ExpiresAt, user.Status, user.Note, user.CreatedAt, user.UpdatedAt,
+		); err != nil {
+			if isUniqueViolation(err) {
+				return domain.NewError(409, "backup_user_conflict", "Backup contains users that conflict with existing or imported users", err)
+			}
+			return err
+		}
+	}
+	return tx.Commit(ctx)
+}
+
 func (r *Repository) UpdateUser(ctx context.Context, user *domain.User) error {
 	const query = `
 		UPDATE users
