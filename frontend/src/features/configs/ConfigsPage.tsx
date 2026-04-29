@@ -166,70 +166,66 @@ function ConfigPanel({ core }: { core: Core }) {
 
   return (
     <>
-      <section className="min-w-0 overflow-hidden rounded-lg border border-border/65 bg-card shadow-sm">
-        <div className="border-b border-border/55 bg-surface px-4 py-4 sm:px-5">
-          <div className="flex flex-col gap-4">
-            <div className="flex items-start justify-between gap-4">
-              <div className="flex min-w-0 items-center gap-3">
-                <span className="flex size-10 shrink-0 items-center justify-center rounded-md bg-accent-gradient-soft">
-                  <CoreLogo className="size-5" core={meta.logo} />
-                </span>
-                <div className="min-w-0">
-                  <h2 className="truncate text-base font-semibold leading-6 text-foreground">
-                    {meta.label}
-                  </h2>
-                  <div className="mt-0.5 flex flex-wrap items-center gap-2 font-mono text-[11px] text-muted-foreground">
-                    <span>{meta.service}</span>
-                    <span className="text-muted-foreground/35">/</span>
-                    <span>{stats.lines} lines</span>
-                    <span className="text-muted-foreground/35">/</span>
-                    <span>{formatBytes(stats.bytes)}</span>
-                  </div>
-                </div>
-              </div>
-              <ConfigStatus
-                dirty={dirty}
-                isChecking={validate.isPending}
-                isLoading={config.isLoading}
-                jsonState={jsonState}
-                validation={validation}
-              />
-            </div>
-
-            <div className="flex flex-wrap items-center gap-2">
-              <Button disabled={config.isFetching} onClick={reloadConfig} size="sm" variant="outline">
-                <RefreshCw className={cn(config.isFetching && 'animate-spin')} />
-                Reload
-              </Button>
-              <Button disabled={!dirty} onClick={resetDraft} size="sm" variant="outline">
-                <RotateCcw />
-                Reset
-              </Button>
-              <Button disabled={!config.data || !jsonState.valid} onClick={formatDraft} size="sm" variant="outline">
-                <Wand2 />
-                Format
-              </Button>
-              <div className="ml-auto flex items-center gap-2">
-                <Button disabled={!canValidate} onClick={() => validate.mutate()} size="sm" variant="secondary">
-                  <CheckCircle2 />
-                  Validate
-                </Button>
-                <Button disabled={!canApply} onClick={() => setDiffOpen(true)} size="sm">
-                  <PlayCircle />
-                  Apply
-                </Button>
+      <section className="flex min-w-0 flex-col overflow-hidden rounded-lg border border-border/70 bg-surface shadow-sm">
+        <div className="border-b border-border/55 bg-background/35 px-4 py-3 sm:px-5">
+          <div className="flex min-w-0 items-center gap-3">
+            <span className="flex size-9 shrink-0 items-center justify-center rounded-md border border-border/55 bg-muted/45">
+              <CoreLogo className="size-5" core={meta.logo} />
+            </span>
+            <div className="min-w-0 flex-1">
+              <h2 className="truncate text-sm font-semibold leading-5 text-foreground">{meta.label}</h2>
+              <div className="mt-0.5 flex flex-wrap items-center gap-2 font-mono text-[11px] text-muted-foreground">
+                <span>{meta.service}</span>
+                <span className="text-muted-foreground/35">/</span>
+                <span>{stats.lines} lines</span>
+                <span className="text-muted-foreground/35">/</span>
+                <span>{formatBytes(stats.bytes)}</span>
               </div>
             </div>
-
-            {!jsonState.valid && !config.isLoading ? (
-              <div className="rounded-md border border-destructive/25 bg-destructive/10 px-3 py-2 text-xs text-destructive">
-                {jsonState.message}
-              </div>
-            ) : null}
+            <ConfigStatus
+              dirty={dirty}
+              isChecking={validate.isPending}
+              isLoading={config.isLoading}
+              jsonState={jsonState}
+              validation={validation}
+            />
           </div>
         </div>
 
-        <div className="p-3 sm:p-4">
+        <div className="border-b border-border/55 bg-card/35 px-3 py-3 sm:px-4">
+          <div className="flex flex-wrap items-center gap-2">
+            <Button disabled={config.isFetching} onClick={reloadConfig} size="sm" variant="outline">
+              <RefreshCw className={cn(config.isFetching && 'animate-spin')} />
+              Reload
+            </Button>
+            <Button disabled={!dirty} onClick={resetDraft} size="sm" variant="outline">
+              <RotateCcw />
+              Reset
+            </Button>
+            <Button disabled={!config.data || !jsonState.valid} onClick={formatDraft} size="sm" variant="outline">
+              <Wand2 />
+              Format
+            </Button>
+            <div className="ml-auto flex items-center gap-2">
+              <Button disabled={!canValidate} onClick={() => validate.mutate()} size="sm" variant="secondary">
+                <CheckCircle2 />
+                Validate
+              </Button>
+              <Button disabled={!canApply} onClick={() => setDiffOpen(true)} size="sm">
+                <PlayCircle />
+                Apply
+              </Button>
+            </div>
+          </div>
+        </div>
+
+        {!jsonState.valid && !config.isLoading ? (
+          <div className="border-b border-destructive/20 bg-destructive/10 px-4 py-2.5 text-xs text-destructive">
+            {jsonState.message}
+          </div>
+        ) : null}
+
+        <div className="min-h-0 flex-1 bg-[#080c11] p-2 sm:p-3">
           {config.isLoading ? (
             <Skeleton className="h-[68vh] min-h-[520px] w-full xl:h-[calc(100vh-256px)] xl:min-h-[620px]" />
           ) : config.isError ? (
@@ -260,29 +256,35 @@ function ConfigPanel({ core }: { core: Core }) {
       </section>
 
       <Dialog onOpenChange={setDiffOpen} open={diffOpen}>
-        <DialogContent className="max-h-[92vh] overflow-hidden sm:max-w-6xl">
-          <DialogHeader>
-            <DialogTitle>Apply {meta.label}</DialogTitle>
-            <DialogDescription>{meta.label} will restart after the new configuration is written.</DialogDescription>
+        <DialogContent className="grid max-h-[92vh] w-[calc(100vw-32px)] max-w-none grid-rows-[auto_auto_minmax(0,1fr)_auto] gap-0 overflow-hidden p-0 sm:w-[min(calc(100vw-48px),1180px)] sm:max-w-none">
+          <DialogHeader className="border-b border-border/55 bg-surface px-5 py-4 pr-12">
+            <div className="flex min-w-0 items-center gap-3">
+              <span className="flex size-9 shrink-0 items-center justify-center rounded-md border border-border/55 bg-muted/45">
+                <CoreLogo className="size-5" core={meta.logo} />
+              </span>
+              <div className="min-w-0">
+                <DialogTitle className="truncate text-base">Apply {meta.label}</DialogTitle>
+                <DialogDescription>{meta.label} will restart after the new configuration is written.</DialogDescription>
+              </div>
+            </div>
           </DialogHeader>
 
-          <div className="grid gap-2 sm:grid-cols-3">
+          <div className="grid gap-2 border-b border-border/55 bg-card/35 px-4 py-3 sm:grid-cols-3">
             <DiffMetric label="Current" value={`${diffStats.currentLines} lines`} />
             <DiffMetric label="New" value={`${diffStats.nextLines} lines`} />
             <DiffMetric label="Changed" value={`${diffStats.changed} lines`} />
           </div>
 
-          <div className="flex items-start gap-2 rounded-md bg-warning/10 px-3 py-2.5 text-xs text-warning">
-            <AlertTriangle className="mt-0.5 size-4 shrink-0" />
-            <span>Active connections may briefly drop while {meta.label} restarts.</span>
-          </div>
-
-          <div className="grid min-h-0 gap-3 overflow-hidden md:grid-cols-2">
+          <div className="grid min-h-0 gap-3 overflow-auto bg-[#080c11] p-3 md:grid-cols-2">
             <DiffPanel label="Current" value={original} />
             <DiffPanel label="New" value={content} />
           </div>
 
-          <DialogFooter>
+          <DialogFooter className="items-stretch border-t border-border/55 bg-card/35 px-4 py-3 sm:items-center">
+            <div className="mr-auto flex items-start gap-2 text-xs text-warning">
+              <AlertTriangle className="mt-0.5 size-4 shrink-0" />
+              <span>Active connections may briefly drop while {meta.label} restarts.</span>
+            </div>
             <Button onClick={() => setDiffOpen(false)} variant="secondary">
               Cancel
             </Button>
@@ -349,18 +351,35 @@ function ConfigStatus({
 
 function DiffMetric({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-md bg-muted/55 px-3 py-2">
-      <div className="text-[11px] text-muted-foreground">{label}</div>
-      <div className="mt-1 font-mono text-sm text-foreground">{value}</div>
+    <div className="rounded-md border border-border/55 bg-muted/35 px-3 py-2">
+      <div className="t-label">{label}</div>
+      <div className="mt-1 font-mono text-sm leading-5 text-foreground">{value}</div>
     </div>
   );
 }
 
 function DiffPanel({ label, value }: { label: string; value: string }) {
+  const stats = contentStats(value);
+
   return (
-    <div className="flex h-[42vh] min-h-0 flex-col overflow-hidden rounded-md bg-muted/55">
-      <div className="bg-background/35 px-3 py-2 text-xs font-medium text-muted-foreground">{label}</div>
-      <pre className="min-h-0 flex-1 overflow-auto p-3 font-mono text-xs leading-5">{value}</pre>
+    <div className="flex min-h-0 flex-col overflow-hidden rounded-md border border-border/60 bg-card">
+      <div className="flex items-center justify-between gap-3 border-b border-border/55 bg-surface px-3 py-2">
+        <div className="text-xs font-medium text-foreground">{label}</div>
+        <div className="font-mono text-[10px] text-muted-foreground">
+          {stats.lines} lines / {formatBytes(stats.bytes)}
+        </div>
+      </div>
+      <div className="min-h-0 flex-1">
+        <Suspense fallback={<Skeleton className="h-full min-h-[360px] w-full rounded-none" />}>
+          <ConfigEditor
+            className="h-[42vh] min-h-[320px] rounded-none border-0 md:h-[50vh] md:min-h-[360px]"
+            label={`${label} configuration preview`}
+            onChange={() => undefined}
+            readOnly
+            value={value}
+          />
+        </Suspense>
+      </div>
     </div>
   );
 }

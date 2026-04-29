@@ -1,8 +1,10 @@
 import { useEffect, useMemo, useRef } from 'react';
 import { json, jsonParseLinter } from '@codemirror/lang-json';
+import { HighlightStyle, syntaxHighlighting } from '@codemirror/language';
 import { linter, lintGutter } from '@codemirror/lint';
 import { EditorState, type Extension } from '@codemirror/state';
 import { EditorView } from '@codemirror/view';
+import { tags } from '@lezer/highlight';
 import { basicSetup } from 'codemirror';
 import { cn } from '@/lib/utils';
 
@@ -14,11 +16,24 @@ type ConfigEditorProps = {
   value: string;
 };
 
+const configHighlightStyle = HighlightStyle.define([
+  { tag: tags.propertyName, color: '#f0d28a', fontWeight: '500' },
+  { tag: tags.string, color: '#9ad6b5' },
+  { tag: [tags.number, tags.integer, tags.float], color: '#f4a88a' },
+  { tag: [tags.bool, tags.null, tags.atom], color: '#c7b8ff' },
+  { tag: tags.keyword, color: '#9fc7ff' },
+  { tag: tags.operator, color: '#9fb0c4' },
+  { tag: [tags.punctuation, tags.separator], color: '#7f8a9a' },
+  { tag: tags.bracket, color: '#d5ddea' },
+  { tag: tags.comment, color: '#758197', fontStyle: 'italic' },
+  { tag: tags.invalid, color: '#ff8b8b', textDecoration: 'none' },
+]);
+
 const configEditorTheme = EditorView.theme(
   {
     '&': {
-      backgroundColor: 'hsl(var(--card))',
-      color: 'hsl(var(--foreground))',
+      backgroundColor: '#0b0f14',
+      color: '#d7deea',
       fontSize: '12px',
       height: '100%',
     },
@@ -27,87 +42,93 @@ const configEditorTheme = EditorView.theme(
     },
     '.cm-scroller': {
       fontFamily: 'var(--font-app-mono)',
-      lineHeight: '1.55',
+      lineHeight: '1.62',
     },
     '.cm-content': {
-      caretColor: 'hsl(var(--ring))',
+      caretColor: '#8dc5f3',
       minHeight: '100%',
-      padding: '16px 0',
+      padding: '18px 0',
     },
     '.cm-line': {
-      padding: '0 18px',
+      padding: '0 20px',
     },
     '.cm-gutters': {
-      backgroundColor: 'hsl(var(--card))',
-      borderRight: '1px solid hsl(var(--border) / 0.55)',
-      color: 'hsl(var(--muted-foreground))',
+      backgroundColor: '#080c11',
+      borderRight: '1px solid rgb(63 74 89 / 0.55)',
+      color: '#697589',
     },
     '.cm-lineNumbers .cm-gutterElement': {
       minWidth: '44px',
       padding: '0 12px 0 16px',
     },
     '.cm-activeLine, .cm-activeLineGutter': {
-      backgroundColor: 'hsl(var(--accent) / 0.58)',
+      backgroundColor: 'rgb(141 197 243 / 0.08)',
     },
     '.cm-activeLineGutter': {
-      color: 'hsl(var(--foreground))',
+      color: '#c7d4e5',
     },
     '.cm-selectionBackground, &.cm-focused .cm-selectionBackground, .cm-content ::selection': {
-      backgroundColor: 'hsl(var(--ring) / 0.28) !important',
+      backgroundColor: 'rgb(119 180 216 / 0.34) !important',
+    },
+    '.cm-selectionMatch': {
+      backgroundColor: 'rgb(119 180 216 / 0.18)',
     },
     '.cm-cursor': {
-      borderLeftColor: 'hsl(var(--ring))',
+      borderLeftColor: '#8dc5f3',
     },
     '.cm-matchingBracket': {
-      backgroundColor: 'hsl(var(--success) / 0.16)',
-      outline: '1px solid hsl(var(--success) / 0.35)',
+      backgroundColor: 'rgb(154 214 181 / 0.14)',
+      outline: '1px solid rgb(154 214 181 / 0.34)',
     },
     '.cm-nonmatchingBracket': {
-      backgroundColor: 'hsl(var(--destructive) / 0.14)',
-      outline: '1px solid hsl(var(--destructive) / 0.35)',
+      backgroundColor: 'rgb(255 139 139 / 0.14)',
+      outline: '1px solid rgb(255 139 139 / 0.34)',
     },
     '.cm-searchMatch': {
-      backgroundColor: 'hsl(var(--warning) / 0.24)',
-      outline: '1px solid hsl(var(--warning) / 0.28)',
+      backgroundColor: 'rgb(240 210 138 / 0.22)',
+      outline: '1px solid rgb(240 210 138 / 0.28)',
     },
     '.cm-searchMatch.cm-searchMatch-selected': {
-      backgroundColor: 'hsl(var(--ring) / 0.32)',
+      backgroundColor: 'rgb(141 197 243 / 0.28)',
     },
     '.cm-panels': {
-      backgroundColor: 'hsl(var(--popover))',
-      borderColor: 'hsl(var(--border))',
-      color: 'hsl(var(--popover-foreground))',
+      backgroundColor: '#101722',
+      borderColor: 'rgb(63 74 89 / 0.78)',
+      color: '#d7deea',
     },
     '.cm-textfield': {
-      backgroundColor: 'hsl(var(--background))',
-      border: '1px solid hsl(var(--input))',
+      backgroundColor: '#080c11',
+      border: '1px solid rgb(63 74 89 / 0.85)',
       borderRadius: '6px',
-      color: 'hsl(var(--foreground))',
+      color: '#d7deea',
       fontFamily: 'var(--font-app-mono)',
       padding: '2px 7px',
     },
     '.cm-button': {
-      backgroundColor: 'hsl(var(--secondary))',
+      backgroundColor: '#151e2b',
       backgroundImage: 'none',
-      border: '1px solid hsl(var(--border))',
+      border: '1px solid rgb(63 74 89 / 0.85)',
       borderRadius: '6px',
-      color: 'hsl(var(--secondary-foreground))',
+      color: '#d7deea',
       fontFamily: 'var(--font-app-sans)',
       padding: '2px 8px',
     },
     '.cm-tooltip': {
-      backgroundColor: 'hsl(var(--popover))',
-      border: '1px solid hsl(var(--border))',
+      backgroundColor: '#101722',
+      border: '1px solid rgb(63 74 89 / 0.85)',
       borderRadius: '8px',
-      color: 'hsl(var(--popover-foreground))',
+      color: '#d7deea',
     },
     '.cm-tooltip-autocomplete > ul > li[aria-selected]': {
-      backgroundColor: 'hsl(var(--ring) / 0.2)',
-      color: 'hsl(var(--foreground))',
+      backgroundColor: 'rgb(141 197 243 / 0.18)',
+      color: '#f4f7fb',
     },
     '.cm-diagnostic': {
       fontFamily: 'var(--font-app-sans)',
       fontSize: '12px',
+    },
+    '.cm-lintRange-error': {
+      backgroundImage: 'linear-gradient(45deg, transparent 65%, #ff8b8b 80%, transparent 90%)',
     },
   },
   { dark: true },
@@ -133,6 +154,7 @@ export function ConfigEditor({
     () => [
       basicSetup,
       json(),
+      syntaxHighlighting(configHighlightStyle),
       lintGutter(),
       linter(jsonParseLinter(), { delay: 250 }),
       EditorView.lineWrapping,
@@ -190,7 +212,7 @@ export function ConfigEditor({
     <div
       aria-label={label}
       className={cn(
-        'h-full min-h-[360px] overflow-hidden rounded-md border border-border/65 bg-card shadow-[inset_0_1px_0_hsl(var(--foreground)/0.03)]',
+        'h-full min-h-[360px] overflow-hidden rounded-md border border-border/65 bg-[#0b0f14] shadow-[inset_0_1px_0_rgb(255_255_255/0.04)]',
         '[&_.cm-editor]:h-full [&_.cm-scroller]:overflow-auto',
         className,
       )}
