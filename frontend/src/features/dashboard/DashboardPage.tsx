@@ -121,7 +121,7 @@ export function DashboardPage() {
 
       <div className="grid gap-3 px-page pt-6 sm:gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6">
         <MetricCard
-          footer={
+          value={
             <NetworkSpeedValue
               rx={data?.network_rx_bytes_per_second ?? 0}
               tx={data?.network_tx_bytes_per_second ?? 0}
@@ -269,14 +269,16 @@ function statusTone(value: string | undefined): StatusTone {
 
 function NetworkSpeedValue({ rx, tx }: { rx: number; tx: number }) {
   return (
-    <div className="flex min-w-0 items-center justify-between gap-3 text-xs font-semibold leading-none text-foreground">
-      <span className="flex min-w-0 items-center gap-1.5">
+    <div className="flex min-w-0 flex-wrap items-center gap-x-4 gap-y-2 pt-1 text-xs font-semibold leading-none text-foreground">
+      <span className="inline-flex min-w-0 items-center gap-1.5">
         <ArrowDown className="size-3.5 text-primary" />
-        {formatBytesPerSecond(rx)}
+        <span className="text-muted-foreground">Download</span>
+        <span className="font-mono">{formatBytesPerSecond(rx)}</span>
       </span>
-      <span className="flex min-w-0 items-center gap-1.5">
+      <span className="inline-flex min-w-0 items-center gap-1.5">
         <ArrowUp className="size-3.5 text-primary" />
-        {formatBytesPerSecond(tx)}
+        <span className="text-muted-foreground">Upload</span>
+        <span className="font-mono">{formatBytesPerSecond(tx)}</span>
       </span>
     </div>
   );
