@@ -51,11 +51,12 @@ const configEditorTheme = EditorView.theme(
     '.cm-scroller': {
       fontFamily: 'var(--font-app-mono)',
       lineHeight: '1.62',
+      padding: '18px 0',
     },
     '.cm-content': {
       caretColor: '#8dc5f3',
       minHeight: '100%',
-      padding: '18px 0',
+      padding: '0',
     },
     '.cm-line': {
       padding: '0 20px',
