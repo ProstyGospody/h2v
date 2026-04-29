@@ -452,7 +452,6 @@ function SubscriptionURLControl({
     <div className="space-y-[13px]">
       <Label>{label}</Label>
       <Input
-        className="font-mono text-xs"
         onChange={(event) => onChange(subscriptionURLFromHost(event.target.value))}
         placeholder="panel.example.com"
         value={subscriptionURLHost(value)}
