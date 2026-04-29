@@ -1,4 +1,5 @@
 import { useState, type ComponentType } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { Link, Outlet, createRootRoute, createRoute, createRouter, useRouterState } from '@tanstack/react-router';
 import {
   FileCode2,
@@ -10,6 +11,7 @@ import {
   Users,
 } from 'lucide-react';
 import { AppProviders } from '@/app/providers';
+import { CoreLogo, type CoreLogoName } from '@/components/core-logo';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent } from '@/components/ui/sheet';
 import { AdminsPage } from '@/features/admins/AdminsPage';
@@ -22,8 +24,11 @@ import { SettingsPage } from '@/features/settings/SettingsPage';
 import { SubPage } from '@/features/subscription/SubPage';
 import { UsersPage } from '@/features/users/UsersPage';
 import { cn } from '@/lib/utils';
+import { apiClient } from '@/shared/api/client';
+import type { OverviewStats } from '@/shared/api/types';
 
 type LinkTo = '/' | '/users' | '/admins' | '/settings' | '/configs';
+type StatusTone = 'ok' | 'warn' | 'idle';
 
 const primaryLinks: Array<{
   icon: ComponentType<{ className?: string }>;
@@ -104,6 +109,26 @@ function SidebarBody({
   logout: () => Promise<void> | void;
   onNavigate?: () => void;
 }) {
+  const overview = useQuery({
+    queryKey: ['stats', 'overview'],
+    queryFn: () => apiClient.request<OverviewStats>('/stats/overview'),
+    refetchInterval: 10_000,
+  });
+  const serviceStatuses = [
+    {
+      label: 'Xray',
+      logo: 'xray' as const,
+      tone: serviceTone(overview.data?.xray_status, overview.isError),
+      value: serviceStatusLabel(overview.data?.xray_status, overview.isLoading, overview.isError),
+    },
+    {
+      label: 'Hysteria 2',
+      logo: 'hysteria' as const,
+      tone: serviceTone(overview.data?.hysteria_status, overview.isError),
+      value: serviceStatusLabel(overview.data?.hysteria_status, overview.isLoading, overview.isError),
+    },
+  ];
+
   return (
     <div className="flex h-dvh flex-col">
       <div className="flex h-16 items-center px-5">
@@ -123,6 +148,11 @@ function SidebarBody({
             />
           ))}
         </nav>
+
+        <div className="mt-6">
+          <div className="px-2 pb-2 t-label">Services</div>
+          <ServiceStatusPanel items={serviceStatuses} />
+        </div>
       </div>
 
       <div className="border-t border-border/55 p-3">
@@ -137,24 +167,82 @@ function SidebarBody({
                 {admin.role ?? 'admin'}
               </div>
             </div>
+            <Button
+              className="h-8 shrink-0 gap-1.5 px-2 text-[11px] text-muted-foreground"
+              onClick={async () => {
+                onNavigate?.();
+                await logout();
+              }}
+              size="sm"
+              type="button"
+              variant="ghost"
+            >
+              <LogOut className="size-4" />
+              Sign out
+            </Button>
           </div>
-          <Button
-            className="mt-1 h-8 w-full justify-start gap-2 px-2 text-muted-foreground"
-            onClick={async () => {
-              onNavigate?.();
-              await logout();
-            }}
-            size="sm"
-            type="button"
-            variant="ghost"
-          >
-            <LogOut className="size-4" />
-            Sign out
-          </Button>
         </div>
       </div>
     </div>
   );
+}
+
+function ServiceStatusPanel({
+  items,
+}: {
+  items: Array<{
+    label: string;
+    logo: CoreLogoName;
+    tone: StatusTone;
+    value: string;
+  }>;
+}) {
+  return (
+    <div className="rounded-lg border border-border/60 bg-card/80 p-2 shadow-sm">
+      <div className="space-y-1">
+        {items.map((item) => (
+          <div
+            className="flex items-center gap-2.5 rounded-md px-2 py-2 transition-colors hover:bg-muted/45"
+            key={item.label}
+          >
+            <span className="flex size-8 shrink-0 items-center justify-center rounded-md border border-border/55 bg-muted/55">
+              <CoreLogo className="size-5" core={item.logo} />
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="block truncate text-sm font-medium text-foreground">{item.label}</span>
+              <span className="block truncate font-mono text-[11px] leading-4 text-muted-foreground">
+                {item.value}
+              </span>
+            </span>
+            <span
+              aria-label={item.value}
+              className={cn('size-2.5 shrink-0 rounded-full ring-4', serviceDotTone(item.tone))}
+              title={item.value}
+            />
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function serviceTone(value: string | undefined, isError: boolean): StatusTone {
+  if (isError) return 'warn';
+  if (!value) return 'idle';
+  return value.toLowerCase().startsWith('fail') ? 'warn' : 'ok';
+}
+
+function serviceStatusLabel(value: string | undefined, isLoading: boolean, isError: boolean): string {
+  if (isError) return 'Issue';
+  if (isLoading && !value) return 'Syncing';
+  if (!value) return 'Unknown';
+  return value.toLowerCase().startsWith('fail') ? 'Issue' : 'Online';
+}
+
+function serviceDotTone(tone: StatusTone): string {
+  if (tone === 'ok') return 'bg-success ring-success/15';
+  if (tone === 'warn') return 'bg-warning ring-warning/15';
+  return 'bg-muted-foreground ring-muted-foreground/10';
 }
 
 function AppBrand({ compact = false }: { compact?: boolean }) {

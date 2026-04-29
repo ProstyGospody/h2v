@@ -1,7 +1,6 @@
 import { useMemo, useState, type ComponentType, type ReactNode } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import {
-  Activity,
   ArrowDown,
   ArrowUp,
   ChartNoAxesColumnIncreasing,
@@ -16,11 +15,10 @@ import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from '@/components/ui/chart';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { CoreLogo, type CoreLogoName } from '@/components/core-logo';
 import { PageHeader } from '@/components/page-header';
 import { cn } from '@/lib/utils';
 import { apiClient } from '@/shared/api/client';
-import { OverviewStats, TrafficPoint } from '@/shared/api/types';
+import type { OverviewStats, TrafficPoint } from '@/shared/api/types';
 import {
   formatBytes,
   formatBytesPerSecond,
@@ -39,16 +37,6 @@ const trafficChartConfig = {
     color: 'var(--gradient-accent)',
   },
 } satisfies ChartConfig;
-
-type StatusTone = 'ok' | 'warn' | 'idle';
-
-type HeaderStatus = {
-  icon?: ComponentType<{ className?: string }>;
-  label: string;
-  logo?: CoreLogoName;
-  tone: StatusTone;
-  value: string;
-};
 
 function usageTone(value: number | undefined) {
   const v = value ?? 0;
@@ -78,50 +66,27 @@ export function DashboardPage() {
     () => (traffic.data ?? []).map((p) => ({ recorded_at: p.recorded_at, total: p.uplink + p.downlink })),
     [traffic.data],
   );
-  const headerStatuses: HeaderStatus[] = [
-    {
-      label: 'Xray',
-      logo: 'xray',
-      tone: statusTone(data?.xray_status),
-      value: statusLabel(data?.xray_status),
-    },
-    {
-      label: 'Hysteria 2',
-      logo: 'hysteria',
-      tone: statusTone(data?.hysteria_status),
-      value: statusLabel(data?.hysteria_status),
-    },
-    {
-      icon: Activity,
-      label: 'Feed',
-      tone: traffic.isError ? 'warn' : traffic.isLoading ? 'idle' : traffic.data?.length ? 'ok' : 'warn',
-      value: traffic.isError ? 'Issue' : traffic.isLoading ? 'Syncing' : traffic.data?.length ? 'Receiving' : 'Waiting',
-    },
-  ];
 
   return (
     <div className="pb-10">
       <PageHeader
         title="Overview"
         action={
-          <>
-            <HeaderStatusStrip items={headerStatuses} />
-            <Tabs onValueChange={(v) => setDays(v as Range)} value={days}>
-              <TabsList>
-                {ranges.map((r) => (
-                  <TabsTrigger key={r} value={r}>
-                    {r}D
-                  </TabsTrigger>
-                ))}
-              </TabsList>
-            </Tabs>
-          </>
+          <Tabs onValueChange={(v) => setDays(v as Range)} value={days}>
+            <TabsList>
+              {ranges.map((r) => (
+                <TabsTrigger key={r} value={r}>
+                  {r}D
+                </TabsTrigger>
+              ))}
+            </TabsList>
+          </Tabs>
         }
       />
 
       <div className="grid gap-3 px-page pt-6 sm:gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6">
         <MetricCard
-          value={
+          footer={
             <NetworkSpeedValue
               rx={data?.network_rx_bytes_per_second ?? 0}
               tx={data?.network_tx_bytes_per_second ?? 0}
@@ -228,71 +193,19 @@ export function DashboardPage() {
   );
 }
 
-function HeaderStatusStrip({ items }: { items: HeaderStatus[] }) {
-  return (
-    <div className="flex w-full flex-wrap items-center gap-x-5 gap-y-2 sm:w-auto">
-      {items.map((item) => {
-        const Icon = item.icon;
-        return (
-          <div className="flex min-w-0 items-center gap-2" key={item.label}>
-            <span
-              className={cn(
-                'flex size-5 shrink-0 items-center justify-center',
-                statusIconTone(item.tone),
-              )}
-            >
-              {item.logo ? (
-                <CoreLogo className="size-5" core={item.logo} />
-              ) : Icon ? (
-                <Icon className="size-4" />
-              ) : null}
-            </span>
-            <span className="min-w-0">
-              <span className="block truncate text-[10px] font-medium uppercase leading-3 tracking-[0.06em] text-muted-foreground">
-                {item.label}
-              </span>
-              <span className="block truncate font-mono text-[11px] leading-4 text-foreground">
-                {item.value}
-              </span>
-            </span>
-          </div>
-        );
-      })}
-    </div>
-  );
-}
-
-function statusTone(value: string | undefined): StatusTone {
-  if (!value) return 'idle';
-  return value.toLowerCase().startsWith('fail') ? 'warn' : 'ok';
-}
-
 function NetworkSpeedValue({ rx, tx }: { rx: number; tx: number }) {
   return (
-    <div className="flex min-w-0 flex-wrap items-center gap-x-4 gap-y-2 pt-1 text-xs font-semibold leading-none text-foreground">
-      <span className="inline-flex min-w-0 items-center gap-1.5">
+    <div className="flex min-w-0 items-center gap-4 text-xs font-semibold leading-none text-foreground">
+      <span aria-label="Download" className="inline-flex min-w-0 items-center gap-1.5" title="Download">
         <ArrowDown className="size-3.5 text-primary" />
-        <span className="text-muted-foreground">Download</span>
         <span className="font-mono">{formatBytesPerSecond(rx)}</span>
       </span>
-      <span className="inline-flex min-w-0 items-center gap-1.5">
+      <span aria-label="Upload" className="inline-flex min-w-0 items-center gap-1.5" title="Upload">
         <ArrowUp className="size-3.5 text-primary" />
-        <span className="text-muted-foreground">Upload</span>
         <span className="font-mono">{formatBytesPerSecond(tx)}</span>
       </span>
     </div>
   );
-}
-
-function statusIconTone(tone: StatusTone): string {
-  if (tone === 'ok') return 'text-success';
-  if (tone === 'warn') return 'text-warning';
-  return 'text-muted-foreground';
-}
-
-function statusLabel(value: string | undefined): string {
-  if (!value) return 'Unknown';
-  return value.toLowerCase().startsWith('fail') ? 'Issue' : 'Online';
 }
 
 function MetricCard({
