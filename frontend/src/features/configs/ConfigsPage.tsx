@@ -225,7 +225,7 @@ function ConfigPanel({ core }: { core: Core }) {
           </div>
         ) : null}
 
-        <div className="min-h-0 flex-1 bg-[#080c11] p-2 sm:p-3">
+        <div className="min-h-0 flex-1 bg-card p-2 sm:p-3">
           {config.isLoading ? (
             <Skeleton className="h-[68vh] min-h-[520px] w-full xl:h-[calc(100vh-256px)] xl:min-h-[620px]" />
           ) : config.isError ? (
@@ -275,7 +275,7 @@ function ConfigPanel({ core }: { core: Core }) {
             <DiffMetric label="Changed" value={`${diffStats.changed} lines`} />
           </div>
 
-          <div className="grid min-h-0 gap-3 overflow-auto bg-[#080c11] p-3 md:grid-cols-2">
+          <div className="grid min-h-0 gap-3 overflow-auto bg-card p-3 md:grid-cols-2">
             <DiffPanel label="Current" value={original} />
             <DiffPanel label="New" value={content} />
           </div>

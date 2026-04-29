@@ -32,7 +32,7 @@ const configHighlightStyle = HighlightStyle.define([
 const configEditorTheme = EditorView.theme(
   {
     '&': {
-      backgroundColor: '#0b0f14',
+      backgroundColor: 'hsl(var(--card))',
       color: '#d7deea',
       fontSize: '12px',
       height: '100%',
@@ -53,9 +53,12 @@ const configEditorTheme = EditorView.theme(
       padding: '0 20px',
     },
     '.cm-gutters': {
-      backgroundColor: '#080c11',
-      borderRight: '1px solid rgb(63 74 89 / 0.55)',
+      backgroundColor: 'hsl(var(--card))',
+      borderRight: '1px solid hsl(var(--border) / 0.55)',
       color: '#697589',
+    },
+    '.cm-foldGutter': {
+      display: 'none',
     },
     '.cm-lineNumbers .cm-gutterElement': {
       minWidth: '44px',
@@ -177,7 +180,7 @@ export function ConfigEditor({
     const view = new EditorView({
       parent: host,
       state: EditorState.create({
-        doc: value,
+        doc: normalizeEditorValue(value),
         extensions,
       }),
     });
@@ -195,13 +198,14 @@ export function ConfigEditor({
     const view = viewRef.current;
     if (!view) return;
 
+    const nextValue = normalizeEditorValue(value);
     const current = view.state.doc.toString();
-    if (current === value) return;
+    if (current === nextValue) return;
 
     syncingRef.current = true;
     try {
       view.dispatch({
-        changes: { from: 0, insert: value, to: view.state.doc.length },
+        changes: { from: 0, insert: nextValue, to: view.state.doc.length },
       });
     } finally {
       syncingRef.current = false;
@@ -212,7 +216,7 @@ export function ConfigEditor({
     <div
       aria-label={label}
       className={cn(
-        'h-full min-h-[360px] overflow-hidden rounded-md border border-border/65 bg-[#0b0f14] shadow-[inset_0_1px_0_rgb(255_255_255/0.04)]',
+        'h-full min-h-[360px] overflow-hidden rounded-md border border-border/65 bg-card shadow-[inset_0_1px_0_hsl(var(--foreground)/0.03)]',
         '[&_.cm-editor]:h-full [&_.cm-scroller]:overflow-auto',
         className,
       )}
@@ -220,4 +224,8 @@ export function ConfigEditor({
       role="region"
     />
   );
+}
+
+function normalizeEditorValue(value: string): string {
+  return value.replace(/^\uFEFF/, '').replace(/^\s+/, '');
 }
