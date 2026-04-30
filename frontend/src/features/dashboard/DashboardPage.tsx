@@ -85,7 +85,7 @@ export function DashboardPage() {
         }
       />
 
-      <div className="grid gap-3 px-page pt-6 sm:gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6">
+      <div className="grid gap-2.5 px-page pt-5 sm:grid-cols-2 sm:gap-3 xl:grid-cols-3 2xl:grid-cols-6">
         <MetricCard
           footer={
             <NetworkSpeedValue
@@ -196,7 +196,7 @@ export function DashboardPage() {
 
 function NetworkSpeedValue({ rx, tx }: { rx: number; tx: number }) {
   return (
-    <div className="flex min-w-0 items-center gap-4 text-xs font-semibold leading-none text-foreground">
+    <div className="flex min-w-0 items-center gap-3 text-[11px] font-semibold leading-none text-foreground">
       <span aria-label="Download" className="inline-flex min-w-0 items-center gap-1.5" title="Download">
         <ArrowDown className="size-3.5 text-primary" />
         <span className="font-mono">{formatBytesPerSecond(rx)}</span>
@@ -228,12 +228,12 @@ function MetricCard({
 
   return (
     <Card className="h-full transition-colors hover:bg-[hsl(var(--surface-elevated))]">
-      <CardContent className="flex h-full flex-col gap-3 p-4 sm:p-5">
+      <CardContent className="flex h-full flex-col gap-2 p-3 sm:p-4">
         <div className="flex items-start justify-between gap-2">
           <span className="t-label">{label}</span>
           <span
             className={cn(
-              'relative flex size-10 shrink-0 items-center justify-center rounded-md border border-border/45 bg-muted/45 shadow-[inset_0_0_0_1px_rgb(233_255_247/0.05)]',
+              'relative flex size-8 shrink-0 items-center justify-center',
             )}
           >
             <svg aria-hidden="true" className="pointer-events-none absolute size-0 overflow-hidden">
@@ -245,21 +245,21 @@ function MetricCard({
                 </linearGradient>
               </defs>
             </svg>
-            <Icon className="size-5" stroke={`url(#${gradientId})`} strokeWidth={2.35} />
+            <Icon className="size-7" stroke={`url(#${gradientId})`} strokeWidth={2.35} />
           </span>
         </div>
         {loading ? (
           value !== undefined && value !== null ? (
-            <Skeleton className="h-7 w-24" />
+            <Skeleton className="h-6 w-20" />
           ) : (
-            <div className="h-7" />
+            <div className="h-6" />
           )
         ) : typeof value === 'string' ? (
           <div className="t-metric text-foreground">{value}</div>
         ) : value !== undefined && value !== null ? (
           value
         ) : (
-          <div className="h-7" />
+          <div className="h-6" />
         )}
         {bar ? (
           loading ? (
