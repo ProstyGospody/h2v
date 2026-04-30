@@ -196,13 +196,13 @@ export function DashboardPage() {
 
 function NetworkSpeedValue({ rx, tx }: { rx: number; tx: number }) {
   return (
-    <div className="flex min-w-0 items-center gap-3 text-[11px] font-semibold leading-none text-foreground">
+    <div className="flex min-w-0 items-center gap-3.5 text-[13px] font-semibold leading-none text-foreground">
       <span aria-label="Download" className="inline-flex min-w-0 items-center gap-1.5" title="Download">
-        <ArrowDown className="size-3.5 text-primary" />
+        <ArrowDown className="size-4 text-primary" />
         <span className="font-mono">{formatBytesPerSecond(rx)}</span>
       </span>
       <span aria-label="Upload" className="inline-flex min-w-0 items-center gap-1.5" title="Upload">
-        <ArrowUp className="size-3.5 text-primary" />
+        <ArrowUp className="size-4 text-primary" />
         <span className="font-mono">{formatBytesPerSecond(tx)}</span>
       </span>
     </div>
