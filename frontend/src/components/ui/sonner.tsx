@@ -1,16 +1,33 @@
+import type { CSSProperties } from 'react';
 import { Toaster as Sonner, type ToasterProps } from 'sonner';
 
-function Toaster(props: ToasterProps) {
+const toastThemeVars = {
+  '--normal-bg': 'hsl(var(--card))',
+  '--normal-border': 'hsl(var(--border) / 0.45)',
+  '--normal-text': 'hsl(var(--card-foreground))',
+  '--success-bg': 'hsl(var(--card))',
+  '--success-border': 'hsl(var(--success) / 0.35)',
+  '--success-text': 'hsl(var(--card-foreground))',
+  '--error-bg': 'hsl(var(--card))',
+  '--error-border': 'hsl(var(--destructive) / 0.4)',
+  '--error-text': 'hsl(var(--card-foreground))',
+  '--warning-bg': 'hsl(var(--card))',
+  '--warning-border': 'hsl(var(--warning) / 0.35)',
+  '--warning-text': 'hsl(var(--card-foreground))',
+} as CSSProperties;
+
+function Toaster({ style, ...props }: ToasterProps) {
   return (
     <Sonner
       theme="dark"
       className="toaster group"
       position="bottom-right"
       offset={16}
+      style={{ ...toastThemeVars, ...style }}
       toastOptions={{
         classNames: {
           toast:
-            'group toast rounded-lg border border-border/45 bg-popover px-4 py-3 text-sm text-popover-foreground shadow-overlay',
+            'group toast rounded-lg border border-border/45 bg-card px-4 py-3 text-sm text-card-foreground shadow-pop',
           title: 'text-sm font-medium',
           description: 'text-xs text-muted-foreground',
           actionButton:
