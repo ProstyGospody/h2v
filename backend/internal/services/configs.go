@@ -7,9 +7,11 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"net"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"sync"
 	"text/template"
 	"time"
@@ -185,22 +187,25 @@ func (s *ConfigService) Validate(ctx context.Context, core string, content []byt
 		if err := json.Unmarshal(content, &payload); err != nil {
 			return domain.NewError(400, "invalid_config", "Configuration contains JSON errors", err)
 		}
+		if err := s.validateXrayInboundPorts(content); err != nil {
+			return err
+		}
 		if _, err := os.Stat(s.cfg.Xray.Binary); err == nil {
+			testContent, err := prepareXrayConfigForTest(payload)
+			if err != nil {
+				return err
+			}
 			tmp, err := os.CreateTemp("", "xray-*.json")
 			if err != nil {
 				return err
 			}
 			defer os.Remove(tmp.Name())
-			if _, err := tmp.Write(content); err != nil {
+			if _, err := tmp.Write(testContent); err != nil {
 				return err
 			}
 			_ = tmp.Close()
-			cmd := exec.CommandContext(ctx, s.cfg.Xray.Binary, "test", "-c", tmp.Name())
-			if s.cfg.Xray.GeodataDir != "" {
-				cmd.Env = append(os.Environ(), "XRAY_LOCATION_ASSET="+s.cfg.Xray.GeodataDir)
-			}
-			if out, err := cmd.CombinedOutput(); err != nil {
-				return domain.NewError(400, "invalid_config", "Xray configuration test failed", fmt.Errorf("%s", out))
+			if err := s.runXrayConfigTest(ctx, tmp.Name()); err != nil {
+				return err
 			}
 		}
 		return nil
@@ -216,6 +221,171 @@ func (s *ConfigService) Validate(ctx context.Context, core string, content []byt
 	default:
 		return domain.NewError(400, "invalid_core", "Core must be xray or hysteria", nil)
 	}
+}
+
+func (s *ConfigService) validateXrayInboundPorts(content []byte) error {
+	nextPorts, err := xrayInboundPorts(content)
+	if err != nil {
+		return err
+	}
+	currentPorts := map[int]bool{}
+	if current, err := os.ReadFile(s.cfg.Xray.ConfigPath); err == nil {
+		if ports, err := xrayInboundPorts(current); err == nil {
+			for _, port := range ports {
+				currentPorts[port] = true
+			}
+		}
+	}
+
+	seen := map[int]bool{}
+	for _, port := range nextPorts {
+		if seen[port] {
+			return domain.NewError(400, "port_conflict", fmt.Sprintf("Xray configuration uses TCP port %d more than once", port), nil)
+		}
+		seen[port] = true
+		if currentPorts[port] {
+			continue
+		}
+		result := ProbePort("tcp", port)
+		if !result.Available {
+			reason := strings.TrimSpace(result.Reason)
+			if reason == "" {
+				reason = "port is not available"
+			}
+			return domain.NewError(400, "port_unavailable", fmt.Sprintf("Xray inbound port %d/tcp is not available: %s", port, reason), nil)
+		}
+	}
+	return nil
+}
+
+func xrayInboundPorts(content []byte) ([]int, error) {
+	var payload struct {
+		Inbounds []struct {
+			Port any `json:"port"`
+		} `json:"inbounds"`
+	}
+	if err := json.Unmarshal(content, &payload); err != nil {
+		return nil, domain.NewError(400, "invalid_config", "Configuration contains JSON errors", err)
+	}
+	ports := make([]int, 0, len(payload.Inbounds))
+	for _, inbound := range payload.Inbounds {
+		if inbound.Port == nil {
+			continue
+		}
+		port, ok := jsonNumberAsPort(inbound.Port)
+		if !ok {
+			return nil, domain.NewError(400, "invalid_config", "Xray inbound port must be an integer between 1 and 65535", nil)
+		}
+		ports = append(ports, port)
+	}
+	return ports, nil
+}
+
+func jsonNumberAsPort(value any) (int, bool) {
+	switch v := value.(type) {
+	case float64:
+		port := int(v)
+		return port, float64(port) == v && validRuntimePort(port)
+	case int:
+		return v, validRuntimePort(v)
+	default:
+		return 0, false
+	}
+}
+
+func prepareXrayConfigForTest(payload map[string]any) ([]byte, error) {
+	inbounds, ok := payload["inbounds"].([]any)
+	if !ok {
+		return json.Marshal(payload)
+	}
+	ports, err := reserveTCPPorts(len(inbounds))
+	if err != nil {
+		return nil, err
+	}
+	for index, inbound := range inbounds {
+		item, ok := inbound.(map[string]any)
+		if !ok {
+			continue
+		}
+		if _, ok := item["port"]; ok {
+			item["listen"] = "127.0.0.1"
+			item["port"] = ports[index]
+		}
+	}
+	return json.Marshal(payload)
+}
+
+func reserveTCPPorts(count int) ([]int, error) {
+	if count <= 0 {
+		return nil, nil
+	}
+	listeners := make([]net.Listener, 0, count)
+	defer func() {
+		for _, listener := range listeners {
+			_ = listener.Close()
+		}
+	}()
+	ports := make([]int, 0, count)
+	for len(ports) < count {
+		listener, err := net.Listen("tcp", "127.0.0.1:0")
+		if err != nil {
+			return nil, domain.NewError(500, "port_probe_failed", "Unable to reserve temporary ports for Xray validation", err)
+		}
+		listeners = append(listeners, listener)
+		ports = append(ports, listener.Addr().(*net.TCPAddr).Port)
+	}
+	return ports, nil
+}
+
+func (s *ConfigService) runXrayConfigTest(ctx context.Context, path string) error {
+	commands := [][]string{
+		{"test", "-c", path},
+		{"run", "-test", "-c", path},
+	}
+	for index, args := range commands {
+		deadline, cancel := context.WithTimeout(ctx, 10*time.Second)
+		cmd := exec.CommandContext(deadline, s.cfg.Xray.Binary, args...)
+		if s.cfg.Xray.GeodataDir != "" {
+			cmd.Env = append(os.Environ(), "XRAY_LOCATION_ASSET="+s.cfg.Xray.GeodataDir)
+		}
+		out, err := cmd.CombinedOutput()
+		timedOut := deadline.Err() == context.DeadlineExceeded
+		cancel()
+		if err == nil {
+			return nil
+		}
+		if timedOut {
+			return domain.NewError(400, "invalid_config", "Xray configuration test timed out", err)
+		}
+		if index == 0 && xrayTestCommandUnsupported(out) {
+			continue
+		}
+		return domain.NewError(
+			400,
+			"invalid_config",
+			"Xray configuration test failed: "+compactCommandOutput(out),
+			fmt.Errorf("%s", out),
+		)
+	}
+	return nil
+}
+
+func xrayTestCommandUnsupported(out []byte) bool {
+	message := strings.ToLower(string(out))
+	return strings.Contains(message, "unknown command") ||
+		strings.Contains(message, "unknown subcommand") ||
+		strings.Contains(message, "flag provided but not defined")
+}
+
+func compactCommandOutput(out []byte) string {
+	message := strings.Join(strings.Fields(string(out)), " ")
+	if message == "" {
+		return "xray returned a non-zero exit code"
+	}
+	if len(message) > 360 {
+		return message[:360] + "..."
+	}
+	return message
 }
 
 func (s *ConfigService) Apply(ctx context.Context, core string, content []byte) error {

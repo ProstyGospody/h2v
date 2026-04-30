@@ -389,11 +389,25 @@ function inspectJson(value: string): JsonState {
     JSON.parse(value);
     return { valid: true };
   } catch (error) {
+    const rawMessage = error instanceof Error ? error.message : 'Invalid JSON';
     return {
-      message: error instanceof Error ? error.message : 'Invalid JSON',
+      message: describeJsonError(rawMessage, value),
       valid: false,
     };
   }
+}
+
+function describeJsonError(message: string, value: string): string {
+  const match = message.match(/position\s+(\d+)/i);
+  if (!match) return message;
+  const position = Number(match[1]);
+  if (!Number.isFinite(position)) return message;
+
+  const before = value.slice(0, position);
+  const line = before.split('\n').length;
+  const lastBreak = before.lastIndexOf('\n');
+  const column = position - lastBreak;
+  return `${message} (line ${line}, column ${column})`;
 }
 
 function normalizeConfigText(value: string): string {
