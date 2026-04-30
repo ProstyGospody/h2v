@@ -414,7 +414,7 @@ export function SettingsPage() {
                     label="Short ID"
                     onChange={(value) => setValue('reality.short_ids', [value])}
                     onGenerate={() => setValue('reality.short_ids', [randomHex(8)])}
-                    reveal
+                    reveal={showSecrets}
                     value={firstNonEmpty(values.stringArray('reality.short_ids'))}
                   />
                 </SettingsSection>
