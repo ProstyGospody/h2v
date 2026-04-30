@@ -10,7 +10,6 @@ import (
 	"log/slog"
 	"net"
 	"net/url"
-	"os"
 	"path/filepath"
 	"regexp"
 	"strconv"
@@ -62,7 +61,7 @@ func (s *SettingsService) List(ctx context.Context) ([]domain.Setting, error) {
 	if err != nil {
 		return nil, err
 	}
-	return withActivePanelPorts(items, s.cfg.Panel.Port, s.cfg.Panel.PublicPort), nil
+	return withoutInstallerManagedSettings(items), nil
 }
 
 func (s *SettingsService) Update(ctx context.Context, values map[string]json.RawMessage) error {
@@ -73,18 +72,12 @@ func (s *SettingsService) Update(ctx context.Context, values map[string]json.Raw
 	if err := s.validateUpdate(ctx, normalized); err != nil {
 		return err
 	}
-	if err := s.syncRuntimeEnv(normalized); err != nil {
-		return err
-	}
 	return s.repo.UpsertSettings(ctx, normalized)
 }
 
 func (s *SettingsService) Restore(ctx context.Context, values map[string]json.RawMessage) error {
 	if len(values) == 0 {
 		return nil
-	}
-	if err := s.syncRuntimeEnv(values); err != nil {
-		return err
 	}
 	return s.repo.UpsertSettings(ctx, values)
 }
@@ -200,15 +193,12 @@ func DefaultRuntime(cfg config.Config) RuntimeSettings {
 }
 
 func applyRuntimeValues(runtime *RuntimeSettings, values map[string]json.RawMessage) {
-	runtime.PanelDomain = stringOr(values, "panel.domain", runtime.PanelDomain)
-	runtime.PanelPort = intOr(values, "panel.port", runtime.PanelPort)
 	runtime.RealitySNI = stringOr(values, "reality.sni", runtime.RealitySNI)
 	runtime.RealityDest = stringOr(values, "reality.dest", runtime.RealityDest)
 	runtime.RealityPrivateKey = stringOr(values, "reality.private_key", runtime.RealityPrivateKey)
 	runtime.RealityPublicKey = stringOr(values, "reality.public_key", runtime.RealityPublicKey)
 	runtime.RealityShortIDs = stringsOr(values, "reality.short_ids", runtime.RealityShortIDs)
 	runtime.VlessPort = intOr(values, "vless.port", runtime.VlessPort)
-	runtime.SubURLPrefix = stringOr(values, "subscription.url_prefix", runtime.SubURLPrefix)
 	runtime.Hy2Domain = stringOr(values, "hy2.domain", runtime.Hy2Domain)
 	runtime.Hy2Port = intOr(values, "hy2.port", runtime.Hy2Port)
 	runtime.Hy2ObfsEnabled = boolOr(values, "hy2.obfs_enabled", runtime.Hy2ObfsEnabled)
@@ -222,8 +212,7 @@ func applyRuntimeValues(runtime *RuntimeSettings, values map[string]json.RawMess
 func applyStoredRuntimeValues(runtime *RuntimeSettings, values map[string]json.RawMessage) {
 	filtered := make(map[string]json.RawMessage, len(values))
 	for key, value := range values {
-		if key == "panel.port" || key == "panel.public_port" {
-			// Panel listener ports come from the process environment loaded at startup.
+		if installerManagedSetting(key) {
 			continue
 		}
 		filtered[key] = value
@@ -231,33 +220,23 @@ func applyStoredRuntimeValues(runtime *RuntimeSettings, values map[string]json.R
 	applyRuntimeValues(runtime, filtered)
 }
 
-func withActivePanelPorts(items []domain.Setting, internalPort, publicPort int) []domain.Setting {
-	internalEncoded, err := json.Marshal(internalPort)
-	if err != nil {
-		return items
-	}
-	publicEncoded, err := json.Marshal(publicPort)
-	if err != nil {
-		return items
-	}
-	hasInternal := false
-	hasPublic := false
-	for index := range items {
-		switch items[index].Key {
-		case "panel.port":
-			items[index].Value = internalEncoded
-			hasInternal = true
-		case "panel.public_port":
-			hasPublic = true
+func withoutInstallerManagedSettings(items []domain.Setting) []domain.Setting {
+	filtered := items[:0]
+	for _, item := range items {
+		if !installerManagedSetting(item.Key) {
+			filtered = append(filtered, item)
 		}
 	}
-	if !hasInternal {
-		items = append(items, domain.Setting{Key: "panel.port", Value: internalEncoded})
+	return filtered
+}
+
+func installerManagedSetting(key string) bool {
+	switch key {
+	case "panel.domain", "panel.port", "panel.public_port", "subscription.url_prefix":
+		return true
+	default:
+		return false
 	}
-	if !hasPublic {
-		items = append(items, domain.Setting{Key: "panel.public_port", Value: publicEncoded})
-	}
-	return items
 }
 
 func normalizeSettingsUpdate(values map[string]json.RawMessage) (map[string]json.RawMessage, error) {
@@ -278,7 +257,7 @@ func normalizeSettingsUpdate(values map[string]json.RawMessage) (map[string]json
 
 func normalizeSettingValue(key string, raw json.RawMessage) (any, error) {
 	switch key {
-	case "panel.port", "vless.port", "hy2.port":
+	case "vless.port", "hy2.port":
 		var value int
 		if err := json.Unmarshal(raw, &value); err != nil || !validRuntimePort(value) {
 			return nil, invalidSetting(key, "must be an integer between 1 and 65535")
@@ -302,8 +281,8 @@ func normalizeSettingValue(key string, raw json.RawMessage) (any, error) {
 			}
 		}
 		return values, nil
-	case "panel.domain", "hy2.domain", "reality.sni", "reality.dest", "reality.private_key", "reality.public_key",
-		"subscription.url_prefix", "hy2.obfs_password", "hy2.bandwidth_up", "hy2.bandwidth_down",
+	case "hy2.domain", "reality.sni", "reality.dest", "reality.private_key", "reality.public_key",
+		"hy2.obfs_password", "hy2.bandwidth_up", "hy2.bandwidth_down",
 		"hy2.masquerade_url", "hy2.traffic_secret":
 		var value string
 		if err := json.Unmarshal(raw, &value); err != nil {
@@ -318,7 +297,7 @@ func normalizeSettingValue(key string, raw json.RawMessage) (any, error) {
 func normalizeStringSetting(key, value string) (string, error) {
 	value = strings.TrimSpace(value)
 	switch key {
-	case "panel.domain", "hy2.domain", "reality.sni":
+	case "hy2.domain", "reality.sni":
 		if value == "" {
 			return "", invalidSetting(key, "cannot be empty")
 		}
@@ -331,12 +310,6 @@ func normalizeStringSetting(key, value string) (string, error) {
 		if !validHostPort(value) {
 			return "", invalidSetting(key, "must be a host:port value")
 		}
-	case "subscription.url_prefix":
-		normalized, ok := normalizeHTTPURLPrefix(value)
-		if !ok {
-			return "", invalidSetting(key, "must be a valid http or https URL")
-		}
-		value = normalized
 	case "hy2.masquerade_url":
 		if !validHTTPURL(value) {
 			return "", invalidSetting(key, "must be a valid http or https URL")
@@ -362,7 +335,6 @@ func validatePortAvailability(current, next RuntimeSettings, values map[string]j
 		next     int
 		protocol string
 	}{
-		{current: current.PanelPort, key: "panel.port", label: "Panel internal port", next: next.PanelPort, protocol: "tcp"},
 		{current: current.VlessPort, key: "vless.port", label: "VLESS port", next: next.VlessPort, protocol: "tcp"},
 		{current: current.Hy2Port, key: "hy2.port", label: "Hysteria port", next: next.Hy2Port, protocol: "udp"},
 	}
@@ -384,60 +356,6 @@ func validatePortAvailability(current, next RuntimeSettings, values map[string]j
 	return nil
 }
 
-func (s *SettingsService) syncRuntimeEnv(values map[string]json.RawMessage) error {
-	raw, ok := values["panel.port"]
-	if !ok {
-		return nil
-	}
-	var port int
-	if err := json.Unmarshal(raw, &port); err != nil || !validRuntimePort(port) {
-		return invalidSetting("panel.port", "must be an integer between 1 and 65535")
-	}
-	if err := updateEnvFileValue(config.EnvFilePath(), "PANEL_PORT", strconv.Itoa(port)); err != nil {
-		return domain.NewError(500, "env_update_failed", "Unable to update panel environment file", err)
-	}
-	return nil
-}
-
-func updateEnvFileValue(path, key, value string) error {
-	content, err := os.ReadFile(path)
-	if err != nil && !os.IsNotExist(err) {
-		return err
-	}
-
-	mode := os.FileMode(0o600)
-	if info, statErr := os.Stat(path); statErr == nil {
-		mode = info.Mode().Perm()
-	}
-
-	lines := strings.Split(strings.ReplaceAll(string(content), "\r\n", "\n"), "\n")
-	replaced := false
-	for index, line := range lines {
-		trimmed := strings.TrimSpace(line)
-		if trimmed == "" || strings.HasPrefix(trimmed, "#") {
-			continue
-		}
-		name, _, found := strings.Cut(trimmed, "=")
-		if found && strings.TrimSpace(name) == key {
-			lines[index] = key + "=" + value
-			replaced = true
-		}
-	}
-	if !replaced {
-		if len(lines) == 0 || lines[len(lines)-1] != "" {
-			lines = append(lines, "")
-		}
-		lines[len(lines)-1] = key + "=" + value
-		lines = append(lines, "")
-	}
-
-	output := strings.Join(lines, "\n")
-	if !strings.HasSuffix(output, "\n") {
-		output += "\n"
-	}
-	return os.WriteFile(path, []byte(output), mode)
-}
-
 func invalidSetting(key, reason string) error {
 	return domain.NewError(400, "invalid_setting", fmt.Sprintf("%s %s", key, reason), nil)
 }
@@ -449,17 +367,6 @@ func validRuntimePort(value int) bool {
 func validHTTPURL(value string) bool {
 	parsed, err := url.Parse(value)
 	return err == nil && (parsed.Scheme == "http" || parsed.Scheme == "https") && parsed.Host != ""
-}
-
-func normalizeHTTPURLPrefix(value string) (string, bool) {
-	parsed, err := url.Parse(strings.TrimRight(value, "/"))
-	if err != nil || (parsed.Scheme != "http" && parsed.Scheme != "https") || parsed.Host == "" {
-		return "", false
-	}
-	parsed.Path = ""
-	parsed.RawQuery = ""
-	parsed.Fragment = ""
-	return strings.TrimRight(parsed.String(), "/"), true
 }
 
 func normalizeHostnameOnly(value string) (string, bool) {

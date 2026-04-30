@@ -10,8 +10,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"strconv"
-	"strings"
 	"sync"
 	"text/template"
 	"time"
@@ -119,32 +117,6 @@ func (s *ConfigService) ReconcileCore(ctx context.Context, core string, override
 		return err
 	}
 	return s.waitHealthy(ctx, core)
-}
-
-func (s *ConfigService) ReconcileCaddy(ctx context.Context, overrides ...map[string]json.RawMessage) error {
-	runtime, err := s.runtime(ctx, overrides...)
-	if err != nil {
-		return err
-	}
-	domainName := strings.TrimSpace(runtime.PanelDomain)
-	if domainName == "" || domainName == "panel.example.com" {
-		return nil
-	}
-	normalizedDomain, ok := normalizeHostnameOnly(domainName)
-	if !ok {
-		return domain.NewError(400, "invalid_setting", "panel.domain must be a hostname without a path", nil)
-	}
-	domainName = normalizedDomain
-	content := renderCaddyfile(domainName, runtime.PanelPublicPort, runtime.PanelPort)
-	cmd := exec.CommandContext(ctx, "sudo", "/usr/bin/tee", "/etc/caddy/Caddyfile")
-	cmd.Stdin = bytes.NewReader([]byte(content))
-	if out, err := cmd.CombinedOutput(); err != nil {
-		return fmt.Errorf("write caddyfile: %s", string(out))
-	}
-	if err := s.systemctl.Reload(ctx, "caddy"); err != nil {
-		return s.systemctl.Restart(ctx, "caddy")
-	}
-	return nil
 }
 
 func (s *ConfigService) runtime(ctx context.Context, overrides ...map[string]json.RawMessage) (RuntimeSettings, error) {
@@ -320,25 +292,6 @@ func templateName(core string) (string, error) {
 	default:
 		return "", domain.NewError(400, "invalid_core", "Core must be xray or hysteria", nil)
 	}
-}
-
-func renderCaddyfile(domain string, publicPort, internalPort int) string {
-	siteAddress := domain
-	if publicPort != 443 {
-		siteAddress = domain + ":" + strconv.Itoa(publicPort)
-	}
-	return `{
-  admin off
-  servers {
-    protocols h1 h2
-  }
-}
-
-` + siteAddress + ` {
-  encode zstd gzip
-  reverse_proxy 127.0.0.1:` + strconv.Itoa(internalPort) + `
-}
-`
 }
 
 func writeFileAtomic(path string, content []byte, mode os.FileMode) error {

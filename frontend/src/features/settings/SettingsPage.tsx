@@ -5,7 +5,6 @@ import {
   Download,
   Eye,
   EyeOff,
-  Globe2,
   KeyRound,
   RefreshCw,
   RotateCcw,
@@ -33,13 +32,11 @@ type SettingKey =
   | 'hy2.obfs_password'
   | 'hy2.port'
   | 'hy2.traffic_secret'
-  | 'panel.domain'
   | 'reality.dest'
   | 'reality.private_key'
   | 'reality.public_key'
   | 'reality.short_ids'
   | 'reality.sni'
-  | 'subscription.url_prefix'
   | 'vless.port';
 
 type SettingValue = boolean | number | string | string[];
@@ -79,13 +76,11 @@ const fallbackValues: Record<SettingKey, SettingValue> = {
   'hy2.obfs_password': '',
   'hy2.port': 8443,
   'hy2.traffic_secret': '',
-  'panel.domain': 'panel.example.com',
   'reality.dest': 'www.cloudflare.com:443',
   'reality.private_key': '',
   'reality.public_key': '',
   'reality.short_ids': [''],
   'reality.sni': 'www.cloudflare.com',
-  'subscription.url_prefix': 'https://panel.example.com',
   'vless.port': 8444,
 };
 
@@ -503,23 +498,6 @@ export function SettingsPage() {
                   />
                 </SettingsSection>
 
-                <SettingsSection
-                  icon={Globe2}
-                  kicker="Links"
-                  title="Public endpoints"
-                >
-                  <TextControl
-                    label="Panel domain"
-                    onChange={(value) => setValue('panel.domain', value)}
-                    placeholder="panel.example.com"
-                    value={values.string('panel.domain')}
-                  />
-                  <SubscriptionURLControl
-                    label="Subscription URL"
-                    onChange={(value) => setValue('subscription.url_prefix', value)}
-                    value={values.string('subscription.url_prefix')}
-                  />
-                </SettingsSection>
               </div>
             </section>
           </>
@@ -594,27 +572,6 @@ function TextControl({
     <div className="space-y-[13px]">
       <Label>{label}</Label>
       <Input onChange={(event) => onChange(event.target.value)} placeholder={placeholder} value={value} />
-    </div>
-  );
-}
-
-function SubscriptionURLControl({
-  label,
-  onChange,
-  value,
-}: {
-  label: string;
-  onChange: (value: string) => void;
-  value: string;
-}) {
-  return (
-    <div className="space-y-[13px]">
-      <Label>{label}</Label>
-      <Input
-        onChange={(event) => onChange(subscriptionURLFromHost(event.target.value))}
-        placeholder="panel.example.com"
-        value={subscriptionURLHost(value)}
-      />
     </div>
   );
 }
@@ -981,7 +938,7 @@ function validateDraft(draft: SettingsDraft, values: ReturnType<typeof createSet
     if ((key.includes('domain') || key === 'reality.sni') && values.string(key).trim() === '') {
       issues.push(`${settingLabel(key)} cannot be empty.`);
     }
-    if ((key === 'subscription.url_prefix' || key === 'hy2.masquerade_url') && !validURL(values.string(key))) {
+    if (key === 'hy2.masquerade_url' && !validURL(values.string(key))) {
       issues.push(`${settingLabel(key)} must be a valid http or https URL.`);
     }
     if (key === 'reality.dest' && !validHostPort(values.string(key))) {
@@ -1012,9 +969,7 @@ function normalizeDraftForSave(draft: SettingsDraft): SettingsDraft {
   for (const [key, value] of Object.entries(draft) as Array<[SettingKey, SettingValue]>) {
     if (typeof value === 'string') {
       const trimmed = value.trim();
-      if (key === 'subscription.url_prefix') {
-        normalized[key] = normalizeSubscriptionURLForSave(trimmed);
-      } else if (key === 'panel.domain' || key === 'hy2.domain' || key === 'reality.sni') {
+      if (key === 'hy2.domain' || key === 'reality.sni') {
         normalized[key] = normalizeHostnameForSave(trimmed);
       } else {
         normalized[key] = trimmed;
@@ -1056,28 +1011,6 @@ function findRealityPreset(sni: string, dest: string): RealityPreset | undefined
 
 function findURLPreset(value: string, presets: URLPreset[]): URLPreset | undefined {
   return presets.find((preset) => preset.value === value);
-}
-
-function subscriptionURLHost(value: string): string {
-  const trimmed = value.trim();
-  if (trimmed === '') {
-    return '';
-  }
-  const raw = /^[a-z][a-z0-9+.-]*:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
-  try {
-    return new URL(raw).host;
-  } catch {
-    return trimmed.replace(/^https?:\/\//i, '').split('/')[0].replace(/\/+$/, '');
-  }
-}
-
-function subscriptionURLFromHost(value: string): string {
-  const host = subscriptionURLHost(value);
-  return host ? `https://${host}` : '';
-}
-
-function normalizeSubscriptionURLForSave(value: string): string {
-  return subscriptionURLFromHost(value).replace(/\/+$/, '');
 }
 
 function normalizeHostnameForSave(value: string): string {

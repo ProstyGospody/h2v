@@ -459,9 +459,8 @@ func (s *Server) handleSettingsUpdate(w http.ResponseWriter, r *http.Request) {
 		jsonError(w, domain.NewError(400, "invalid_request", "Invalid request body", err))
 		return
 	}
-	_, restartPanel := values["panel.port"]
 	rollbackValues := map[string]json.RawMessage{}
-	if shouldReconcileCaddy(values) {
+	if shouldReconcileXray(values) || shouldReconcileHysteria(values) {
 		var err error
 		rollbackValues, err = s.settingsRollbackValues(r.Context(), values)
 		if err != nil {
@@ -486,24 +485,7 @@ func (s *Server) handleSettingsUpdate(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	if shouldReconcileCaddy(values) {
-		if err := s.services.Configs.ReconcileCaddy(r.Context(), values); err != nil {
-			s.rollbackSettingsApply(r.Context(), rollbackValues, values)
-			jsonError(w, domain.NewError(http.StatusInternalServerError, "caddy_reconcile_failed", "Unable to update Caddy reverse proxy; panel endpoint was not changed: "+compactError(err), err))
-			return
-		}
-	}
-	response := map[string]any{"updated": true}
-	if restartPanel {
-		response["restart"] = "panel"
-	}
-	jsonData(w, http.StatusOK, response, nil)
-	if restartPanel {
-		if flusher, ok := w.(http.Flusher); ok {
-			flusher.Flush()
-		}
-		s.restartPanelSoon()
-	}
+	jsonData(w, http.StatusOK, map[string]any{"updated": true}, nil)
 }
 
 func (s *Server) handleSettingsPortsCheck(w http.ResponseWriter, r *http.Request) {
@@ -532,7 +514,7 @@ func (s *Server) handleSettingsPortsCheck(w http.ResponseWriter, r *http.Request
 	}
 	results := make([]portResult, 0, len(req.Ports))
 	for _, item := range req.Ports {
-		if item.Key != "panel.port" && item.Key != "vless.port" && item.Key != "hy2.port" {
+		if item.Key != "vless.port" && item.Key != "hy2.port" {
 			jsonError(w, domain.NewError(400, "invalid_request", "Unknown port key", nil))
 			return
 		}
@@ -984,42 +966,19 @@ func shouldReconcileXray(values map[string]json.RawMessage) bool {
 
 func shouldReconcileHysteria(values map[string]json.RawMessage) bool {
 	for key := range values {
-		if key == "panel.port" || strings.HasPrefix(key, "hy2.") {
+		if strings.HasPrefix(key, "hy2.") {
 			return true
 		}
 	}
 	return false
 }
 
-func shouldReconcileCaddy(values map[string]json.RawMessage) bool {
-	_, internalPortChanged := values["panel.port"]
-	_, domainChanged := values["panel.domain"]
-	return internalPortChanged || domainChanged
-}
-
 func (s *Server) settingsRollbackValues(ctx context.Context, values map[string]json.RawMessage) (map[string]json.RawMessage, error) {
 	previous, err := s.services.Settings.GetAll(ctx)
 	rollback := make(map[string]json.RawMessage, len(values))
 	for key := range values {
-		switch key {
-		case "panel.port":
-			raw, marshalErr := json.Marshal(s.cfg.Panel.Port)
-			if marshalErr == nil {
-				rollback[key] = raw
-			}
-		case "panel.domain":
-			if raw, ok := previous[key]; ok {
-				rollback[key] = cloneRawMessage(raw)
-				continue
-			}
-			raw, marshalErr := json.Marshal(s.cfg.Panel.Domain)
-			if marshalErr == nil {
-				rollback[key] = raw
-			}
-		default:
-			if raw, ok := previous[key]; ok {
-				rollback[key] = cloneRawMessage(raw)
-			}
+		if raw, ok := previous[key]; ok {
+			rollback[key] = cloneRawMessage(raw)
 		}
 	}
 	return rollback, err
@@ -1043,11 +1002,6 @@ func (s *Server) rollbackSettingsApply(ctx context.Context, rollbackValues, atte
 			s.logger.Error("hysteria rollback reconcile failed", "err", err)
 		}
 	}
-	if shouldReconcileCaddy(attemptedValues) {
-		if err := s.services.Configs.ReconcileCaddy(ctx, rollbackValues); err != nil {
-			s.logger.Error("caddy rollback reconcile failed", "err", err)
-		}
-	}
 }
 
 func cloneRawMessage(raw json.RawMessage) json.RawMessage {
@@ -1057,25 +1011,6 @@ func cloneRawMessage(raw json.RawMessage) json.RawMessage {
 	cloned := make(json.RawMessage, len(raw))
 	copy(cloned, raw)
 	return cloned
-}
-
-func compactError(err error) string {
-	message := strings.Join(strings.Fields(err.Error()), " ")
-	if len(message) > 240 {
-		return message[:240] + "..."
-	}
-	return message
-}
-
-func (s *Server) restartPanelSoon() {
-	go func() {
-		time.Sleep(750 * time.Millisecond)
-		ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
-		defer cancel()
-		if err := s.services.Configs.RestartService(ctx, "panel"); err != nil {
-			s.logger.Error("panel restart failed after settings update", "err", err)
-		}
-	}()
 }
 
 func clientIP(r *http.Request) string {

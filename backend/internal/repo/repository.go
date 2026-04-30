@@ -29,25 +29,24 @@ func (r *Repository) Ping(ctx context.Context) error {
 }
 
 func (r *Repository) BootstrapSettings(ctx context.Context, cfg config.Config) error {
+	if err := r.deleteSettings(ctx, "panel.domain", "panel.port", "panel.public_port", "subscription.url_prefix"); err != nil {
+		return err
+	}
 	settings := map[string]json.RawMessage{
-		"panel.domain":            rawJSONString(cfg.Panel.Domain),
-		"panel.port":              rawJSONInt(cfg.Panel.Port),
-		"panel.public_port":       rawJSONInt(cfg.Panel.PublicPort),
-		"subscription.url_prefix": rawJSONString(cfg.Subscription.URLPrefix),
-		"reality.sni":             rawJSONString(cfg.Xray.RealitySNI),
-		"reality.dest":            rawJSONString(cfg.Xray.RealityDest),
-		"reality.private_key":     rawJSONString(cfg.Xray.RealityPrivKey),
-		"reality.public_key":      rawJSONString(cfg.Xray.RealityPubKey),
-		"reality.short_ids":       rawJSONArray(cfg.Xray.RealityShortIDs),
-		"vless.port":              rawJSONInt(cfg.Xray.VlessPort),
-		"hy2.domain":              rawJSONString(cfg.Hysteria.Domain),
-		"hy2.port":                rawJSONInt(cfg.Hysteria.Port),
-		"hy2.obfs_enabled":        rawJSONBool(cfg.Hysteria.ObfsEnabled),
-		"hy2.obfs_password":       rawJSONString(cfg.Hysteria.ObfsPassword),
-		"hy2.bandwidth_up":        rawJSONString(cfg.Hysteria.BandwidthUp),
-		"hy2.bandwidth_down":      rawJSONString(cfg.Hysteria.BandwidthDown),
-		"hy2.masquerade_url":      rawJSONString(cfg.Hysteria.MasqueradeURL),
-		"hy2.traffic_secret":      rawJSONString(cfg.Hysteria.TrafficSecret),
+		"reality.sni":        rawJSONString(cfg.Xray.RealitySNI),
+		"reality.dest":       rawJSONString(cfg.Xray.RealityDest),
+		"reality.private_key": rawJSONString(cfg.Xray.RealityPrivKey),
+		"reality.public_key":  rawJSONString(cfg.Xray.RealityPubKey),
+		"reality.short_ids":   rawJSONArray(cfg.Xray.RealityShortIDs),
+		"vless.port":         rawJSONInt(cfg.Xray.VlessPort),
+		"hy2.domain":         rawJSONString(cfg.Hysteria.Domain),
+		"hy2.port":           rawJSONInt(cfg.Hysteria.Port),
+		"hy2.obfs_enabled":   rawJSONBool(cfg.Hysteria.ObfsEnabled),
+		"hy2.obfs_password":  rawJSONString(cfg.Hysteria.ObfsPassword),
+		"hy2.bandwidth_up":   rawJSONString(cfg.Hysteria.BandwidthUp),
+		"hy2.bandwidth_down": rawJSONString(cfg.Hysteria.BandwidthDown),
+		"hy2.masquerade_url": rawJSONString(cfg.Hysteria.MasqueradeURL),
+		"hy2.traffic_secret": rawJSONString(cfg.Hysteria.TrafficSecret),
 	}
 	return r.InsertMissingSettings(ctx, settings)
 }
@@ -553,6 +552,20 @@ func (r *Repository) UpsertSettings(ctx context.Context, values map[string]json.
 		}
 	}
 	return tx.Commit(ctx)
+}
+
+func (r *Repository) deleteSettings(ctx context.Context, keys ...string) error {
+	if len(keys) == 0 {
+		return nil
+	}
+	placeholders := make([]string, 0, len(keys))
+	args := make([]any, 0, len(keys))
+	for index, key := range keys {
+		placeholders = append(placeholders, fmt.Sprintf("$%d", index+1))
+		args = append(args, key)
+	}
+	_, err := r.pool.Exec(ctx, `DELETE FROM settings WHERE key IN (`+strings.Join(placeholders, ",")+`)`, args...)
+	return err
 }
 
 func (r *Repository) InsertMissingSettings(ctx context.Context, values map[string]json.RawMessage) error {
