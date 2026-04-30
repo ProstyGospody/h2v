@@ -93,6 +93,7 @@ func (s *SettingsService) validateUpdate(ctx context.Context, values map[string]
 		applyRuntimeValues(&runtime, current)
 	}
 
+	currentRuntime := runtime
 	applyRuntimeValues(&runtime, values)
 
 	if runtime.PanelDomain != "" && runtime.PanelDomain != "panel.example.com" && runtime.VlessPort == 443 {
@@ -101,8 +102,14 @@ func (s *SettingsService) validateUpdate(ctx context.Context, values map[string]
 	if runtime.PanelDomain != "" && runtime.PanelDomain != "panel.example.com" && (runtime.PanelPort == 80 || runtime.PanelPort == 443) {
 		return domain.NewError(400, "port_conflict", "Panel HTTP port conflicts with Caddy; use an internal port such as 8000", nil)
 	}
+	if runtime.PanelPort < 1024 {
+		return domain.NewError(400, "port_conflict", "Panel port must be 1024 or higher", nil)
+	}
 	if runtime.PanelPort == runtime.VlessPort {
 		return domain.NewError(400, "port_conflict", "Panel port conflicts with VLESS port; use different TCP ports", nil)
+	}
+	if err := validatePortAvailability(currentRuntime, runtime, values); err != nil {
+		return err
 	}
 	if touchesAny(values, "hy2.obfs_enabled", "hy2.obfs_password") && runtime.Hy2ObfsEnabled && runtime.Hy2ObfsPassword == "" {
 		return domain.NewError(400, "invalid_setting", "Hysteria obfs password is required when obfuscation is enabled", nil)
@@ -279,6 +286,36 @@ func normalizeStringSetting(key, value string) (string, error) {
 		}
 	}
 	return value, nil
+}
+
+func validatePortAvailability(current, next RuntimeSettings, values map[string]json.RawMessage) error {
+	checks := []struct {
+		current  int
+		key      string
+		label    string
+		next     int
+		protocol string
+	}{
+		{current: current.PanelPort, key: "panel.port", label: "Panel port", next: next.PanelPort, protocol: "tcp"},
+		{current: current.VlessPort, key: "vless.port", label: "VLESS port", next: next.VlessPort, protocol: "tcp"},
+		{current: current.Hy2Port, key: "hy2.port", label: "Hysteria port", next: next.Hy2Port, protocol: "udp"},
+	}
+
+	for _, check := range checks {
+		if _, ok := values[check.key]; !ok || check.current == check.next {
+			continue
+		}
+		result := ProbePort(check.protocol, check.next)
+		if !result.Available {
+			return domain.NewError(
+				400,
+				"port_unavailable",
+				fmt.Sprintf("%s %d/%s is already in use", check.label, check.next, check.protocol),
+				nil,
+			)
+		}
+	}
+	return nil
 }
 
 func (s *SettingsService) syncRuntimeEnv(values map[string]json.RawMessage) error {

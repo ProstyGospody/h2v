@@ -45,6 +45,7 @@ type SettingKey =
 
 type SettingValue = boolean | number | string | string[];
 type SettingsDraft = Partial<Record<SettingKey, SettingValue>>;
+type PortKey = 'hy2.port' | 'panel.port' | 'vless.port';
 
 type RealityPreset = {
   dest: string;
@@ -107,10 +108,26 @@ const vlessPortPresets = [443, 8443, 8444, 2053, 2083];
 const hy2PortPresets = [443, 8443, 8444, 2083, 9443];
 const panelPortPresets = [8000, 8080, 3000, 5000, 5173];
 const bandwidthPresets = ['100 mbps', '500 mbps', '1 gbps'];
+const portDefinitions: Array<{ key: PortKey; presets: number[]; protocol: 'tcp' | 'udp' }> = [
+  { key: 'panel.port', presets: panelPortPresets, protocol: 'tcp' },
+  { key: 'vless.port', presets: vlessPortPresets, protocol: 'tcp' },
+  { key: 'hy2.port', presets: hy2PortPresets, protocol: 'udp' },
+];
 
 type SettingsUpdateResult = {
   restart?: string;
   updated: boolean;
+};
+
+type PortCheckItem = {
+  key: PortKey;
+  port: number;
+  protocol: 'tcp' | 'udp';
+};
+
+type PortCheckResult = PortCheckItem & {
+  available: boolean;
+  reason?: string;
 };
 
 export function SettingsPage() {
@@ -133,8 +150,24 @@ export function SettingsPage() {
     [settings.data],
   );
   const issues = useMemo(() => validateDraft(draft, values), [draft, values]);
+  const portCheckItems = useMemo(() => createPortCheckItems(values), [values]);
+  const portAvailability = useQuery({
+    enabled: settings.isSuccess && portCheckItems.length > 0,
+    queryFn: () =>
+      apiClient.request<PortCheckResult[]>('/settings/ports/check', {
+        body: JSON.stringify({ ports: portCheckItems }),
+        method: 'POST',
+      }),
+    queryKey: ['settings-port-checks', portCheckItems],
+  });
+  const portIssues = useMemo(
+    () => createPortIssues(draft, values, originalValues, portAvailability.data ?? [], portAvailability.isError),
+    [draft, originalValues, portAvailability.data, portAvailability.isError, values],
+  );
+  const allIssues = useMemo(() => [...issues, ...portIssues], [issues, portIssues]);
   const hasDraft = Object.keys(draft).length > 0;
-  const hasIssues = issues.length > 0;
+  const isCheckingPorts = portAvailability.isFetching && hasChangedPort(draft, values, originalValues);
+  const hasIssues = allIssues.length > 0;
   const currentRealityPreset = findRealityPreset(values.string('reality.sni'), values.string('reality.dest'));
   const currentMasqueradePreset = findURLPreset(values.string('hy2.masquerade_url'), masqueradePresets);
 
@@ -311,7 +344,7 @@ export function SettingsPage() {
                 </Button>
                 <Button
                   className="h-10"
-                  disabled={save.isPending || hasIssues}
+                  disabled={save.isPending || hasIssues || isCheckingPorts}
                   onClick={() => save.mutate()}
                   size="sm"
                 >
@@ -331,7 +364,7 @@ export function SettingsPage() {
           <SettingsError error={settings.error} onRetry={() => settings.refetch()} />
         ) : (
           <>
-            {hasIssues ? <SettingsIssues issues={issues} /> : null}
+            {hasIssues ? <SettingsIssues issues={allIssues} /> : null}
 
             <section className="grid gap-5 xl:grid-cols-2">
               <div className="space-y-5">
@@ -346,6 +379,7 @@ export function SettingsPage() {
                     min={1}
                     onChange={(value) => setValue('vless.port', value)}
                     presets={vlessPortPresets}
+                    unavailablePorts={unavailablePresetPorts('vless.port', originalValues, portAvailability.data)}
                     value={values.number('vless.port')}
                   />
                   <SelectControl
@@ -413,6 +447,7 @@ export function SettingsPage() {
                     min={1}
                     onChange={(value) => setValue('hy2.port', value)}
                     presets={hy2PortPresets}
+                    unavailablePorts={unavailablePresetPorts('hy2.port', originalValues, portAvailability.data)}
                     value={values.number('hy2.port')}
                   />
                   <BandwidthControl
@@ -489,6 +524,7 @@ export function SettingsPage() {
                     min={1}
                     onChange={(value) => setValue('panel.port', value)}
                     presets={panelPortPresets}
+                    unavailablePorts={unavailablePresetPorts('panel.port', originalValues, portAvailability.data)}
                     value={values.number('panel.port')}
                   />
                   <SubscriptionURLControl
@@ -644,6 +680,7 @@ function PortControl({
   min,
   onChange,
   presets,
+  unavailablePorts = [],
   value,
 }: {
   label: string;
@@ -651,17 +688,22 @@ function PortControl({
   min: number;
   onChange: (value: number) => void;
   presets: number[];
+  unavailablePorts?: number[];
   value: number;
 }) {
+  const unavailable = new Set(unavailablePorts);
+
   return (
     <div className="space-y-[13px]">
       <Label>{label}</Label>
       <div className="flex flex-wrap items-center gap-2.5">
         {presets.map((port) => (
           <Button
+            disabled={unavailable.has(port)}
             key={port}
             onClick={() => onChange(port)}
             size="sm"
+            title={unavailable.has(port) ? 'Port is already in use' : undefined}
             type="button"
             variant={value === port ? 'default' : 'secondary'}
           >
@@ -876,6 +918,73 @@ function coerceSettingValue(key: SettingKey, value: unknown): SettingValue {
   return typeof value === 'string' ? value : String(fallback);
 }
 
+function createPortCheckItems(values: ReturnType<typeof createSettingsValues>): PortCheckItem[] {
+  const checks: PortCheckItem[] = [];
+  const seen = new Set<string>();
+
+  for (const definition of portDefinitions) {
+    for (const port of [values.number(definition.key), ...definition.presets]) {
+      if (!validPort(port)) continue;
+      const id = `${definition.key}:${definition.protocol}:${port}`;
+      if (seen.has(id)) continue;
+      seen.add(id);
+      checks.push({ key: definition.key, port, protocol: definition.protocol });
+    }
+  }
+
+  return checks;
+}
+
+function createPortIssues(
+  draft: SettingsDraft,
+  values: ReturnType<typeof createSettingsValues>,
+  originalValues: ReturnType<typeof createSettingsValues>,
+  results: PortCheckResult[],
+  checkFailed: boolean,
+): string[] {
+  if (!hasChangedPort(draft, values, originalValues)) {
+    return [];
+  }
+  if (checkFailed) {
+    return ['Unable to check port availability.'];
+  }
+
+  const issues: string[] = [];
+  for (const definition of portDefinitions) {
+    if (draft[definition.key] === undefined) continue;
+    const port = values.number(definition.key);
+    if (!validPort(port) || port === originalValues.number(definition.key)) continue;
+    const result = results.find(
+      (item) => item.key === definition.key && item.port === port && item.protocol === definition.protocol,
+    );
+    if (result && !result.available) {
+      issues.push(`${settingLabel(definition.key)} ${port}/${definition.protocol.toUpperCase()} is already in use.`);
+    }
+  }
+  return issues;
+}
+
+function hasChangedPort(
+  draft: SettingsDraft,
+  values: ReturnType<typeof createSettingsValues>,
+  originalValues: ReturnType<typeof createSettingsValues>,
+): boolean {
+  return portDefinitions.some(
+    (definition) =>
+      draft[definition.key] !== undefined && values.number(definition.key) !== originalValues.number(definition.key),
+  );
+}
+
+function unavailablePresetPorts(
+  key: PortKey,
+  originalValues: ReturnType<typeof createSettingsValues>,
+  results: PortCheckResult[] | undefined,
+): number[] {
+  return (results ?? [])
+    .filter((item) => item.key === key && !item.available && item.port !== originalValues.number(key))
+    .map((item) => item.port);
+}
+
 function validateDraft(draft: SettingsDraft, values: ReturnType<typeof createSettingsValues>) {
   const issues: string[] = [];
   for (const key of Object.keys(draft) as SettingKey[]) {
@@ -907,6 +1016,9 @@ function validateDraft(draft: SettingsDraft, values: ReturnType<typeof createSet
     if (values.number('panel.port') === values.number('vless.port')) {
       issues.push('Panel / Port and Vless / Port must use different TCP ports.');
     }
+  }
+  if (draft['panel.port'] !== undefined && values.number('panel.port') < 1024) {
+    issues.push('Panel / Port must be 1024 or higher.');
   }
   if (draft['panel.port'] !== undefined || draft['panel.domain'] !== undefined) {
     if (isRealPanelDomain(values.string('panel.domain')) && [80, 443].includes(values.number('panel.port'))) {

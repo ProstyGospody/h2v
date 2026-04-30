@@ -161,6 +161,7 @@ ensure_base_packages() {
     postgresql \
     postgresql-contrib \
     caddy \
+    iproute2 \
     rsync \
     git \
     tar \
@@ -464,6 +465,83 @@ prompt_password() {
   printf '%s' "${answer}"
 }
 
+valid_port_number() {
+  local port="$1"
+  [[ "${port}" =~ ^[0-9]+$ ]] && (( port >= 1 && port <= 65535 ))
+}
+
+port_listener_in_use() {
+  local protocol="$1"
+  local port="$2"
+  local ss_args
+
+  if command_exists ss; then
+    case "${protocol}" in
+      tcp) ss_args="-H -ltn" ;;
+      udp) ss_args="-H -lun" ;;
+      *) return 1 ;;
+    esac
+    ss ${ss_args} 2>/dev/null | awk -v p="${port}" '
+      {
+        n = split($4, parts, ":")
+        if (parts[n] == p) found = 1
+      }
+      END { exit found ? 0 : 1 }
+    '
+    return $?
+  fi
+
+  if [[ "${protocol}" == "tcp" ]]; then
+    (: >"/dev/tcp/127.0.0.1/${port}") >/dev/null 2>&1 && return 0
+  fi
+  return 1
+}
+
+selected_panel_domain_is_real() {
+  [[ -n "${PANEL_DOMAIN_INPUT}" && "${PANEL_DOMAIN_INPUT}" != "panel.example.com" ]]
+}
+
+prompt_service_port() {
+  local key="$1"
+  local label="$2"
+  local default="$3"
+  local protocol="$4"
+  local port
+  local is_tty=false
+  [[ -t 0 ]] && is_tty=true
+
+  while true; do
+    port="$(prompt_value "${label}" "${default}")"
+    if ! valid_port_number "${port}"; then
+      red "${label} must be a number between 1 and 65535." >&2
+      ${is_tty} || fail "${label} is invalid"
+      continue
+    fi
+    if [[ "${key}" == "PANEL_PORT" && "${port}" -lt 1024 ]]; then
+      red "${label} must be 1024 or higher." >&2
+      ${is_tty} || fail "${label} must be 1024 or higher"
+      continue
+    fi
+    if selected_panel_domain_is_real && [[ "${key}" == "PANEL_PORT" && ( "${port}" == "80" || "${port}" == "443" ) ]]; then
+      red "${label} ${port}/tcp conflicts with Caddy HTTPS for the panel domain." >&2
+      ${is_tty} || fail "${label} ${port}/tcp is not available"
+      continue
+    fi
+    if selected_panel_domain_is_real && [[ "${key}" == "VLESS_PORT" && "${port}" == "443" ]]; then
+      red "${label} 443/tcp conflicts with Caddy HTTPS for the panel domain." >&2
+      ${is_tty} || fail "${label} 443/tcp is not available"
+      continue
+    fi
+    if port_listener_in_use "${protocol}" "${port}"; then
+      red "${label} ${port}/${protocol} is already in use. Choose another port." >&2
+      ${is_tty} || fail "${label} ${port}/${protocol} is already in use"
+      continue
+    fi
+    printf '%s' "${port}"
+    return
+  done
+}
+
 collect_install_inputs() {
   local env_exists=false
   local default_domain="panel.example.com"
@@ -520,9 +598,16 @@ collect_install_inputs() {
     red "A real domain is required."
   done
 
-  PANEL_PORT_INPUT="$(prompt_value "Panel HTTP port" "${default_panel_port}")"
-  VLESS_PORT_INPUT="$(prompt_value "VLESS Reality TCP port" "${default_vless_port}")"
-  HY2_PORT_INPUT="$(prompt_value "Hysteria 2 port" "${default_hy2_port}")"
+  PANEL_PORT_INPUT="$(prompt_service_port PANEL_PORT "Panel HTTP port" "${default_panel_port}" tcp)"
+  while true; do
+    VLESS_PORT_INPUT="$(prompt_service_port VLESS_PORT "VLESS Reality TCP port" "${default_vless_port}" tcp)"
+    if [[ "${VLESS_PORT_INPUT}" != "${PANEL_PORT_INPUT}" ]]; then
+      break
+    fi
+    red "VLESS Reality TCP port must differ from Panel HTTP port." >&2
+    ${is_tty} || fail "VLESS Reality TCP port conflicts with Panel HTTP port"
+  done
+  HY2_PORT_INPUT="$(prompt_service_port HY2_PORT "Hysteria 2 UDP port" "${default_hy2_port}" udp)"
   ADMIN_USERNAME_INPUT="$(prompt_value "Admin username" "${default_admin_username}")"
 
   if [[ -n "${PANEL_ADMIN_PASSWORD:-}" ]]; then
@@ -672,6 +757,40 @@ normalize_vless_env_port() {
   if [[ "${vless_port}" == "443" ]]; then
     warn "VLESS_PORT=443 conflicts with Caddy panel HTTPS; switching VLESS_PORT to 8444"
     env_set VLESS_PORT 8444
+  fi
+}
+
+validate_selected_runtime_ports() {
+  local domain panel_port vless_port hy2_port
+  domain="$(env_get PANEL_DOMAIN || true)"
+  panel_port="$(env_get PANEL_PORT || echo 8000)"
+  vless_port="$(env_get VLESS_PORT || echo 8444)"
+  hy2_port="$(env_get HY2_PORT || echo 8443)"
+
+  valid_port_number "${panel_port}" || fail "PANEL_PORT must be a number between 1 and 65535"
+  valid_port_number "${vless_port}" || fail "VLESS_PORT must be a number between 1 and 65535"
+  valid_port_number "${hy2_port}" || fail "HY2_PORT must be a number between 1 and 65535"
+
+  if (( panel_port < 1024 )); then
+    fail "PANEL_PORT must be 1024 or higher"
+  fi
+  if [[ -n "${domain}" && "${domain}" != "panel.example.com" && ( "${panel_port}" == "80" || "${panel_port}" == "443" ) ]]; then
+    fail "PANEL_PORT=${panel_port} conflicts with Caddy HTTPS; use an internal port such as 8000"
+  fi
+  if [[ "${panel_port}" == "${vless_port}" ]]; then
+    fail "PANEL_PORT and VLESS_PORT cannot both use TCP ${panel_port}"
+  fi
+
+  if ${NEEDS_CONFIG}; then
+    if port_listener_in_use tcp "${panel_port}"; then
+      fail "PANEL_PORT=${panel_port}/tcp is already in use"
+    fi
+    if port_listener_in_use tcp "${vless_port}"; then
+      fail "VLESS_PORT=${vless_port}/tcp is already in use"
+    fi
+    if port_listener_in_use udp "${hy2_port}"; then
+      fail "HY2_PORT=${hy2_port}/udp is already in use"
+    fi
   fi
 }
 
@@ -1041,6 +1160,7 @@ install_all() {
   ensure_env
   normalize_config_paths
   normalize_vless_env_port
+  validate_selected_runtime_ports
   ensure_runtime_secrets
   ensure_reality_keys
   success "user/panel and ${INSTALL_DIR} prepared"

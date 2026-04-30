@@ -128,6 +128,7 @@ func (s *Server) routes(r chi.Router) {
 
 		api.Get("/settings", s.handleSettingsList)
 		api.Patch("/settings", s.handleSettingsUpdate)
+		api.Post("/settings/ports/check", s.handleSettingsPortsCheck)
 		api.Post("/settings/reality-keypair", s.handleSettingsRealityKeyPair)
 		api.Post("/geodata/update", s.handleGeodataUpdate)
 		api.Get("/backup/export", s.handleBackupExport)
@@ -486,6 +487,52 @@ func (s *Server) handleSettingsUpdate(w http.ResponseWriter, r *http.Request) {
 		}
 		s.restartPanelSoon()
 	}
+}
+
+func (s *Server) handleSettingsPortsCheck(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Ports []struct {
+			Key      string `json:"key"`
+			Port     int    `json:"port"`
+			Protocol string `json:"protocol"`
+		} `json:"ports"`
+	}
+	if err := decodeJSON(r, &req); err != nil {
+		jsonError(w, domain.NewError(400, "invalid_request", "Invalid request body", err))
+		return
+	}
+	if len(req.Ports) > 24 {
+		jsonError(w, domain.NewError(400, "invalid_request", "Too many ports to check", nil))
+		return
+	}
+
+	type portResult struct {
+		Available bool   `json:"available"`
+		Key       string `json:"key"`
+		Port      int    `json:"port"`
+		Protocol  string `json:"protocol"`
+		Reason    string `json:"reason,omitempty"`
+	}
+	results := make([]portResult, 0, len(req.Ports))
+	for _, item := range req.Ports {
+		if item.Key != "panel.port" && item.Key != "vless.port" && item.Key != "hy2.port" {
+			jsonError(w, domain.NewError(400, "invalid_request", "Unknown port key", nil))
+			return
+		}
+		if item.Protocol != "tcp" && item.Protocol != "udp" {
+			jsonError(w, domain.NewError(400, "invalid_request", "Protocol must be tcp or udp", nil))
+			return
+		}
+		probe := services.ProbePort(item.Protocol, item.Port)
+		results = append(results, portResult{
+			Available: probe.Available,
+			Key:       item.Key,
+			Port:      probe.Port,
+			Protocol:  probe.Protocol,
+			Reason:    probe.Reason,
+		})
+	}
+	jsonData(w, http.StatusOK, results, nil)
 }
 
 func (s *Server) handleSettingsRealityKeyPair(w http.ResponseWriter, _ *http.Request) {
