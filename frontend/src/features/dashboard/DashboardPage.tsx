@@ -1,4 +1,4 @@
-import { useMemo, useState, type ComponentType, type ReactNode } from 'react';
+import { useMemo, useState, type ReactNode } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import {
   ArrowDown,
@@ -9,6 +9,7 @@ import {
   Network,
   UserRoundX,
   Wifi,
+  type LucideIcon,
 } from 'lucide-react';
 import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from 'recharts';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
@@ -218,7 +219,7 @@ function MetricCard({
 }: {
   bar?: { percent: number; tone: string };
   footer?: ReactNode;
-  icon: ComponentType<{ className?: string }>;
+  icon: LucideIcon;
   label: string;
   loading?: boolean;
   value?: ReactNode;
