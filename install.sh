@@ -442,16 +442,21 @@ resolve_source_dir() {
   SOURCE_DIR="${extracted}"
 }
 
+can_prompt() {
+  [[ -r /dev/tty && -w /dev/tty ]]
+}
+
 prompt_value() {
   local prompt="$1"
   local default="$2"
   local answer=""
-  if [[ -t 0 ]]; then
+  if can_prompt; then
     if [[ -n "${default}" ]]; then
-      read -r -p "${prompt} [${default}]: " answer </dev/tty
+      printf '%s [%s]: ' "${prompt}" "${default}" >/dev/tty
     else
-      read -r -p "${prompt}: " answer </dev/tty
+      printf '%s: ' "${prompt}" >/dev/tty
     fi
+    read -r answer </dev/tty
   fi
   printf '%s' "${answer:-${default}}"
 }
@@ -459,9 +464,10 @@ prompt_value() {
 prompt_password() {
   local prompt="$1"
   local answer=""
-  if [[ -t 0 ]]; then
-    read -r -s -p "${prompt}: " answer </dev/tty
-    printf '\n' >&2
+  if can_prompt; then
+    printf '%s: ' "${prompt}" >/dev/tty
+    read -r -s answer </dev/tty
+    printf '\n' >/dev/tty
   fi
   printf '%s' "${answer}"
 }
@@ -474,12 +480,15 @@ prompt_yes_no() {
   if [[ "${default}" == "yes" ]]; then
     suffix="[Y/n]"
   fi
-  if [[ -t 0 ]]; then
-    read -r -p "${prompt} ${suffix}: " answer </dev/tty
+  if can_prompt; then
+    printf '%s %s: ' "${prompt}" "${suffix}" >/dev/tty
+    read -r answer </dev/tty
   fi
+  answer="${answer#"${answer%%[![:space:]]*}"}"
+  answer="${answer%"${answer##*[![:space:]]}"}"
   answer="${answer:-${default}}"
   case "${answer,,}" in
-    y|yes) return 0 ;;
+    y|yes|1|true|д|да) return 0 ;;
     *) return 1 ;;
   esac
 }
@@ -536,7 +545,7 @@ prompt_service_port() {
   local protocol="$4"
   local port
   local is_tty=false
-  [[ -t 0 ]] && is_tty=true
+  can_prompt && is_tty=true
 
   while true; do
     port="$(prompt_value "${label}" "${default}")"
@@ -586,22 +595,21 @@ collect_install_inputs() {
     [[ -n "${cur_hy2_port}" ]] && default_hy2_port="${cur_hy2_port}"
   else
     FIRST_INSTALL=true
+    NEEDS_CONFIG=true
   fi
 
-  if ${env_exists} && [[ "${default_domain}" != "panel.example.com" ]]; then
-    if [[ -t 0 ]]; then
-      if ! prompt_yes_no "Reconfigure panel variables (domain and public ports)?" "no"; then
-        return
-      fi
-    else
+  if ${env_exists}; then
+    if ! can_prompt; then
       return
     fi
+    if ! prompt_yes_no "Reconfigure panel variables (domain and public ports)?" "no"; then
+      return
+    fi
+    info "reconfiguration enabled - panel domain and ports will be prompted"
   fi
 
-  NEEDS_CONFIG=true
-
   local is_tty=false
-  [[ -t 0 ]] && is_tty=true
+  can_prompt && is_tty=true
 
   if ${is_tty}; then
     banner "Panel configuration" "press Enter to accept defaults"
@@ -636,17 +644,19 @@ collect_install_inputs() {
     ${is_tty} || fail "VLESS Reality TCP port conflicts with Panel public HTTPS port"
   done
   HY2_PORT_INPUT="$(prompt_service_port HY2_PORT "Hysteria 2 UDP port" "${default_hy2_port}" udp)"
-  ADMIN_USERNAME_INPUT="$(prompt_value "Admin username" "${default_admin_username}")"
+  if ! ${env_exists}; then
+    ADMIN_USERNAME_INPUT="$(prompt_value "Admin username" "${default_admin_username}")"
 
-  if [[ -n "${PANEL_ADMIN_PASSWORD:-}" ]]; then
-    ADMIN_PASSWORD_INPUT="${PANEL_ADMIN_PASSWORD}"
-  elif [[ -t 0 ]]; then
-    ADMIN_PASSWORD_INPUT="$(prompt_password "Admin password (blank to auto-generate)")"
-  fi
+    if [[ -n "${PANEL_ADMIN_PASSWORD:-}" ]]; then
+      ADMIN_PASSWORD_INPUT="${PANEL_ADMIN_PASSWORD}"
+    elif can_prompt; then
+      ADMIN_PASSWORD_INPUT="$(prompt_password "Admin password (blank to auto-generate)")"
+    fi
 
-  if [[ -z "${ADMIN_PASSWORD_INPUT}" ]]; then
-    ADMIN_PASSWORD_INPUT="$(openssl rand -base64 24 | tr -dc 'A-Za-z0-9' | cut -c1-20)"
-    ADMIN_PASSWORD_GENERATED=true
+    if [[ -z "${ADMIN_PASSWORD_INPUT}" ]]; then
+      ADMIN_PASSWORD_INPUT="$(openssl rand -base64 24 | tr -dc 'A-Za-z0-9' | cut -c1-20)"
+      ADMIN_PASSWORD_GENERATED=true
+    fi
   fi
 }
 
@@ -1399,7 +1409,7 @@ reset_admin() {
   fi
 
   if [[ -z "${password}" ]]; then
-    if [[ -t 0 ]]; then
+    if can_prompt; then
       password="$(prompt_password "New password (blank to auto-generate)")"
     fi
     if [[ -z "${password}" ]]; then
