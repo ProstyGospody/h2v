@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { addDays } from 'date-fns';
 import { QRCodeSVG } from 'qrcode.react';
-import { Bar, BarChart } from 'recharts';
+import { Bar, BarChart, XAxis } from 'recharts';
 import {
   ArrowRight,
   Copy,
@@ -135,6 +135,11 @@ export function UsersPage() {
     queryFn: () => apiClient.request<TrafficPoint[]>(`/users/${drawerUser!.id}/traffic?days=7`),
     refetchInterval: 10_000,
   });
+  const drawerTrafficData = useMemo(
+    () => (traffic.data ?? []).map((p) => ({ ...p, total: p.uplink + p.downlink })),
+    [traffic.data],
+  );
+  const hasDrawerTrafficSamples = drawerTrafficData.some((p) => p.total > 0);
 
   const allSelected = Boolean(users.data?.length) && selectedIds.length === users.data?.length;
   const drawerTrafficPercent = drawerUser
@@ -682,24 +687,25 @@ export function UsersPage() {
                   <div className="h-32 rounded-md bg-muted/60 p-2">
                     {traffic.isLoading ? (
                       <Skeleton className="h-full w-full" />
-                    ) : traffic.data?.length ? (
+                    ) : hasDrawerTrafficSamples ? (
                       <ChartContainer
                         className="h-full w-full aspect-auto"
                         config={userTrafficChartConfig}
                       >
-                        <BarChart data={traffic.data.map((p) => ({ ...p, total: p.uplink + p.downlink }))}>
+                        <BarChart data={drawerTrafficData}>
                           <defs>
                             <linearGradient id="userTrafficGradient" x1="0" x2="0" y1="0" y2="1">
                               <stop offset="0%" stopColor="var(--accent-primary)" />
                               <stop offset="100%" stopColor="var(--accent-secondary)" />
                             </linearGradient>
                           </defs>
+                          <XAxis dataKey="recorded_at" hide />
                           <ChartTooltip
                             cursor={{ fill: 'url(#userTrafficGradient)', opacity: 0.18 }}
                             content={
                               <ChartTooltipContent
                                 formatter={(v) => [formatBytes(Number(v)), 'Traffic']}
-                                labelFormatter={(v) => formatDate(String(v), 'MMM d')}
+                                labelFormatter={(v) => formatDate(String(v), 'MMM d, yyyy')}
                               />
                             }
                           />

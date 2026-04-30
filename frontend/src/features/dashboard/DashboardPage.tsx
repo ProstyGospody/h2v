@@ -67,6 +67,7 @@ export function DashboardPage() {
     () => (traffic.data ?? []).map((p) => ({ recorded_at: p.recorded_at, total: p.uplink + p.downlink })),
     [traffic.data],
   );
+  const hasTrafficSamples = trafficData.some((p) => p.total > 0);
 
   return (
     <div className="pb-10">
@@ -144,7 +145,7 @@ export function DashboardPage() {
             <div className="h-80 sm:h-96 xl:h-[420px]">
               {traffic.isLoading ? (
                 <Skeleton className="h-full w-full" />
-              ) : trafficData.length ? (
+              ) : hasTrafficSamples ? (
                 <ChartContainer className="h-full w-full aspect-auto" config={trafficChartConfig}>
                   <BarChart data={trafficData} margin={{ left: 0, right: 8, top: 8, bottom: 0 }}>
                     <defs>

@@ -409,19 +409,31 @@ func (r *Repository) GetUserTraffic(ctx context.Context, id uuid.UUID, days int)
 		days = 7
 	}
 	rows, err := r.pool.Query(ctx, `
-		SELECT date_trunc('hour', recorded_at) AS bucket, coalesce(sum(uplink), 0), coalesce(sum(downlink), 0)
-		FROM traffic_log
-		WHERE user_id = $1
-		  AND recorded_at >= now() - ($2 * interval '1 day')
-		GROUP BY bucket
-		ORDER BY bucket
+		WITH buckets AS (
+			SELECT generate_series(
+				date_trunc('day', now()) - (($2::int - 1) * interval '1 day'),
+				date_trunc('day', now()),
+				interval '1 day'
+			) AS bucket
+		),
+		traffic AS (
+			SELECT date_trunc('day', recorded_at) AS bucket, sum(uplink) AS uplink, sum(downlink) AS downlink
+			FROM traffic_log
+			WHERE user_id = $1
+			  AND recorded_at >= date_trunc('day', now()) - (($2::int - 1) * interval '1 day')
+			GROUP BY bucket
+		)
+		SELECT buckets.bucket, coalesce(traffic.uplink, 0), coalesce(traffic.downlink, 0)
+		FROM buckets
+		LEFT JOIN traffic ON traffic.bucket = buckets.bucket
+		ORDER BY buckets.bucket
 	`, id, days)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
 
-	points := make([]domain.TrafficPoint, 0, 24)
+	points := make([]domain.TrafficPoint, 0, days)
 	for rows.Next() {
 		var point domain.TrafficPoint
 		if err := rows.Scan(&point.RecordedAt, &point.Uplink, &point.Downlink); err != nil {
@@ -437,11 +449,23 @@ func (r *Repository) GetAggregateTraffic(ctx context.Context, days int) ([]domai
 		days = 7
 	}
 	rows, err := r.pool.Query(ctx, `
-		SELECT date_trunc('day', recorded_at) AS bucket, coalesce(sum(uplink), 0), coalesce(sum(downlink), 0)
-		FROM traffic_log
-		WHERE recorded_at >= now() - ($1 * interval '1 day')
-		GROUP BY bucket
-		ORDER BY bucket
+		WITH buckets AS (
+			SELECT generate_series(
+				date_trunc('day', now()) - (($1::int - 1) * interval '1 day'),
+				date_trunc('day', now()),
+				interval '1 day'
+			) AS bucket
+		),
+		traffic AS (
+			SELECT date_trunc('day', recorded_at) AS bucket, sum(uplink) AS uplink, sum(downlink) AS downlink
+			FROM traffic_log
+			WHERE recorded_at >= date_trunc('day', now()) - (($1::int - 1) * interval '1 day')
+			GROUP BY bucket
+		)
+		SELECT buckets.bucket, coalesce(traffic.uplink, 0), coalesce(traffic.downlink, 0)
+		FROM buckets
+		LEFT JOIN traffic ON traffic.bucket = buckets.bucket
+		ORDER BY buckets.bucket
 	`, days)
 	if err != nil {
 		return nil, err
