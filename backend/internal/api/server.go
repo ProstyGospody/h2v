@@ -137,11 +137,6 @@ func (s *Server) routes(r chi.Router) {
 
 		api.Get("/stats/overview", s.handleStatsOverview)
 		api.Get("/stats/traffic", s.handleStatsTraffic)
-
-		api.Get("/admins", s.handleAdminsList)
-		api.Post("/admins", s.handleAdminsCreate)
-		api.Patch("/admins/{id}", s.handleAdminsUpdate)
-		api.Delete("/admins/{id}", s.handleAdminsDelete)
 	})
 
 	s.mountFrontend(r)
@@ -541,72 +536,6 @@ func (s *Server) handleStatsTraffic(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	jsonData(w, http.StatusOK, data, nil)
-}
-
-func (s *Server) handleAdminsList(w http.ResponseWriter, r *http.Request) {
-	admins, err := s.services.Admins.List(r.Context())
-	if err != nil {
-		jsonError(w, err)
-		return
-	}
-	jsonData(w, http.StatusOK, admins, nil)
-}
-
-func (s *Server) handleAdminsCreate(w http.ResponseWriter, r *http.Request) {
-	var req struct {
-		Username string `json:"username"`
-		Password string `json:"password"`
-		Role     string `json:"role"`
-	}
-	if err := decodeJSON(r, &req); err != nil {
-		jsonError(w, domain.NewError(400, "invalid_request", "Invalid request body", err))
-		return
-	}
-	admin, err := s.services.Admins.Create(r.Context(), services.CreateAdminRequest{
-		Username: req.Username,
-		Password: req.Password,
-		Role:     req.Role,
-	})
-	if err != nil {
-		jsonError(w, err)
-		return
-	}
-	jsonData(w, http.StatusCreated, admin, nil)
-}
-
-func (s *Server) handleAdminsUpdate(w http.ResponseWriter, r *http.Request) {
-	id, err := uuid.Parse(chi.URLParam(r, "id"))
-	if err != nil {
-		jsonError(w, domain.NewError(400, "invalid_id", "Invalid admin id", err))
-		return
-	}
-	var req struct {
-		Password string `json:"password"`
-	}
-	if err := decodeJSON(r, &req); err != nil {
-		jsonError(w, domain.NewError(400, "invalid_request", "Invalid request body", err))
-		return
-	}
-	if err := s.services.Admins.Update(r.Context(), id, services.UpdateAdminRequest{
-		Password: req.Password,
-	}); err != nil {
-		jsonError(w, err)
-		return
-	}
-	jsonData(w, http.StatusOK, map[string]any{"updated": true}, nil)
-}
-
-func (s *Server) handleAdminsDelete(w http.ResponseWriter, r *http.Request) {
-	id, err := uuid.Parse(chi.URLParam(r, "id"))
-	if err != nil {
-		jsonError(w, domain.NewError(400, "invalid_id", "Invalid admin id", err))
-		return
-	}
-	if err := s.services.Admins.Delete(r.Context(), id); err != nil {
-		jsonError(w, err)
-		return
-	}
-	jsonData(w, http.StatusOK, map[string]any{"deleted": true}, nil)
 }
 
 func (s *Server) handleSubscription(w http.ResponseWriter, r *http.Request) {

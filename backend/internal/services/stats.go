@@ -6,8 +6,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/google/uuid"
-
 	"github.com/prost/h2v/backend/internal/domain"
 	"github.com/prost/h2v/backend/internal/repo"
 	"github.com/prost/h2v/backend/internal/util"
@@ -135,67 +133,6 @@ func (s *StatsService) Health(ctx context.Context) (*domain.HealthReport, error)
 		Version:       s.version,
 		UptimeSeconds: int64(time.Since(s.startedAt).Seconds()),
 	}, nil
-}
-
-type AdminService struct {
-	repo *repo.Repository
-}
-
-func NewAdminService(repository *repo.Repository) *AdminService {
-	return &AdminService{repo: repository}
-}
-
-func (s *AdminService) List(ctx context.Context) ([]domain.Admin, error) {
-	return s.repo.ListAdmins(ctx)
-}
-
-func (s *AdminService) Create(ctx context.Context, req CreateAdminRequest) (*domain.Admin, error) {
-	if strings.TrimSpace(req.Password) == "" {
-		return nil, domain.NewError(400, "invalid_admin", "Password is required", nil)
-	}
-	hash, err := util.HashPassword(req.Password)
-	if err != nil {
-		return nil, err
-	}
-	admin := &domain.Admin{
-		ID:           uuid.New(),
-		Username:     req.Username,
-		PasswordHash: hash,
-		Role:         firstNonEmpty(req.Role, "admin"),
-		CreatedAt:    time.Now().UTC(),
-	}
-	if err := s.repo.CreateAdmin(ctx, admin); err != nil {
-		return nil, err
-	}
-	return admin, nil
-}
-
-func (s *AdminService) Update(ctx context.Context, id uuid.UUID, req UpdateAdminRequest) error {
-	if strings.TrimSpace(req.Password) == "" {
-		return domain.NewError(400, "invalid_admin", "Password is required", nil)
-	}
-	hash, err := util.HashPassword(req.Password)
-	if err != nil {
-		return err
-	}
-	if err := s.repo.UpdateAdminPassword(ctx, id, hash); err != nil {
-		return err
-	}
-	return nil
-}
-
-func (s *AdminService) Delete(ctx context.Context, id uuid.UUID) error {
-	total, err := s.repo.CountAdmins(ctx)
-	if err != nil {
-		return err
-	}
-	if total <= 1 {
-		return domain.NewError(400, "last_admin", "Cannot delete the last admin", nil)
-	}
-	if err := s.repo.DeleteAdmin(ctx, id); err != nil {
-		return err
-	}
-	return nil
 }
 
 func firstNonEmpty(values ...string) string {

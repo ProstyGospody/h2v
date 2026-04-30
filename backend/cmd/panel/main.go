@@ -185,7 +185,6 @@ func runAdminCreate(cfg config.Config, logger *slog.Logger, args []string) {
 	cmd := flag.NewFlagSet("admin create", flag.ExitOnError)
 	username := cmd.String("username", "admin", "")
 	password := cmd.String("password", "", "")
-	role := cmd.String("role", "admin", "")
 	_ = cmd.Parse(args)
 	if *password == "" {
 		fatal(logger, errors.New("password is required"))
@@ -206,7 +205,7 @@ func runAdminCreate(cfg config.Config, logger *slog.Logger, args []string) {
 		ID:           uuid.New(),
 		Username:     *username,
 		PasswordHash: hash,
-		Role:         *role,
+		Role:         "admin",
 		CreatedAt:    time.Now().UTC(),
 	}
 	if err := repository.CreateAdmin(ctx, admin); err != nil {

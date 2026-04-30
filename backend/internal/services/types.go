@@ -38,7 +38,6 @@ type Services struct {
 	Geodata      *GeodataService
 	Backup       *BackupService
 	Stats        *StatsService
-	Admins       *AdminService
 }
 
 type CreateUserRequest struct {
@@ -55,16 +54,6 @@ type UpdateUserRequest struct {
 	ExpiresAt    *time.Time
 	Status       *domain.UserStatus
 	Note         *string
-}
-
-type CreateAdminRequest struct {
-	Username string
-	Password string
-	Role     string
-}
-
-type UpdateAdminRequest struct {
-	Password string
 }
 
 type ServiceDeps struct {
@@ -102,6 +91,5 @@ func New(deps ServiceDeps) *Services {
 		Geodata:      NewGeodataService(deps.Config.Xray, deps.Logger, deps.Systemctl),
 		Backup:       NewBackupService(deps.Repo, settings, configs, deps.Cache),
 		Stats:        NewStatsService(deps.Repo, deps.Xray, deps.Hysteria, deps.Cache, deps.Version, deps.StartedAt),
-		Admins:       NewAdminService(deps.Repo),
 	}
 }

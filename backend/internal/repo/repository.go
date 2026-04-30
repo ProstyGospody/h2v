@@ -608,44 +608,14 @@ func (r *Repository) GetAdminByID(ctx context.Context, id uuid.UUID) (*domain.Ad
 	return admin, nil
 }
 
-func (r *Repository) ListAdmins(ctx context.Context) ([]domain.Admin, error) {
-	rows, err := r.pool.Query(ctx, `
-		SELECT id, username, password_hash, role, last_login_at, created_at
-		FROM admins
-		ORDER BY created_at ASC
-	`)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	admins := make([]domain.Admin, 0, 8)
-	for rows.Next() {
-		admin, err := scanAdmin(rows)
-		if err != nil {
-			return nil, err
-		}
-		admins = append(admins, *admin)
-	}
-	return admins, rows.Err()
-}
-
-func (r *Repository) CountAdmins(ctx context.Context) (int, error) {
-	var total int
-	if err := r.pool.QueryRow(ctx, `SELECT count(*) FROM admins`).Scan(&total); err != nil {
-		return 0, err
-	}
-	return total, nil
-}
-
 func (r *Repository) CreateAdmin(ctx context.Context, admin *domain.Admin) error {
 	_, err := r.pool.Exec(ctx, `
 		INSERT INTO admins (id, username, password_hash, role, last_login_at, created_at)
 		VALUES ($1, $2, $3, $4, $5, $6)
 	`, admin.ID, admin.Username, admin.PasswordHash, admin.Role, admin.LastLoginAt, admin.CreatedAt)
 	if err != nil {
-		if isUniqueViolation(err) {
-			return domain.NewError(409, "admin_already_exists", "Admin username is already taken", err)
+		if _, ok := uniqueViolationConstraint(err); ok {
+			return domain.NewError(409, "admin_already_exists", "Admin account already exists", err)
 		}
 		return err
 	}
@@ -663,11 +633,6 @@ func (r *Repository) UpdateAdminPassword(ctx context.Context, id uuid.UUID, pass
 
 func (r *Repository) TouchAdminLogin(ctx context.Context, id uuid.UUID) error {
 	_, err := r.pool.Exec(ctx, `UPDATE admins SET last_login_at = now() WHERE id = $1`, id)
-	return err
-}
-
-func (r *Repository) DeleteAdmin(ctx context.Context, id uuid.UUID) error {
-	_, err := r.pool.Exec(ctx, `DELETE FROM admins WHERE id = $1`, id)
 	return err
 }
 
@@ -712,8 +677,16 @@ func scanAdmin(row interface {
 }
 
 func isUniqueViolation(err error) bool {
+	_, ok := uniqueViolationConstraint(err)
+	return ok
+}
+
+func uniqueViolationConstraint(err error) (string, bool) {
 	var pgErr *pgconn.PgError
-	return errors.As(err, &pgErr) && pgErr.Code == "23505"
+	if errors.As(err, &pgErr) && pgErr.Code == "23505" {
+		return pgErr.ConstraintName, true
+	}
+	return "", false
 }
 
 func rawJSONString(value string) json.RawMessage {

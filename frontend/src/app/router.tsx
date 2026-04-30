@@ -7,14 +7,12 @@ import {
   LogOut,
   Menu,
   Settings2,
-  UserCog,
   Users,
 } from 'lucide-react';
 import { AppProviders } from '@/app/providers';
 import { CoreLogo, type CoreLogoName } from '@/components/core-logo';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent } from '@/components/ui/sheet';
-import { AdminsPage } from '@/features/admins/AdminsPage';
 import { LoginPage } from '@/features/auth/LoginPage';
 import { useAuth } from '@/features/auth/useAuth';
 import { ConfigsPage } from '@/features/configs/ConfigsPage';
@@ -27,7 +25,7 @@ import { cn } from '@/lib/utils';
 import { apiClient } from '@/shared/api/client';
 import type { OverviewStats } from '@/shared/api/types';
 
-type LinkTo = '/' | '/users' | '/admins' | '/settings' | '/configs';
+type LinkTo = '/' | '/users' | '/settings' | '/configs';
 type StatusTone = 'ok' | 'warn' | 'idle';
 
 const primaryLinks: Array<{
@@ -38,7 +36,6 @@ const primaryLinks: Array<{
   { icon: LayoutDashboard, label: 'Dashboard', to: '/' },
   { icon: Users, label: 'Users', to: '/users' },
   { icon: FileCode2, label: 'Configs', to: '/configs' },
-  { icon: UserCog, label: 'Admins', to: '/admins' },
   { icon: Settings2, label: 'Settings', to: '/settings' },
 ];
 
@@ -295,14 +292,13 @@ const loginRoute = createRoute({ getParentRoute: () => rootRoute, path: '/login'
 const dashboardRoute = createRoute({ getParentRoute: () => appRoute, path: '/', component: DashboardPage });
 const usersRoute = createRoute({ getParentRoute: () => appRoute, path: '/users', component: UsersPage });
 const configsRoute = createRoute({ getParentRoute: () => appRoute, path: '/configs', component: ConfigsPage });
-const adminsRoute = createRoute({ getParentRoute: () => appRoute, path: '/admins', component: AdminsPage });
 const settingsRoute = createRoute({ getParentRoute: () => appRoute, path: '/settings', component: SettingsPage });
 const publicSubscriptionRoute = createRoute({ getParentRoute: () => rootRoute, path: '/u/$token', component: SubPage });
 
 const routeTree = rootRoute.addChildren([
   loginRoute,
   publicSubscriptionRoute,
-  appRoute.addChildren([dashboardRoute, usersRoute, configsRoute, adminsRoute, settingsRoute]),
+  appRoute.addChildren([dashboardRoute, usersRoute, configsRoute, settingsRoute]),
 ]);
 
 export const router = createRouter({ routeTree });

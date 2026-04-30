@@ -999,8 +999,8 @@ create_admin() {
   if [[ ${admin_status} -eq 0 ]]; then
     return
   fi
-  if [[ "${admin_output}" == *"already taken"* ]]; then
-    warn "admin '${admin_username}' already exists — keeping existing credentials"
+  if [[ "${admin_output}" == *"already taken"* || "${admin_output}" == *"already exists"* ]]; then
+    warn "admin account already exists - keeping existing credentials"
     NEEDS_CONFIG=false
     ADMIN_PASSWORD_GENERATED=false
     return
