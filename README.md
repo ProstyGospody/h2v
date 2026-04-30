@@ -44,13 +44,25 @@ The service layer is ready for those adapters, but the exact wire contracts stil
 ## Build
 
 ```bash
-make build
+cd backend
+go mod download
+go mod verify
+go build -mod=readonly ./cmd/panel
+
+cd ../frontend
+npm ci --no-fund --no-audit
+npm run build
 ```
 
 ## Dev
 
 ```bash
-make dev
+cd frontend
+npm ci --no-fund --no-audit
+npm run build
+
+cd ../backend
+PANEL_ROOT_DIR=.. PANEL_TEMPLATES_DIR=../templates PANEL_FRONTEND_DIR=../frontend/dist go run ./cmd/panel serve
 ```
 
 Review the installer and environment defaults before production rollout.
