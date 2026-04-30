@@ -58,7 +58,11 @@ func (s *SettingsService) GetAll(ctx context.Context) (map[string]json.RawMessag
 }
 
 func (s *SettingsService) List(ctx context.Context) ([]domain.Setting, error) {
-	return s.repo.ListSettings(ctx)
+	items, err := s.repo.ListSettings(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return withActivePanelPort(items, s.cfg.Panel.Port), nil
 }
 
 func (s *SettingsService) Update(ctx context.Context, values map[string]json.RawMessage) error {
@@ -73,6 +77,16 @@ func (s *SettingsService) Update(ctx context.Context, values map[string]json.Raw
 		return err
 	}
 	return s.repo.UpsertSettings(ctx, normalized)
+}
+
+func (s *SettingsService) Restore(ctx context.Context, values map[string]json.RawMessage) error {
+	if len(values) == 0 {
+		return nil
+	}
+	if err := s.syncRuntimeEnv(values); err != nil {
+		return err
+	}
+	return s.repo.UpsertSettings(ctx, values)
 }
 
 func (s *SettingsService) GenerateRealityKeyPair() (*RealityKeyPair, error) {
@@ -90,7 +104,7 @@ func (s *SettingsService) validateUpdate(ctx context.Context, values map[string]
 	runtime := DefaultRuntime(s.cfg)
 	current, err := s.GetAll(ctx)
 	if err == nil {
-		applyRuntimeValues(&runtime, current)
+		applyStoredRuntimeValues(&runtime, current)
 	}
 
 	currentRuntime := runtime
@@ -127,7 +141,7 @@ func (s *SettingsService) Runtime(ctx context.Context) (RuntimeSettings, error) 
 	if err != nil {
 		s.logger.Warn("settings lookup failed, falling back to env defaults", "err", err)
 	} else {
-		applyRuntimeValues(&runtime, values)
+		applyStoredRuntimeValues(&runtime, values)
 	}
 
 	runtime.RealityServerNames = dedupeNonEmpty(append([]string{runtime.RealitySNI}, runtime.RealityServerNames...))
@@ -197,6 +211,32 @@ func applyRuntimeValues(runtime *RuntimeSettings, values map[string]json.RawMess
 	runtime.Hy2BandwidthDown = stringOr(values, "hy2.bandwidth_down", runtime.Hy2BandwidthDown)
 	runtime.Hy2MasqueradeURL = stringOr(values, "hy2.masquerade_url", runtime.Hy2MasqueradeURL)
 	runtime.Hy2TrafficSecret = stringOr(values, "hy2.traffic_secret", runtime.Hy2TrafficSecret)
+}
+
+func applyStoredRuntimeValues(runtime *RuntimeSettings, values map[string]json.RawMessage) {
+	filtered := make(map[string]json.RawMessage, len(values))
+	for key, value := range values {
+		if key == "panel.port" {
+			// The active panel listener comes from the process environment loaded at startup.
+			continue
+		}
+		filtered[key] = value
+	}
+	applyRuntimeValues(runtime, filtered)
+}
+
+func withActivePanelPort(items []domain.Setting, port int) []domain.Setting {
+	encoded, err := json.Marshal(port)
+	if err != nil {
+		return items
+	}
+	for index := range items {
+		if items[index].Key == "panel.port" {
+			items[index].Value = encoded
+			return items
+		}
+	}
+	return append(items, domain.Setting{Key: "panel.port", Value: encoded})
 }
 
 func normalizeSettingsUpdate(values map[string]json.RawMessage) (map[string]json.RawMessage, error) {

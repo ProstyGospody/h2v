@@ -76,11 +76,8 @@ func (s *ConfigService) Get(ctx context.Context, core string) ([]byte, error) {
 	return rendered, nil
 }
 
-func (s *ConfigService) Render(ctx context.Context, core string) ([]byte, error) {
-	if s.settings == nil {
-		return nil, domain.NewError(500, "settings_unavailable", "Settings service is not available", nil)
-	}
-	runtime, err := s.settings.Runtime(ctx)
+func (s *ConfigService) Render(ctx context.Context, core string, overrides ...map[string]json.RawMessage) ([]byte, error) {
+	runtime, err := s.runtime(ctx, overrides...)
 	if err != nil {
 		return nil, err
 	}
@@ -90,19 +87,19 @@ func (s *ConfigService) Render(ctx context.Context, core string) ([]byte, error)
 // ReconcileXray regenerates the Xray config from the current runtime (which
 // includes the active client list from the database) and restarts the kernel
 // so the new client UUIDs take effect.
-func (s *ConfigService) ReconcileXray(ctx context.Context) error {
-	return s.ReconcileCore(ctx, "xray")
+func (s *ConfigService) ReconcileXray(ctx context.Context, overrides ...map[string]json.RawMessage) error {
+	return s.ReconcileCore(ctx, "xray", overrides...)
 }
 
-func (s *ConfigService) ReconcileHysteria(ctx context.Context) error {
-	return s.ReconcileCore(ctx, "hysteria")
+func (s *ConfigService) ReconcileHysteria(ctx context.Context, overrides ...map[string]json.RawMessage) error {
+	return s.ReconcileCore(ctx, "hysteria", overrides...)
 }
 
-func (s *ConfigService) ReconcileCore(ctx context.Context, core string) error {
+func (s *ConfigService) ReconcileCore(ctx context.Context, core string, overrides ...map[string]json.RawMessage) error {
 	s.reconcileMu.Lock()
 	defer s.reconcileMu.Unlock()
 
-	content, err := s.Render(ctx, core)
+	content, err := s.Render(ctx, core, overrides...)
 	if err != nil {
 		return err
 	}
@@ -124,11 +121,8 @@ func (s *ConfigService) ReconcileCore(ctx context.Context, core string) error {
 	return s.waitHealthy(ctx, core)
 }
 
-func (s *ConfigService) ReconcileCaddy(ctx context.Context) error {
-	if s.settings == nil {
-		return domain.NewError(500, "settings_unavailable", "Settings service is not available", nil)
-	}
-	runtime, err := s.settings.Runtime(ctx)
+func (s *ConfigService) ReconcileCaddy(ctx context.Context, overrides ...map[string]json.RawMessage) error {
+	runtime, err := s.runtime(ctx, overrides...)
 	if err != nil {
 		return err
 	}
@@ -146,6 +140,29 @@ func (s *ConfigService) ReconcileCaddy(ctx context.Context) error {
 		return s.systemctl.Restart(ctx, "caddy")
 	}
 	return nil
+}
+
+func (s *ConfigService) runtime(ctx context.Context, overrides ...map[string]json.RawMessage) (RuntimeSettings, error) {
+	if s.settings == nil {
+		return RuntimeSettings{}, domain.NewError(500, "settings_unavailable", "Settings service is not available", nil)
+	}
+	runtime, err := s.settings.Runtime(ctx)
+	if err != nil {
+		return RuntimeSettings{}, err
+	}
+	for _, values := range overrides {
+		if len(values) == 0 {
+			continue
+		}
+		normalized, err := normalizeSettingsUpdate(values)
+		if err != nil {
+			return RuntimeSettings{}, err
+		}
+		applyRuntimeValues(&runtime, normalized)
+	}
+	runtime.RealityServerNames = dedupeNonEmpty(append([]string{runtime.RealitySNI}, runtime.RealityServerNames...))
+	runtime.RealityShortIDs = normalizeShortIDs(runtime.RealityShortIDs)
+	return runtime, nil
 }
 
 func (s *ConfigService) RestartService(ctx context.Context, service string) error {

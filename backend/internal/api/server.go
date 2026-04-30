@@ -460,25 +460,36 @@ func (s *Server) handleSettingsUpdate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	_, restartPanel := values["panel.port"]
+	rollbackValues := map[string]json.RawMessage{}
+	if shouldReconcileCaddy(values) {
+		var err error
+		rollbackValues, err = s.settingsRollbackValues(r.Context(), values)
+		if err != nil {
+			s.logger.Warn("settings rollback snapshot failed", "err", err)
+		}
+	}
 	if err := s.services.Settings.Update(r.Context(), values); err != nil {
 		jsonError(w, err)
 		return
 	}
 	if shouldReconcileXray(values) {
-		if err := s.services.Configs.ReconcileXray(r.Context()); err != nil {
+		if err := s.services.Configs.ReconcileXray(r.Context(), values); err != nil {
+			s.rollbackSettingsApply(r.Context(), rollbackValues, values)
 			jsonError(w, err)
 			return
 		}
 	}
 	if shouldReconcileHysteria(values) {
-		if err := s.services.Configs.ReconcileHysteria(r.Context()); err != nil {
+		if err := s.services.Configs.ReconcileHysteria(r.Context(), values); err != nil {
+			s.rollbackSettingsApply(r.Context(), rollbackValues, values)
 			jsonError(w, err)
 			return
 		}
 	}
 	if shouldReconcileCaddy(values) {
-		if err := s.services.Configs.ReconcileCaddy(r.Context()); err != nil {
-			jsonError(w, domain.NewError(http.StatusInternalServerError, "caddy_reconcile_failed", "Unable to update Caddy reverse proxy", err))
+		if err := s.services.Configs.ReconcileCaddy(r.Context(), values); err != nil {
+			s.rollbackSettingsApply(r.Context(), rollbackValues, values)
+			jsonError(w, domain.NewError(http.StatusInternalServerError, "caddy_reconcile_failed", "Unable to update Caddy reverse proxy; panel endpoint was not changed", err))
 			return
 		}
 	}
@@ -984,6 +995,63 @@ func shouldReconcileCaddy(values map[string]json.RawMessage) bool {
 	_, portChanged := values["panel.port"]
 	_, domainChanged := values["panel.domain"]
 	return portChanged || domainChanged
+}
+
+func (s *Server) settingsRollbackValues(ctx context.Context, values map[string]json.RawMessage) (map[string]json.RawMessage, error) {
+	previous, err := s.services.Settings.GetAll(ctx)
+	rollback := make(map[string]json.RawMessage, len(values))
+	for key := range values {
+		switch key {
+		case "panel.port":
+			raw, marshalErr := json.Marshal(s.cfg.Panel.Port)
+			if marshalErr == nil {
+				rollback[key] = raw
+			}
+		case "panel.domain":
+			if raw, ok := previous[key]; ok {
+				rollback[key] = cloneRawMessage(raw)
+				continue
+			}
+			raw, marshalErr := json.Marshal(s.cfg.Panel.Domain)
+			if marshalErr == nil {
+				rollback[key] = raw
+			}
+		default:
+			if raw, ok := previous[key]; ok {
+				rollback[key] = cloneRawMessage(raw)
+			}
+		}
+	}
+	return rollback, err
+}
+
+func (s *Server) rollbackSettingsApply(ctx context.Context, rollbackValues, attemptedValues map[string]json.RawMessage) {
+	if len(rollbackValues) == 0 {
+		return
+	}
+	if err := s.services.Settings.Restore(ctx, rollbackValues); err != nil {
+		s.logger.Error("settings rollback failed after config apply error", "err", err)
+		return
+	}
+	if shouldReconcileXray(attemptedValues) {
+		if err := s.services.Configs.ReconcileXray(ctx, rollbackValues); err != nil {
+			s.logger.Error("xray rollback reconcile failed", "err", err)
+		}
+	}
+	if shouldReconcileHysteria(attemptedValues) {
+		if err := s.services.Configs.ReconcileHysteria(ctx, rollbackValues); err != nil {
+			s.logger.Error("hysteria rollback reconcile failed", "err", err)
+		}
+	}
+}
+
+func cloneRawMessage(raw json.RawMessage) json.RawMessage {
+	if raw == nil {
+		return nil
+	}
+	cloned := make(json.RawMessage, len(raw))
+	copy(cloned, raw)
+	return cloned
 }
 
 func (s *Server) restartPanelSoon() {
