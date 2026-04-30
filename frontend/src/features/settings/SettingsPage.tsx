@@ -252,6 +252,7 @@ export function SettingsPage() {
               {showSecrets ? <EyeOff className="size-5" /> : <Eye className="size-5" />}
             </Button>
             <Button
+              className="h-10"
               disabled={exportBackup.isPending}
               onClick={() => exportBackup.mutate()}
               size="sm"
@@ -262,6 +263,7 @@ export function SettingsPage() {
               Download
             </Button>
             <Button
+              className="h-10"
               disabled={importBackup.isPending}
               onClick={() => backupInputRef.current?.click()}
               size="sm"
@@ -279,6 +281,7 @@ export function SettingsPage() {
               type="file"
             />
             <Button
+              className="h-10"
               disabled={updateGeodata.isPending}
               onClick={() => updateGeodata.mutate()}
               size="sm"
@@ -290,11 +293,22 @@ export function SettingsPage() {
             </Button>
             {hasDraft ? (
               <>
-                <Button disabled={save.isPending} onClick={() => setDraft({})} size="sm" variant="ghost">
+                <Button
+                  className="h-10"
+                  disabled={save.isPending}
+                  onClick={() => setDraft({})}
+                  size="sm"
+                  variant="ghost"
+                >
                   <RotateCcw />
                   Discard
                 </Button>
-                <Button disabled={save.isPending || hasIssues} onClick={() => save.mutate()} size="sm">
+                <Button
+                  className="h-10"
+                  disabled={save.isPending || hasIssues}
+                  onClick={() => save.mutate()}
+                  size="sm"
+                >
                   <Save />
                   Save
                 </Button>
