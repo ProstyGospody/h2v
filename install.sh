@@ -22,7 +22,7 @@ XRAY_GEOSITE_URL_DEFAULT="https://github.com/v2fly/domain-list-community/release
 FIRST_INSTALL=false
 NEEDS_CONFIG=false
 PANEL_DOMAIN_INPUT=""
-PANEL_PORT_INPUT=""
+PANEL_PUBLIC_PORT_INPUT=""
 VLESS_PORT_INPUT=""
 HY2_PORT_INPUT=""
 ADMIN_USERNAME_INPUT=""
@@ -321,12 +321,13 @@ grant_cert_access() {
 }
 
 start_cores() {
-  local vless_port hy2_port
+  local panel_public_port vless_port hy2_port
+  panel_public_port="$(env_get PANEL_PUBLIC_PORT || echo 443)"
   vless_port="$(env_get VLESS_PORT || echo 8444)"
   hy2_port="$(env_get HY2_PORT || echo 8443)"
 
-  if [[ "${vless_port}" == "443" ]] && ss -tln 2>/dev/null | awk '{print $4}' | grep -qE '(:|\.)443$'; then
-    warn "VLESS_PORT=443 conflicts with another listener (likely Caddy panel HTTPS)"
+  if [[ "${vless_port}" == "${panel_public_port}" ]] && ss -tln 2>/dev/null | awk -v p="${panel_public_port}" '{print $4}' | grep -qE "(:|\\.)${panel_public_port}$"; then
+    warn "VLESS_PORT=${vless_port} conflicts with another listener (likely Caddy panel HTTPS)"
     info "set VLESS_PORT to a free port (e.g. 8444) in ${ENV_FILE} and rerun"
   fi
 
@@ -501,6 +502,15 @@ selected_panel_domain_is_real() {
   [[ -n "${PANEL_DOMAIN_INPUT}" && "${PANEL_DOMAIN_INPUT}" != "panel.example.com" ]]
 }
 
+vless_fallback_port() {
+  local panel_public_port="$1"
+  if [[ "${panel_public_port}" == "8444" ]]; then
+    printf '443'
+  else
+    printf '8444'
+  fi
+}
+
 prompt_service_port() {
   local key="$1"
   local label="$2"
@@ -517,22 +527,17 @@ prompt_service_port() {
       ${is_tty} || fail "${label} is invalid"
       continue
     fi
-    if [[ "${key}" == "PANEL_PORT" && "${port}" -lt 1024 ]]; then
-      red "${label} must be 1024 or higher." >&2
-      ${is_tty} || fail "${label} must be 1024 or higher"
+    if [[ "${key}" == "PANEL_PUBLIC_PORT" && ( "${port}" == "80" || ( "${port}" -lt 1024 && "${port}" != "443" ) ) ]]; then
+      red "${label} must be 443 or 1024 or higher." >&2
+      ${is_tty} || fail "${label} must be 443 or 1024 or higher"
       continue
     fi
-    if selected_panel_domain_is_real && [[ "${key}" == "PANEL_PORT" && ( "${port}" == "80" || "${port}" == "443" ) ]]; then
-      red "${label} ${port}/tcp conflicts with Caddy HTTPS for the panel domain." >&2
-      ${is_tty} || fail "${label} ${port}/tcp is not available"
+    if selected_panel_domain_is_real && [[ "${key}" == "VLESS_PORT" && -n "${PANEL_PUBLIC_PORT_INPUT}" && "${port}" == "${PANEL_PUBLIC_PORT_INPUT}" ]]; then
+      red "${label} ${port}/tcp conflicts with the panel public HTTPS port." >&2
+      ${is_tty} || fail "${label} ${port}/tcp conflicts with panel public HTTPS"
       continue
     fi
-    if selected_panel_domain_is_real && [[ "${key}" == "VLESS_PORT" && "${port}" == "443" ]]; then
-      red "${label} 443/tcp conflicts with Caddy HTTPS for the panel domain." >&2
-      ${is_tty} || fail "${label} 443/tcp is not available"
-      continue
-    fi
-    if port_listener_in_use "${protocol}" "${port}"; then
+    if [[ "${key}" != "PANEL_PUBLIC_PORT" || selected_panel_domain_is_real ]] && port_listener_in_use "${protocol}" "${port}"; then
       red "${label} ${port}/${protocol} is already in use. Choose another port." >&2
       ${is_tty} || fail "${label} ${port}/${protocol} is already in use"
       continue
@@ -545,20 +550,20 @@ prompt_service_port() {
 collect_install_inputs() {
   local env_exists=false
   local default_domain="panel.example.com"
-  local default_panel_port="8000"
+  local default_panel_public_port="443"
   local default_vless_port="8444"
   local default_hy2_port="8443"
   local default_admin_username="${PANEL_ADMIN_USERNAME:-admin}"
 
   if [[ -f "${ENV_FILE}" ]]; then
     env_exists=true
-    local cur_domain cur_panel_port cur_vless_port cur_hy2_port
+    local cur_domain cur_panel_public_port cur_vless_port cur_hy2_port
     cur_domain="$(env_get PANEL_DOMAIN || true)"
-    cur_panel_port="$(env_get PANEL_PORT || true)"
+    cur_panel_public_port="$(env_get PANEL_PUBLIC_PORT || true)"
     cur_vless_port="$(env_get VLESS_PORT || true)"
     cur_hy2_port="$(env_get HY2_PORT || true)"
     [[ -n "${cur_domain}" ]] && default_domain="${cur_domain}"
-    [[ -n "${cur_panel_port}" ]] && default_panel_port="${cur_panel_port}"
+    [[ -n "${cur_panel_public_port}" ]] && default_panel_public_port="${cur_panel_public_port}"
     [[ -n "${cur_vless_port}" ]] && default_vless_port="${cur_vless_port}"
     [[ -n "${cur_hy2_port}" ]] && default_hy2_port="${cur_hy2_port}"
   else
@@ -598,14 +603,14 @@ collect_install_inputs() {
     red "A real domain is required."
   done
 
-  PANEL_PORT_INPUT="$(prompt_service_port PANEL_PORT "Panel HTTP port" "${default_panel_port}" tcp)"
+  PANEL_PUBLIC_PORT_INPUT="$(prompt_service_port PANEL_PUBLIC_PORT "Panel public HTTPS port" "${default_panel_public_port}" tcp)"
   while true; do
     VLESS_PORT_INPUT="$(prompt_service_port VLESS_PORT "VLESS Reality TCP port" "${default_vless_port}" tcp)"
-    if [[ "${VLESS_PORT_INPUT}" != "${PANEL_PORT_INPUT}" ]]; then
+    if [[ "${VLESS_PORT_INPUT}" != "${PANEL_PUBLIC_PORT_INPUT}" ]]; then
       break
     fi
-    red "VLESS Reality TCP port must differ from Panel HTTP port." >&2
-    ${is_tty} || fail "VLESS Reality TCP port conflicts with Panel HTTP port"
+    red "VLESS Reality TCP port must differ from Panel public HTTPS port." >&2
+    ${is_tty} || fail "VLESS Reality TCP port conflicts with Panel public HTTPS port"
   done
   HY2_PORT_INPUT="$(prompt_service_port HY2_PORT "Hysteria 2 UDP port" "${default_hy2_port}" udp)"
   ADMIN_USERNAME_INPUT="$(prompt_value "Admin username" "${default_admin_username}")"
@@ -669,11 +674,17 @@ ensure_env() {
     env_set HY2_DOMAIN "${PANEL_DOMAIN_INPUT}"
     env_set HY2_CERT_PATH "/etc/letsencrypt/live/${PANEL_DOMAIN_INPUT}/fullchain.pem"
     env_set HY2_KEY_PATH "/etc/letsencrypt/live/${PANEL_DOMAIN_INPUT}/privkey.pem"
-    env_set SUB_URL_PREFIX "https://${PANEL_DOMAIN_INPUT}"
+    local public_prefix="https://${PANEL_DOMAIN_INPUT}"
+    if [[ -n "${PANEL_PUBLIC_PORT_INPUT}" && "${PANEL_PUBLIC_PORT_INPUT}" != "443" ]]; then
+      public_prefix="https://${PANEL_DOMAIN_INPUT}:${PANEL_PUBLIC_PORT_INPUT}"
+    fi
+    env_set SUB_URL_PREFIX "${public_prefix}"
   fi
-  if [[ -n "${PANEL_PORT_INPUT}" ]]; then
-    env_set PANEL_PORT "${PANEL_PORT_INPUT}"
+  if [[ -n "${PANEL_PUBLIC_PORT_INPUT}" ]]; then
+    env_set PANEL_PUBLIC_PORT "${PANEL_PUBLIC_PORT_INPUT}"
   fi
+  env_set_default PANEL_PORT 8000
+  env_set_default PANEL_PUBLIC_PORT 443
   if [[ -n "${VLESS_PORT_INPUT}" ]]; then
     env_set VLESS_PORT "${VLESS_PORT_INPUT}"
   fi
@@ -748,42 +759,56 @@ panel_domain_is_real() {
 }
 
 normalize_vless_env_port() {
-  local vless_port
+  local panel_public_port vless_port
   if ! panel_domain_is_real; then
     return
   fi
 
+  panel_public_port="$(env_get PANEL_PUBLIC_PORT || echo 443)"
   vless_port="$(env_get VLESS_PORT || echo 8444)"
-  if [[ "${vless_port}" == "443" ]]; then
-    warn "VLESS_PORT=443 conflicts with Caddy panel HTTPS; switching VLESS_PORT to 8444"
-    env_set VLESS_PORT 8444
+  if [[ "${vless_port}" == "${panel_public_port}" ]]; then
+    local fallback
+    fallback="$(vless_fallback_port "${panel_public_port}")"
+    warn "VLESS_PORT=${vless_port} conflicts with the panel public HTTPS port; switching VLESS_PORT to ${fallback}"
+    env_set VLESS_PORT "${fallback}"
   fi
 }
 
 validate_selected_runtime_ports() {
-  local domain panel_port vless_port hy2_port
+  local domain panel_port panel_public_port vless_port hy2_port
   domain="$(env_get PANEL_DOMAIN || true)"
   panel_port="$(env_get PANEL_PORT || echo 8000)"
+  panel_public_port="$(env_get PANEL_PUBLIC_PORT || echo 443)"
   vless_port="$(env_get VLESS_PORT || echo 8444)"
   hy2_port="$(env_get HY2_PORT || echo 8443)"
 
   valid_port_number "${panel_port}" || fail "PANEL_PORT must be a number between 1 and 65535"
+  valid_port_number "${panel_public_port}" || fail "PANEL_PUBLIC_PORT must be a number between 1 and 65535"
   valid_port_number "${vless_port}" || fail "VLESS_PORT must be a number between 1 and 65535"
   valid_port_number "${hy2_port}" || fail "HY2_PORT must be a number between 1 and 65535"
 
   if (( panel_port < 1024 )); then
-    fail "PANEL_PORT must be 1024 or higher"
+    fail "PANEL_PORT is the internal panel listener and must be 1024 or higher"
   fi
-  if [[ -n "${domain}" && "${domain}" != "panel.example.com" && ( "${panel_port}" == "80" || "${panel_port}" == "443" ) ]]; then
-    fail "PANEL_PORT=${panel_port} conflicts with Caddy HTTPS; use an internal port such as 8000"
+  if [[ "${panel_public_port}" == "80" || ( "${panel_public_port}" -lt 1024 && "${panel_public_port}" != "443" ) ]]; then
+    fail "PANEL_PUBLIC_PORT must be 443 or 1024 or higher"
+  fi
+  if [[ -n "${domain}" && "${domain}" != "panel.example.com" && "${panel_public_port}" == "${panel_port}" ]]; then
+    fail "PANEL_PUBLIC_PORT and PANEL_PORT cannot both use TCP ${panel_public_port}"
   fi
   if [[ "${panel_port}" == "${vless_port}" ]]; then
     fail "PANEL_PORT and VLESS_PORT cannot both use TCP ${panel_port}"
+  fi
+  if [[ -n "${domain}" && "${domain}" != "panel.example.com" && "${panel_public_port}" == "${vless_port}" ]]; then
+    fail "PANEL_PUBLIC_PORT and VLESS_PORT cannot both use TCP ${panel_public_port}"
   fi
 
   if ${NEEDS_CONFIG}; then
     if port_listener_in_use tcp "${panel_port}"; then
       fail "PANEL_PORT=${panel_port}/tcp is already in use"
+    fi
+    if [[ -n "${domain}" && "${domain}" != "panel.example.com" ]] && port_listener_in_use tcp "${panel_public_port}"; then
+      fail "PANEL_PUBLIC_PORT=${panel_public_port}/tcp is already in use"
     fi
     if port_listener_in_use tcp "${vless_port}"; then
       fail "VLESS_PORT=${vless_port}/tcp is already in use"
@@ -889,16 +914,19 @@ ensure_postgres() {
 }
 
 sync_runtime_settings() {
-  local db_host db_port db_name db_user db_password vless_port current
+  local db_host db_port db_name db_user db_password panel_public_port vless_port current
   if ! panel_domain_is_real; then
     return
   fi
 
+  panel_public_port="$(env_get PANEL_PUBLIC_PORT || echo 443)"
   vless_port="$(env_get VLESS_PORT || echo 8444)"
-  if [[ "${vless_port}" == "443" ]]; then
-    warn "VLESS_PORT=443 conflicts with Caddy panel HTTPS; switching VLESS_PORT to 8444"
-    env_set VLESS_PORT 8444
-    vless_port="8444"
+  if [[ "${vless_port}" == "${panel_public_port}" ]]; then
+    local fallback
+    fallback="$(vless_fallback_port "${panel_public_port}")"
+    warn "VLESS_PORT=${vless_port} conflicts with the panel public HTTPS port; switching VLESS_PORT to ${fallback}"
+    env_set VLESS_PORT "${fallback}"
+    vless_port="${fallback}"
   fi
   if ! [[ "${vless_port}" =~ ^[0-9]+$ ]]; then
     fail "VLESS_PORT must be numeric, got '${vless_port}'"
@@ -924,11 +952,11 @@ sync_runtime_settings() {
   current="${current%\"}"
   current="${current#\"}"
 
-  if [[ "${current}" != "443" ]]; then
+  if [[ "${current}" != "${panel_public_port}" ]]; then
     return
   fi
 
-  warn "database setting vless.port is still 443; updating it to ${vless_port}"
+  warn "database setting vless.port still conflicts with PANEL_PUBLIC_PORT=${panel_public_port}; updating it to ${vless_port}"
   if [[ "${db_host}" == "127.0.0.1" || "${db_host}" == "localhost" || "${db_host}" == "::1" ]]; then
     sudo -u postgres psql -v ON_ERROR_STOP=1 --dbname="${db_name}" --port="${db_port}" \
       -c "INSERT INTO settings (key, value, updated_at) VALUES ('vless.port', '${vless_port}'::jsonb, now()) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = now()"
@@ -1056,18 +1084,26 @@ start_panel() {
 }
 
 setup_reverse_proxy() {
-  local domain panel_port
+  local domain panel_port panel_public_port site_address public_url
   domain="$(env_get PANEL_DOMAIN || true)"
   panel_port="$(env_get PANEL_PORT || true)"
   panel_port="${panel_port:-8000}"
+  panel_public_port="$(env_get PANEL_PUBLIC_PORT || true)"
+  panel_public_port="${panel_public_port:-443}"
 
   if [[ -z "${domain}" || "${domain}" == "panel.example.com" ]]; then
     warn "skipping Caddy config (no real PANEL_DOMAIN set)"
     info "panel is local-only at http://127.0.0.1:${panel_port}/ — set PANEL_DOMAIN and rerun for auto-TLS"
     return
   fi
+  site_address="${domain}"
+  public_url="https://${domain}/"
+  if [[ "${panel_public_port}" != "443" ]]; then
+    site_address="${domain}:${panel_public_port}"
+    public_url="https://${domain}:${panel_public_port}/"
+  fi
 
-  substep "writing /etc/caddy/Caddyfile for ${domain}"
+  substep "writing /etc/caddy/Caddyfile for ${site_address}"
   mkdir -p /etc/caddy
   # protocols h1 h2: disable HTTP/3. The panel is low-traffic and UDP/443 is
   # frequently blocked or mangled by ISPs/NAT; leaving QUIC on triggers
@@ -1080,7 +1116,7 @@ setup_reverse_proxy() {
   }
 }
 
-${domain} {
+${site_address} {
   encode zstd gzip
   reverse_proxy 127.0.0.1:${panel_port}
 }
@@ -1095,8 +1131,12 @@ EOF
       return
     fi
   fi
-  substep "Caddy active for https://${domain}/ (auto-TLS via Let's Encrypt)"
-  info "DNS must point ${domain} at this server; ports 80/443 must be open"
+  substep "Caddy active for ${public_url} (auto-TLS via Let's Encrypt)"
+  if [[ "${panel_public_port}" == "443" ]]; then
+    info "DNS must point ${domain} at this server; ports 80/443 must be open"
+  else
+    info "DNS must point ${domain} at this server; ports 80 and ${panel_public_port}/tcp must be open"
+  fi
 }
 
 run_migrations() {
@@ -1218,12 +1258,17 @@ install_all() {
   start_cores
   success "panel.service active"
 
-  local final_domain final_port access_url local_url
+  local final_domain final_port final_public_port access_url local_url
   final_domain="$(env_get PANEL_DOMAIN || echo panel.example.com)"
   final_port="$(env_get PANEL_PORT || echo 8000)"
+  final_public_port="$(env_get PANEL_PUBLIC_PORT || echo 443)"
   local_url="http://127.0.0.1:${final_port}/"
   if [[ -n "${final_domain}" && "${final_domain}" != "panel.example.com" ]]; then
-    access_url="https://${final_domain}/"
+    if [[ "${final_public_port}" == "443" ]]; then
+      access_url="https://${final_domain}/"
+    else
+      access_url="https://${final_domain}:${final_public_port}/"
+    fi
   else
     access_url="${local_url}"
   fi

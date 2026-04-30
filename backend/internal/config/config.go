@@ -22,6 +22,7 @@ type PanelConfig struct {
 	Domain           string
 	Host             string
 	Port             int
+	PublicPort       int
 	JWTSecret        string
 	JWTAccessTTL     time.Duration
 	JWTRefreshTTL    time.Duration
@@ -92,6 +93,7 @@ func Load() Config {
 			Domain:           getenv("PANEL_DOMAIN", "panel.example.com"),
 			Host:             getenv("PANEL_HOST", "127.0.0.1"),
 			Port:             getenvInt("PANEL_PORT", 8000),
+			PublicPort:       getenvInt("PANEL_PUBLIC_PORT", 443),
 			JWTSecret:        getenv("PANEL_JWT_SECRET", "dev-secret-change-me"),
 			JWTAccessTTL:     getenvDuration("PANEL_JWT_ACCESS_TTL", 15*time.Minute),
 			JWTRefreshTTL:    getenvDuration("PANEL_JWT_REFRESH_TTL", 720*time.Hour),

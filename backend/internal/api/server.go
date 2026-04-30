@@ -532,7 +532,7 @@ func (s *Server) handleSettingsPortsCheck(w http.ResponseWriter, r *http.Request
 	}
 	results := make([]portResult, 0, len(req.Ports))
 	for _, item := range req.Ports {
-		if item.Key != "panel.port" && item.Key != "vless.port" && item.Key != "hy2.port" {
+		if item.Key != "panel.port" && item.Key != "panel.public_port" && item.Key != "vless.port" && item.Key != "hy2.port" {
 			jsonError(w, domain.NewError(400, "invalid_request", "Unknown port key", nil))
 			return
 		}
@@ -992,9 +992,10 @@ func shouldReconcileHysteria(values map[string]json.RawMessage) bool {
 }
 
 func shouldReconcileCaddy(values map[string]json.RawMessage) bool {
-	_, portChanged := values["panel.port"]
+	_, internalPortChanged := values["panel.port"]
+	_, publicPortChanged := values["panel.public_port"]
 	_, domainChanged := values["panel.domain"]
-	return portChanged || domainChanged
+	return internalPortChanged || publicPortChanged || domainChanged
 }
 
 func (s *Server) settingsRollbackValues(ctx context.Context, values map[string]json.RawMessage) (map[string]json.RawMessage, error) {
@@ -1004,6 +1005,15 @@ func (s *Server) settingsRollbackValues(ctx context.Context, values map[string]j
 		switch key {
 		case "panel.port":
 			raw, marshalErr := json.Marshal(s.cfg.Panel.Port)
+			if marshalErr == nil {
+				rollback[key] = raw
+			}
+		case "panel.public_port":
+			if raw, ok := previous[key]; ok {
+				rollback[key] = cloneRawMessage(raw)
+				continue
+			}
+			raw, marshalErr := json.Marshal(s.cfg.Panel.PublicPort)
 			if marshalErr == nil {
 				rollback[key] = raw
 			}
@@ -1041,6 +1051,11 @@ func (s *Server) rollbackSettingsApply(ctx context.Context, rollbackValues, atte
 	if shouldReconcileHysteria(attemptedValues) {
 		if err := s.services.Configs.ReconcileHysteria(ctx, rollbackValues); err != nil {
 			s.logger.Error("hysteria rollback reconcile failed", "err", err)
+		}
+	}
+	if shouldReconcileCaddy(attemptedValues) {
+		if err := s.services.Configs.ReconcileCaddy(ctx, rollbackValues); err != nil {
+			s.logger.Error("caddy rollback reconcile failed", "err", err)
 		}
 	}
 }

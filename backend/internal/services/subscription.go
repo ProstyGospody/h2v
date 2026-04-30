@@ -151,6 +151,7 @@ type ClientEntry struct {
 type RuntimeSettings struct {
 	PanelDomain        string
 	PanelPort          int
+	PanelPublicPort    int
 	SubURLPrefix       string
 	RealitySNI         string
 	RealityDest        string

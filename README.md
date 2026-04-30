@@ -14,6 +14,7 @@ Frontend package versions are pinned exactly in [frontend/package.json](./fronte
 The installer also persists the generated frontend `package-lock.json` under `/opt/mypanel/build/` and reuses it on later rebuilds, so repeated installs on the same host keep the same npm dependency graph.
 For immutable source rebuilds, run the installer with an explicit tag or commit via `H2V_REF`; `main` remains mutable by definition.
 GeoIP/Geosite assets for Xray routing and Hysteria 2 ACL are refreshed during install and then daily by `h2v-geodata-update.timer`; to refresh them manually run `/opt/mypanel/install.sh geodata` or `PANEL_ENV_FILE=/opt/mypanel/.env /opt/mypanel/bin/panel geodata update`.
+`PANEL_PORT` is the private backend listener; the public `https://domain[:port]` endpoint is controlled separately by `PANEL_PUBLIC_PORT`.
 
 This repository is split into:
 

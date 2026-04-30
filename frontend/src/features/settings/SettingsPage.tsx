@@ -34,7 +34,7 @@ type SettingKey =
   | 'hy2.port'
   | 'hy2.traffic_secret'
   | 'panel.domain'
-  | 'panel.port'
+  | 'panel.public_port'
   | 'reality.dest'
   | 'reality.private_key'
   | 'reality.public_key'
@@ -45,7 +45,7 @@ type SettingKey =
 
 type SettingValue = boolean | number | string | string[];
 type SettingsDraft = Partial<Record<SettingKey, SettingValue>>;
-type PortKey = 'hy2.port' | 'panel.port' | 'vless.port';
+type PortKey = 'hy2.port' | 'panel.public_port' | 'vless.port';
 
 type RealityPreset = {
   dest: string;
@@ -81,7 +81,7 @@ const fallbackValues: Record<SettingKey, SettingValue> = {
   'hy2.port': 8443,
   'hy2.traffic_secret': '',
   'panel.domain': 'panel.example.com',
-  'panel.port': 8000,
+  'panel.public_port': 443,
   'reality.dest': 'www.cloudflare.com:443',
   'reality.private_key': '',
   'reality.public_key': '',
@@ -106,10 +106,10 @@ const masqueradePresets: URLPreset[] = [
 
 const vlessPortPresets = [443, 8443, 8444, 2053, 2083];
 const hy2PortPresets = [443, 8443, 8444, 2083, 9443];
-const panelPortPresets = [8000, 8080, 3000, 5000, 5173];
+const panelPublicPortPresets = [443, 8443, 8445, 9443, 10443];
 const bandwidthPresets = ['100 mbps', '500 mbps', '1 gbps'];
 const portDefinitions: Array<{ key: PortKey; presets: number[]; protocol: 'tcp' | 'udp' }> = [
-  { key: 'panel.port', presets: panelPortPresets, protocol: 'tcp' },
+  { key: 'panel.public_port', presets: panelPublicPortPresets, protocol: 'tcp' },
   { key: 'vless.port', presets: vlessPortPresets, protocol: 'tcp' },
   { key: 'hy2.port', presets: hy2PortPresets, protocol: 'udp' },
 ];
@@ -519,13 +519,13 @@ export function SettingsPage() {
                     value={values.string('panel.domain')}
                   />
                   <PortControl
-                    label="Panel port"
+                    label="Panel public port"
                     max={65535}
                     min={1}
-                    onChange={(value) => setValue('panel.port', value)}
-                    presets={panelPortPresets}
-                    unavailablePorts={unavailablePresetPorts('panel.port', originalValues, portAvailability.data)}
-                    value={values.number('panel.port')}
+                    onChange={(value) => setValue('panel.public_port', value)}
+                    presets={panelPublicPortPresets}
+                    unavailablePorts={unavailablePresetPorts('panel.public_port', originalValues, portAvailability.data)}
+                    value={values.number('panel.public_port')}
                   />
                   <SubscriptionURLControl
                     label="Subscription URL"
@@ -988,7 +988,7 @@ function unavailablePresetPorts(
 function validateDraft(draft: SettingsDraft, values: ReturnType<typeof createSettingsValues>) {
   const issues: string[] = [];
   for (const key of Object.keys(draft) as SettingKey[]) {
-    if ((key.endsWith('.port') || key === 'vless.port') && !validPort(values.number(key))) {
+    if (isPortSetting(key) && !validPort(values.number(key))) {
       issues.push(`${settingLabel(key)} must be between 1 and 65535.`);
     }
     if ((key.includes('domain') || key === 'reality.sni') && values.string(key).trim() === '') {
@@ -1012,18 +1012,20 @@ function validateDraft(draft: SettingsDraft, values: ReturnType<typeof createSet
       issues.push('Obfs password is required when Hysteria obfuscation is enabled.');
     }
   }
-  if (draft['panel.port'] !== undefined || draft['vless.port'] !== undefined) {
-    if (values.number('panel.port') === values.number('vless.port')) {
-      issues.push('Panel / Port and Vless / Port must use different TCP ports.');
+  if (
+    isRealPanelDomain(values.string('panel.domain')) &&
+    (draft['panel.public_port'] !== undefined || draft['vless.port'] !== undefined || draft['panel.domain'] !== undefined)
+  ) {
+    if (values.number('panel.public_port') === values.number('vless.port')) {
+      issues.push('Panel / Public Port and Vless / Port must use different TCP ports.');
     }
   }
-  if (draft['panel.port'] !== undefined && values.number('panel.port') < 1024) {
-    issues.push('Panel / Port must be 1024 or higher.');
-  }
-  if (draft['panel.port'] !== undefined || draft['panel.domain'] !== undefined) {
-    if (isRealPanelDomain(values.string('panel.domain')) && [80, 443].includes(values.number('panel.port'))) {
-      issues.push('Panel / Port must not be 80 or 443 when Caddy serves the panel domain.');
-    }
+  if (
+    draft['panel.public_port'] !== undefined &&
+    (values.number('panel.public_port') === 80 ||
+      (values.number('panel.public_port') < 1024 && values.number('panel.public_port') !== 443))
+  ) {
+    issues.push('Panel / Public Port must be 443 or 1024 or higher.');
   }
   if (draft['reality.private_key'] !== undefined || draft['reality.public_key'] !== undefined) {
     if (values.string('reality.private_key').trim() === '' || values.string('reality.public_key').trim() === '') {
@@ -1106,6 +1108,10 @@ function normalizeSubscriptionURLForSave(value: string): string {
 
 function validPort(value: number): boolean {
   return Number.isInteger(value) && value >= 1 && value <= 65535;
+}
+
+function isPortSetting(key: SettingKey): boolean {
+  return key.endsWith('.port') || key.endsWith('_port') || key === 'vless.port';
 }
 
 function validURL(value: string): boolean {

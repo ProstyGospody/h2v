@@ -130,7 +130,7 @@ func (s *ConfigService) ReconcileCaddy(ctx context.Context, overrides ...map[str
 	if domainName == "" || domainName == "panel.example.com" {
 		return nil
 	}
-	content := renderCaddyfile(domainName, runtime.PanelPort)
+	content := renderCaddyfile(domainName, runtime.PanelPublicPort, runtime.PanelPort)
 	cmd := exec.CommandContext(ctx, "sudo", "/usr/bin/tee", "/etc/caddy/Caddyfile")
 	cmd.Stdin = bytes.NewReader([]byte(content))
 	if out, err := cmd.CombinedOutput(); err != nil {
@@ -317,7 +317,11 @@ func templateName(core string) (string, error) {
 	}
 }
 
-func renderCaddyfile(domain string, panelPort int) string {
+func renderCaddyfile(domain string, publicPort, internalPort int) string {
+	siteAddress := domain
+	if publicPort != 443 {
+		siteAddress = domain + ":" + strconv.Itoa(publicPort)
+	}
 	return `{
   admin off
   servers {
@@ -325,9 +329,9 @@ func renderCaddyfile(domain string, panelPort int) string {
   }
 }
 
-` + domain + ` {
+` + siteAddress + ` {
   encode zstd gzip
-  reverse_proxy 127.0.0.1:` + strconv.Itoa(panelPort) + `
+  reverse_proxy 127.0.0.1:` + strconv.Itoa(internalPort) + `
 }
 `
 }

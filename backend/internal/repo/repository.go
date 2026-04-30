@@ -32,6 +32,7 @@ func (r *Repository) BootstrapSettings(ctx context.Context, cfg config.Config) e
 	settings := map[string]json.RawMessage{
 		"panel.domain":            rawJSONString(cfg.Panel.Domain),
 		"panel.port":              rawJSONInt(cfg.Panel.Port),
+		"panel.public_port":       rawJSONInt(cfg.Panel.PublicPort),
 		"subscription.url_prefix": rawJSONString(cfg.Subscription.URLPrefix),
 		"reality.sni":             rawJSONString(cfg.Xray.RealitySNI),
 		"reality.dest":            rawJSONString(cfg.Xray.RealityDest),
