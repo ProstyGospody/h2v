@@ -102,7 +102,7 @@ function SidebarBody({
   logout,
   onNavigate,
 }: {
-  admin: { username: string; role?: string };
+  admin: { username: string };
   logout: () => Promise<void> | void;
   onNavigate?: () => void;
 }) {
@@ -159,9 +159,6 @@ function SidebarBody({
           </div>
           <div className="min-w-0 flex-1">
             <div className="truncate text-sm font-medium leading-5 text-foreground">{admin.username}</div>
-            <div className="truncate text-[11px] capitalize leading-4 text-muted-foreground">
-              {admin.role ?? 'admin'}
-            </div>
           </div>
           <Button
             aria-label="Sign out"

@@ -1,15 +1,6 @@
-import { useMemo, useState, type ComponentType, type ReactNode } from 'react';
+import { useMemo, useState, type ReactNode } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import {
-  ArrowDown,
-  ArrowUp,
-  ChartNoAxesColumnIncreasing,
-  ChartNetwork,
-  CircleGauge,
-  MemoryStick,
-  UserRoundX,
-  WifiHigh,
-} from 'lucide-react';
+import { ArrowDown, ArrowUp } from 'lucide-react';
 import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from 'recharts';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from '@/components/ui/chart';
@@ -30,6 +21,7 @@ import {
 
 const ranges = ['1', '7', '30'] as const;
 type Range = (typeof ranges)[number];
+type MetricIconName = 'network' | 'traffic' | 'cpu' | 'memory' | 'online' | 'disabled';
 
 const trafficChartConfig = {
   total: {
@@ -92,38 +84,38 @@ export function DashboardPage() {
               tx={data?.network_tx_bytes_per_second ?? 0}
             />
           }
-          icon={ChartNetwork}
+          icon="network"
           label="Network Speed"
           loading={overview.isLoading}
         />
         <MetricCard
-          icon={ChartNoAxesColumnIncreasing}
+          icon="traffic"
           label="Today traffic"
           loading={overview.isLoading}
           value={formatBytes(data?.today_traffic ?? 0)}
         />
         <MetricCard
           bar={{ percent: cpuPercent ?? 0, tone: usageTone(cpuPercent) }}
-          icon={CircleGauge}
+          icon="cpu"
           label="CPU"
           loading={overview.isLoading}
           value={formatPercent(cpuPercent)}
         />
         <MetricCard
           bar={{ percent: memoryPercent ?? 0, tone: usageTone(memoryPercent) }}
-          icon={MemoryStick}
+          icon="memory"
           label="Memory"
           loading={overview.isLoading}
           value={formatPercent(memoryPercent)}
         />
         <MetricCard
-          icon={WifiHigh}
+          icon="online"
           label="Online"
           loading={overview.isLoading}
           value={formatNumber(data?.online_users?.length ?? 0)}
         />
         <MetricCard
-          icon={UserRoundX}
+          icon="disabled"
           label="Disabled"
           loading={overview.isLoading}
           value={formatNumber(data?.disabled_users ?? 0)}
@@ -208,17 +200,102 @@ function NetworkSpeedValue({ rx, tx }: { rx: number; tx: number }) {
   );
 }
 
+function DashboardMetricIcon({
+  className,
+  name,
+}: {
+  className?: string;
+  name: MetricIconName;
+}) {
+  return (
+    <svg
+      aria-hidden="true"
+      className={cn('block', className)}
+      focusable="false"
+      viewBox="0 0 64 64"
+      xmlns="http://www.w3.org/2000/svg"
+    >
+      {metricIconShape(name)}
+    </svg>
+  );
+}
+
+function metricIconShape(name: MetricIconName): ReactNode {
+  switch (name) {
+    case 'network':
+      return (
+        <>
+          <polygon fill="#e9fff7" points="8 24 25 9 25 18 44 18 44 29 25 29 25 39" />
+          <polygon fill="#ffbc00" points="56 40 39 55 39 46 20 46 20 35 39 35 39 25" />
+          <polygon fill="#f08a24" points="26 28 38 28 34 36 22 36" />
+        </>
+      );
+    case 'traffic':
+      return (
+        <>
+          <polygon fill="#e9fff7" points="10 50 10 34 22 34 22 50" />
+          <polygon fill="#e9fff7" points="26 50 26 22 38 22 38 50" />
+          <polygon fill="#ffbc00" points="42 50 42 12 54 12 54 50" />
+          <polygon fill="#f08a24" points="8 54 56 54 56 58 8 58" />
+        </>
+      );
+    case 'cpu':
+      return (
+        <>
+          <polygon fill="#e9fff7" points="18 12 46 12 52 18 52 46 46 52 18 52 12 46 12 18" />
+          <polygon fill="#0b1010" points="23 22 42 22 42 41 22 41 22 23" />
+          <polygon fill="#ffbc00" points="27 27 37 27 37 37 27 37" />
+          <polygon fill="#f08a24" points="8 20 12 20 12 27 8 27" />
+          <polygon fill="#f08a24" points="52 37 56 37 56 44 52 44" />
+          <polygon fill="#f08a24" points="27 8 35 8 35 12 27 12" />
+          <polygon fill="#f08a24" points="30 52 38 52 38 56 30 56" />
+        </>
+      );
+    case 'memory':
+      return (
+        <>
+          <polygon fill="#e9fff7" points="9 21 55 21 55 42 50 47 14 47 9 42" />
+          <polygon fill="#0b1010" points="16 28 22 28 22 38 16 38" />
+          <polygon fill="#0b1010" points="26 28 32 28 32 38 26 38" />
+          <polygon fill="#0b1010" points="36 28 42 28 42 38 36 38" />
+          <polygon fill="#ffbc00" points="14 47 20 47 18 56 12 56" />
+          <polygon fill="#ffbc00" points="25 47 31 47 30 56 24 56" />
+          <polygon fill="#ffbc00" points="36 47 42 47 43 56 37 56" />
+          <polygon fill="#ffbc00" points="47 47 53 47 56 56 50 56" />
+        </>
+      );
+    case 'online':
+      return (
+        <>
+          <polygon fill="#e9fff7" points="7 26 32 9 57 26 50 34 32 22 14 34" />
+          <polygon fill="#e9fff7" points="18 40 32 29 46 40 39 47 32 41 25 47" />
+          <polygon fill="#ffbc00" points="27 53 32 47 37 53 32 58" />
+          <polygon fill="#f08a24" points="29 36 32 34 35 36 32 39" />
+        </>
+      );
+    case 'disabled':
+      return (
+        <>
+          <polygon fill="#e9fff7" points="26 9 38 9 44 16 44 28 38 35 26 35 20 28 20 16" />
+          <polygon fill="#e9fff7" points="13 56 17 43 47 43 51 56" />
+          <polygon fill="#ffbc00" points="12 7 19 7 53 57 46 57" />
+          <polygon fill="#f08a24" points="16 7 19 7 53 57 50 57" />
+        </>
+      );
+  }
+}
+
 function MetricCard({
   bar,
   footer,
-  icon: Icon,
+  icon,
   label,
   loading,
   value,
 }: {
   bar?: { percent: number; tone: string };
   footer?: ReactNode;
-  icon: ComponentType<{ className?: string }>;
+  icon: MetricIconName;
   label: string;
   loading?: boolean;
   value?: ReactNode;
@@ -230,10 +307,10 @@ function MetricCard({
           <span className="t-label">{label}</span>
           <span
             className={cn(
-              'flex size-10 shrink-0 items-center justify-center rounded-md bg-muted/65 text-primary',
+              'flex size-10 shrink-0 items-center justify-center rounded-md border border-border/45 bg-muted/45',
             )}
           >
-            <Icon className="size-5" />
+            <DashboardMetricIcon className="size-8" name={icon} />
           </span>
         </div>
         {loading ? (
