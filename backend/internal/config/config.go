@@ -81,8 +81,7 @@ type BackupConfig struct {
 }
 
 func Load() Config {
-	envFile := firstNonEmpty(os.Getenv("PANEL_ENV_FILE"), filepath.Join("/opt/mypanel", ".env"), ".env")
-	loadEnvFile(envFile)
+	loadEnvFile(EnvFilePath())
 
 	rootDir := getenv("PANEL_ROOT_DIR", ".")
 	templatesDir := getenv("PANEL_TEMPLATES_DIR", filepath.Join(rootDir, "templates"))
@@ -146,6 +145,10 @@ func Load() Config {
 			RetentionDays: getenvInt("BACKUP_RETENTION_DAYS", 14),
 		},
 	}
+}
+
+func EnvFilePath() string {
+	return firstNonEmpty(os.Getenv("PANEL_ENV_FILE"), filepath.Join("/opt/mypanel", ".env"), ".env")
 }
 
 func Address(host string, port int) string {

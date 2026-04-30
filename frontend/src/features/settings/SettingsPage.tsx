@@ -34,6 +34,7 @@ type SettingKey =
   | 'hy2.port'
   | 'hy2.traffic_secret'
   | 'panel.domain'
+  | 'panel.port'
   | 'reality.dest'
   | 'reality.private_key'
   | 'reality.public_key'
@@ -79,6 +80,7 @@ const fallbackValues: Record<SettingKey, SettingValue> = {
   'hy2.port': 8443,
   'hy2.traffic_secret': '',
   'panel.domain': 'panel.example.com',
+  'panel.port': 8000,
   'reality.dest': 'www.cloudflare.com:443',
   'reality.private_key': '',
   'reality.public_key': '',
@@ -103,7 +105,13 @@ const masqueradePresets: URLPreset[] = [
 
 const vlessPortPresets = [443, 8443, 8444, 2053, 2083];
 const hy2PortPresets = [443, 8443, 8444, 2083, 9443];
+const panelPortPresets = [8000, 8080, 3000, 5000, 5173];
 const bandwidthPresets = ['100 mbps', '500 mbps', '1 gbps'];
+
+type SettingsUpdateResult = {
+  restart?: string;
+  updated: boolean;
+};
 
 export function SettingsPage() {
   const queryClient = useQueryClient();
@@ -132,15 +140,15 @@ export function SettingsPage() {
 
   const save = useMutation({
     mutationFn: () =>
-      apiClient.request('/settings', {
+      apiClient.request<SettingsUpdateResult>('/settings', {
         body: JSON.stringify(normalizeDraftForSave(draft)),
         method: 'PATCH',
       }),
     onError: (error) => {
       toast.error(error instanceof ApiError ? error.message : 'Unable to update settings');
     },
-    onSuccess: async () => {
-      toast.success('Settings updated');
+    onSuccess: async (result) => {
+      toast.success(result.restart === 'panel' ? 'Settings updated. Panel is restarting' : 'Settings updated');
       setDraft({});
       await queryClient.invalidateQueries({ queryKey: ['settings'] });
     },
@@ -393,6 +401,12 @@ export function SettingsPage() {
                   logo="hysteria"
                   title="Transport"
                 >
+                  <TextControl
+                    label="Hysteria domain"
+                    onChange={(value) => setValue('hy2.domain', value)}
+                    placeholder="panel.example.com"
+                    value={values.string('hy2.domain')}
+                  />
                   <PortControl
                     label="Hysteria port"
                     max={65535}
@@ -469,16 +483,18 @@ export function SettingsPage() {
                     placeholder="panel.example.com"
                     value={values.string('panel.domain')}
                   />
+                  <PortControl
+                    label="Panel port"
+                    max={65535}
+                    min={1}
+                    onChange={(value) => setValue('panel.port', value)}
+                    presets={panelPortPresets}
+                    value={values.number('panel.port')}
+                  />
                   <SubscriptionURLControl
                     label="Subscription URL"
                     onChange={(value) => setValue('subscription.url_prefix', value)}
                     value={values.string('subscription.url_prefix')}
-                  />
-                  <TextControl
-                    label="Hysteria domain"
-                    onChange={(value) => setValue('hy2.domain', value)}
-                    placeholder="panel.example.com"
-                    value={values.string('hy2.domain')}
                   />
                 </SettingsSection>
               </div>
@@ -887,6 +903,16 @@ function validateDraft(draft: SettingsDraft, values: ReturnType<typeof createSet
       issues.push('Obfs password is required when Hysteria obfuscation is enabled.');
     }
   }
+  if (draft['panel.port'] !== undefined || draft['vless.port'] !== undefined) {
+    if (values.number('panel.port') === values.number('vless.port')) {
+      issues.push('Panel / Port and Vless / Port must use different TCP ports.');
+    }
+  }
+  if (draft['panel.port'] !== undefined || draft['panel.domain'] !== undefined) {
+    if (isRealPanelDomain(values.string('panel.domain')) && [80, 443].includes(values.number('panel.port'))) {
+      issues.push('Panel / Port must not be 80 or 443 when Caddy serves the panel domain.');
+    }
+  }
   if (draft['reality.private_key'] !== undefined || draft['reality.public_key'] !== undefined) {
     if (values.string('reality.private_key').trim() === '' || values.string('reality.public_key').trim() === '') {
       issues.push('Reality private and public keys must be saved together.');
@@ -990,6 +1016,11 @@ function validHostPort(value: string): boolean {
 
 function validRealityShortID(value: string): boolean {
   return value.length % 2 === 0 && /^[0-9a-fA-F]{0,16}$/.test(value);
+}
+
+function isRealPanelDomain(value: string): boolean {
+  const domain = value.trim();
+  return domain !== '' && domain !== 'panel.example.com';
 }
 
 function validBandwidth(value: string): boolean {

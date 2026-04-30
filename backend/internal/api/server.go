@@ -458,6 +458,7 @@ func (s *Server) handleSettingsUpdate(w http.ResponseWriter, r *http.Request) {
 		jsonError(w, domain.NewError(400, "invalid_request", "Invalid request body", err))
 		return
 	}
+	_, restartPanel := values["panel.port"]
 	if err := s.services.Settings.Update(r.Context(), values); err != nil {
 		jsonError(w, err)
 		return
@@ -474,7 +475,17 @@ func (s *Server) handleSettingsUpdate(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	jsonData(w, http.StatusOK, map[string]any{"updated": true}, nil)
+	response := map[string]any{"updated": true}
+	if restartPanel {
+		response["restart"] = "panel"
+	}
+	jsonData(w, http.StatusOK, response, nil)
+	if restartPanel {
+		if flusher, ok := w.(http.Flusher); ok {
+			flusher.Flush()
+		}
+		s.restartPanelSoon()
+	}
 }
 
 func (s *Server) handleSettingsRealityKeyPair(w http.ResponseWriter, _ *http.Request) {
@@ -909,11 +920,22 @@ func shouldReconcileXray(values map[string]json.RawMessage) bool {
 
 func shouldReconcileHysteria(values map[string]json.RawMessage) bool {
 	for key := range values {
-		if strings.HasPrefix(key, "hy2.") {
+		if key == "panel.port" || strings.HasPrefix(key, "hy2.") {
 			return true
 		}
 	}
 	return false
+}
+
+func (s *Server) restartPanelSoon() {
+	go func() {
+		time.Sleep(750 * time.Millisecond)
+		ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+		defer cancel()
+		if err := s.services.Configs.RestartService(ctx, "panel"); err != nil {
+			s.logger.Error("panel restart failed after settings update", "err", err)
+		}
+	}()
 }
 
 func clientIP(r *http.Request) string {

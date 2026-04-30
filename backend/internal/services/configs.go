@@ -122,6 +122,13 @@ func (s *ConfigService) ReconcileCore(ctx context.Context, core string) error {
 	return s.waitHealthy(ctx, core)
 }
 
+func (s *ConfigService) RestartService(ctx context.Context, service string) error {
+	if service != "panel" && service != "xray" && service != "hysteria" {
+		return domain.NewError(400, "invalid_service", "Service must be panel, xray or hysteria", nil)
+	}
+	return s.systemctl.Restart(ctx, service)
+}
+
 func (s *ConfigService) health(ctx context.Context, core string) error {
 	switch core {
 	case "xray":

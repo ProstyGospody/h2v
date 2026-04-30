@@ -908,6 +908,7 @@ install_sudoers() {
   local tmp="${path}.tmp"
   cat >"${tmp}" <<'EOF'
 panel ALL=(root) NOPASSWD: /bin/systemctl restart xray.service, /bin/systemctl restart hysteria.service
+panel ALL=(root) NOPASSWD: /bin/systemctl restart panel.service
 panel ALL=(root) NOPASSWD: /bin/systemctl reload xray.service, /bin/systemctl reload hysteria.service
 EOF
   chmod 0440 "${tmp}"

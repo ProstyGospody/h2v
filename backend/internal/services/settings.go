@@ -10,6 +10,7 @@ import (
 	"log/slog"
 	"net"
 	"net/url"
+	"os"
 	"path/filepath"
 	"regexp"
 	"strconv"
@@ -68,6 +69,9 @@ func (s *SettingsService) Update(ctx context.Context, values map[string]json.Raw
 	if err := s.validateUpdate(ctx, normalized); err != nil {
 		return err
 	}
+	if err := s.syncRuntimeEnv(normalized); err != nil {
+		return err
+	}
 	return s.repo.UpsertSettings(ctx, normalized)
 }
 
@@ -93,6 +97,12 @@ func (s *SettingsService) validateUpdate(ctx context.Context, values map[string]
 
 	if runtime.PanelDomain != "" && runtime.PanelDomain != "panel.example.com" && runtime.VlessPort == 443 {
 		return domain.NewError(400, "port_conflict", "VLESS port 443 conflicts with Caddy panel HTTPS; use a different VLESS port", nil)
+	}
+	if runtime.PanelDomain != "" && runtime.PanelDomain != "panel.example.com" && (runtime.PanelPort == 80 || runtime.PanelPort == 443) {
+		return domain.NewError(400, "port_conflict", "Panel HTTP port conflicts with Caddy; use an internal port such as 8000", nil)
+	}
+	if runtime.PanelPort == runtime.VlessPort {
+		return domain.NewError(400, "port_conflict", "Panel port conflicts with VLESS port; use different TCP ports", nil)
 	}
 	if touchesAny(values, "hy2.obfs_enabled", "hy2.obfs_password") && runtime.Hy2ObfsEnabled && runtime.Hy2ObfsPassword == "" {
 		return domain.NewError(400, "invalid_setting", "Hysteria obfs password is required when obfuscation is enabled", nil)
@@ -164,6 +174,7 @@ func DefaultRuntime(cfg config.Config) RuntimeSettings {
 
 func applyRuntimeValues(runtime *RuntimeSettings, values map[string]json.RawMessage) {
 	runtime.PanelDomain = stringOr(values, "panel.domain", runtime.PanelDomain)
+	runtime.PanelPort = intOr(values, "panel.port", runtime.PanelPort)
 	runtime.RealitySNI = stringOr(values, "reality.sni", runtime.RealitySNI)
 	runtime.RealityDest = stringOr(values, "reality.dest", runtime.RealityDest)
 	runtime.RealityPrivateKey = stringOr(values, "reality.private_key", runtime.RealityPrivateKey)
@@ -199,7 +210,7 @@ func normalizeSettingsUpdate(values map[string]json.RawMessage) (map[string]json
 
 func normalizeSettingValue(key string, raw json.RawMessage) (any, error) {
 	switch key {
-	case "vless.port", "hy2.port":
+	case "panel.port", "vless.port", "hy2.port":
 		var value int
 		if err := json.Unmarshal(raw, &value); err != nil || !validRuntimePort(value) {
 			return nil, invalidSetting(key, "must be an integer between 1 and 65535")
@@ -268,6 +279,60 @@ func normalizeStringSetting(key, value string) (string, error) {
 		}
 	}
 	return value, nil
+}
+
+func (s *SettingsService) syncRuntimeEnv(values map[string]json.RawMessage) error {
+	raw, ok := values["panel.port"]
+	if !ok {
+		return nil
+	}
+	var port int
+	if err := json.Unmarshal(raw, &port); err != nil || !validRuntimePort(port) {
+		return invalidSetting("panel.port", "must be an integer between 1 and 65535")
+	}
+	if err := updateEnvFileValue(config.EnvFilePath(), "PANEL_PORT", strconv.Itoa(port)); err != nil {
+		return domain.NewError(500, "env_update_failed", "Unable to update panel environment file", err)
+	}
+	return nil
+}
+
+func updateEnvFileValue(path, key, value string) error {
+	content, err := os.ReadFile(path)
+	if err != nil && !os.IsNotExist(err) {
+		return err
+	}
+
+	mode := os.FileMode(0o600)
+	if info, statErr := os.Stat(path); statErr == nil {
+		mode = info.Mode().Perm()
+	}
+
+	lines := strings.Split(strings.ReplaceAll(string(content), "\r\n", "\n"), "\n")
+	replaced := false
+	for index, line := range lines {
+		trimmed := strings.TrimSpace(line)
+		if trimmed == "" || strings.HasPrefix(trimmed, "#") {
+			continue
+		}
+		name, _, found := strings.Cut(trimmed, "=")
+		if found && strings.TrimSpace(name) == key {
+			lines[index] = key + "=" + value
+			replaced = true
+		}
+	}
+	if !replaced {
+		if len(lines) == 0 || lines[len(lines)-1] != "" {
+			lines = append(lines, "")
+		}
+		lines[len(lines)-1] = key + "=" + value
+		lines = append(lines, "")
+	}
+
+	output := strings.Join(lines, "\n")
+	if !strings.HasSuffix(output, "\n") {
+		output += "\n"
+	}
+	return os.WriteFile(path, []byte(output), mode)
 }
 
 func invalidSetting(key, reason string) error {
