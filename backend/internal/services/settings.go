@@ -202,7 +202,6 @@ func DefaultRuntime(cfg config.Config) RuntimeSettings {
 func applyRuntimeValues(runtime *RuntimeSettings, values map[string]json.RawMessage) {
 	runtime.PanelDomain = stringOr(values, "panel.domain", runtime.PanelDomain)
 	runtime.PanelPort = intOr(values, "panel.port", runtime.PanelPort)
-	runtime.PanelPublicPort = intOr(values, "panel.public_port", runtime.PanelPublicPort)
 	runtime.RealitySNI = stringOr(values, "reality.sni", runtime.RealitySNI)
 	runtime.RealityDest = stringOr(values, "reality.dest", runtime.RealityDest)
 	runtime.RealityPrivateKey = stringOr(values, "reality.private_key", runtime.RealityPrivateKey)
@@ -223,8 +222,8 @@ func applyRuntimeValues(runtime *RuntimeSettings, values map[string]json.RawMess
 func applyStoredRuntimeValues(runtime *RuntimeSettings, values map[string]json.RawMessage) {
 	filtered := make(map[string]json.RawMessage, len(values))
 	for key, value := range values {
-		if key == "panel.port" {
-			// The active panel listener comes from the process environment loaded at startup.
+		if key == "panel.port" || key == "panel.public_port" {
+			// Panel listener ports come from the process environment loaded at startup.
 			continue
 		}
 		filtered[key] = value
@@ -279,7 +278,7 @@ func normalizeSettingsUpdate(values map[string]json.RawMessage) (map[string]json
 
 func normalizeSettingValue(key string, raw json.RawMessage) (any, error) {
 	switch key {
-	case "panel.port", "panel.public_port", "vless.port", "hy2.port":
+	case "panel.port", "vless.port", "hy2.port":
 		var value int
 		if err := json.Unmarshal(raw, &value); err != nil || !validRuntimePort(value) {
 			return nil, invalidSetting(key, "must be an integer between 1 and 65535")
@@ -364,7 +363,6 @@ func validatePortAvailability(current, next RuntimeSettings, values map[string]j
 		protocol string
 	}{
 		{current: current.PanelPort, key: "panel.port", label: "Panel internal port", next: next.PanelPort, protocol: "tcp"},
-		{current: current.PanelPublicPort, key: "panel.public_port", label: "Panel public port", next: next.PanelPublicPort, protocol: "tcp"},
 		{current: current.VlessPort, key: "vless.port", label: "VLESS port", next: next.VlessPort, protocol: "tcp"},
 		{current: current.Hy2Port, key: "hy2.port", label: "Hysteria port", next: next.Hy2Port, protocol: "udp"},
 	}
@@ -387,22 +385,16 @@ func validatePortAvailability(current, next RuntimeSettings, values map[string]j
 }
 
 func (s *SettingsService) syncRuntimeEnv(values map[string]json.RawMessage) error {
-	envKeys := map[string]string{
-		"panel.port":        "PANEL_PORT",
-		"panel.public_port": "PANEL_PUBLIC_PORT",
+	raw, ok := values["panel.port"]
+	if !ok {
+		return nil
 	}
-	for settingKey, envKey := range envKeys {
-		raw, ok := values[settingKey]
-		if !ok {
-			continue
-		}
-		var port int
-		if err := json.Unmarshal(raw, &port); err != nil || !validRuntimePort(port) {
-			return invalidSetting(settingKey, "must be an integer between 1 and 65535")
-		}
-		if err := updateEnvFileValue(config.EnvFilePath(), envKey, strconv.Itoa(port)); err != nil {
-			return domain.NewError(500, "env_update_failed", "Unable to update panel environment file", err)
-		}
+	var port int
+	if err := json.Unmarshal(raw, &port); err != nil || !validRuntimePort(port) {
+		return invalidSetting("panel.port", "must be an integer between 1 and 65535")
+	}
+	if err := updateEnvFileValue(config.EnvFilePath(), "PANEL_PORT", strconv.Itoa(port)); err != nil {
+		return domain.NewError(500, "env_update_failed", "Unable to update panel environment file", err)
 	}
 	return nil
 }
