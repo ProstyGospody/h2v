@@ -1028,7 +1028,9 @@ install_sudoers() {
   cat >"${tmp}" <<'EOF'
 panel ALL=(root) NOPASSWD: /bin/systemctl restart xray.service, /bin/systemctl restart hysteria.service
 panel ALL=(root) NOPASSWD: /bin/systemctl restart panel.service
+panel ALL=(root) NOPASSWD: /bin/systemctl reload caddy.service, /bin/systemctl restart caddy.service
 panel ALL=(root) NOPASSWD: /bin/systemctl reload xray.service, /bin/systemctl reload hysteria.service
+panel ALL=(root) NOPASSWD: /usr/bin/tee /etc/caddy/Caddyfile
 EOF
   chmod 0440 "${tmp}"
   if command_exists visudo; then

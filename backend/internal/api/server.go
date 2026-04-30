@@ -476,6 +476,12 @@ func (s *Server) handleSettingsUpdate(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
+	if shouldReconcileCaddy(values) {
+		if err := s.services.Configs.ReconcileCaddy(r.Context()); err != nil {
+			jsonError(w, domain.NewError(http.StatusInternalServerError, "caddy_reconcile_failed", "Unable to update Caddy reverse proxy", err))
+			return
+		}
+	}
 	response := map[string]any{"updated": true}
 	if restartPanel {
 		response["restart"] = "panel"
@@ -972,6 +978,12 @@ func shouldReconcileHysteria(values map[string]json.RawMessage) bool {
 		}
 	}
 	return false
+}
+
+func shouldReconcileCaddy(values map[string]json.RawMessage) bool {
+	_, portChanged := values["panel.port"]
+	_, domainChanged := values["panel.domain"]
+	return portChanged || domainChanged
 }
 
 func (s *Server) restartPanelSoon() {

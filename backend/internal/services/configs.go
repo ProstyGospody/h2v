@@ -10,6 +10,8 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
+	"strings"
 	"sync"
 	"text/template"
 	"time"
@@ -122,9 +124,33 @@ func (s *ConfigService) ReconcileCore(ctx context.Context, core string) error {
 	return s.waitHealthy(ctx, core)
 }
 
+func (s *ConfigService) ReconcileCaddy(ctx context.Context) error {
+	if s.settings == nil {
+		return domain.NewError(500, "settings_unavailable", "Settings service is not available", nil)
+	}
+	runtime, err := s.settings.Runtime(ctx)
+	if err != nil {
+		return err
+	}
+	domainName := strings.TrimSpace(runtime.PanelDomain)
+	if domainName == "" || domainName == "panel.example.com" {
+		return nil
+	}
+	content := renderCaddyfile(domainName, runtime.PanelPort)
+	cmd := exec.CommandContext(ctx, "sudo", "/usr/bin/tee", "/etc/caddy/Caddyfile")
+	cmd.Stdin = bytes.NewReader([]byte(content))
+	if out, err := cmd.CombinedOutput(); err != nil {
+		return fmt.Errorf("write caddyfile: %s", string(out))
+	}
+	if err := s.systemctl.Reload(ctx, "caddy"); err != nil {
+		return s.systemctl.Restart(ctx, "caddy")
+	}
+	return nil
+}
+
 func (s *ConfigService) RestartService(ctx context.Context, service string) error {
-	if service != "panel" && service != "xray" && service != "hysteria" {
-		return domain.NewError(400, "invalid_service", "Service must be panel, xray or hysteria", nil)
+	if service != "panel" && service != "xray" && service != "hysteria" && service != "caddy" {
+		return domain.NewError(400, "invalid_service", "Service must be panel, xray, hysteria or caddy", nil)
 	}
 	return s.systemctl.Restart(ctx, service)
 }
@@ -272,6 +298,21 @@ func templateName(core string) (string, error) {
 	default:
 		return "", domain.NewError(400, "invalid_core", "Core must be xray or hysteria", nil)
 	}
+}
+
+func renderCaddyfile(domain string, panelPort int) string {
+	return `{
+  admin off
+  servers {
+    protocols h1 h2
+  }
+}
+
+` + domain + ` {
+  encode zstd gzip
+  reverse_proxy 127.0.0.1:` + strconv.Itoa(panelPort) + `
+}
+`
 }
 
 func writeFileAtomic(path string, content []byte, mode os.FileMode) error {

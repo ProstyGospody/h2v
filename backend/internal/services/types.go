@@ -26,6 +26,7 @@ type HysteriaAdapter interface {
 }
 
 type SystemctlAdapter interface {
+	Reload(ctx context.Context, service string) error
 	Restart(ctx context.Context, service string) error
 }
 
