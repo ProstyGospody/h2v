@@ -1,4 +1,4 @@
-import { useMemo, useState, type ReactNode } from 'react';
+import { useId, useMemo, useState, type ReactNode } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import {
   ArrowDown,
@@ -224,6 +224,8 @@ function MetricCard({
   loading?: boolean;
   value?: ReactNode;
 }) {
+  const gradientId = `metric-icon-${useId().replace(/:/g, '')}`;
+
   return (
     <Card className="h-full transition-colors hover:bg-[hsl(var(--surface-elevated))]">
       <CardContent className="flex h-full flex-col gap-3 p-4 sm:p-5">
@@ -231,10 +233,19 @@ function MetricCard({
           <span className="t-label">{label}</span>
           <span
             className={cn(
-              'flex size-10 shrink-0 items-center justify-center rounded-md border border-[#f08a24]/30 bg-[#ffbc00]/10 text-[#e9fff7] shadow-[inset_0_0_0_1px_rgb(233_255_247/0.06)]',
+              'relative flex size-10 shrink-0 items-center justify-center rounded-md border border-border/45 bg-muted/45 shadow-[inset_0_0_0_1px_rgb(233_255_247/0.05)]',
             )}
           >
-            <Icon className="size-5" strokeWidth={2.2} />
+            <svg aria-hidden="true" className="pointer-events-none absolute size-0 overflow-hidden">
+              <defs>
+                <linearGradient id={gradientId} x1="4" x2="20" y1="4" y2="20" gradientUnits="userSpaceOnUse">
+                  <stop offset="0" stopColor="#fff7b8" />
+                  <stop offset="0.45" stopColor="#e9fff7" />
+                  <stop offset="1" stopColor="#f08a24" />
+                </linearGradient>
+              </defs>
+            </svg>
+            <Icon className="size-5" stroke={`url(#${gradientId})`} strokeWidth={2.35} />
           </span>
         </div>
         {loading ? (
