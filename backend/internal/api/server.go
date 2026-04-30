@@ -104,8 +104,6 @@ func (s *Server) routes(r chi.Router) {
 	r.Post("/api/auth/refresh", s.handleRefresh)
 	r.Post("/api/auth/logout", s.handleLogout)
 
-	r.With(s.rateLimit("sub", 60)).Get("/sub/{credential}/{token}", s.handleSubscription)
-	r.With(s.rateLimit("sub", 60)).Post("/sub/{credential}/{token}/rotate", s.handleSubscriptionRotate)
 	r.With(s.rateLimit("sub", 60)).Get("/sub/{token}", s.handleSubscription)
 	r.With(s.rateLimit("sub", 60)).Post("/sub/{token}/rotate", s.handleSubscriptionRotate)
 	r.Post("/hy2/auth", s.handleHY2Auth)
@@ -272,7 +270,7 @@ func (s *Server) handleUsersCreate(w http.ResponseWriter, r *http.Request) {
 		jsonError(w, err)
 		return
 	}
-	links = linksForRequest(r, links, subscriptionCredentialFromURL(links.Subscription), user.SubToken)
+	links = linksForRequest(r, links, user.SubToken)
 	jsonData(w, http.StatusCreated, map[string]any{
 		"id":            user.ID,
 		"username":      user.Username,
@@ -361,7 +359,7 @@ func (s *Server) handleUsersResetSub(w http.ResponseWriter, r *http.Request) {
 		jsonError(w, err)
 		return
 	}
-	jsonData(w, http.StatusOK, linksForRequest(r, links, subscriptionCredentialFromURL(links.Subscription), user.SubToken), nil)
+	jsonData(w, http.StatusOK, linksForRequest(r, links, user.SubToken), nil)
 }
 
 func (s *Server) handleUsersResetTraffic(w http.ResponseWriter, r *http.Request) {
@@ -403,7 +401,7 @@ func (s *Server) handleUsersLinks(w http.ResponseWriter, r *http.Request) {
 		jsonError(w, err)
 		return
 	}
-	jsonData(w, http.StatusOK, linksForRequest(r, links, subscriptionCredentialFromURL(links.Subscription), subscriptionTokenFromURL(links.Subscription)), nil)
+	jsonData(w, http.StatusOK, linksForRequest(r, links, subscriptionTokenFromURL(links.Subscription)), nil)
 }
 
 func (s *Server) handleConfigGet(w http.ResponseWriter, r *http.Request) {
@@ -539,12 +537,8 @@ func (s *Server) handleStatsTraffic(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleSubscription(w http.ResponseWriter, r *http.Request) {
-	token, credential := subscriptionRouteParts(r)
+	token := strings.TrimSpace(chi.URLParam(r, "token"))
 	if len(token) < 32 {
-		http.NotFound(w, r)
-		return
-	}
-	if !s.validSubscriptionCredential(r.Context(), credential) {
 		http.NotFound(w, r)
 		return
 	}
@@ -553,8 +547,7 @@ func (s *Server) handleSubscription(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
 		return
 	}
-	responseCredential := firstNonEmpty(credential, subscriptionCredentialFromURL(links.Subscription))
-	links = linksForRequest(r, links, responseCredential, token)
+	links = linksForRequest(r, links, token)
 	format := strings.ToLower(strings.TrimSpace(r.URL.Query().Get("format")))
 	if format == "json" {
 		jsonData(w, http.StatusOK, links, nil)
@@ -590,12 +583,8 @@ func (s *Server) handleSubscription(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleSubscriptionRotate(w http.ResponseWriter, r *http.Request) {
-	token, credential := subscriptionRouteParts(r)
+	token := strings.TrimSpace(chi.URLParam(r, "token"))
 	if len(token) < 32 {
-		http.NotFound(w, r)
-		return
-	}
-	if !s.validSubscriptionCredential(r.Context(), credential) {
 		http.NotFound(w, r)
 		return
 	}
@@ -604,14 +593,8 @@ func (s *Server) handleSubscriptionRotate(w http.ResponseWriter, r *http.Request
 		jsonError(w, err)
 		return
 	}
-	responseCredential := firstNonEmpty(credential, subscriptionCredentialFromURL(links.Subscription))
 	responseToken := subscriptionTokenFromURL(links.Subscription)
-	jsonData(
-		w,
-		http.StatusOK,
-		linksForRequest(r, links, responseCredential, responseToken),
-		nil,
-	)
+	jsonData(w, http.StatusOK, linksForRequest(r, links, responseToken), nil)
 }
 
 func (s *Server) handleHY2Auth(w http.ResponseWriter, r *http.Request) {
@@ -830,23 +813,7 @@ func boolQuery(r *http.Request, key string) bool {
 	return value
 }
 
-func subscriptionRouteParts(r *http.Request) (token string, credential string) {
-	return strings.TrimSpace(chi.URLParam(r, "token")), strings.Trim(strings.TrimSpace(chi.URLParam(r, "credential")), "/")
-}
-
-func (s *Server) validSubscriptionCredential(ctx context.Context, credential string) bool {
-	if credential == "" {
-		return true
-	}
-	ok, err := s.services.Subscription.CheckCredential(ctx, credential)
-	if err != nil {
-		s.logger.Warn("subscription credential check failed", "err", err)
-		return false
-	}
-	return ok
-}
-
-func linksForRequest(r *http.Request, links *domain.SubscriptionLinks, credential, token string) *domain.SubscriptionLinks {
+func linksForRequest(r *http.Request, links *domain.SubscriptionLinks, token string) *domain.SubscriptionLinks {
 	if links == nil || token == "" {
 		return links
 	}
@@ -855,7 +822,7 @@ func linksForRequest(r *http.Request, links *domain.SubscriptionLinks, credentia
 		return links
 	}
 	copy := *links
-	copy.Subscription = strings.TrimSuffix(origin, "/") + subscriptionPath(credential, token)
+	copy.Subscription = strings.TrimSuffix(origin, "/") + "/sub/" + url.PathEscape(token)
 	return &copy
 }
 
@@ -880,14 +847,6 @@ func requestOrigin(r *http.Request) string {
 		proto = "https"
 	}
 	return proto + "://" + host
-}
-
-func subscriptionPath(credential, token string) string {
-	credential = strings.Trim(strings.TrimSpace(credential), "/")
-	if credential != "" {
-		return "/sub/" + url.PathEscape(credential) + "/" + url.PathEscape(token)
-	}
-	return "/sub/" + url.PathEscape(token)
 }
 
 func cleanRequestHost(value string) string {
@@ -918,15 +877,6 @@ func stringValue(value any) string {
 	return ""
 }
 
-func firstNonEmpty(values ...string) string {
-	for _, value := range values {
-		if value != "" {
-			return value
-		}
-	}
-	return ""
-}
-
 func subscriptionTokenFromURL(raw string) string {
 	raw = strings.TrimSpace(raw)
 	if raw == "" {
@@ -934,50 +884,16 @@ func subscriptionTokenFromURL(raw string) string {
 	}
 	if parsed, err := url.Parse(raw); err == nil {
 		parts := strings.Split(strings.Trim(parsed.Path, "/"), "/")
-		for i := len(parts) - 1; i >= 0; i-- {
-			if parts[i] == "sub" {
-				if i+2 < len(parts) && parts[i+2] != "" {
-					return parts[i+2]
-				}
-				if i+1 < len(parts) && parts[i+1] != "" {
-					return parts[i+1]
-				}
-			}
-		}
-	}
-	const marker = "/sub/"
-	if index := strings.LastIndex(raw, marker); index >= 0 {
-		tail := strings.Trim(raw[index+len(marker):], "/")
-		parts := strings.Split(strings.Split(tail, "?")[0], "/")
-		for i := len(parts) - 1; i >= 0; i-- {
-			if parts[i] != "" {
-				return parts[i]
-			}
-		}
-	}
-	return ""
-}
-
-func subscriptionCredentialFromURL(raw string) string {
-	raw = strings.TrimSpace(raw)
-	if raw == "" {
-		return ""
-	}
-	if parsed, err := url.Parse(raw); err == nil {
-		parts := strings.Split(strings.Trim(parsed.Path, "/"), "/")
-		for i := len(parts) - 1; i >= 0; i-- {
-			if parts[i] == "sub" && i+2 < len(parts) {
+		for i := len(parts) - 2; i >= 0; i-- {
+			if parts[i] == "sub" && parts[i+1] != "" {
 				return parts[i+1]
 			}
 		}
 	}
 	const marker = "/sub/"
 	if index := strings.LastIndex(raw, marker); index >= 0 {
-		tail := strings.Split(strings.Trim(raw[index+len(marker):], "/"), "?")[0]
-		parts := strings.Split(tail, "/")
-		if len(parts) >= 2 {
-			return parts[0]
-		}
+		tail := strings.Trim(raw[index+len(marker):], "/")
+		return strings.Split(tail, "?")[0]
 	}
 	return ""
 }

@@ -39,7 +39,6 @@ type SettingKey =
   | 'reality.public_key'
   | 'reality.short_ids'
   | 'reality.sni'
-  | 'subscription.credential'
   | 'subscription.url_prefix'
   | 'vless.port';
 
@@ -85,7 +84,6 @@ const fallbackValues: Record<SettingKey, SettingValue> = {
   'reality.public_key': '',
   'reality.short_ids': [''],
   'reality.sni': 'www.cloudflare.com',
-  'subscription.credential': '',
   'subscription.url_prefix': 'https://panel.example.com',
   'vless.port': 8444,
 };
@@ -475,13 +473,6 @@ export function SettingsPage() {
                     label="Subscription URL"
                     onChange={(value) => setValue('subscription.url_prefix', value)}
                     value={values.string('subscription.url_prefix')}
-                  />
-                  <SecretControl
-                    label="Subscription cred."
-                    onChange={(value) => setValue('subscription.credential', value)}
-                    onGenerate={() => setValue('subscription.credential', randomSecret(18))}
-                    reveal={showSecrets}
-                    value={values.string('subscription.credential')}
                   />
                   <TextControl
                     label="Hysteria domain"
@@ -881,9 +872,6 @@ function validateDraft(draft: SettingsDraft, values: ReturnType<typeof createSet
     if ((key === 'subscription.url_prefix' || key === 'hy2.masquerade_url') && !validURL(values.string(key))) {
       issues.push(`${settingLabel(key)} must be a valid http or https URL.`);
     }
-    if (key === 'subscription.credential' && !validSubscriptionCredential(values.string(key))) {
-      issues.push('Subscription / Credential must be empty or 8-96 URL-safe characters.');
-    }
     if (key === 'reality.dest' && !validHostPort(values.string(key))) {
       issues.push('Reality / Dest must be a host:port value.');
     }
@@ -914,8 +902,6 @@ function normalizeDraftForSave(draft: SettingsDraft): SettingsDraft {
       const trimmed = value.trim();
       if (key === 'subscription.url_prefix') {
         normalized[key] = normalizeSubscriptionURLForSave(trimmed);
-      } else if (key === 'subscription.credential') {
-        normalized[key] = sanitizeCredential(trimmed);
       } else {
         normalized[key] = trimmed;
       }
@@ -980,10 +966,6 @@ function normalizeSubscriptionURLForSave(value: string): string {
   return subscriptionURLFromHost(value).replace(/\/+$/, '');
 }
 
-function sanitizeCredential(value: string): string {
-  return value.trim().replace(/^\/+|\/+$/g, '');
-}
-
 function validPort(value: number): boolean {
   return Number.isInteger(value) && value >= 1 && value <= 65535;
 }
@@ -1008,11 +990,6 @@ function validHostPort(value: string): boolean {
 
 function validRealityShortID(value: string): boolean {
   return value.length % 2 === 0 && /^[0-9a-fA-F]{0,16}$/.test(value);
-}
-
-function validSubscriptionCredential(value: string): boolean {
-  const credential = sanitizeCredential(value);
-  return credential === '' || /^[A-Za-z0-9_-]{8,96}$/.test(credential);
 }
 
 function validBandwidth(value: string): boolean {

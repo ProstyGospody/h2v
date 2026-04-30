@@ -105,12 +105,8 @@ export function SubPage() {
   });
 
   const rotateLink = useMutation({
-    mutationFn: () => {
-      const path = subscription.data
-        ? subscriptionPathFromURL(subscription.data.subscription, token)
-        : `/sub/${encodeURIComponent(token)}`;
-      return apiClient.request<UserLinks>(`${path}/rotate`, { method: 'POST' });
-    },
+    mutationFn: () =>
+      apiClient.request<UserLinks>(`/sub/${encodeURIComponent(token)}/rotate`, { method: 'POST' }),
     onSuccess: async (next) => {
       toast.success('Subscription link rotated');
       const nextToken = subscriptionTokenFromURL(next.subscription);
@@ -375,30 +371,12 @@ function subscriptionURLForCurrentOrigin(token: string, fallback: string): strin
   if (!fallback) {
     return '';
   }
-  const base = typeof window === 'undefined' ? fallback : `${window.location.origin}${subscriptionPathFromURL(fallback, token)}`;
+  const base = typeof window === 'undefined' ? fallback : `${window.location.origin}/sub/${encodeURIComponent(token)}`;
   try {
     return new URL(base).toString();
   } catch {
     return base;
   }
-}
-
-function subscriptionPathFromURL(value: string, token: string): string {
-  try {
-    const base = typeof window === 'undefined' ? 'http://localhost' : window.location.origin;
-    const url = new URL(value, base);
-    const parts = url.pathname.split('/').filter(Boolean);
-    const subIndex = parts.lastIndexOf('sub');
-    if (subIndex >= 0 && parts[subIndex + 2]) {
-      return `/sub/${encodeURIComponent(parts[subIndex + 1])}/${encodeURIComponent(parts[subIndex + 2])}`;
-    }
-    if (subIndex >= 0 && parts[subIndex + 1]) {
-      return `/sub/${encodeURIComponent(parts[subIndex + 1])}`;
-    }
-  } catch {
-    // Fall back to the route token below.
-  }
-  return `/sub/${encodeURIComponent(token)}`;
 }
 
 function subscriptionTokenFromURL(value: string): string {
@@ -410,18 +388,13 @@ function subscriptionTokenFromURL(value: string): string {
     const url = new URL(value, base);
     const parts = url.pathname.split('/').filter(Boolean);
     const subIndex = parts.lastIndexOf('sub');
-    if (subIndex >= 0 && parts[subIndex + 2]) {
-      return parts[subIndex + 2];
-    }
     if (subIndex >= 0 && parts[subIndex + 1]) {
       return parts[subIndex + 1];
     }
   } catch {
     // Fall back to a lightweight path match below.
   }
-  const tail = value.match(/\/sub\/([^?#]+)/)?.[1] ?? '';
-  const parts = tail.split('/').filter(Boolean);
-  return parts[parts.length - 1] ?? '';
+  return value.match(/\/sub\/([^/?#]+)/)?.[1] ?? '';
 }
 
 function QRCodePreview({

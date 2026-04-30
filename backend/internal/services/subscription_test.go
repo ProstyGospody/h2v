@@ -85,9 +85,9 @@ func TestEncodedLinks(t *testing.T) {
 	}
 }
 
-func TestBuildSubscriptionURLUsesCredentialSegment(t *testing.T) {
-	got := buildSubscriptionURL("https://panel.example.com/", "sub_credential", "user-token")
-	want := "https://panel.example.com/sub/sub_credential/user-token"
+func TestBuildSubscriptionURLUsesTokenSegment(t *testing.T) {
+	got := buildSubscriptionURL("https://panel.example.com/", "user-token")
+	want := "https://panel.example.com/sub/user-token"
 	if got != want {
 		t.Fatalf("subscription url = %q, want %q", got, want)
 	}

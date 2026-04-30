@@ -32,9 +32,8 @@ type RealityKeyPair struct {
 }
 
 var (
-	bandwidthPattern  = regexp.MustCompile(`(?i)^\d+(?:\.\d+)?\s*(g|gbps|m|mbps)$`)
-	credentialPattern = regexp.MustCompile(`^[A-Za-z0-9_-]{8,96}$`)
-	shortIDPattern    = regexp.MustCompile(`^[0-9a-fA-F]{0,16}$`)
+	bandwidthPattern = regexp.MustCompile(`(?i)^\d+(?:\.\d+)?\s*(g|gbps|m|mbps)$`)
+	shortIDPattern   = regexp.MustCompile(`^[0-9a-fA-F]{0,16}$`)
 )
 
 func NewSettingsService(cfg config.Config, repository *repo.Repository, logger *slog.Logger) *SettingsService {
@@ -139,7 +138,6 @@ func DefaultRuntime(cfg config.Config) RuntimeSettings {
 	return RuntimeSettings{
 		PanelDomain:        cfg.Panel.Domain,
 		PanelPort:          cfg.Panel.Port,
-		SubCredential:      cfg.Subscription.Credential,
 		SubURLPrefix:       cfg.Subscription.URLPrefix,
 		RealitySNI:         cfg.Xray.RealitySNI,
 		RealityDest:        cfg.Xray.RealityDest,
@@ -172,7 +170,6 @@ func applyRuntimeValues(runtime *RuntimeSettings, values map[string]json.RawMess
 	runtime.RealityPublicKey = stringOr(values, "reality.public_key", runtime.RealityPublicKey)
 	runtime.RealityShortIDs = stringsOr(values, "reality.short_ids", runtime.RealityShortIDs)
 	runtime.VlessPort = intOr(values, "vless.port", runtime.VlessPort)
-	runtime.SubCredential = stringOr(values, "subscription.credential", runtime.SubCredential)
 	runtime.SubURLPrefix = stringOr(values, "subscription.url_prefix", runtime.SubURLPrefix)
 	runtime.Hy2Domain = stringOr(values, "hy2.domain", runtime.Hy2Domain)
 	runtime.Hy2Port = intOr(values, "hy2.port", runtime.Hy2Port)
@@ -227,7 +224,7 @@ func normalizeSettingValue(key string, raw json.RawMessage) (any, error) {
 		}
 		return values, nil
 	case "panel.domain", "hy2.domain", "reality.sni", "reality.dest", "reality.private_key", "reality.public_key",
-		"subscription.credential", "subscription.url_prefix", "hy2.obfs_password", "hy2.bandwidth_up", "hy2.bandwidth_down",
+		"subscription.url_prefix", "hy2.obfs_password", "hy2.bandwidth_up", "hy2.bandwidth_down",
 		"hy2.masquerade_url", "hy2.traffic_secret":
 		var value string
 		if err := json.Unmarshal(raw, &value); err != nil {
@@ -256,11 +253,6 @@ func normalizeStringSetting(key, value string) (string, error) {
 			return "", invalidSetting(key, "must be a valid http or https URL")
 		}
 		value = normalized
-	case "subscription.credential":
-		value = strings.Trim(value, "/")
-		if value != "" && !credentialPattern.MatchString(value) {
-			return "", invalidSetting(key, "must be 8-96 URL-safe characters")
-		}
 	case "hy2.masquerade_url":
 		if !validHTTPURL(value) {
 			return "", invalidSetting(key, "must be a valid http or https URL")

@@ -2,7 +2,6 @@ package services
 
 import (
 	"context"
-	"crypto/subtle"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
@@ -35,7 +34,7 @@ func (s *SubscriptionService) LinksForUser(ctx context.Context, user *domain.Use
 
 	vless := buildVLESS(runtime, user)
 	hy2 := buildHysteria2(runtime, user)
-	subURL := buildSubscriptionURL(runtime.SubURLPrefix, runtime.SubCredential, user.SubToken)
+	subURL := buildSubscriptionURL(runtime.SubURLPrefix, user.SubToken)
 
 	return &domain.SubscriptionLinks{
 		Subscription: subURL,
@@ -71,19 +70,6 @@ func (s *SubscriptionService) RotateByToken(ctx context.Context, token string) (
 
 func (s *SubscriptionService) CheckPasswordCached(password string) (*domain.User, bool) {
 	return s.cache.GetByPassword(password)
-}
-
-func (s *SubscriptionService) CheckCredential(ctx context.Context, credential string) (bool, error) {
-	values, err := s.settings.GetAll(ctx)
-	if err != nil {
-		return false, err
-	}
-	expected := stringOr(values, "subscription.credential", s.settings.cfg.Subscription.Credential)
-	expected = strings.Trim(strings.TrimSpace(expected), "/")
-	if expected == "" || credential == "" {
-		return false, nil
-	}
-	return subtle.ConstantTimeCompare([]byte(credential), []byte(expected)) == 1, nil
 }
 
 func (s *SubscriptionService) ResolveByToken(ctx context.Context, token string) (*domain.User, *domain.SubscriptionLinks, error) {
@@ -165,7 +151,6 @@ type ClientEntry struct {
 type RuntimeSettings struct {
 	PanelDomain        string
 	PanelPort          int
-	SubCredential      string
 	SubURLPrefix       string
 	RealitySNI         string
 	RealityDest        string
@@ -189,13 +174,8 @@ type RuntimeSettings struct {
 	Clients            []ClientEntry
 }
 
-func buildSubscriptionURL(prefix, credential, token string) string {
-	base := strings.TrimSuffix(prefix, "/")
-	credential = strings.Trim(strings.TrimSpace(credential), "/")
-	if credential != "" {
-		return base + "/sub/" + url.PathEscape(credential) + "/" + url.PathEscape(token)
-	}
-	return base + "/sub/" + url.PathEscape(token)
+func buildSubscriptionURL(prefix, token string) string {
+	return strings.TrimSuffix(prefix, "/") + "/sub/" + url.PathEscape(token)
 }
 
 // buildVLESS emits a VLESS + Reality URI per Xray's share-link convention:

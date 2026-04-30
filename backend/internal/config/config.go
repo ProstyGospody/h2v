@@ -71,7 +71,6 @@ type HysteriaConfig struct {
 }
 
 type SubscriptionConfig struct {
-	Credential          string
 	URLPrefix           string
 	UpdateIntervalHours int
 }
@@ -139,7 +138,6 @@ func Load() Config {
 			KeyPath:       getenv("HY2_KEY_PATH", ""),
 		},
 		Subscription: SubscriptionConfig{
-			Credential:          getenv("SUB_CREDENTIAL", ""),
 			URLPrefix:           getenv("SUB_URL_PREFIX", "https://panel.example.com"),
 			UpdateIntervalHours: getenvInt("SUB_UPDATE_INTERVAL_HOURS", 24),
 		},
