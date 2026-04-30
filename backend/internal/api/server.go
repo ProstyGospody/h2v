@@ -489,7 +489,7 @@ func (s *Server) handleSettingsUpdate(w http.ResponseWriter, r *http.Request) {
 	if shouldReconcileCaddy(values) {
 		if err := s.services.Configs.ReconcileCaddy(r.Context(), values); err != nil {
 			s.rollbackSettingsApply(r.Context(), rollbackValues, values)
-			jsonError(w, domain.NewError(http.StatusInternalServerError, "caddy_reconcile_failed", "Unable to update Caddy reverse proxy; panel endpoint was not changed", err))
+			jsonError(w, domain.NewError(http.StatusInternalServerError, "caddy_reconcile_failed", "Unable to update Caddy reverse proxy; panel endpoint was not changed: "+compactError(err), err))
 			return
 		}
 	}
@@ -1067,6 +1067,14 @@ func cloneRawMessage(raw json.RawMessage) json.RawMessage {
 	cloned := make(json.RawMessage, len(raw))
 	copy(cloned, raw)
 	return cloned
+}
+
+func compactError(err error) string {
+	message := strings.Join(strings.Fields(err.Error()), " ")
+	if len(message) > 240 {
+		return message[:240] + "..."
+	}
+	return message
 }
 
 func (s *Server) restartPanelSoon() {

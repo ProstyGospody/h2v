@@ -130,6 +130,11 @@ func (s *ConfigService) ReconcileCaddy(ctx context.Context, overrides ...map[str
 	if domainName == "" || domainName == "panel.example.com" {
 		return nil
 	}
+	normalizedDomain, ok := normalizeHostnameOnly(domainName)
+	if !ok {
+		return domain.NewError(400, "invalid_setting", "panel.domain must be a hostname without a path", nil)
+	}
+	domainName = normalizedDomain
 	content := renderCaddyfile(domainName, runtime.PanelPublicPort, runtime.PanelPort)
 	cmd := exec.CommandContext(ctx, "sudo", "/usr/bin/tee", "/etc/caddy/Caddyfile")
 	cmd.Stdin = bytes.NewReader([]byte(content))

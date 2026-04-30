@@ -1042,6 +1042,8 @@ function normalizeDraftForSave(draft: SettingsDraft): SettingsDraft {
       const trimmed = value.trim();
       if (key === 'subscription.url_prefix') {
         normalized[key] = normalizeSubscriptionURLForSave(trimmed);
+      } else if (key === 'panel.domain' || key === 'hy2.domain' || key === 'reality.sni') {
+        normalized[key] = normalizeHostnameForSave(trimmed);
       } else {
         normalized[key] = trimmed;
       }
@@ -1104,6 +1106,19 @@ function subscriptionURLFromHost(value: string): string {
 
 function normalizeSubscriptionURLForSave(value: string): string {
   return subscriptionURLFromHost(value).replace(/\/+$/, '');
+}
+
+function normalizeHostnameForSave(value: string): string {
+  const trimmed = value.trim();
+  if (trimmed === '') {
+    return '';
+  }
+  const raw = /^[a-z][a-z0-9+.-]*:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
+  try {
+    return new URL(raw).hostname.replace(/^\[|\]$/g, '').replace(/\.$/, '').toLowerCase();
+  } catch {
+    return trimmed.replace(/^https?:\/\//i, '').split(/[/?#]/)[0].split(':')[0].replace(/\.$/, '').toLowerCase();
+  }
 }
 
 function validPort(value: number): boolean {

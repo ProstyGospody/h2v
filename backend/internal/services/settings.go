@@ -323,6 +323,11 @@ func normalizeStringSetting(key, value string) (string, error) {
 		if value == "" {
 			return "", invalidSetting(key, "cannot be empty")
 		}
+		hostname, ok := normalizeHostnameOnly(value)
+		if !ok {
+			return "", invalidSetting(key, "must be a hostname without a path")
+		}
+		value = hostname
 	case "reality.dest":
 		if !validHostPort(value) {
 			return "", invalidSetting(key, "must be a host:port value")
@@ -463,6 +468,42 @@ func normalizeHTTPURLPrefix(value string) (string, bool) {
 	parsed.RawQuery = ""
 	parsed.Fragment = ""
 	return strings.TrimRight(parsed.String(), "/"), true
+}
+
+func normalizeHostnameOnly(value string) (string, bool) {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return "", false
+	}
+
+	if parsed, err := url.Parse(value); err == nil && parsed.Hostname() != "" {
+		return cleanHostname(parsed.Hostname())
+	}
+
+	if host, _, err := net.SplitHostPort(value); err == nil {
+		return cleanHostname(host)
+	}
+
+	if strings.ContainsAny(value, "/?#") {
+		if parsed, err := url.Parse("https://" + value); err == nil && parsed.Hostname() != "" {
+			return cleanHostname(parsed.Hostname())
+		}
+		return "", false
+	}
+
+	return cleanHostname(value)
+}
+
+func cleanHostname(value string) (string, bool) {
+	value = strings.Trim(strings.TrimSpace(value), "[]")
+	value = strings.TrimSuffix(value, ".")
+	if value == "" || strings.ContainsAny(value, "/?#") {
+		return "", false
+	}
+	if strings.Contains(value, ":") && net.ParseIP(value) == nil {
+		return "", false
+	}
+	return strings.ToLower(value), true
 }
 
 func validHostPort(value string) bool {
