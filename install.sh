@@ -466,6 +466,24 @@ prompt_password() {
   printf '%s' "${answer}"
 }
 
+prompt_yes_no() {
+  local prompt="$1"
+  local default="${2:-no}"
+  local answer=""
+  local suffix="[y/N]"
+  if [[ "${default}" == "yes" ]]; then
+    suffix="[Y/n]"
+  fi
+  if [[ -t 0 ]]; then
+    read -r -p "${prompt} ${suffix}: " answer </dev/tty
+  fi
+  answer="${answer:-${default}}"
+  case "${answer,,}" in
+    y|yes) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
 valid_port_number() {
   local port="$1"
   [[ "${port}" =~ ^[0-9]+$ ]] && (( port >= 1 && port <= 65535 ))
@@ -570,9 +588,14 @@ collect_install_inputs() {
     FIRST_INSTALL=true
   fi
 
-  # Skip prompts only if .env exists and already has a real (non-placeholder) domain.
   if ${env_exists} && [[ "${default_domain}" != "panel.example.com" ]]; then
-    return
+    if [[ -t 0 ]]; then
+      if ! prompt_yes_no "Reconfigure panel variables (domain and public ports)?" "no"; then
+        return
+      fi
+    else
+      return
+    fi
   fi
 
   NEEDS_CONFIG=true
