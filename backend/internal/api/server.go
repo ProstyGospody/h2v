@@ -119,6 +119,7 @@ func (s *Server) routes(r chi.Router) {
 
 		api.Get("/users", s.handleUsersList)
 		api.Post("/users", s.handleUsersCreate)
+		api.Post("/users/bulk", s.handleUsersBulk)
 		api.Get("/users/{id}", s.handleUsersGet)
 		api.Patch("/users/{id}", s.handleUsersUpdate)
 		api.Delete("/users/{id}", s.handleUsersDelete)
@@ -347,6 +348,28 @@ func (s *Server) handleUsersDelete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	jsonData(w, http.StatusOK, map[string]any{"ok": true}, nil)
+}
+
+func (s *Server) handleUsersBulk(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Action string      `json:"action"`
+		IDs    []uuid.UUID `json:"ids"`
+		Days   int         `json:"days"`
+	}
+	if err := decodeJSON(r, &req); err != nil {
+		jsonError(w, err)
+		return
+	}
+	result, err := s.services.Users.Bulk(r.Context(), services.BulkUsersRequest{
+		Action: req.Action,
+		IDs:    req.IDs,
+		Days:   req.Days,
+	})
+	if err != nil {
+		jsonError(w, err)
+		return
+	}
+	jsonData(w, http.StatusOK, result, nil)
 }
 
 func (s *Server) handleUsersResetSub(w http.ResponseWriter, r *http.Request) {

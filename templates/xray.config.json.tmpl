@@ -24,7 +24,7 @@
       "port": 10085,
       "protocol": "dokodemo-door",
       "settings": { "address": "127.0.0.1" }
-    }{{- if .Clients }},
+    },
     {
       "tag": "vless-reality",
       "listen": "0.0.0.0",
@@ -32,7 +32,7 @@
       "protocol": "vless",
       "settings": {
         "clients": [
-          {{- range $i, $c := .Clients }}
+          {{- range $i, $c := .XrayClients }}
           {{- if $i }},{{ end }}
           { "id": {{ $c.UUID | json }}, "email": {{ $c.Email | json }}, "flow": "xtls-rprx-vision" }
           {{- end }}
@@ -60,7 +60,6 @@
         "routeOnly": true
       }
     }
-    {{- end }}
   ],
   "outbounds": [
     { "protocol": "freedom", "tag": "direct" },

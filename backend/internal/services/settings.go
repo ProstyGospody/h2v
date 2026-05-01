@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/ecdh"
 	"crypto/rand"
+	"crypto/sha256"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
@@ -15,6 +16,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/google/uuid"
 	"github.com/prost/h2v/backend/internal/config"
 	"github.com/prost/h2v/backend/internal/domain"
 	"github.com/prost/h2v/backend/internal/repo"
@@ -189,7 +191,23 @@ func DefaultRuntime(cfg config.Config) RuntimeSettings {
 		GeoIPPath:          filepath.Join(cfg.Xray.GeodataDir, "geoip.dat"),
 		GeositePath:        filepath.Join(cfg.Xray.GeodataDir, "geosite.dat"),
 		Clients:            nil,
+		FallbackClient: ClientEntry{
+			UUID:  inactiveXrayClientUUID(cfg),
+			Email: "__h2v_no_active_users__",
+		},
 	}
+}
+
+func inactiveXrayClientUUID(cfg config.Config) string {
+	seed := cfg.Panel.JWTSecret + "\x00" + cfg.Xray.RealityPrivKey + "\x00" + cfg.Xray.RealityPubKey
+	sum := sha256.Sum256([]byte("h2v inactive xray client\x00" + seed))
+	id, err := uuid.FromBytes(sum[:16])
+	if err != nil {
+		return uuid.NewHash(sha256.New(), uuid.Nil, []byte(seed), 5).String()
+	}
+	id[6] = (id[6] & 0x0f) | 0x50
+	id[8] = (id[8] & 0x3f) | 0x80
+	return id.String()
 }
 
 func applyRuntimeValues(runtime *RuntimeSettings, values map[string]json.RawMessage) {

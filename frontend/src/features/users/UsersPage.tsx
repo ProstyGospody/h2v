@@ -159,11 +159,15 @@ export function UsersPage() {
     ]);
   }
 
-  async function runBulk(label: string, action: (id: string) => Promise<unknown>) {
+  async function runBulk(label: string, body: Record<string, unknown>) {
     if (!selectedIds.length) return;
+    const ids = [...selectedIds];
     setBusyAction(label);
     try {
-      for (const id of selectedIds) await action(id);
+      await apiClient.request('/users/bulk', {
+        body: JSON.stringify({ ...body, ids }),
+        method: 'POST',
+      });
       toast.success(`${label} complete`);
       setSelectedIds([]);
       await refreshUsers();
@@ -284,14 +288,7 @@ export function UsersPage() {
             <div className="flex flex-wrap items-center gap-2">
               <Button
                 disabled={busyAction === 'enable'}
-                onClick={() =>
-                  runBulk('enable', (id) =>
-                    apiClient.request(`/users/${id}`, {
-                      body: JSON.stringify({ status: 'active' }),
-                      method: 'PATCH',
-                    }),
-                  )
-                }
+                onClick={() => runBulk('enable', { action: 'enable' })}
                 size="sm"
                 variant="secondary"
               >
@@ -299,14 +296,7 @@ export function UsersPage() {
               </Button>
               <Button
                 disabled={busyAction === 'disable'}
-                onClick={() =>
-                  runBulk('disable', (id) =>
-                    apiClient.request(`/users/${id}`, {
-                      body: JSON.stringify({ status: 'disabled' }),
-                      method: 'PATCH',
-                    }),
-                  )
-                }
+                onClick={() => runBulk('disable', { action: 'disable' })}
                 size="sm"
                 variant="secondary"
               >
@@ -314,17 +304,7 @@ export function UsersPage() {
               </Button>
               <Button
                 disabled={busyAction === 'extend'}
-                onClick={() =>
-                  runBulk('extend', async (id) => {
-                    const u = users.data?.find((x) => x.id === id);
-                    const base = u?.expires_at ? new Date(u.expires_at) : new Date();
-                    const next = addDays(base > new Date() ? base : new Date(), 30);
-                    return apiClient.request(`/users/${id}`, {
-                      body: JSON.stringify({ expires_at: next.toISOString() }),
-                      method: 'PATCH',
-                    });
-                  })
-                }
+                onClick={() => runBulk('extend', { action: 'extend', days: 30 })}
                 size="sm"
                 variant="secondary"
               >
@@ -332,11 +312,7 @@ export function UsersPage() {
               </Button>
               <Button
                 disabled={busyAction === 'traffic'}
-                onClick={() =>
-                  runBulk('traffic', (id) =>
-                    apiClient.request(`/users/${id}/reset-traffic`, { method: 'POST' }),
-                  )
-                }
+                onClick={() => runBulk('traffic', { action: 'reset_traffic' })}
                 size="sm"
                 variant="secondary"
               >
@@ -344,11 +320,7 @@ export function UsersPage() {
               </Button>
               <Button
                 disabled={busyAction === 'delete'}
-                onClick={() =>
-                  runBulk('delete', (id) =>
-                    apiClient.request(`/users/${id}`, { method: 'DELETE' }),
-                  )
-                }
+                onClick={() => runBulk('delete', { action: 'delete' })}
                 size="sm"
                 variant="destructive"
               >

@@ -173,6 +173,17 @@ type RuntimeSettings struct {
 	GeoIPPath          string
 	GeositePath        string
 	Clients            []ClientEntry
+	FallbackClient     ClientEntry
+}
+
+func (r RuntimeSettings) XrayClients() []ClientEntry {
+	if len(r.Clients) > 0 {
+		return r.Clients
+	}
+	if r.FallbackClient.UUID == "" {
+		return nil
+	}
+	return []ClientEntry{r.FallbackClient}
 }
 
 func buildSubscriptionURL(prefix, token string) string {

@@ -294,9 +294,111 @@ func (r *Repository) DeleteUser(ctx context.Context, id uuid.UUID) error {
 	return nil
 }
 
+func (r *Repository) BulkDeleteUsers(ctx context.Context, ids []uuid.UUID) ([]domain.User, error) {
+	if len(ids) == 0 {
+		return nil, nil
+	}
+	placeholders, args := uuidPlaceholders(ids, 1)
+	rows, err := r.pool.Query(ctx, `
+		DELETE FROM users
+		WHERE id IN (`+placeholders+`)
+		RETURNING id, username, vless_uuid, hy2_password, sub_token, traffic_limit, traffic_used,
+		          expires_at, status, note, created_at, updated_at
+	`, args...)
+	if err != nil {
+		return nil, err
+	}
+	users, err := scanUsers(rows)
+	if err != nil {
+		return nil, err
+	}
+	if len(users) == 0 {
+		return nil, domain.NewError(404, "user_not_found", "No selected users were found", nil)
+	}
+	return users, nil
+}
+
 func (r *Repository) UpdateUserStatus(ctx context.Context, id uuid.UUID, status domain.UserStatus) error {
 	_, err := r.pool.Exec(ctx, `UPDATE users SET status = $2, updated_at = now() WHERE id = $1`, id, status)
 	return err
+}
+
+func (r *Repository) BulkUpdateUserStatus(ctx context.Context, ids []uuid.UUID, status domain.UserStatus) ([]domain.User, error) {
+	if len(ids) == 0 {
+		return nil, nil
+	}
+	placeholders, idArgs := uuidPlaceholders(ids, 2)
+	args := append([]any{status}, idArgs...)
+	rows, err := r.pool.Query(ctx, `
+		UPDATE users
+		SET status = $1, updated_at = now()
+		WHERE id IN (`+placeholders+`)
+		RETURNING id, username, vless_uuid, hy2_password, sub_token, traffic_limit, traffic_used,
+		          expires_at, status, note, created_at, updated_at
+	`, args...)
+	if err != nil {
+		return nil, err
+	}
+	users, err := scanUsers(rows)
+	if err != nil {
+		return nil, err
+	}
+	if len(users) == 0 {
+		return nil, domain.NewError(404, "user_not_found", "No selected users were found", nil)
+	}
+	return users, nil
+}
+
+func (r *Repository) BulkResetUserTraffic(ctx context.Context, ids []uuid.UUID) ([]domain.User, error) {
+	if len(ids) == 0 {
+		return nil, nil
+	}
+	placeholders, args := uuidPlaceholders(ids, 1)
+	rows, err := r.pool.Query(ctx, `
+		UPDATE users
+		SET traffic_used = 0, updated_at = now()
+		WHERE id IN (`+placeholders+`)
+		RETURNING id, username, vless_uuid, hy2_password, sub_token, traffic_limit, traffic_used,
+		          expires_at, status, note, created_at, updated_at
+	`, args...)
+	if err != nil {
+		return nil, err
+	}
+	users, err := scanUsers(rows)
+	if err != nil {
+		return nil, err
+	}
+	if len(users) == 0 {
+		return nil, domain.NewError(404, "user_not_found", "No selected users were found", nil)
+	}
+	return users, nil
+}
+
+func (r *Repository) BulkExtendUsers(ctx context.Context, ids []uuid.UUID, days int) ([]domain.User, error) {
+	if len(ids) == 0 {
+		return nil, nil
+	}
+	placeholders, idArgs := uuidPlaceholders(ids, 2)
+	args := append([]any{days}, idArgs...)
+	rows, err := r.pool.Query(ctx, `
+		UPDATE users
+		SET expires_at = GREATEST(COALESCE(expires_at, now()), now()) + ($1::int * interval '1 day'),
+		    updated_at = now()
+		WHERE id IN (`+placeholders+`)
+		RETURNING id, username, vless_uuid, hy2_password, sub_token, traffic_limit, traffic_used,
+		          expires_at, status, note, created_at, updated_at
+	`, args...)
+	if err != nil {
+		return nil, err
+	}
+	users, err := scanUsers(rows)
+	if err != nil {
+		return nil, err
+	}
+	if len(users) == 0 {
+		return nil, domain.NewError(404, "user_not_found", "No selected users were found", nil)
+	}
+	return users, nil
 }
 
 func (r *Repository) ListActiveUsers(ctx context.Context) ([]domain.User, error) {
@@ -305,6 +407,8 @@ func (r *Repository) ListActiveUsers(ctx context.Context) ([]domain.User, error)
 		       expires_at, status, note, created_at, updated_at
 		FROM users
 		WHERE status = 'active'
+		  AND (expires_at IS NULL OR expires_at >= now())
+		  AND (traffic_limit <= 0 OR traffic_used < traffic_limit)
 	`)
 	if err != nil {
 		return nil, err
@@ -695,6 +799,30 @@ func scanUser(row interface {
 		return nil, err
 	}
 	return &user, nil
+}
+
+func scanUsers(rows pgx.Rows) ([]domain.User, error) {
+	defer rows.Close()
+
+	users := make([]domain.User, 0)
+	for rows.Next() {
+		user, err := scanUser(rows)
+		if err != nil {
+			return nil, err
+		}
+		users = append(users, *user)
+	}
+	return users, rows.Err()
+}
+
+func uuidPlaceholders(ids []uuid.UUID, start int) (string, []any) {
+	placeholders := make([]string, 0, len(ids))
+	args := make([]any, 0, len(ids))
+	for i, id := range ids {
+		placeholders = append(placeholders, fmt.Sprintf("$%d", start+i))
+		args = append(args, id)
+	}
+	return strings.Join(placeholders, ","), args
 }
 
 func scanAdmin(row interface {

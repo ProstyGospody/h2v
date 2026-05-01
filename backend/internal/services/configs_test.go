@@ -57,7 +57,7 @@ func TestXrayInboundPortsRejectsNonIntegerPort(t *testing.T) {
 	}
 }
 
-func TestRenderXrayConfigWithoutClientsKeepsXrayAPIOnly(t *testing.T) {
+func TestRenderXrayConfigWithoutClientsKeepsVLESSInboundWithFallbackClient(t *testing.T) {
 	content := renderXrayTemplateForTest(t, RuntimeSettings{
 		RealityDest:        "www.cloudflare.com:443",
 		RealityPrivateKey:  "private",
@@ -65,21 +65,37 @@ func TestRenderXrayConfigWithoutClientsKeepsXrayAPIOnly(t *testing.T) {
 		RealityShortIDs:    []string{"", "a1b2c3d4"},
 		VlessPort:          8444,
 		Clients:            nil,
+		FallbackClient:     ClientEntry{UUID: "22222222-2222-2222-2222-222222222222", Email: "__h2v_no_active_users__"},
 	})
 
 	var payload struct {
 		Inbounds []struct {
-			Tag string `json:"tag"`
+			Tag      string `json:"tag"`
+			Settings struct {
+				Clients []struct {
+					ID    string `json:"id"`
+					Email string `json:"email"`
+				} `json:"clients"`
+			} `json:"settings"`
 		} `json:"inbounds"`
 	}
 	if err := json.Unmarshal(content, &payload); err != nil {
 		t.Fatal(err)
 	}
-	if len(payload.Inbounds) != 1 {
-		t.Fatalf("inbounds = %d, want only xray api inbound", len(payload.Inbounds))
+	if len(payload.Inbounds) != 2 {
+		t.Fatalf("inbounds = %d, want api and vless inbounds", len(payload.Inbounds))
 	}
 	if payload.Inbounds[0].Tag != "api" {
 		t.Fatalf("inbound tag = %q, want api", payload.Inbounds[0].Tag)
+	}
+	if payload.Inbounds[1].Tag != "vless-reality" {
+		t.Fatalf("second inbound tag = %q, want vless-reality", payload.Inbounds[1].Tag)
+	}
+	if len(payload.Inbounds[1].Settings.Clients) != 1 {
+		t.Fatalf("fallback clients = %d, want 1", len(payload.Inbounds[1].Settings.Clients))
+	}
+	if payload.Inbounds[1].Settings.Clients[0].Email != "__h2v_no_active_users__" {
+		t.Fatalf("fallback email = %q", payload.Inbounds[1].Settings.Clients[0].Email)
 	}
 }
 
