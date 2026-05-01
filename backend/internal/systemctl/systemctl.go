@@ -24,14 +24,3 @@ func (c *Controller) Restart(ctx context.Context, service string) error {
 	}
 	return nil
 }
-
-func (c *Controller) Reload(ctx context.Context, service string) error {
-	if c.Disabled {
-		return nil
-	}
-	cmd := exec.CommandContext(ctx, "sudo", "/bin/systemctl", "reload", service+".service")
-	if out, err := cmd.CombinedOutput(); err != nil {
-		return fmt.Errorf("systemctl reload %s: %s", service, string(out))
-	}
-	return nil
-}

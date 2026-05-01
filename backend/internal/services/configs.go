@@ -144,13 +144,6 @@ func (s *ConfigService) runtime(ctx context.Context, overrides ...map[string]jso
 	return runtime, nil
 }
 
-func (s *ConfigService) RestartService(ctx context.Context, service string) error {
-	if service != "panel" && service != "xray" && service != "hysteria" && service != "caddy" {
-		return domain.NewError(400, "invalid_service", "Service must be panel, xray, hysteria or caddy", nil)
-	}
-	return s.systemctl.Restart(ctx, service)
-}
-
 func (s *ConfigService) health(ctx context.Context, core string) error {
 	switch core {
 	case "xray":
