@@ -24,7 +24,7 @@
       "port": 10085,
       "protocol": "dokodemo-door",
       "settings": { "address": "127.0.0.1" }
-    },
+    }{{- if .Clients }},
     {
       "tag": "vless-reality",
       "listen": "0.0.0.0",
@@ -60,6 +60,7 @@
         "routeOnly": true
       }
     }
+    {{- end }}
   ],
   "outbounds": [
     { "protocol": "freedom", "tag": "direct" },

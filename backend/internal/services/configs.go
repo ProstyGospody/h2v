@@ -85,8 +85,8 @@ func (s *ConfigService) Render(ctx context.Context, core string, overrides ...ma
 }
 
 // ReconcileXray regenerates the Xray config from the current runtime (which
-// includes the active client list from the database) and restarts the kernel
-// so the new client UUIDs take effect.
+// includes the active client list from the database), validates it, and
+// restarts the kernel so the new client UUIDs take effect.
 func (s *ConfigService) ReconcileXray(ctx context.Context, overrides ...map[string]json.RawMessage) error {
 	return s.ReconcileCore(ctx, "xray", overrides...)
 }
@@ -107,18 +107,45 @@ func (s *ConfigService) ReconcileCore(ctx context.Context, core string, override
 	if err != nil {
 		return err
 	}
-	if current, err := os.ReadFile(path); err == nil && bytes.Equal(current, content) {
+	current, readCurrentErr := os.ReadFile(path)
+	hasCurrent := readCurrentErr == nil
+	if hasCurrent && bytes.Equal(current, content) {
 		if err := s.health(ctx, core); err == nil {
 			return nil
 		}
+	}
+	if err := s.Validate(ctx, core, content); err != nil {
+		return err
 	}
 	if err := writeFileAtomic(path, content, 0o640); err != nil {
 		return err
 	}
 	if err := s.systemctl.Restart(ctx, core); err != nil {
+		s.rollbackCoreConfig(ctx, core, path, current, hasCurrent)
 		return err
 	}
-	return s.waitHealthy(ctx, core)
+	if err := s.waitHealthy(ctx, core); err != nil {
+		s.rollbackCoreConfig(ctx, core, path, current, hasCurrent)
+		return err
+	}
+	return nil
+}
+
+func (s *ConfigService) rollbackCoreConfig(ctx context.Context, core, path string, previous []byte, ok bool) {
+	if !ok {
+		return
+	}
+	if err := writeFileAtomic(path, previous, 0o640); err != nil {
+		if s.logger != nil {
+			s.logger.Error("core config rollback failed", "core", core, "path", path, "err", err)
+		}
+		return
+	}
+	if err := s.systemctl.Restart(ctx, core); err != nil {
+		if s.logger != nil {
+			s.logger.Error("core restart after rollback failed", "core", core, "err", err)
+		}
+	}
 }
 
 func (s *ConfigService) runtime(ctx context.Context, overrides ...map[string]json.RawMessage) (RuntimeSettings, error) {
