@@ -538,9 +538,14 @@ function SettingsSection({
       <CardContent className="space-y-6 p-6">
         <div className="flex items-start justify-between gap-4">
           <div className="flex min-w-0 items-center gap-3">
-            <span className="flex size-9 shrink-0 items-center justify-center rounded-md bg-accent-gradient-soft">
+            <span
+              className={cn(
+                'flex size-9 shrink-0 items-center justify-center',
+                !logo && 'rounded-md bg-accent-gradient-soft',
+              )}
+            >
               {logo ? (
-                <CoreLogo className="size-5" core={logo} />
+                <CoreLogo className="size-8" core={logo} />
               ) : Icon ? (
                 <Icon className="size-4" />
               ) : null}

@@ -196,8 +196,8 @@ function ServiceStatusPanel({
           className="flex items-center gap-2.5 rounded-md px-1 py-1.5 transition-colors hover:bg-muted/25"
           key={item.label}
         >
-          <span className="flex size-6 shrink-0 items-center justify-center">
-            <CoreLogo className="size-5" core={item.logo} />
+          <span className="flex size-7 shrink-0 items-center justify-center">
+            <CoreLogo className="size-6" core={item.logo} />
           </span>
           <span className="min-w-0 flex-1">
             <span className="block truncate font-serif text-[18px] italic leading-none text-foreground">

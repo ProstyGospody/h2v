@@ -15,7 +15,6 @@ import { Button } from '@/components/ui/button';
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
@@ -169,8 +168,8 @@ function ConfigPanel({ core }: { core: Core }) {
       <section className="flex min-w-0 flex-col overflow-hidden rounded-lg border border-border/70 bg-surface shadow-sm">
         <div className="border-b border-border/55 bg-background/35 px-4 py-3 sm:px-5">
           <div className="flex min-w-0 items-center gap-3">
-            <span className="flex size-9 shrink-0 items-center justify-center rounded-md border border-border/55 bg-muted/45">
-              <CoreLogo className="size-5" core={meta.logo} />
+            <span className="flex size-9 shrink-0 items-center justify-center">
+              <CoreLogo className="size-8" core={meta.logo} />
             </span>
             <div className="min-w-0 flex-1">
               <h2 className="truncate text-sm font-semibold leading-5 text-foreground">{meta.label}</h2>
@@ -259,12 +258,11 @@ function ConfigPanel({ core }: { core: Core }) {
         <DialogContent className="grid max-h-[92vh] w-[calc(100vw-32px)] max-w-none grid-rows-[auto_auto_minmax(0,1fr)_auto] gap-0 overflow-hidden p-0 sm:w-[min(calc(100vw-48px),1180px)] sm:max-w-none">
           <DialogHeader className="border-b border-border/55 bg-surface px-5 py-4 pr-12">
             <div className="flex min-w-0 items-center gap-3">
-              <span className="flex size-9 shrink-0 items-center justify-center rounded-md border border-border/55 bg-muted/45">
-                <CoreLogo className="size-5" core={meta.logo} />
+              <span className="flex size-9 shrink-0 items-center justify-center">
+                <CoreLogo className="size-8" core={meta.logo} />
               </span>
               <div className="min-w-0">
                 <DialogTitle className="truncate text-base">Apply {meta.label}</DialogTitle>
-                <DialogDescription>{meta.label} will restart after the new configuration is written.</DialogDescription>
               </div>
             </div>
           </DialogHeader>
