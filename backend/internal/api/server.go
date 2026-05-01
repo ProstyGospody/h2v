@@ -1,9 +1,11 @@
 package api
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log/slog"
 	"net"
 	"net/http"
@@ -40,6 +42,9 @@ type contextKey string
 
 const claimsContextKey contextKey = "claims"
 const refreshCookieName = "panel_refresh_token"
+const maxJSONBodyBytes int64 = 8 << 20
+const limiterTTL = 10 * time.Minute
+const limiterSweepInterval = time.Minute
 
 var (
 	httpRequestsTotal = promauto.NewCounterVec(prometheus.CounterOpts{
@@ -168,7 +173,7 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 		Password string `json:"password"`
 	}
 	if err := decodeJSON(r, &req); err != nil {
-		jsonError(w, domain.NewError(400, "invalid_request", "Invalid request body", err))
+		jsonError(w, err)
 		return
 	}
 	tokens, err := s.services.Auth.Login(r.Context(), req.Username, req.Password)
@@ -253,7 +258,7 @@ func (s *Server) handleUsersCreate(w http.ResponseWriter, r *http.Request) {
 		Note         string     `json:"note"`
 	}
 	if err := decodeJSON(r, &req); err != nil {
-		jsonError(w, domain.NewError(400, "invalid_request", "Invalid request body", err))
+		jsonError(w, err)
 		return
 	}
 	user, err := s.services.Users.Create(r.Context(), services.CreateUserRequest{
@@ -313,7 +318,7 @@ func (s *Server) handleUsersUpdate(w http.ResponseWriter, r *http.Request) {
 		Note         *string            `json:"note"`
 	}
 	if err := decodeJSON(r, &req); err != nil {
-		jsonError(w, domain.NewError(400, "invalid_request", "Invalid request body", err))
+		jsonError(w, err)
 		return
 	}
 	user, err := s.services.Users.Update(r.Context(), id, services.UpdateUserRequest{
@@ -419,7 +424,7 @@ func (s *Server) handleConfigValidate(w http.ResponseWriter, r *http.Request) {
 		Content string `json:"content"`
 	}
 	if err := decodeJSON(r, &req); err != nil {
-		jsonError(w, domain.NewError(400, "invalid_request", "Invalid request body", err))
+		jsonError(w, err)
 		return
 	}
 	if err := s.services.Configs.Validate(r.Context(), chi.URLParam(r, "core"), []byte(req.Content)); err != nil {
@@ -434,7 +439,7 @@ func (s *Server) handleConfigApply(w http.ResponseWriter, r *http.Request) {
 		Content string `json:"content"`
 	}
 	if err := decodeJSON(r, &req); err != nil {
-		jsonError(w, domain.NewError(400, "invalid_request", "Invalid request body", err))
+		jsonError(w, err)
 		return
 	}
 	if err := s.services.Configs.Apply(r.Context(), chi.URLParam(r, "core"), []byte(req.Content)); err != nil {
@@ -456,7 +461,7 @@ func (s *Server) handleSettingsList(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleSettingsUpdate(w http.ResponseWriter, r *http.Request) {
 	values := map[string]json.RawMessage{}
 	if err := decodeJSON(r, &values); err != nil {
-		jsonError(w, domain.NewError(400, "invalid_request", "Invalid request body", err))
+		jsonError(w, err)
 		return
 	}
 	rollbackValues := map[string]json.RawMessage{}
@@ -497,7 +502,7 @@ func (s *Server) handleSettingsPortsCheck(w http.ResponseWriter, r *http.Request
 		} `json:"ports"`
 	}
 	if err := decodeJSON(r, &req); err != nil {
-		jsonError(w, domain.NewError(400, "invalid_request", "Invalid request body", err))
+		jsonError(w, err)
 		return
 	}
 	if len(req.Ports) > 24 {
@@ -564,7 +569,7 @@ func (s *Server) handleBackupExport(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleBackupImport(w http.ResponseWriter, r *http.Request) {
 	var backup services.PanelBackup
 	if err := decodeJSON(r, &backup); err != nil {
-		jsonError(w, domain.NewError(400, "invalid_request", "Invalid request body", err))
+		jsonError(w, err)
 		return
 	}
 	summary, err := s.services.Backup.Import(r.Context(), backup)
@@ -766,7 +771,8 @@ func (s *Server) rateLimit(name string, perMinute int) func(http.Handler) http.H
 	store := &limiterStore{
 		limit:    rate.Every(time.Minute / time.Duration(perMinute)),
 		burst:    perMinute,
-		limiters: map[string]*rate.Limiter{},
+		ttl:      limiterTTL,
+		limiters: map[string]*limiterEntry{},
 	}
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -780,21 +786,38 @@ func (s *Server) rateLimit(name string, perMinute int) func(http.Handler) http.H
 }
 
 type limiterStore struct {
-	mu       sync.Mutex
-	limit    rate.Limit
-	burst    int
-	limiters map[string]*rate.Limiter
+	mu        sync.Mutex
+	limit     rate.Limit
+	burst     int
+	ttl       time.Duration
+	lastSweep time.Time
+	limiters  map[string]*limiterEntry
+}
+
+type limiterEntry struct {
+	limiter  *rate.Limiter
+	lastSeen time.Time
 }
 
 func (s *limiterStore) allow(key string) bool {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	limiter, ok := s.limiters[key]
-	if !ok {
-		limiter = rate.NewLimiter(s.limit, s.burst)
-		s.limiters[key] = limiter
+	now := time.Now()
+	if now.Sub(s.lastSweep) >= limiterSweepInterval {
+		for key, entry := range s.limiters {
+			if now.Sub(entry.lastSeen) > s.ttl {
+				delete(s.limiters, key)
+			}
+		}
+		s.lastSweep = now
 	}
-	return limiter.Allow()
+	entry, ok := s.limiters[key]
+	if !ok {
+		entry = &limiterEntry{limiter: rate.NewLimiter(s.limit, s.burst)}
+		s.limiters[key] = entry
+	}
+	entry.lastSeen = now
+	return entry.limiter.Allow()
 }
 
 type statusRecorder struct {
@@ -836,9 +859,25 @@ func writeJSON(w http.ResponseWriter, status int, payload any) {
 
 func decodeJSON(r *http.Request, target any) error {
 	defer r.Body.Close()
-	decoder := json.NewDecoder(r.Body)
+	limited := &io.LimitedReader{R: r.Body, N: maxJSONBodyBytes + 1}
+	body, err := io.ReadAll(limited)
+	if err != nil {
+		return domain.NewError(400, "invalid_request", "Invalid request body", err)
+	}
+	if int64(len(body)) > maxJSONBodyBytes {
+		return domain.NewError(http.StatusRequestEntityTooLarge, "request_too_large", fmt.Sprintf("Request body must be %d bytes or less", maxJSONBodyBytes), nil)
+	}
+
+	decoder := json.NewDecoder(bytes.NewReader(body))
 	decoder.DisallowUnknownFields()
-	return decoder.Decode(target)
+	if err := decoder.Decode(target); err != nil {
+		return domain.NewError(400, "invalid_request", "Invalid request body", err)
+	}
+	var extra any
+	if err := decoder.Decode(&extra); err != io.EOF {
+		return domain.NewError(400, "invalid_request", "Request body must contain a single JSON value", err)
+	}
+	return nil
 }
 
 func setRefreshCookie(w http.ResponseWriter, cfg config.Config, value string) {

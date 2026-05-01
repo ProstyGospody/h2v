@@ -1,5 +1,8 @@
 .DS_Store
 Thumbs.db
+.env
+.env.*
+!.env.example
 node_modules/
 dist/
 coverage/
@@ -8,8 +11,5 @@ tmp/
 .vscode/
 backend/bin/
 backend/.cache/
-frontend/dist/
-frontend/node_modules/
 *.log
-
 
