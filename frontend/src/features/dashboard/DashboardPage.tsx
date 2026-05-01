@@ -200,11 +200,11 @@ function NetworkSpeedValue({ rx, tx }: { rx: number; tx: number }) {
     <div className="flex min-w-0 flex-wrap items-baseline gap-x-4 gap-y-1 text-foreground">
       <span aria-label="Download" className="inline-flex min-w-0 items-center gap-1.5" title="Download">
         <ArrowDown className="size-4 shrink-0 text-primary" />
-        <span className="t-metric whitespace-nowrap font-mono">{formatBytesPerSecond(rx)}</span>
+        <span className="t-metric whitespace-nowrap">{formatBytesPerSecond(rx)}</span>
       </span>
       <span aria-label="Upload" className="inline-flex min-w-0 items-center gap-1.5" title="Upload">
         <ArrowUp className="size-4 shrink-0 text-primary" />
-        <span className="t-metric whitespace-nowrap font-mono">{formatBytesPerSecond(tx)}</span>
+        <span className="t-metric whitespace-nowrap">{formatBytesPerSecond(tx)}</span>
       </span>
     </div>
   );
