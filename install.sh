@@ -38,6 +38,11 @@ else
   RESET=""; BOLD=""; DIM=""; GREEN=""; YELLOW=""; RED=""; CYAN=""; MAGENTA=""
 fi
 
+UI_TTY=false
+if [[ -t 1 && "${TERM:-}" != "dumb" ]]; then
+  UI_TTY=true
+fi
+
 STAGE_INDEX=0
 STAGE_TOTAL=0
 
@@ -50,15 +55,93 @@ success() { printf '  %s✓%s %s\n' "${GREEN}" "${RESET}" "$1"; }
 warn()    { printf '  %s⚠%s %s\n' "${YELLOW}" "${RESET}" "$1"; }
 info()    { printf '  %si%s %s\n' "${CYAN}" "${RESET}" "$1"; }
 
+terminal_width() {
+  local width="${COLUMNS:-}"
+  if [[ -z "${width}" || ! "${width}" =~ ^[0-9]+$ ]]; then
+    width="$(tput cols 2>/dev/null || true)"
+  fi
+  if [[ -z "${width}" || ! "${width}" =~ ^[0-9]+$ ]]; then
+    width=80
+  fi
+  if (( width < 60 )); then
+    width=60
+  elif (( width > 120 )); then
+    width=120
+  fi
+  printf '%s' "${width}"
+}
+
+clear_screen() {
+  ${UI_TTY} || return 0
+  [[ "${H2V_NO_CLEAR:-}" == "1" ]] && return 0
+  printf '\033[2J\033[H'
+}
+
+progress_bar() {
+  local current="$1"
+  local total="$2"
+  local width
+  local filled empty percent fill_chunk empty_chunk
+
+  if (( total <= 0 )); then
+    return 0
+  fi
+
+  width=$(( $(terminal_width) / 3 ))
+  if (( width < 20 )); then
+    width=20
+  elif (( width > 40 )); then
+    width=40
+  fi
+
+  filled=$(( current * width / total ))
+  empty=$(( width - filled ))
+  percent=$(( current * 100 / total ))
+
+  printf -v fill_chunk '%*s' "${filled}" ''
+  printf -v empty_chunk '%*s' "${empty}" ''
+  fill_chunk="${fill_chunk// /█}"
+  empty_chunk="${empty_chunk// /░}"
+
+  printf '%s[%s%s%s%s]%s %3d%%' "${DIM}" "${CYAN}" "${fill_chunk}" "${DIM}" "${empty_chunk}" "${RESET}" "${percent}"
+}
+
+tty_clean_previous_line() {
+  ${UI_TTY} || return 0
+  can_prompt || return 0
+  printf '\033[1A\r\033[2K' >/dev/tty
+}
+
+tty_prompt_result() {
+  local label="$1"
+  local value="$2"
+  ${UI_TTY} || return 0
+  can_prompt || return 0
+  tty_clean_previous_line
+  tty_prompt_result_current "${label}" "${value}"
+}
+
+tty_prompt_result_current() {
+  local label="$1"
+  local value="$2"
+  ${UI_TTY} || return 0
+  can_prompt || return 0
+  printf '\r\033[2K' >/dev/tty
+  printf '  %s✓%s %s%s%s: %s\n' "${GREEN}" "${RESET}" "${BOLD}" "${label}" "${RESET}" "${value}" >/dev/tty
+}
+
 step() {
   STAGE_INDEX=$((STAGE_INDEX + 1))
   local counter=""
   if (( STAGE_TOTAL > 0 )); then
-    counter=$(printf '[%d/%d]' "${STAGE_INDEX}" "${STAGE_TOTAL}")
+    counter=$(printf 'Stage %02d/%02d' "${STAGE_INDEX}" "${STAGE_TOTAL}")
   else
-    counter=$(printf '[%s]' "$1")
+    counter=$(printf '%s' "$1")
   fi
   printf '\n%s▶%s %s%s%s %s%s%s\n' "${CYAN}" "${RESET}" "${DIM}" "${counter}" "${RESET}" "${BOLD}" "$2" "${RESET}"
+  if (( STAGE_TOTAL > 0 )); then
+    printf '  %s\n' "$(progress_bar "${STAGE_INDEX}" "${STAGE_TOTAL}")"
+  fi
 }
 
 banner() {
@@ -449,7 +532,9 @@ can_prompt() {
 prompt_value() {
   local prompt="$1"
   local default="$2"
+  local show_result="${3:-yes}"
   local answer=""
+  local value=""
   if can_prompt; then
     if [[ -n "${default}" ]]; then
       printf '%s [%s]: ' "${prompt}" "${default}" >/dev/tty
@@ -458,16 +543,29 @@ prompt_value() {
     fi
     read -r answer </dev/tty
   fi
-  printf '%s' "${answer:-${default}}"
+  value="${answer:-${default}}"
+  if can_prompt && [[ "${show_result}" == "yes" ]]; then
+    tty_prompt_result "${prompt}" "${value:-<empty>}"
+  elif can_prompt; then
+    tty_clean_previous_line
+  fi
+  printf '%s' "${value}"
 }
 
 prompt_password() {
   local prompt="$1"
   local answer=""
+  local status="auto-generate"
   if can_prompt; then
     printf '%s: ' "${prompt}" >/dev/tty
     read -r -s answer </dev/tty
     printf '\n' >/dev/tty
+  fi
+  if [[ -n "${answer}" ]]; then
+    status="set"
+  fi
+  if can_prompt; then
+    tty_prompt_result "${prompt}" "${status}"
   fi
   printf '%s' "${answer}"
 }
@@ -488,8 +586,18 @@ prompt_yes_no() {
   answer="${answer%"${answer##*[![:space:]]}"}"
   answer="${answer:-${default}}"
   case "${answer,,}" in
-    y|yes|1|true|д|да) return 0 ;;
-    *) return 1 ;;
+    y|yes|1|true|д|да)
+      if can_prompt; then
+        tty_prompt_result "${prompt}" "yes"
+      fi
+      return 0
+      ;;
+    *)
+      if can_prompt; then
+        tty_prompt_result "${prompt}" "no"
+      fi
+      return 1
+      ;;
   esac
 }
 
@@ -548,7 +656,7 @@ prompt_service_port() {
   can_prompt && is_tty=true
 
   while true; do
-    port="$(prompt_value "${label}" "${default}")"
+    port="$(prompt_value "${label}" "${default}" "no")"
     if ! valid_port_number "${port}"; then
       red "${label} must be a number between 1 and 65535." >&2
       ${is_tty} || fail "${label} is invalid"
@@ -568,6 +676,9 @@ prompt_service_port() {
       red "${label} ${port}/${protocol} is already in use. Choose another port." >&2
       ${is_tty} || fail "${label} ${port}/${protocol} is already in use"
       continue
+    fi
+    if can_prompt; then
+      tty_prompt_result_current "${label}" "${port}"
     fi
     printf '%s' "${port}"
     return
@@ -621,9 +732,13 @@ collect_install_inputs() {
   local domain_default="${default_domain}"
   [[ "${domain_default}" == "panel.example.com" ]] && domain_default=""
 
+  local domain_label="Panel domain (e.g. vpn.example.com)"
   while true; do
-    PANEL_DOMAIN_INPUT="$(prompt_value "Panel domain (e.g. vpn.example.com)" "${domain_default}")"
+    PANEL_DOMAIN_INPUT="$(prompt_value "${domain_label}" "${domain_default}" "no")"
     if [[ -n "${PANEL_DOMAIN_INPUT}" && "${PANEL_DOMAIN_INPUT}" != "panel.example.com" ]]; then
+      if can_prompt; then
+        tty_prompt_result_current "${domain_label}" "${PANEL_DOMAIN_INPUT}"
+      fi
       break
     fi
     if ! ${is_tty}; then
@@ -1204,13 +1319,66 @@ create_admin() {
   fail "failed to create admin user"
 }
 
+plan_value() {
+  local input="$1"
+  local key="$2"
+  local fallback="$3"
+  local current=""
+
+  if [[ -n "${input}" ]]; then
+    printf '%s' "${input}"
+    return
+  fi
+
+  current="$(env_get "${key}" || true)"
+  printf '%s' "${current:-${fallback}}"
+}
+
+print_install_plan() {
+  local domain panel_port panel_public_port vless_port hy2_port panel_url mode
+  domain="$(plan_value "${PANEL_DOMAIN_INPUT}" "PANEL_DOMAIN" "panel.example.com")"
+  panel_port="$(plan_value "" "PANEL_PORT" "8000")"
+  panel_public_port="$(plan_value "${PANEL_PUBLIC_PORT_INPUT}" "PANEL_PUBLIC_PORT" "443")"
+  vless_port="$(plan_value "${VLESS_PORT_INPUT}" "VLESS_PORT" "8444")"
+  hy2_port="$(plan_value "${HY2_PORT_INPUT}" "HY2_PORT" "8443")"
+
+  if [[ -n "${domain}" && "${domain}" != "panel.example.com" ]]; then
+    if [[ "${panel_public_port}" == "443" ]]; then
+      panel_url="https://${domain}/"
+    else
+      panel_url="https://${domain}:${panel_public_port}/"
+    fi
+  else
+    panel_url="http://127.0.0.1:${panel_port}/"
+  fi
+
+  if ${FIRST_INSTALL}; then
+    mode="fresh install"
+  elif ${NEEDS_CONFIG}; then
+    mode="reconfigure"
+  else
+    mode="update"
+  fi
+
+  printf '\n%sInstall plan%s\n' "${BOLD}" "${RESET}"
+  printf '  %s%-18s%s %s\n' "${DIM}" "Mode" "${RESET}" "${mode}"
+  printf '  %s%-18s%s %s/%s@%s\n' "${DIM}" "Source" "${RESET}" "${REPO_OWNER}" "${REPO_NAME}" "${REPO_REF}"
+  printf '  %s%-18s%s %s\n' "${DIM}" "Install dir" "${RESET}" "${INSTALL_DIR}"
+  printf '  %s%-18s%s %s\n' "${DIM}" "Panel URL" "${RESET}" "${panel_url}"
+  printf '  %s%-18s%s %s/tcp\n' "${DIM}" "VLESS Reality" "${RESET}" "${vless_port}"
+  printf '  %s%-18s%s %s/udp\n' "${DIM}" "Hysteria 2" "${RESET}" "${hy2_port}"
+  printf '\n'
+}
+
 install_all() {
   require_root
   detect_os
+  clear_screen
   banner "h2v panel installer" "VLESS Reality + Hysteria 2 | Ubuntu 22.04/24.04"
   resolve_source_dir
 
   collect_install_inputs
+  print_install_plan
 
   STAGE_INDEX=0
   STAGE_TOTAL=13
@@ -1361,6 +1529,7 @@ update_all() {
 update_geodata_command() {
   require_root
   [[ -f "${ENV_FILE}" ]] || fail "${ENV_FILE} not found"
+  clear_screen
   banner "Core geodata update" "geoip.dat + geosite.dat"
   STAGE_INDEX=0
   STAGE_TOTAL=1
@@ -1372,6 +1541,7 @@ update_geodata_command() {
 
 uninstall_all() {
   require_root
+  clear_screen
   banner "h2v panel uninstaller" "stopping services and removing ${INSTALL_DIR}"
   STAGE_INDEX=0
   STAGE_TOTAL=2
@@ -1398,6 +1568,7 @@ reset_admin() {
   [[ -x "${INSTALL_DIR}/bin/panel" ]] || fail "panel binary missing at ${INSTALL_DIR}/bin/panel — run install first"
   [[ -f "${ENV_FILE}" ]] || fail "${ENV_FILE} not found"
 
+  clear_screen
   banner "Admin password reset" "panel admin set-password"
 
   local username password generated=false
@@ -1465,6 +1636,7 @@ Usage:
 
 Env overrides:
   H2V_REF=<tag|commit>                       pin repository source
+  H2V_NO_CLEAR=1                             keep previous terminal output
   PANEL_ADMIN_USERNAME, PANEL_ADMIN_PASSWORD seed non-interactive admin
 
 USAGE
