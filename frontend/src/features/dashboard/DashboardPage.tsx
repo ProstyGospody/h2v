@@ -88,7 +88,7 @@ export function DashboardPage() {
 
       <div className="grid gap-2.5 px-page pt-5 sm:grid-cols-2 sm:gap-3 xl:grid-cols-3 2xl:grid-cols-6">
         <MetricCard
-          footer={
+          value={
             <NetworkSpeedValue
               rx={data?.network_rx_bytes_per_second ?? 0}
               tx={data?.network_tx_bytes_per_second ?? 0}
@@ -197,14 +197,14 @@ export function DashboardPage() {
 
 function NetworkSpeedValue({ rx, tx }: { rx: number; tx: number }) {
   return (
-    <div className="flex min-w-0 items-center gap-3.5 text-[13px] font-semibold leading-none text-foreground">
+    <div className="flex min-w-0 flex-wrap items-baseline gap-x-4 gap-y-1 text-foreground">
       <span aria-label="Download" className="inline-flex min-w-0 items-center gap-1.5" title="Download">
-        <ArrowDown className="size-4 text-primary" />
-        <span className="font-mono">{formatBytesPerSecond(rx)}</span>
+        <ArrowDown className="size-4 shrink-0 text-primary" />
+        <span className="t-metric whitespace-nowrap font-mono">{formatBytesPerSecond(rx)}</span>
       </span>
       <span aria-label="Upload" className="inline-flex min-w-0 items-center gap-1.5" title="Upload">
-        <ArrowUp className="size-4 text-primary" />
-        <span className="font-mono">{formatBytesPerSecond(tx)}</span>
+        <ArrowUp className="size-4 shrink-0 text-primary" />
+        <span className="t-metric whitespace-nowrap font-mono">{formatBytesPerSecond(tx)}</span>
       </span>
     </div>
   );
