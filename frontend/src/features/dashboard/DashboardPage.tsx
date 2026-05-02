@@ -210,12 +210,9 @@ function NetworkSpeedValue({ rx, tx }: { rx: number; tx: number }) {
         </defs>
       </svg>
       {items.map(({ icon: Icon, label, value }) => (
-        <div className="flex min-w-0 flex-1 items-center gap-1" key={label}>
-          <Icon className="size-3.5 shrink-0" stroke={`url(#${gradientId})`} strokeWidth={2.35} />
-          <span className="shrink-0 text-[10px] font-semibold uppercase leading-none tracking-[0.04em] text-muted-foreground">
-            {label}
-          </span>
-          <span className="min-w-0 truncate font-mono text-[11px] font-semibold leading-5 text-foreground">
+        <div aria-label={label} className="flex min-w-0 flex-1 items-center gap-1.5" key={label}>
+          <Icon className="size-4 shrink-0" stroke={`url(#${gradientId})`} strokeWidth={2.35} />
+          <span className="min-w-0 truncate font-mono text-sm font-semibold leading-5 text-foreground">
             {value}
           </span>
         </div>

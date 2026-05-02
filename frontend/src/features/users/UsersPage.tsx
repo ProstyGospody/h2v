@@ -331,7 +331,7 @@ export function UsersPage() {
           </div>
         ) : null}
 
-        <Card className="overflow-hidden">
+        <Card className="overflow-hidden border-0">
           {users.isLoading ? (
             <CardContent className="space-y-2 p-5">
               {Array.from({ length: 8 }).map((_, i) => (

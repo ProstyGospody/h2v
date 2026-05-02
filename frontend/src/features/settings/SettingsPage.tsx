@@ -534,7 +534,7 @@ function SettingsSection({
   title: string;
 }) {
   return (
-    <Card>
+    <Card className="border-0">
       <CardContent className="space-y-6 p-6">
         <div className="flex items-start justify-between gap-4">
           <div className="flex min-w-0 items-center gap-3">
@@ -803,7 +803,7 @@ function SettingsSkeleton() {
   return (
     <section className="grid gap-4 xl:grid-cols-2">
       {Array.from({ length: 3 }).map((_, index) => (
-        <Card key={index}>
+        <Card className="border-0" key={index}>
           <CardContent className="space-y-5 p-5">
             <Skeleton className="h-10 w-52" />
             <Skeleton className="h-20 w-full" />
@@ -818,7 +818,7 @@ function SettingsSkeleton() {
 
 function SettingsError({ error, onRetry }: { error: unknown; onRetry: () => void }) {
   return (
-    <Card>
+    <Card className="border-0">
       <CardContent className="flex min-h-64 flex-col items-center justify-center gap-3 px-6 py-12 text-center">
         <AlertTriangle className="size-8 text-destructive" />
         <div className="text-base font-semibold text-foreground">Unable to load settings</div>

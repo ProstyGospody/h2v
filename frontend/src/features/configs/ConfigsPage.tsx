@@ -165,7 +165,7 @@ function ConfigPanel({ core }: { core: Core }) {
 
   return (
     <>
-      <section className="flex min-w-0 flex-col overflow-hidden rounded-lg border border-border/70 bg-surface shadow-sm">
+      <section className="flex min-w-0 flex-col overflow-hidden rounded-lg bg-surface shadow-sm">
         <div className="border-b border-border/55 bg-background/35 px-4 py-3 sm:px-5">
           <div className="flex min-w-0 items-center gap-3">
             <span className="flex size-9 shrink-0 items-center justify-center">
