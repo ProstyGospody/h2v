@@ -9,6 +9,7 @@ import {
   Timer,
   Settings2,
   Users,
+  type LucideIcon,
 } from 'lucide-react';
 import { AppProviders } from '@/app/providers';
 import { CoreLogo, type CoreLogoName } from '@/components/core-logo';
@@ -191,7 +192,7 @@ function ServiceStatusPanel({
   items,
 }: {
   items: Array<{
-    icon?: ComponentType<{ className?: string }>;
+    icon?: LucideIcon;
     label: string;
     logo?: CoreLogoName;
     showIndicator?: boolean;
