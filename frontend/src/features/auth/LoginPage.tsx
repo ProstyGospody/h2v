@@ -7,7 +7,6 @@ import { Eye, EyeOff, Github } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { useAuth } from '@/features/auth/useAuth';
 
 const schema = z.object({
@@ -78,21 +77,28 @@ export function LoginPage() {
           </div>
 
           <form
-            className="grid gap-3"
+            className="grid gap-4"
             onSubmit={form.handleSubmit(async (values) => {
               await login(values);
               navigate({ to: '/' });
             })}
           >
-            <Label htmlFor="username">Username</Label>
-            <Input autoComplete="username" id="username" {...form.register('username')} />
+            <Input
+              aria-label="Username"
+              autoComplete="username"
+              className="h-11 px-4"
+              id="username"
+              placeholder="Username"
+              {...form.register('username')}
+            />
 
-            <Label htmlFor="password">Password</Label>
             <div className="relative">
               <Input
+                aria-label="Password"
                 autoComplete="current-password"
-                className="pr-10"
+                className="h-11 px-4 pr-11"
                 id="password"
+                placeholder="Password"
                 type={showPassword ? 'text' : 'password'}
                 {...form.register('password')}
               />
@@ -106,7 +112,7 @@ export function LoginPage() {
               </button>
             </div>
 
-            <Button className="button-shine mt-6 w-full" disabled={form.formState.isSubmitting} size="lg" type="submit">
+            <Button className="button-shine h-11 w-full" disabled={form.formState.isSubmitting} size="lg" type="submit">
               {form.formState.isSubmitting ? 'Signing in...' : 'Sign in'}
             </Button>
           </form>
