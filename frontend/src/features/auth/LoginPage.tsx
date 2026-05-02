@@ -78,36 +78,32 @@ export function LoginPage() {
           </div>
 
           <form
-            className="flex flex-col gap-5"
+            className="grid gap-3"
             onSubmit={form.handleSubmit(async (values) => {
               await login(values);
               navigate({ to: '/' });
             })}
           >
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="username">Username</Label>
-              <Input autoComplete="username" id="username" {...form.register('username')} />
-            </div>
+            <Label htmlFor="username">Username</Label>
+            <Input autoComplete="username" id="username" {...form.register('username')} />
 
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="password">Password</Label>
-              <div className="relative">
-                <Input
-                  autoComplete="current-password"
-                  className="pr-10"
-                  id="password"
-                  type={showPassword ? 'text' : 'password'}
-                  {...form.register('password')}
-                />
-                <button
-                  aria-label={showPassword ? 'Hide password' : 'Show password'}
-                  className="absolute inset-y-0 right-0 flex w-10 items-center justify-center text-muted-foreground transition hover:text-foreground"
-                  onClick={() => setShowPassword((value) => !value)}
-                  type="button"
-                >
-                  {showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
-                </button>
-              </div>
+            <Label htmlFor="password">Password</Label>
+            <div className="relative">
+              <Input
+                autoComplete="current-password"
+                className="pr-10"
+                id="password"
+                type={showPassword ? 'text' : 'password'}
+                {...form.register('password')}
+              />
+              <button
+                aria-label={showPassword ? 'Hide password' : 'Show password'}
+                className="absolute inset-y-0 right-0 flex w-10 items-center justify-center text-muted-foreground transition hover:text-foreground"
+                onClick={() => setShowPassword((value) => !value)}
+                type="button"
+              >
+                {showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+              </button>
             </div>
 
             <Button className="button-shine w-full" disabled={form.formState.isSubmitting} size="lg" type="submit">
