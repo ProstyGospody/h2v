@@ -71,7 +71,7 @@ export function LoginPage() {
       <Card className="relative z-10 w-full max-w-100 border-border/60 bg-card/90 shadow-overlay backdrop-blur-xl">
         <CardContent className="space-y-9 px-7 py-10 sm:px-9 sm:py-12">
           <div className="flex flex-col items-center gap-3 text-center">
-            <span className="block font-display text-3xl font-bold italic leading-none text-accent-gradient">
+            <span className="block font-display text-5xl font-bold italic leading-none text-accent-gradient">
               h2v
             </span>
           </div>

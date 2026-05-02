@@ -419,8 +419,8 @@
   width: 100%;
   min-width: 100vw;
   padding-inline: clamp(0.75rem, 2vw, 2rem);
-  color: rgb(121 229 204 / 0.34);
-  filter: drop-shadow(0 0 12px rgb(99 199 230 / 0.22));
+  color: rgb(99 199 230 / 0.38);
+  filter: drop-shadow(0 0 12px rgb(99 199 230 / 0.28));
   animation: login-code-run var(--login-code-duration) linear infinite;
   will-change: transform;
 }
@@ -435,7 +435,7 @@
   font-weight: 600;
   line-height: 1.85;
   letter-spacing: 0;
-  text-shadow: 0 0 14px rgb(121 229 204 / 0.18);
+  text-shadow: 0 0 14px rgb(99 199 230 / 0.24);
 }
 
 @keyframes login-code-run {
