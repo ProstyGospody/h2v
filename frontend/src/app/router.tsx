@@ -200,7 +200,7 @@ function ServiceStatusPanel({
             <CoreLogo className="size-6" core={item.logo} />
           </span>
           <span className="min-w-0 flex-1">
-            <span className="block truncate font-serif text-[18px] italic leading-none text-foreground">
+            <span className="block truncate text-sm font-medium leading-5 text-foreground">
               {item.label}
             </span>
           </span>
@@ -239,7 +239,7 @@ function AppBrand({ compact = false }: { compact?: boolean }) {
     <div className="flex items-center">
       <span
         className={cn(
-          'font-serif italic leading-none text-accent-gradient',
+          'font-display font-semibold leading-none text-accent-gradient',
           compact ? 'text-2xl' : 'text-[34px]',
         )}
       >

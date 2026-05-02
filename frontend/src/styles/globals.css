@@ -5,7 +5,8 @@
 
 @theme inline {
   --font-sans: var(--font-app-sans);
-  --font-serif: var(--font-app-serif);
+  --font-display: var(--font-app-display);
+  --font-serif: var(--font-app-display);
   --font-mono: var(--font-app-mono);
 
   --color-background: hsl(var(--background));
@@ -50,9 +51,9 @@
   :root {
     color-scheme: dark;
 
-    --font-app-sans: "Albert Sans", sans-serif;
-    --font-app-serif: "Instrument Serif", serif;
-    --font-app-mono: "JetBrains Mono", monospace;
+    --font-app-sans: "Inter", "Segoe UI Variable", "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    --font-app-display: "Manrope", "Inter", "Segoe UI Variable", "Segoe UI", Roboto, sans-serif;
+    --font-app-mono: "JetBrains Mono", "Cascadia Mono", "SFMono-Regular", Consolas, monospace;
 
     --radius: 0.625rem;
 
@@ -165,7 +166,8 @@
     line-height: 1.5;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
-    font-feature-settings: "cv11", "ss01", "ss03";
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+    font-optical-sizing: auto;
     text-rendering: optimizeLegibility;
   }
 
@@ -227,10 +229,9 @@
   }
 
   .t-hero {
-    font-family: var(--font-serif);
-    font-size: clamp(52px, 10vw, 72px);
-    font-style: italic;
-    font-weight: 400;
+    font-family: var(--font-app-display);
+    font-size: clamp(48px, 9vw, 68px);
+    font-weight: 700;
     line-height: 0.95;
     letter-spacing: 0;
   }
