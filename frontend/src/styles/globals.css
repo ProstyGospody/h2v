@@ -405,44 +405,38 @@
     linear-gradient(180deg, transparent 0%, rgb(99 199 230 / 0.08) 48%, transparent 100%);
 }
 
-.login-code-column {
+.login-code-sheet {
   position: absolute;
-  top: -18%;
-  bottom: -18%;
-  left: var(--code-left);
+  top: 0;
+  left: 50%;
   z-index: 1;
-  width: 320px;
-  color: rgb(121 229 204 / var(--code-opacity));
-  filter: drop-shadow(0 0 12px rgb(99 199 230 / 0.24));
-  transform: rotate(var(--code-tilt));
-}
-
-.login-code-track {
   display: flex;
   flex-direction: column;
-  gap: 1.25rem;
-  animation: login-code-run var(--code-duration) linear infinite;
-  animation-delay: var(--code-delay);
+  gap: 0;
+  width: max(132vw, 1560px);
+  color: rgb(121 229 204 / 0.34);
+  filter: drop-shadow(0 0 12px rgb(99 199 230 / 0.22));
+  animation: login-code-run 42s linear infinite;
   will-change: transform;
 }
 
-.login-code-track pre {
+.login-code-sheet pre {
   margin: 0;
-  white-space: pre-wrap;
+  white-space: pre;
   font-family: var(--font-app-mono);
   font-size: 12px;
   font-weight: 600;
-  line-height: 1.9;
+  line-height: 1.85;
   letter-spacing: 0;
   text-shadow: 0 0 14px rgb(121 229 204 / 0.18);
 }
 
 @keyframes login-code-run {
   from {
-    transform: translate3d(0, -50%, 0);
+    transform: translate3d(-50%, -50%, 0);
   }
   to {
-    transform: translate3d(0, 0, 0);
+    transform: translate3d(-50%, 0, 0);
   }
 }
 
@@ -476,8 +470,9 @@
     opacity: 0;
   }
 
-  .login-code-track {
-    animation: none !important;
-    transform: translate3d(0, -18%, 0);
+  .login-code-sheet {
+    animation: login-code-run 42s linear infinite !important;
+    animation-duration: 42s !important;
+    animation-iteration-count: infinite !important;
   }
 }

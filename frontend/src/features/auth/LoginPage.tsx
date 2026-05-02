@@ -1,4 +1,4 @@
-import { type CSSProperties, useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -17,56 +17,37 @@ const schema = z.object({
 
 type FormValues = z.infer<typeof schema>;
 
-const codeColumns = [
-  [
-    'const tunnel = createNode("hysteria2");',
-    'await auth.rotate(token);',
-    'if (latency < 80) route.fast();',
-    'metrics.push({ rx, tx, users });',
-    'session.refresh(accessToken);',
-    'proxy.bind("0.0.0.0:443");',
-    'cache.warm("subscriptions");',
-    'return encrypt(payload);',
-  ],
-  [
-    'type Peer = { id: string; flow: number };',
-    'for await (const event of stream) {',
-    '  dashboard.patch(event);',
-    '}',
-    'const config = render(runtime);',
-    'rules.allow(["vless", "hy2"]);',
-    'logger.info("core:ready");',
-    'health.check().ok();',
-  ],
-  [
-    'POST /api/auth/login 200',
-    'GET /api/users?status=active',
-    'PATCH /api/settings/runtime',
-    'WS frame: traffic.delta',
-    'TLS handshake: accepted',
-    'subscription.sync: complete',
-    'backup.snapshot: sealed',
-    'node.ping: 42ms',
-  ],
-  [
-    'interface RuntimeSettings {',
-    '  sni: string;',
-    '  bandwidth: Limit;',
-    '  obfs: Secret;',
-    '}',
-    'const next = reconcile(prev, draft);',
-    'await core.reload(next);',
-  ],
-  [
-    'ssh panel@edge',
-    'systemctl reload h2v',
-    'journalctl -u panel -f',
-    'openssl x509 -noout -dates',
-    'curl -fsS /api/health',
-    'sqlite: migrations applied',
-    'token: verified',
-    'rate_limit: clear',
-  ],
+const panelCodeFragments = [
+  '2026-05-03T00:42:11Z auth.login username=admin status=200 access_token=rotated refresh_cookie=set',
+  'const admin = await repo.getAdminByUsername(ctx, input.username);',
+  'if (!verifyPassword(admin.passwordHash, input.password)) throw unauthorized("invalid_credentials");',
+  'apiClient.setUnauthorizedHandler(() => authStore.clear());',
+  'POST /api/auth/refresh -> 200 { access_token, admin: { role: "owner" } }',
+  'const runtime = await settings.loadRuntime(["xray", "hy2", "subscription"]);',
+  'renderConfig("xray.config.json.tmpl", { host, port, users, reality, routing });',
+  'renderConfig("hysteria.config.json.tmpl", { listen, obfs, bandwidth, tls, authWebhook });',
+  'subscription.sync user=client-014 vless=ready hysteria2=ready sing-box=ready',
+  'cache.users.rebuild count=128 indexes=[id, sub_token, hy2_password]',
+  'metrics.push({ name: "panel_users_total", value: activeUsers.length, labels: { status: "active" } });',
+  'traffic.delta username=demo rx=21.8MiB tx=4.6MiB core=xray inbound=vless',
+  'await services.configs.apply(ctx, draft, { reload: true, backup: "before-change" });',
+  'systemctl reload xray.service && systemctl reload hysteria.service && systemctl reload panel.service',
+  'backup.snapshot created path=/var/lib/h2v/backups/2026-05-03T00-42-11Z.json encrypted=false',
+  'GET /api/dashboard -> { cpu, memory, uptime, cores: ["xray", "hysteria2"], online: 73 }',
+  'const node = buildShareLink({ protocol: "hysteria2", sni, insecure: false, obfs: "salamander" });',
+  'rate_limit bucket=login key=127.0.0.1 remaining=4 reset=60s',
+  'repository.upsertUser username=client-014 traffic_limit=107374182400 status=active',
+  'logger.info("core stats collected", "xray", xStats.length, "hysteria", hStats.length);',
+  'PATCH /api/users/7f8c... -> rotate subscription token, preserve traffic counters',
+  'const qrcode = createSubscriptionQr(`/sub/${user.subToken}`, { theme: "h2v" });',
+  'settings.validate hy2.obfs_enabled=true hy2.obfs_password=present result=ok',
+  'GET /api/configs/rendered?core=xray -> 200 content-type=application/json',
+  'db.migrate version=004_remove_subscription_credential_setting dirty=false elapsed=38ms',
+  'tls.certificate renew domain=edge.example.net issuer=letsencrypt expires_in=62d',
+  'stream.send("traffic:update", { online, rxRate, txRate, totalUsed });',
+  'const next = reconcileRuntime(previous, draft, { preserveSecrets: true });',
+  'health.check panel=ok postgres=ok xray=ok hysteria=ok geodata=fresh',
+  'ssh panel@edge "h2v admin set-password --username admin --password ********"',
 ];
 
 export function LoginPage() {
@@ -138,28 +119,25 @@ export function LoginPage() {
 }
 
 function CodeRainBackground() {
+  const codeCanvas = useMemo(() => {
+    const rows = Array.from({ length: 6 }, (_, index) =>
+      panelCodeFragments
+        .map((line, lineIndex) => {
+          const marker = `${String(index + 1).padStart(2, '0')}:${String(lineIndex + 1).padStart(2, '0')}`;
+          return `${marker}  ${line}`;
+        })
+        .join('\n'),
+    );
+
+    return rows.join('\n');
+  }, []);
+
   return (
     <div aria-hidden="true" className="login-code-background">
-      {codeColumns.map((lines, index) => {
-        const style = {
-          '--code-left': `${index * 22 - 6}%`,
-          '--code-duration': `${18 + index * 3}s`,
-          '--code-delay': `${index * -4}s`,
-          '--code-opacity': `${0.42 - (index % 2) * 0.1}`,
-          '--code-tilt': `${index % 2 === 0 ? -5 : 5}deg`,
-        } as CSSProperties;
-
-        const text = lines.concat(lines.slice(0, 5)).join('\n');
-
-        return (
-          <div className="login-code-column" key={index} style={style}>
-            <div className="login-code-track">
-              <pre>{text}</pre>
-              <pre>{text}</pre>
-            </div>
-          </div>
-        );
-      })}
+      <div className="login-code-sheet">
+        <pre>{codeCanvas}</pre>
+        <pre>{codeCanvas}</pre>
+      </div>
     </div>
   );
 }
