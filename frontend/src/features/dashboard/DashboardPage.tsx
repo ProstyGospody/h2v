@@ -192,16 +192,28 @@ export function DashboardPage() {
 }
 
 function NetworkSpeedValue({ rx, tx }: { rx: number; tx: number }) {
+  const items = [
+    { icon: ArrowDown, label: 'Down', value: formatBytesPerSecond(rx) },
+    { icon: ArrowUp, label: 'Up', value: formatBytesPerSecond(tx) },
+  ];
+
   return (
-    <div className="flex min-w-0 flex-wrap items-baseline gap-x-4 gap-y-1 text-foreground">
-      <span aria-label="Download" className="inline-flex min-w-0 items-center gap-1.5" title="Download">
-        <ArrowDown className="size-4 shrink-0 text-primary" />
-        <span className="t-metric whitespace-nowrap">{formatBytesPerSecond(rx)}</span>
-      </span>
-      <span aria-label="Upload" className="inline-flex min-w-0 items-center gap-1.5" title="Upload">
-        <ArrowUp className="size-4 shrink-0 text-primary" />
-        <span className="t-metric whitespace-nowrap">{formatBytesPerSecond(tx)}</span>
-      </span>
+    <div className="grid min-w-0 gap-1.5">
+      {items.map(({ icon: Icon, label, value }) => (
+        <div className="flex min-w-0 items-center justify-between gap-3" key={label}>
+          <span className="flex min-w-0 items-center gap-2 text-muted-foreground">
+            <span className="flex size-6 shrink-0 items-center justify-center rounded-md bg-accent-gradient-soft text-foreground">
+              <Icon className="size-3.5" />
+            </span>
+            <span className="text-[11px] font-semibold uppercase leading-none tracking-[0.06em]">
+              {label}
+            </span>
+          </span>
+          <span className="min-w-0 truncate text-right font-mono text-sm font-semibold leading-5 text-foreground">
+            {value}
+          </span>
+        </div>
+      ))}
     </div>
   );
 }
