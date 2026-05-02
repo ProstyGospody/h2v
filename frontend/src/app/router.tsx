@@ -232,7 +232,7 @@ function ServiceStatusPanel({
               </span>
             ) : null}
             <span className="min-w-0 flex-1">
-              <span className="block truncate text-sm font-medium leading-5 text-foreground">
+              <span className="block truncate font-display text-base font-semibold leading-5 text-white">
                 {item.label}
               </span>
             </span>
