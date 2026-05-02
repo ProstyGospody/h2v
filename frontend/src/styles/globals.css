@@ -374,6 +374,78 @@
   opacity: 0;
 }
 
+.login-code-background {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+  background:
+    linear-gradient(90deg, hsl(var(--background) / 0.96), hsl(var(--background) / 0.68) 48%, hsl(var(--background) / 0.96)),
+    linear-gradient(180deg, hsl(var(--background) / 0.72), hsl(var(--surface) / 0.82));
+}
+
+.login-code-background::before,
+.login-code-background::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+}
+
+.login-code-background::before {
+  background:
+    linear-gradient(180deg, hsl(var(--background)) 0%, transparent 20%, transparent 74%, hsl(var(--background)) 100%),
+    repeating-linear-gradient(180deg, rgb(255 255 255 / 0.035) 0 1px, transparent 1px 4px);
+}
+
+.login-code-background::after {
+  background:
+    linear-gradient(90deg, hsl(var(--background)) 0%, transparent 18%, transparent 82%, hsl(var(--background)) 100%),
+    linear-gradient(180deg, transparent 0%, rgb(99 199 230 / 0.08) 48%, transparent 100%);
+}
+
+.login-code-column {
+  position: absolute;
+  top: -18%;
+  bottom: -18%;
+  left: var(--code-left);
+  z-index: 1;
+  width: 320px;
+  color: rgb(121 229 204 / var(--code-opacity));
+  filter: drop-shadow(0 0 12px rgb(99 199 230 / 0.24));
+  transform: rotate(var(--code-tilt));
+}
+
+.login-code-track {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  animation: login-code-run var(--code-duration) linear infinite;
+  animation-delay: var(--code-delay);
+  will-change: transform;
+}
+
+.login-code-track pre {
+  margin: 0;
+  white-space: pre-wrap;
+  font-family: var(--font-app-mono);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.9;
+  letter-spacing: 0;
+  text-shadow: 0 0 14px rgb(121 229 204 / 0.18);
+}
+
+@keyframes login-code-run {
+  from {
+    transform: translate3d(0, -50%, 0);
+  }
+  to {
+    transform: translate3d(0, 0, 0);
+  }
+}
+
 @keyframes button-shine {
   0%,
   35% {
@@ -402,5 +474,10 @@
   .button-shine:disabled::after {
     animation: none !important;
     opacity: 0;
+  }
+
+  .login-code-track {
+    animation: none !important;
+    transform: translate3d(0, -18%, 0);
   }
 }
