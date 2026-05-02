@@ -3,7 +3,7 @@ import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useNavigate } from '@tanstack/react-router';
-import { Eye, EyeOff } from 'lucide-react';
+import { Eye, EyeOff, Github } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -16,6 +16,8 @@ const schema = z.object({
 });
 
 type FormValues = z.infer<typeof schema>;
+
+const repositoryUrl = 'https://github.com/ProstyGospody/h2v';
 
 const panelCodeFragments = [
   '2026-05-03T00:42:11Z auth.login username=admin status=200 access_token=rotated refresh_cookie=set',
@@ -68,7 +70,7 @@ export function LoginPage() {
       <CodeRainBackground />
 
       <Card className="relative z-10 w-full max-w-100 border-border/60 bg-card/90 shadow-overlay backdrop-blur-xl">
-        <CardContent className="space-y-7 p-7 sm:p-8">
+        <CardContent className="space-y-9 px-7 py-10 sm:px-9 sm:py-12">
           <div className="flex flex-col items-center gap-3 text-center">
             <span className="block font-display text-3xl font-bold italic leading-none text-accent-gradient">
               h2v
@@ -76,18 +78,18 @@ export function LoginPage() {
           </div>
 
           <form
-            className="space-y-4"
+            className="flex flex-col gap-5"
             onSubmit={form.handleSubmit(async (values) => {
               await login(values);
               navigate({ to: '/' });
             })}
           >
-            <div className="space-y-1.5">
+            <div className="flex flex-col gap-2">
               <Label htmlFor="username">Username</Label>
               <Input autoComplete="username" id="username" {...form.register('username')} />
             </div>
 
-            <div className="space-y-1.5">
+            <div className="flex flex-col gap-2">
               <Label htmlFor="password">Password</Label>
               <div className="relative">
                 <Input
@@ -112,6 +114,19 @@ export function LoginPage() {
               {form.formState.isSubmitting ? 'Signing in...' : 'Sign in'}
             </Button>
           </form>
+
+          <div className="flex justify-center">
+            <a
+              aria-label="Open h2v on GitHub"
+              className="inline-flex h-9 items-center gap-2 rounded-md px-3 text-sm text-muted-foreground transition hover:bg-secondary hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/45"
+              href={repositoryUrl}
+              rel="noreferrer"
+              target="_blank"
+            >
+              <Github className="size-4" />
+              <span>GitHub</span>
+            </a>
+          </div>
         </CardContent>
       </Card>
     </div>
@@ -124,7 +139,10 @@ function CodeRainBackground() {
       panelCodeFragments
         .map((line, lineIndex) => {
           const marker = `${String(index + 1).padStart(2, '0')}:${String(lineIndex + 1).padStart(2, '0')}`;
-          return `${marker}  ${line}`;
+          const next = panelCodeFragments[(lineIndex + 7) % panelCodeFragments.length];
+          const tail = panelCodeFragments[(lineIndex + 17) % panelCodeFragments.length];
+
+          return `${marker}  ${line}      ${next}      ${tail}`;
         })
         .join('\n'),
     );
