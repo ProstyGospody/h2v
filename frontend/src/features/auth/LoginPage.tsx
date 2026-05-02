@@ -139,10 +139,9 @@ function CodeRainBackground() {
       panelCodeFragments
         .map((line, lineIndex) => {
           const marker = `${String(index + 1).padStart(2, '0')}:${String(lineIndex + 1).padStart(2, '0')}`;
-          const next = panelCodeFragments[(lineIndex + 7) % panelCodeFragments.length];
-          const tail = panelCodeFragments[(lineIndex + 17) % panelCodeFragments.length];
+          const trail = [7, 13, 19, 24].map((offset) => panelCodeFragments[(lineIndex + offset) % panelCodeFragments.length]);
 
-          return `${marker}  ${line}      ${next}      ${tail}`;
+          return `${marker}  ${[line, ...trail].join('      ')}`;
         })
         .join('\n'),
     );

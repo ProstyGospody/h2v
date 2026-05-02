@@ -410,6 +410,7 @@
   top: 0;
   left: 0;
   right: 0;
+  --login-code-duration: 78s;
   z-index: 1;
   display: flex;
   flex-direction: column;
@@ -420,7 +421,7 @@
   padding-inline: clamp(0.75rem, 2vw, 2rem);
   color: rgb(121 229 204 / 0.34);
   filter: drop-shadow(0 0 12px rgb(99 199 230 / 0.22));
-  animation: login-code-run 42s linear infinite;
+  animation: login-code-run var(--login-code-duration) linear infinite;
   will-change: transform;
 }
 
@@ -457,6 +458,12 @@
   }
 }
 
+@media (min-width: 768px) {
+  .login-code-sheet {
+    --login-code-duration: 54s;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
@@ -477,8 +484,8 @@
   }
 
   .login-code-sheet {
-    animation: login-code-run 42s linear infinite !important;
-    animation-duration: 42s !important;
+    animation: login-code-run var(--login-code-duration) linear infinite !important;
+    animation-duration: var(--login-code-duration) !important;
     animation-iteration-count: infinite !important;
   }
 }
