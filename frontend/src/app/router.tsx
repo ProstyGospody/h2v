@@ -239,7 +239,7 @@ function AppBrand({ compact = false }: { compact?: boolean }) {
     <div className="flex items-center">
       <span
         className={cn(
-          'font-display font-semibold leading-none text-accent-gradient',
+          'font-display font-bold italic leading-none text-accent-gradient',
           compact ? 'text-2xl' : 'text-[34px]',
         )}
       >

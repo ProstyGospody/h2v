@@ -35,7 +35,7 @@ export function LoginPage() {
       <Card className="relative w-full max-w-100">
         <CardContent className="space-y-7 p-7 sm:p-8">
           <div className="flex flex-col items-center gap-3 text-center">
-            <span className="block font-display text-2xl font-semibold leading-none text-accent-gradient">
+            <span className="block font-display text-3xl font-bold italic leading-none text-accent-gradient">
               h2v
             </span>
           </div>

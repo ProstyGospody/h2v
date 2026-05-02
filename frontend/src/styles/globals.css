@@ -52,7 +52,7 @@
     color-scheme: dark;
 
     --font-app-sans: "IBM Plex Sans", "Segoe UI Variable", "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-    --font-app-display: "Source Serif 4", "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
+    --font-app-display: "Cormorant Garamond", "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
     --font-app-mono: "JetBrains Mono", "Cascadia Mono", "SFMono-Regular", Consolas, monospace;
 
     --radius: 0.625rem;
@@ -231,6 +231,7 @@
   .t-hero {
     font-family: var(--font-app-display);
     font-size: clamp(48px, 9vw, 68px);
+    font-style: italic;
     font-weight: 700;
     line-height: 0.95;
     letter-spacing: 0;
