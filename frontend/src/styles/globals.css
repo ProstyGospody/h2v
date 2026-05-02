@@ -359,12 +359,22 @@
 .button-shine::after {
   content: "";
   position: absolute;
-  inset: 0;
+  top: -45%;
+  bottom: -45%;
+  left: -24%;
   z-index: 1;
-  width: 45%;
-  background: linear-gradient(90deg, transparent, rgb(255 255 255 / 0.42), transparent);
-  transform: translateX(-120%);
-  animation: button-shine 2.4s ease-in-out infinite;
+  width: 64%;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgb(255 255 255 / 0.16),
+    rgb(255 255 255 / 0.7),
+    rgb(255 255 255 / 0.18),
+    transparent
+  );
+  transform: translate3d(-160%, 0, 0) skewX(-18deg);
+  animation: button-shine 2.35s cubic-bezier(0.55, 0, 0.25, 1) infinite;
+  opacity: 0.92;
   pointer-events: none;
 }
 
@@ -376,11 +386,92 @@
 @keyframes button-shine {
   0%,
   35% {
-    transform: translateX(-140%) skewX(-18deg);
+    transform: translate3d(-160%, 0, 0) skewX(-18deg);
   }
   70%,
   100% {
-    transform: translateX(260%) skewX(-18deg);
+    transform: translate3d(330%, 0, 0) skewX(-18deg);
+  }
+}
+
+@media (min-width: 768px) {
+  .button-shine::after {
+    left: -18%;
+    width: 42%;
+    background: linear-gradient(
+      90deg,
+      transparent,
+      rgb(255 255 255 / 0.2),
+      rgb(255 255 255 / 0.82),
+      rgb(255 247 184 / 0.22),
+      transparent
+    );
+    animation-duration: 2s;
+  }
+}
+
+.login-animated-bg {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  background:
+    linear-gradient(115deg, rgb(157 144 255 / 0.16), transparent 34%, rgb(99 199 230 / 0.13) 62%, transparent 84%),
+    linear-gradient(180deg, hsl(var(--background)) 0%, hsl(var(--surface)) 100%);
+}
+
+.login-animated-bg::before,
+.login-animated-bg::after {
+  content: "";
+  position: absolute;
+  pointer-events: none;
+}
+
+.login-animated-bg::before {
+  inset: -35%;
+  background-image:
+    repeating-linear-gradient(90deg, transparent 0 54px, hsl(var(--foreground) / 0.05) 55px 56px),
+    repeating-linear-gradient(0deg, transparent 0 54px, hsl(var(--foreground) / 0.04) 55px 56px);
+  -webkit-mask-image: linear-gradient(180deg, transparent 0%, black 18%, black 72%, transparent 100%);
+  mask-image: linear-gradient(180deg, transparent 0%, black 18%, black 72%, transparent 100%);
+  transform: rotate(-8deg) translate3d(0, 0, 0);
+  animation: login-grid-drift 18s linear infinite;
+  opacity: 0.45;
+}
+
+.login-animated-bg::after {
+  inset: -25%;
+  background:
+    conic-gradient(
+      from 205deg at 50% 50%,
+      transparent 0deg,
+      rgb(99 199 230 / 0.24) 54deg,
+      transparent 112deg,
+      transparent 205deg,
+      rgb(255 247 184 / 0.16) 254deg,
+      rgb(157 144 255 / 0.22) 292deg,
+      transparent 360deg
+    );
+  filter: blur(42px);
+  animation: login-aurora-drift 14s ease-in-out infinite alternate;
+  opacity: 0.8;
+}
+
+@keyframes login-grid-drift {
+  0% {
+    transform: rotate(-8deg) translate3d(-28px, -28px, 0);
+  }
+  100% {
+    transform: rotate(-8deg) translate3d(28px, 28px, 0);
+  }
+}
+
+@keyframes login-aurora-drift {
+  0% {
+    transform: translate3d(-3%, -2%, 0) rotate(0deg) scale(1);
+  }
+  100% {
+    transform: translate3d(3%, 2%, 0) rotate(12deg) scale(1.08);
   }
 }
 
