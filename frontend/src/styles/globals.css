@@ -350,6 +350,48 @@
   animation: shimmer 1.6s infinite;
 }
 
+.button-shine {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+}
+
+.button-shine::after {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  z-index: 1;
+  background: linear-gradient(
+    110deg,
+    transparent 0%,
+    transparent 34%,
+    rgb(255 255 255 / 0.34) 45%,
+    rgb(255 255 255 / 0.68) 50%,
+    rgb(255 255 255 / 0.28) 56%,
+    transparent 68%,
+    transparent 100%
+  );
+  transform: translateX(-120%);
+  animation: button-shine 2.8s ease-in-out infinite;
+  pointer-events: none;
+}
+
+.button-shine:disabled::after {
+  animation: none;
+  opacity: 0;
+}
+
+@keyframes button-shine {
+  0%,
+  42% {
+    transform: translateX(-120%);
+  }
+  72%,
+  100% {
+    transform: translateX(120%);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
