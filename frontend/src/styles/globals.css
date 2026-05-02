@@ -359,20 +359,12 @@
 .button-shine::after {
   content: "";
   position: absolute;
-  inset: -1px;
+  inset: 0;
   z-index: 1;
-  background: linear-gradient(
-    110deg,
-    transparent 0%,
-    transparent 34%,
-    rgb(255 255 255 / 0.34) 45%,
-    rgb(255 255 255 / 0.68) 50%,
-    rgb(255 255 255 / 0.28) 56%,
-    transparent 68%,
-    transparent 100%
-  );
+  width: 45%;
+  background: linear-gradient(90deg, transparent, rgb(255 255 255 / 0.42), transparent);
   transform: translateX(-120%);
-  animation: button-shine 2.8s ease-in-out infinite;
+  animation: button-shine 2.4s ease-in-out infinite;
   pointer-events: none;
 }
 
@@ -383,12 +375,12 @@
 
 @keyframes button-shine {
   0%,
-  42% {
-    transform: translateX(-120%);
+  35% {
+    transform: translateX(-140%) skewX(-18deg);
   }
-  72%,
+  70%,
   100% {
-    transform: translateX(120%);
+    transform: translateX(260%) skewX(-18deg);
   }
 }
 
