@@ -106,7 +106,7 @@ export function LoginPage() {
               </button>
             </div>
 
-            <Button className="button-shine w-full" disabled={form.formState.isSubmitting} size="lg" type="submit">
+            <Button className="button-shine mt-6 w-full" disabled={form.formState.isSubmitting} size="lg" type="submit">
               {form.formState.isSubmitting ? 'Signing in...' : 'Sign in'}
             </Button>
           </form>
