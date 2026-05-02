@@ -51,8 +51,8 @@
   :root {
     color-scheme: dark;
 
-    --font-app-sans: "Inter", "Segoe UI Variable", "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-    --font-app-display: "Manrope", "Inter", "Segoe UI Variable", "Segoe UI", Roboto, sans-serif;
+    --font-app-sans: "IBM Plex Sans", "Segoe UI Variable", "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    --font-app-display: "Source Serif 4", "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
     --font-app-mono: "JetBrains Mono", "Cascadia Mono", "SFMono-Regular", Consolas, monospace;
 
     --radius: 0.625rem;
@@ -166,7 +166,7 @@
     line-height: 1.5;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
-    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+    font-kerning: normal;
     font-optical-sizing: auto;
     text-rendering: optimizeLegibility;
   }
