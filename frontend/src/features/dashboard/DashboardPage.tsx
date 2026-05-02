@@ -12,7 +12,7 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from 'recharts';
-import { Card, CardContent, CardHeader } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from '@/components/ui/chart';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -133,63 +133,59 @@ export function DashboardPage() {
       </div>
 
       <div className="px-page pt-4">
-        <Card>
-          <CardHeader>
-            <div className="flex items-center justify-end gap-3">
-              <span className="font-mono text-[11px] uppercase tracking-wider text-muted-foreground">
-                last {days}d
-              </span>
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="h-80 sm:h-96 xl:h-[420px]">
-              {traffic.isLoading ? (
-                <Skeleton className="h-full w-full" />
-              ) : hasTrafficSamples ? (
-                <ChartContainer className="h-full w-full aspect-auto" config={trafficChartConfig}>
-                  <BarChart data={trafficData} margin={{ left: 0, right: 8, top: 8, bottom: 0 }}>
-                    <defs>
-                      <linearGradient id="dashboardTrafficGradient" x1="0" x2="0" y1="0" y2="1">
-                        <stop offset="0%" stopColor="var(--accent-primary)" />
-                        <stop offset="100%" stopColor="var(--accent-secondary)" />
-                      </linearGradient>
-                    </defs>
-                    <CartesianGrid stroke="hsl(var(--border) / 0.5)" strokeDasharray="3 3" vertical={false} />
-                    <XAxis
-                      axisLine={false}
-                      dataKey="recorded_at"
-                      minTickGap={30}
-                      tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 11 }}
-                      tickFormatter={(v) => formatDate(String(v), 'MMM d')}
-                      tickLine={false}
-                    />
-                    <YAxis
-                      axisLine={false}
-                      tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 11 }}
-                      tickFormatter={(v) => formatBytes(Number(v))}
-                      tickLine={false}
-                      width={64}
-                    />
-                    <ChartTooltip
-                      cursor={{ fill: 'url(#dashboardTrafficGradient)', opacity: 0.18 }}
-                      content={
-                        <ChartTooltipContent
-                          formatter={(value) => [formatBytes(Number(value)), 'Total']}
-                          labelFormatter={(v) => formatShortDateTime(String(v))}
-                        />
-                      }
-                    />
-                    <Bar dataKey="total" fill="url(#dashboardTrafficGradient)" name="total" radius={[4, 4, 0, 0]} />
-                  </BarChart>
-                </ChartContainer>
-              ) : (
-                <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
-                  No samples yet.
-                </div>
-              )}
-            </div>
-          </CardContent>
-        </Card>
+        <div className="relative">
+          <div className="absolute right-0 top-0 z-10 flex items-center justify-end gap-3">
+            <span className="font-mono text-[11px] uppercase tracking-wider text-muted-foreground">
+              last {days}d
+            </span>
+          </div>
+          <div className="h-80 pt-6 sm:h-96 xl:h-[420px]">
+            {traffic.isLoading ? (
+              <Skeleton className="h-full w-full" />
+            ) : hasTrafficSamples ? (
+              <ChartContainer className="h-full w-full aspect-auto" config={trafficChartConfig}>
+                <BarChart data={trafficData} margin={{ left: 0, right: 8, top: 8, bottom: 0 }}>
+                  <defs>
+                    <linearGradient id="dashboardTrafficGradient" x1="0" x2="0" y1="0" y2="1">
+                      <stop offset="0%" stopColor="var(--accent-primary)" />
+                      <stop offset="100%" stopColor="var(--accent-secondary)" />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid stroke="hsl(var(--border) / 0.5)" strokeDasharray="3 3" vertical={false} />
+                  <XAxis
+                    axisLine={false}
+                    dataKey="recorded_at"
+                    minTickGap={30}
+                    tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 11 }}
+                    tickFormatter={(v) => formatDate(String(v), 'MMM d')}
+                    tickLine={false}
+                  />
+                  <YAxis
+                    axisLine={false}
+                    tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 11 }}
+                    tickFormatter={(v) => formatBytes(Number(v))}
+                    tickLine={false}
+                    width={64}
+                  />
+                  <ChartTooltip
+                    cursor={{ fill: 'url(#dashboardTrafficGradient)', opacity: 0.18 }}
+                    content={
+                      <ChartTooltipContent
+                        formatter={(value) => [formatBytes(Number(value)), 'Total']}
+                        labelFormatter={(v) => formatShortDateTime(String(v))}
+                      />
+                    }
+                  />
+                  <Bar dataKey="total" fill="url(#dashboardTrafficGradient)" name="total" radius={[4, 4, 0, 0]} />
+                </BarChart>
+              </ChartContainer>
+            ) : (
+              <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
+                No samples yet.
+              </div>
+            )}
+          </div>
+        </div>
       </div>
     </div>
   );
