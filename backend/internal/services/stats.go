@@ -99,6 +99,7 @@ func (s *StatsService) Overview(ctx context.Context) (*domain.OverviewStats, err
 		NetworkTxBytesPerSecond: networkTxBPS,
 		XrayStatus:              xrayStatus,
 		HysteriaStatus:          hyStatus,
+		UptimeSeconds:           int64(time.Since(s.startedAt).Seconds()),
 		OnlineUsers:             online,
 	}, nil
 }

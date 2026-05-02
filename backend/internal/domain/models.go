@@ -95,6 +95,7 @@ type OverviewStats struct {
 	NetworkTxBytesPerSecond      int64        `json:"network_tx_bytes_per_second"`
 	XrayStatus                   string       `json:"xray_status"`
 	HysteriaStatus               string       `json:"hysteria_status"`
+	UptimeSeconds                int64        `json:"uptime_seconds"`
 	OnlineUsers                  []OnlineUser `json:"online_users"`
 }
 

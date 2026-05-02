@@ -86,7 +86,7 @@ export function DashboardPage() {
         }
       />
 
-      <div className="grid gap-2.5 px-page pt-5 sm:grid-cols-2 sm:gap-3 xl:grid-cols-3 2xl:grid-cols-6">
+      <div className="grid auto-rows-fr grid-cols-2 gap-2.5 px-page pt-5 sm:grid-cols-3 sm:gap-3 2xl:grid-cols-6">
         <MetricCard
           value={
             <NetworkSpeedValue
@@ -95,12 +95,12 @@ export function DashboardPage() {
             />
           }
           icon={Network}
-          label="Network Speed"
+          label="Network"
           loading={overview.isLoading}
         />
         <MetricCard
           icon={ChartColumnIncreasing}
-          label="Today traffic"
+          label="Today"
           loading={overview.isLoading}
           value={formatBytes(data?.today_traffic ?? 0)}
         />
@@ -114,7 +114,7 @@ export function DashboardPage() {
         <MetricCard
           bar={{ percent: memoryPercent ?? 0, tone: usageTone(memoryPercent) }}
           icon={MemoryStick}
-          label="Memory"
+          label="RAM"
           loading={overview.isLoading}
           value={formatPercent(memoryPercent)}
         />
@@ -198,18 +198,18 @@ function NetworkSpeedValue({ rx, tx }: { rx: number; tx: number }) {
   ];
 
   return (
-    <div className="grid min-w-0 gap-1.5">
+    <div className="grid min-w-0 gap-1">
       {items.map(({ icon: Icon, label, value }) => (
-        <div className="flex min-w-0 items-center justify-between gap-3" key={label}>
-          <span className="flex min-w-0 items-center gap-2 text-muted-foreground">
-            <span className="flex size-6 shrink-0 items-center justify-center rounded-md bg-accent-gradient-soft text-foreground">
-              <Icon className="size-3.5" />
+        <div className="flex min-w-0 items-center justify-between gap-2" key={label}>
+          <span className="flex min-w-0 items-center gap-1.5 text-muted-foreground">
+            <span className="flex size-5 shrink-0 items-center justify-center rounded-md bg-accent-gradient-soft text-foreground">
+              <Icon className="size-3" />
             </span>
-            <span className="text-[11px] font-semibold uppercase leading-none tracking-[0.06em]">
+            <span className="text-[10px] font-semibold uppercase leading-none tracking-[0.06em]">
               {label}
             </span>
           </span>
-          <span className="min-w-0 truncate text-right font-mono text-sm font-semibold leading-5 text-foreground">
+          <span className="min-w-0 truncate text-right font-mono text-xs font-semibold leading-5 text-foreground">
             {value}
           </span>
         </div>
@@ -236,13 +236,13 @@ function MetricCard({
   const gradientId = `metric-icon-${useId().replace(/:/g, '')}`;
 
   return (
-    <Card className="h-full transition-colors hover:bg-[hsl(var(--surface-elevated))]">
-      <CardContent className="flex h-full flex-col gap-2 p-3 sm:p-4">
-        <div className="flex items-start justify-between gap-2">
+    <Card className="h-full min-h-[108px] transition-colors hover:bg-[hsl(var(--surface-elevated))]">
+      <CardContent className="flex h-full min-w-0 flex-col gap-2 p-3">
+        <div className="flex min-w-0 items-start justify-between gap-2">
           <span className="t-label">{label}</span>
           <span
             className={cn(
-              'relative flex size-8 shrink-0 items-center justify-center',
+              'relative flex size-6 shrink-0 items-center justify-center',
             )}
           >
             <svg aria-hidden="true" className="pointer-events-none absolute size-0 overflow-hidden">
@@ -254,34 +254,38 @@ function MetricCard({
                 </linearGradient>
               </defs>
             </svg>
-            <Icon className="size-7" stroke={`url(#${gradientId})`} strokeWidth={2.35} />
+            <Icon className="size-6" stroke={`url(#${gradientId})`} strokeWidth={2.35} />
           </span>
         </div>
-        {loading ? (
-          value !== undefined && value !== null ? (
-            <Skeleton className="h-6 w-20" />
+        <div className="flex min-h-10 min-w-0 flex-1 items-end">
+          {loading ? (
+            value !== undefined && value !== null ? (
+              <Skeleton className="h-5 w-20" />
+            ) : (
+              <div className="h-5" />
+            )
+          ) : typeof value === 'string' ? (
+            <div className="truncate text-xl font-semibold leading-none text-foreground">{value}</div>
+          ) : value !== undefined && value !== null ? (
+            <div className="min-w-0 flex-1">{value}</div>
           ) : (
-            <div className="h-6" />
-          )
-        ) : typeof value === 'string' ? (
-          <div className="t-metric text-foreground">{value}</div>
-        ) : value !== undefined && value !== null ? (
-          value
-        ) : (
-          <div className="h-6" />
-        )}
-        {bar ? (
-          loading ? (
-            <Skeleton className="h-1.5 w-full" />
-          ) : (
-            <div className="h-1.5 overflow-hidden rounded-full bg-muted">
-              <div
-                className={cn('h-full rounded-full transition-all duration-500', bar.tone)}
-                style={{ width: `${Math.max(0, Math.min(100, bar.percent))}%` }}
-              />
-            </div>
-          )
-        ) : null}
+            <div className="h-5" />
+          )}
+        </div>
+        <div className="h-1.5">
+          {bar ? (
+            loading ? (
+              <Skeleton className="h-1.5 w-full" />
+            ) : (
+              <div className="h-1.5 overflow-hidden rounded-full bg-muted">
+                <div
+                  className={cn('h-full rounded-full transition-all duration-500', bar.tone)}
+                  style={{ width: `${Math.max(0, Math.min(100, bar.percent))}%` }}
+                />
+              </div>
+            )
+          ) : null}
+        </div>
         {footer ? (
           <div className="mt-auto">
             {loading ? <Skeleton className="h-4 w-full" /> : footer}

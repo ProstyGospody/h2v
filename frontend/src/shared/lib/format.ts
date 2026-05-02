@@ -33,6 +33,29 @@ export function formatPercent(value: number | undefined): string {
   return `${clamped.toFixed(1)}%`;
 }
 
+export function formatDurationCompact(totalSeconds: number | undefined): string {
+  if (typeof totalSeconds !== 'number' || Number.isNaN(totalSeconds) || totalSeconds < 0) {
+    return '--';
+  }
+
+  const minutes = Math.floor(totalSeconds / 60);
+  const hours = Math.floor(minutes / 60);
+  const days = Math.floor(hours / 24);
+  const remHours = hours % 24;
+  const remMinutes = minutes % 60;
+
+  if (days > 0) {
+    return remHours > 0 ? `${days}d ${remHours}h` : `${days}d`;
+  }
+  if (hours > 0) {
+    return remMinutes > 0 ? `${hours}h ${remMinutes}m` : `${hours}h`;
+  }
+  if (minutes > 0) {
+    return `${minutes}m`;
+  }
+  return '<1m';
+}
+
 export function relativeExpiry(value: string | null): string {
   if (!value) return 'Never expires';
   const date = new Date(value);

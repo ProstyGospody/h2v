@@ -53,6 +53,7 @@ export type OverviewStats = {
   network_tx_bytes_per_second: number;
   xray_status: string;
   hysteria_status: string;
+  uptime_seconds: number;
   online_users: Array<{ username: string; recorded_at: string; bytes: number }>;
 };
 

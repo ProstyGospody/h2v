@@ -1,11 +1,12 @@
 import { useState, type ComponentType } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Link, Outlet, createRootRoute, createRoute, createRouter, useRouterState } from '@tanstack/react-router';
+import { Link, Outlet, createRootRoute, createRoute, createRouter } from '@tanstack/react-router';
 import {
   FileCode2,
   LayoutDashboard,
   LogOut,
   Menu,
+  Timer,
   Settings2,
   Users,
 } from 'lucide-react';
@@ -24,6 +25,7 @@ import { UsersPage } from '@/features/users/UsersPage';
 import { cn } from '@/lib/utils';
 import { apiClient } from '@/shared/api/client';
 import type { OverviewStats } from '@/shared/api/types';
+import { formatDurationCompact } from '@/shared/lib/format';
 
 type LinkTo = '/' | '/users' | '/settings' | '/configs';
 type StatusTone = 'ok' | 'warn' | 'idle';
@@ -50,8 +52,6 @@ function RootLayout() {
 function ProtectedShell() {
   const { admin, logout, ready } = useAuth();
   const [navOpen, setNavOpen] = useState(false);
-  const pathname = useRouterState({ select: (s) => s.location.pathname });
-  const currentLink = primaryLinks.find((link) => link.to === pathname) ?? primaryLinks[0];
 
   if (!ready) {
     return (
@@ -80,9 +80,6 @@ function ProtectedShell() {
             <Menu className="size-5" />
           </Button>
           <AppBrand compact />
-          <span className="ml-auto truncate text-xs text-muted-foreground">
-            {currentLink.label}
-          </span>
         </header>
 
         <Outlet />
@@ -111,7 +108,14 @@ function SidebarBody({
     queryFn: () => apiClient.request<OverviewStats>('/stats/overview'),
     refetchInterval: 10_000,
   });
+  const uptimeTone: StatusTone = overview.isError ? 'warn' : overview.isLoading ? 'idle' : 'ok';
   const serviceStatuses = [
+    {
+      label: 'Uptime',
+      icon: Timer,
+      tone: uptimeTone,
+      value: formatDurationCompact(overview.data?.uptime_seconds),
+    },
     {
       label: 'Xray',
       logo: 'xray' as const,
@@ -183,34 +187,40 @@ function ServiceStatusPanel({
   items,
 }: {
   items: Array<{
+    icon?: ComponentType<{ className?: string }>;
     label: string;
-    logo: CoreLogoName;
+    logo?: CoreLogoName;
     tone: StatusTone;
     value: string;
   }>;
 }) {
   return (
     <div className="space-y-1 px-1">
-      {items.map((item) => (
-        <div
-          className="flex items-center gap-2.5 rounded-md px-1 py-1.5 transition-colors hover:bg-muted/25"
-          key={item.label}
-        >
-          <span className="flex size-7 shrink-0 items-center justify-center">
-            <CoreLogo className="size-6" core={item.logo} />
-          </span>
-          <span className="min-w-0 flex-1">
-            <span className="block truncate text-sm font-medium leading-5 text-foreground">
-              {item.label}
+      {items.map((item) => {
+        const Icon = item.icon;
+
+        return (
+          <div
+            className="flex items-center gap-2.5 rounded-md px-1 py-1.5 transition-colors hover:bg-muted/25"
+            key={item.label}
+          >
+            <span className="flex size-7 shrink-0 items-center justify-center rounded-md bg-muted/35 text-muted-foreground">
+              {item.logo ? <CoreLogo className="size-6" core={item.logo} /> : Icon ? <Icon className="size-4" /> : null}
             </span>
-          </span>
-          <span
-            aria-label={item.value}
-            className={cn('size-2 shrink-0 rounded-full ring-2', serviceDotTone(item.tone))}
-            title={item.value}
-          />
-        </div>
-      ))}
+            <span className="min-w-0 flex-1">
+              <span className="block truncate text-sm font-medium leading-5 text-foreground">
+                {item.label}
+              </span>
+            </span>
+            <span className="shrink-0 font-mono text-[11px] text-muted-foreground">{item.value}</span>
+            <span
+              aria-label={item.value}
+              className={cn('size-2 shrink-0 rounded-full ring-2', serviceDotTone(item.tone))}
+              title={item.value}
+            />
+          </div>
+        );
+      })}
     </div>
   );
 }
