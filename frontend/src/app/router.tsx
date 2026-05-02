@@ -63,12 +63,12 @@ function ProtectedShell() {
   if (!admin) return <LoginPage />;
 
   return (
-    <div className="min-h-screen bg-app-background text-foreground">
+    <div className="min-h-screen min-w-0 overflow-x-hidden bg-app-background text-foreground">
       <aside className="fixed inset-y-0 left-0 z-40 hidden w-[260px] border-r border-border/55 bg-sidebar-panel lg:block">
         <SidebarBody admin={admin} logout={logout} />
       </aside>
 
-      <main className="flex min-w-0 flex-col bg-transparent lg:pl-[260px]">
+      <main className="flex min-w-0 flex-col overflow-x-hidden bg-transparent lg:pl-[260px]">
         <header className="sticky top-0 z-30 flex h-14 items-center gap-3 bg-background/90 px-4 shadow-sm backdrop-blur supports-backdrop-filter:bg-background/70 lg:hidden">
           <Button
             aria-label="Open navigation"

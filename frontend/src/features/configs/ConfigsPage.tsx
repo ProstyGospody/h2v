@@ -205,7 +205,7 @@ function ConfigPanel({ core }: { core: Core }) {
               <Wand2 />
               Format
             </Button>
-            <div className="ml-auto flex items-center gap-2">
+            <div className="flex w-full items-center gap-2 sm:ml-auto sm:w-auto">
               <Button disabled={!canValidate} onClick={() => validate.mutate()} size="sm" variant="secondary">
                 <CheckCircle2 />
                 Validate

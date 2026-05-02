@@ -17,15 +17,15 @@ export function PageHeader({ action, className, description, title }: PageHeader
     >
       <div className="flex min-h-9 min-w-0 flex-col justify-center gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
         <div className="min-w-0 space-y-1">
-          <h1 className="max-w-full whitespace-nowrap font-display text-2xl font-semibold leading-tight text-white sm:text-3xl">
+          <h1 className="max-w-full truncate font-display text-2xl font-semibold leading-tight text-white sm:text-3xl">
             {title}
           </h1>
           {description ? (
-            <p className="text-sm text-muted-foreground">{description}</p>
+            <p className="min-w-0 text-sm text-muted-foreground">{description}</p>
           ) : null}
         </div>
         {action ? (
-          <div className="flex shrink-0 flex-wrap items-center gap-2">{action}</div>
+          <div className="flex w-full min-w-0 flex-wrap items-center gap-2 sm:w-auto sm:shrink-0">{action}</div>
         ) : null}
       </div>
     </header>

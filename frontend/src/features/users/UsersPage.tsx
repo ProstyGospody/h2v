@@ -354,11 +354,11 @@ export function UsersPage() {
                     />
                   </TableHead>
                   <TableHead>Username</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Traffic</TableHead>
+                  <TableHead className="hidden sm:table-cell">Status</TableHead>
+                  <TableHead className="hidden sm:table-cell">Traffic</TableHead>
                   <TableHead className="hidden md:table-cell">Expires</TableHead>
                   <TableHead className="hidden lg:table-cell">Created</TableHead>
-                  <TableHead className="w-20">QR</TableHead>
+                  <TableHead className="hidden w-20 sm:table-cell">QR</TableHead>
                   <TableHead className="w-10" />
                 </TableRow>
               </TableHeader>
@@ -392,27 +392,25 @@ export function UsersPage() {
                           type="checkbox"
                         />
                       </TableCell>
-                      <TableCell>
-                        <div className="font-medium text-foreground">{user.username}</div>
-                        {user.note ? (
-                          <div className="mt-0.5 truncate text-xs text-muted-foreground">{user.note}</div>
-                        ) : null}
+                      <TableCell className="min-w-0">
+                        <div className="min-w-0">
+                          <div className="truncate font-medium text-foreground">{user.username}</div>
+                          {user.note ? (
+                            <div className="mt-0.5 truncate text-xs text-muted-foreground">{user.note}</div>
+                          ) : null}
+                          <div className="mt-2 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 sm:hidden">
+                            <UserStatusBadge status={user.status} />
+                            <span className="min-w-0 truncate font-mono text-[11px] text-muted-foreground">
+                              {formatBytes(user.traffic_used)} /{' '}
+                              {user.traffic_limit > 0 ? formatBytes(user.traffic_limit) : 'Unlimited'}
+                            </span>
+                          </div>
+                        </div>
                       </TableCell>
-                      <TableCell>
-                        {user.status === 'active' ? (
-                          <Badge variant="success">
-                            <span className="size-1.5 rounded-full bg-success animate-pulse-ring" />
-                            Active
-                          </Badge>
-                        ) : user.status === 'limited' ? (
-                          <Badge variant="destructive">Limited</Badge>
-                        ) : user.status === 'expired' ? (
-                          <Badge variant="warning">Expired</Badge>
-                        ) : (
-                          <Badge variant="secondary">Disabled</Badge>
-                        )}
+                      <TableCell className="hidden sm:table-cell">
+                        <UserStatusBadge status={user.status} />
                       </TableCell>
-                      <TableCell className="min-w-52">
+                      <TableCell className="hidden min-w-44 sm:table-cell">
                         <div className="space-y-1.5">
                           <div className="h-1.5 overflow-hidden rounded-full bg-muted">
                             <div
@@ -442,7 +440,7 @@ export function UsersPage() {
                       <TableCell className="hidden text-xs text-muted-foreground lg:table-cell">
                         {formatDate(user.created_at, 'MMM d')}
                       </TableCell>
-                      <TableCell onClick={(e) => e.stopPropagation()}>
+                      <TableCell className="hidden sm:table-cell" onClick={(e) => e.stopPropagation()}>
                         <Button
                           onClick={() => setQrUserId(user.id)}
                           size="sm"
@@ -554,22 +552,11 @@ export function UsersPage() {
           {drawerUser ? (
             <>
               <SheetHeader>
-                <SheetTitle className="flex items-center gap-3">
-                  {drawerUser.username}
-                  {drawerUser.status === 'active' ? (
-                    <Badge variant="success">
-                      <span className="size-1.5 rounded-full bg-success animate-pulse-ring" />
-                      Active
-                    </Badge>
-                  ) : drawerUser.status === 'limited' ? (
-                    <Badge variant="destructive">Limited</Badge>
-                  ) : drawerUser.status === 'expired' ? (
-                    <Badge variant="warning">Expired</Badge>
-                  ) : (
-                    <Badge variant="secondary">Disabled</Badge>
-                  )}
+                <SheetTitle className="flex min-w-0 flex-wrap items-center gap-2 pr-8">
+                  <span className="min-w-0 truncate">{drawerUser.username}</span>
+                  <UserStatusBadge status={drawerUser.status} />
                 </SheetTitle>
-                <SheetDescription>{drawerUser.note || 'No note attached.'}</SheetDescription>
+                <SheetDescription className="break-words">{drawerUser.note || 'No note attached.'}</SheetDescription>
               </SheetHeader>
 
               <div className="space-y-5 px-6 pb-6">
@@ -602,18 +589,7 @@ export function UsersPage() {
                   <div className="flex items-center justify-between gap-3 rounded-md bg-muted/30 px-2 py-2.5 text-sm">
                     <span className="text-muted-foreground">Status</span>
                     <span className="text-right text-foreground">
-                      {drawerUser.status === 'active' ? (
-                        <Badge variant="success">
-                          <span className="size-1.5 rounded-full bg-success animate-pulse-ring" />
-                          Active
-                        </Badge>
-                      ) : drawerUser.status === 'limited' ? (
-                        <Badge variant="destructive">Limited</Badge>
-                      ) : drawerUser.status === 'expired' ? (
-                        <Badge variant="warning">Expired</Badge>
-                      ) : (
-                        <Badge variant="secondary">Disabled</Badge>
-                      )}
+                      <UserStatusBadge status={drawerUser.status} />
                     </span>
                   </div>
                 </div>
@@ -821,6 +797,27 @@ export function UsersPage() {
 
 function generateUsername() {
   return `user_${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function UserStatusBadge({ status }: { status: UserStatus }) {
+  if (status === 'active') {
+    return (
+      <Badge variant="success">
+        <span className="size-1.5 rounded-full bg-success animate-pulse-ring" />
+        Active
+      </Badge>
+    );
+  }
+
+  if (status === 'limited') {
+    return <Badge variant="destructive">Limited</Badge>;
+  }
+
+  if (status === 'expired') {
+    return <Badge variant="warning">Expired</Badge>;
+  }
+
+  return <Badge variant="secondary">Disabled</Badge>;
 }
 
 function QRDialogContent({
