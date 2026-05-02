@@ -192,24 +192,30 @@ export function DashboardPage() {
 }
 
 function NetworkSpeedValue({ rx, tx }: { rx: number; tx: number }) {
+  const gradientId = `network-speed-${useId().replace(/:/g, '')}`;
   const items = [
     { icon: ArrowDown, label: 'Down', value: formatBytesPerSecond(rx) },
     { icon: ArrowUp, label: 'Up', value: formatBytesPerSecond(tx) },
   ];
 
   return (
-    <div className="grid min-w-0 gap-1">
+    <div className="flex min-w-0 items-center gap-2">
+      <svg aria-hidden="true" className="pointer-events-none absolute size-0 overflow-hidden">
+        <defs>
+          <linearGradient id={gradientId} x1="4" x2="20" y1="4" y2="20" gradientUnits="userSpaceOnUse">
+            <stop offset="0" stopColor="#fff7b8" />
+            <stop offset="0.45" stopColor="#e9fff7" />
+            <stop offset="1" stopColor="#f08a24" />
+          </linearGradient>
+        </defs>
+      </svg>
       {items.map(({ icon: Icon, label, value }) => (
-        <div className="flex min-w-0 items-center justify-between gap-2" key={label}>
-          <span className="flex min-w-0 items-center gap-1.5 text-muted-foreground">
-            <span className="flex size-5 shrink-0 items-center justify-center rounded-md bg-accent-gradient-soft text-foreground">
-              <Icon className="size-3" />
-            </span>
-            <span className="text-[10px] font-semibold uppercase leading-none tracking-[0.06em]">
-              {label}
-            </span>
+        <div className="flex min-w-0 flex-1 items-center gap-1" key={label}>
+          <Icon className="size-3.5 shrink-0" stroke={`url(#${gradientId})`} strokeWidth={2.35} />
+          <span className="shrink-0 text-[10px] font-semibold uppercase leading-none tracking-[0.04em] text-muted-foreground">
+            {label}
           </span>
-          <span className="min-w-0 truncate text-right font-mono text-xs font-semibold leading-5 text-foreground">
+          <span className="min-w-0 truncate font-mono text-[11px] font-semibold leading-5 text-foreground">
             {value}
           </span>
         </div>
@@ -236,7 +242,7 @@ function MetricCard({
   const gradientId = `metric-icon-${useId().replace(/:/g, '')}`;
 
   return (
-    <Card className="h-full min-h-[108px] transition-colors hover:bg-[hsl(var(--surface-elevated))]">
+    <Card className="h-full min-h-[108px] border-0 transition-colors hover:bg-[hsl(var(--surface-elevated))]">
       <CardContent className="flex h-full min-w-0 flex-col gap-2 p-3">
         <div className="flex min-w-0 items-start justify-between gap-2">
           <span className="t-label">{label}</span>

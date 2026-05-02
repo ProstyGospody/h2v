@@ -6,7 +6,6 @@ import {
   LayoutDashboard,
   LogOut,
   Menu,
-  Timer,
   Settings2,
   Users,
 } from 'lucide-react';
@@ -108,25 +107,28 @@ function SidebarBody({
     queryFn: () => apiClient.request<OverviewStats>('/stats/overview'),
     refetchInterval: 10_000,
   });
-  const uptimeTone: StatusTone = overview.isError ? 'warn' : overview.isLoading ? 'idle' : 'ok';
   const serviceStatuses = [
     {
       label: 'Uptime',
-      icon: Timer,
-      tone: uptimeTone,
       value: formatDurationCompact(overview.data?.uptime_seconds),
+      showIndicator: false,
+      showValue: true,
     },
     {
       label: 'Xray',
       logo: 'xray' as const,
       tone: serviceTone(overview.data?.xray_status, overview.isError),
       value: serviceStatusLabel(overview.data?.xray_status, overview.isLoading, overview.isError),
+      showIndicator: true,
+      showValue: false,
     },
     {
       label: 'Hysteria 2',
       logo: 'hysteria' as const,
       tone: serviceTone(overview.data?.hysteria_status, overview.isError),
       value: serviceStatusLabel(overview.data?.hysteria_status, overview.isLoading, overview.isError),
+      showIndicator: true,
+      showValue: false,
     },
   ];
 
@@ -190,7 +192,9 @@ function ServiceStatusPanel({
     icon?: ComponentType<{ className?: string }>;
     label: string;
     logo?: CoreLogoName;
-    tone: StatusTone;
+    showIndicator?: boolean;
+    showValue?: boolean;
+    tone?: StatusTone;
     value: string;
   }>;
 }) {
@@ -204,20 +208,26 @@ function ServiceStatusPanel({
             className="flex items-center gap-2.5 rounded-md px-1 py-1.5 transition-colors hover:bg-muted/25"
             key={item.label}
           >
-            <span className="flex size-7 shrink-0 items-center justify-center rounded-md bg-muted/35 text-muted-foreground">
-              {item.logo ? <CoreLogo className="size-6" core={item.logo} /> : Icon ? <Icon className="size-4" /> : null}
-            </span>
+            {item.logo || Icon ? (
+              <span className="flex size-7 shrink-0 items-center justify-center">
+                {item.logo ? <CoreLogo className="size-6" core={item.logo} /> : Icon ? <Icon className="size-4" /> : null}
+              </span>
+            ) : null}
             <span className="min-w-0 flex-1">
               <span className="block truncate text-sm font-medium leading-5 text-foreground">
                 {item.label}
               </span>
             </span>
-            <span className="shrink-0 font-mono text-[11px] text-muted-foreground">{item.value}</span>
-            <span
-              aria-label={item.value}
-              className={cn('size-2 shrink-0 rounded-full ring-2', serviceDotTone(item.tone))}
-              title={item.value}
-            />
+            {item.showValue ? (
+              <span className="shrink-0 font-mono text-[11px] text-muted-foreground">{item.value}</span>
+            ) : null}
+            {item.showIndicator ? (
+              <span
+                aria-label={item.value}
+                className={cn('size-2 shrink-0 rounded-full ring-2', serviceDotTone(item.tone ?? 'idle'))}
+                title={item.value}
+              />
+            ) : null}
           </div>
         );
       })}
