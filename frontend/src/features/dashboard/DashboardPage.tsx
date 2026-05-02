@@ -199,7 +199,7 @@ function NetworkSpeedValue({ rx, tx }: { rx: number; tx: number }) {
   ];
 
   return (
-    <div className="grid min-w-0 gap-1.5">
+    <div className="grid min-w-0 gap-1">
       <svg aria-hidden="true" className="pointer-events-none absolute size-0 overflow-hidden">
         <defs>
           <linearGradient id={gradientId} x1="4" x2="20" y1="4" y2="20" gradientUnits="userSpaceOnUse">
@@ -210,8 +210,8 @@ function NetworkSpeedValue({ rx, tx }: { rx: number; tx: number }) {
         </defs>
       </svg>
       {items.map(({ icon: Icon, label, value }) => (
-        <div aria-label={label} className="flex min-w-0 items-center gap-2" key={label}>
-          <Icon className="size-5 shrink-0" stroke={`url(#${gradientId})`} strokeWidth={2.35} />
+        <div aria-label={label} className="flex min-w-0 items-center gap-1.5" key={label}>
+          <Icon className="size-[18px] shrink-0" stroke={`url(#${gradientId})`} strokeWidth={2.35} />
           <span className="min-w-0 truncate font-mono text-sm font-semibold leading-none text-foreground">
             {value}
           </span>
@@ -239,8 +239,8 @@ function MetricCard({
   const gradientId = `metric-icon-${useId().replace(/:/g, '')}`;
 
   return (
-    <Card className="h-full min-h-[108px] border-0 transition-colors hover:bg-[hsl(var(--surface-elevated))]">
-      <CardContent className="flex h-full min-w-0 flex-col gap-2 p-3">
+    <Card className="h-full min-h-[90px] border-0 transition-colors hover:bg-[hsl(var(--surface-elevated))]">
+      <CardContent className="flex h-full min-w-0 flex-col gap-1.5 p-2.5">
         <div className="flex min-w-0 items-start justify-between gap-2">
           <span className="t-label">{label}</span>
           <span
@@ -260,7 +260,7 @@ function MetricCard({
             <Icon className="size-6" stroke={`url(#${gradientId})`} strokeWidth={2.35} />
           </span>
         </div>
-        <div className="flex min-h-10 min-w-0 flex-1 items-end">
+        <div className="min-w-0">
           {loading ? (
             value !== undefined && value !== null ? (
               <Skeleton className="h-5 w-20" />
@@ -275,7 +275,7 @@ function MetricCard({
             <div className="h-5" />
           )}
         </div>
-        <div className="h-1.5">
+        <div className={cn('h-1.5', !bar && 'hidden')}>
           {bar ? (
             loading ? (
               <Skeleton className="h-1.5 w-full" />
