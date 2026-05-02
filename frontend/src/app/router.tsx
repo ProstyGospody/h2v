@@ -1,4 +1,4 @@
-import { useState, type ComponentType } from 'react';
+import { useId, useState, type ComponentType } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Link, Outlet, createRootRoute, createRoute, createRouter } from '@tanstack/react-router';
 import {
@@ -6,6 +6,7 @@ import {
   LayoutDashboard,
   LogOut,
   Menu,
+  Timer,
   Settings2,
   Users,
 } from 'lucide-react';
@@ -110,6 +111,7 @@ function SidebarBody({
   const serviceStatuses = [
     {
       label: 'Uptime',
+      icon: Timer,
       value: formatDurationCompact(overview.data?.uptime_seconds),
       showIndicator: false,
       showValue: true,
@@ -198,8 +200,19 @@ function ServiceStatusPanel({
     value: string;
   }>;
 }) {
+  const gradientId = `service-icon-${useId().replace(/:/g, '')}`;
+
   return (
     <div className="space-y-1 px-1">
+      <svg aria-hidden="true" className="pointer-events-none absolute size-0 overflow-hidden">
+        <defs>
+          <linearGradient id={gradientId} x1="4" x2="20" y1="4" y2="20" gradientUnits="userSpaceOnUse">
+            <stop offset="0" stopColor="#fff7b8" />
+            <stop offset="0.45" stopColor="#e9fff7" />
+            <stop offset="1" stopColor="#f08a24" />
+          </linearGradient>
+        </defs>
+      </svg>
       {items.map((item) => {
         const Icon = item.icon;
 
@@ -210,7 +223,11 @@ function ServiceStatusPanel({
           >
             {item.logo || Icon ? (
               <span className="flex size-7 shrink-0 items-center justify-center">
-                {item.logo ? <CoreLogo className="size-6" core={item.logo} /> : Icon ? <Icon className="size-4" /> : null}
+                {item.logo ? (
+                  <CoreLogo className="size-6" core={item.logo} />
+                ) : Icon ? (
+                  <Icon className="size-5" stroke={`url(#${gradientId})`} strokeWidth={2.25} />
+                ) : null}
               </span>
             ) : null}
             <span className="min-w-0 flex-1">

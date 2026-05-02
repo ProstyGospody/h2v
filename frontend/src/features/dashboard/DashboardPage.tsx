@@ -199,7 +199,7 @@ function NetworkSpeedValue({ rx, tx }: { rx: number; tx: number }) {
   ];
 
   return (
-    <div className="flex min-w-0 items-center gap-2">
+    <div className="grid min-w-0 gap-1.5">
       <svg aria-hidden="true" className="pointer-events-none absolute size-0 overflow-hidden">
         <defs>
           <linearGradient id={gradientId} x1="4" x2="20" y1="4" y2="20" gradientUnits="userSpaceOnUse">
@@ -210,9 +210,9 @@ function NetworkSpeedValue({ rx, tx }: { rx: number; tx: number }) {
         </defs>
       </svg>
       {items.map(({ icon: Icon, label, value }) => (
-        <div aria-label={label} className="flex min-w-0 flex-1 items-center gap-1.5" key={label}>
-          <Icon className="size-4 shrink-0" stroke={`url(#${gradientId})`} strokeWidth={2.35} />
-          <span className="min-w-0 truncate font-mono text-sm font-semibold leading-5 text-foreground">
+        <div aria-label={label} className="flex min-w-0 items-center gap-2" key={label}>
+          <Icon className="size-5 shrink-0" stroke={`url(#${gradientId})`} strokeWidth={2.35} />
+          <span className="min-w-0 truncate font-mono text-sm font-semibold leading-none text-foreground">
             {value}
           </span>
         </div>
