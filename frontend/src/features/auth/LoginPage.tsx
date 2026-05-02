@@ -3,7 +3,7 @@ import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useNavigate } from '@tanstack/react-router';
-import { Eye, EyeOff, ShieldCheck } from 'lucide-react';
+import { Eye, EyeOff } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -35,9 +35,6 @@ export function LoginPage() {
       <Card className="relative w-full max-w-100">
         <CardContent className="space-y-7 p-7 sm:p-8">
           <div className="flex flex-col items-center gap-3 text-center">
-            <div className="flex size-11 items-center justify-center rounded-md bg-accent-gradient-soft text-foreground">
-              <ShieldCheck className="size-5" />
-            </div>
             <span className="block font-serif text-2xl italic leading-none text-accent-gradient">
               h2v
             </span>
