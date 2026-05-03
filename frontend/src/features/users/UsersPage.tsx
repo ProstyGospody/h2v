@@ -674,7 +674,6 @@ export function UsersPage() {
                   ) : links.data ? (
                     <div className="space-y-1.5">
                       <LinkCopyRow label="Public page" value={publicLink(links.data)} />
-                      <LinkCopyRow label="Raw subscription" value={links.data.subscription} />
                       <LinkCopyRow label="VLESS" value={links.data.vless} />
                       <LinkCopyRow label="Hys2" value={links.data.hysteria2} />
                     </div>
@@ -918,7 +917,7 @@ function QRDialogContent({
           </Button>
 
           <div className="min-w-0 space-y-1.5">
-            <LinkCopyRow label="Raw subscription" value={links.subscription} />
+            <LinkCopyRow label="Subscription URL" value={links.subscription} />
             <LinkCopyRow label="VLESS" value={links.vless} />
             <LinkCopyRow label="Hys2" value={links.hysteria2} />
           </div>
