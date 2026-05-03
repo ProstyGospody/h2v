@@ -1208,7 +1208,7 @@ build_artifacts() {
     build_commit="$(git -C "${SOURCE_DIR}" rev-parse --short=12 HEAD 2>/dev/null || printf '%s' "${REPO_REF}")"
   fi
   build_time="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-  ldflags="-s -w -X main.version=${H2V_VERSION} -X main.commit=${build_commit} -X main.builtAt=${build_time}"
+  ldflags="-s -w -X main.version=${H2V_VERSION:-${REPO_REF}} -X main.commit=${build_commit} -X main.builtAt=${build_time}"
 
   substep "compiling backend (go build ./cmd/panel)"
   if ! (
