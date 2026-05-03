@@ -5,7 +5,7 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SOURCE_DIR="${ROOT_DIR}"
 REPO_OWNER="ProstyGospody"
 REPO_NAME="h2v"
-H2V_VERSION="${H2V_VERSION:-0.1.0}"
+H2V_VERSION="${H2V_VERSION:-0.1.1}"
 REPO_REF="${H2V_REF:-v${H2V_VERSION}}"
 ARCHIVE_URL="https://codeload.github.com/${REPO_OWNER}/${REPO_NAME}/tar.gz/${REPO_REF}"
 H2V_SOURCE_SHA256="${H2V_SOURCE_SHA256:-}"
@@ -1719,7 +1719,7 @@ Usage:
 
 Env overrides:
   H2V_REF=<tag|commit>                       pin repository source
-  H2V_VERSION=0.1.0                          panel version embedded via ldflags
+  H2V_VERSION=0.1.1                          panel version embedded via ldflags
   H2V_SOURCE_SHA256=<sha256>                 verify downloaded source archive
   H2V_REQUIRE_SOURCE_SHA256=1                fail if source checksum is absent
   XRAY_VERSION, HYSTERIA_VERSION             override pinned core versions
