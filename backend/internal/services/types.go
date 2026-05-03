@@ -17,6 +17,7 @@ type XrayAdapter interface {
 	RemoveUser(ctx context.Context, username string) error
 	ListUsers(ctx context.Context) ([]string, error)
 	QueryStats(ctx context.Context) (map[string]domain.TrafficDelta, error)
+	ResetStats(ctx context.Context) error
 }
 
 type HysteriaAdapter interface {

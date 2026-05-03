@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useNavigate, useParams } from '@tanstack/react-router';
+import { useQuery } from '@tanstack/react-query';
+import { useParams } from '@tanstack/react-router';
 import { QRCodeSVG } from 'qrcode.react';
-import { ChevronRight, Copy, Link2, RotateCcw, ShieldCheck } from 'lucide-react';
+import { ChevronRight, Copy, Link2, ShieldCheck } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -86,8 +86,6 @@ const helpSections = [
 
 export function SubPage() {
   const { token } = useParams({ from: '/u/$token' });
-  const navigate = useNavigate({ from: '/u/$token' });
-  const queryClient = useQueryClient();
   const [theme, setTheme] = useState<'dark' | 'light'>(() => getPreferredTheme());
   const os = typeof window !== 'undefined' ? detectOS() : 'desktop';
 
@@ -102,22 +100,6 @@ export function SubPage() {
   const subscription = useQuery({
     queryKey: ['public-sub', token],
     queryFn: () => apiClient.request<UserLinks>(`/sub/${token}?format=json`),
-  });
-
-  const rotateLink = useMutation({
-    mutationFn: () =>
-      apiClient.request<UserLinks>(`/sub/${encodeURIComponent(token)}/rotate`, { method: 'POST' }),
-    onSuccess: async (next) => {
-      toast.success('Subscription link rotated');
-      const nextToken = subscriptionTokenFromURL(next.subscription);
-      if (nextToken && nextToken !== token) {
-        queryClient.setQueryData(['public-sub', nextToken], next);
-        await navigate({ to: '/u/$token', params: { token: nextToken }, replace: true });
-        return;
-      }
-      queryClient.setQueryData(['public-sub', token], next);
-      await queryClient.invalidateQueries({ queryKey: ['public-sub', token] });
-    },
   });
 
   const data = subscription.data;
@@ -341,19 +323,6 @@ export function SubPage() {
               )}
             </div>
           </details>
-
-          <div className="flex justify-center pt-2">
-            <Button
-              disabled={rotateLink.isPending}
-              onClick={() => rotateLink.mutate()}
-              size="sm"
-              type="button"
-              variant="secondary"
-            >
-              <RotateCcw className={cn('size-4', rotateLink.isPending && 'animate-spin')} />
-              {rotateLink.isPending ? 'Resetting...' : 'Reset my link'}
-            </Button>
-          </div>
         </div>
       </div>
     </div>
@@ -377,24 +346,6 @@ function subscriptionURLForCurrentOrigin(token: string, fallback: string): strin
   } catch {
     return base;
   }
-}
-
-function subscriptionTokenFromURL(value: string): string {
-  if (!value) {
-    return '';
-  }
-  try {
-    const base = typeof window === 'undefined' ? 'http://localhost' : window.location.origin;
-    const url = new URL(value, base);
-    const parts = url.pathname.split('/').filter(Boolean);
-    const subIndex = parts.lastIndexOf('sub');
-    if (subIndex >= 0 && parts[subIndex + 1]) {
-      return parts[subIndex + 1];
-    }
-  } catch {
-    // Fall back to a lightweight path match below.
-  }
-  return value.match(/\/sub\/([^/?#]+)/)?.[1] ?? '';
 }
 
 function QRCodePreview({

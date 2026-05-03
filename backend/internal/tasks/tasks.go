@@ -1,6 +1,8 @@
 package tasks
 
 import (
+	"bytes"
+	"compress/gzip"
 	"context"
 	"fmt"
 	"log/slog"
@@ -8,6 +10,8 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime/debug"
+	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -91,12 +95,18 @@ func (s *Scheduler) run(ctx context.Context, task *Task) {
 
 type Collector struct {
 	repo     *repo.Repository
-	xray     interface{ QueryStats(context.Context) (map[string]domain.TrafficDelta, error) }
+	xray     interface {
+		QueryStats(context.Context) (map[string]domain.TrafficDelta, error)
+		ResetStats(context.Context) error
+	}
 	hysteria interface{ GetTraffic(context.Context, bool) (map[string]domain.TrafficDelta, error) }
 	logger   *slog.Logger
 }
 
-func NewCollector(repository *repo.Repository, xray interface{ QueryStats(context.Context) (map[string]domain.TrafficDelta, error) }, hysteria interface{ GetTraffic(context.Context, bool) (map[string]domain.TrafficDelta, error) }, logger *slog.Logger) *Collector {
+func NewCollector(repository *repo.Repository, xray interface {
+	QueryStats(context.Context) (map[string]domain.TrafficDelta, error)
+	ResetStats(context.Context) error
+}, hysteria interface{ GetTraffic(context.Context, bool) (map[string]domain.TrafficDelta, error) }, logger *slog.Logger) *Collector {
 	return &Collector{repo: repository, xray: xray, hysteria: hysteria, logger: logger}
 }
 
@@ -112,9 +122,12 @@ func (t *Collector) Run(ctx context.Context) error {
 		if matched == 0 {
 			t.logger.Warn("xray stats username mismatch — emails in xray config do not match users.username", "reported", keysOf(xStats))
 		}
+		if err := t.xray.ResetStats(ctx); err != nil {
+			t.logger.Warn("xray stats reset failed after save; next collection may double count", "err", err)
+		}
 	}
 
-	if hStats, err := t.hysteria.GetTraffic(ctx, true); err != nil {
+	if hStats, err := t.hysteria.GetTraffic(ctx, false); err != nil {
 		t.logger.Warn("hysteria traffic failed", "err", err)
 	} else if len(hStats) > 0 {
 		matched, err := t.repo.AddTrafficBatch(ctx, "hysteria", hStats)
@@ -124,6 +137,9 @@ func (t *Collector) Run(ctx context.Context) error {
 		t.logger.Info("hysteria stats saved", "users_reported", len(hStats), "users_matched", matched)
 		if matched == 0 {
 			t.logger.Warn("hysteria stats username mismatch — auth callback ids do not match users.username", "reported", keysOf(hStats))
+		}
+		if _, err := t.hysteria.GetTraffic(ctx, true); err != nil {
+			t.logger.Warn("hysteria traffic reset failed after save; next collection may double count", "err", err)
 		}
 	}
 	return nil
@@ -212,21 +228,49 @@ func (b *Backup) Run(ctx context.Context) error {
 	if err := os.MkdirAll(b.cfg.Backup.Dir, 0o750); err != nil {
 		return err
 	}
-	filename := fmt.Sprintf("panel-%s.sql.gz", time.Now().UTC().Format("2006-01-02"))
+	filename := fmt.Sprintf("panel-%s.sql.gz", time.Now().UTC().Format("2006-01-02-150405"))
 	path := filepath.Join(b.cfg.Backup.Dir, filename)
-	cmdStr := fmt.Sprintf("PGPASSWORD=%s pg_dump -h %s -p %d -U %s %s | gzip > %s",
-		b.cfg.DB.Password,
-		b.cfg.DB.Host,
-		b.cfg.DB.Port,
-		b.cfg.DB.User,
-		b.cfg.DB.Name,
-		path,
-	)
-	cmd := exec.CommandContext(ctx, "sh", "-c", cmdStr)
-	if out, err := cmd.CombinedOutput(); err != nil {
-		return fmt.Errorf("backup failed: %s: %w", out, err)
+	tmpPath := path + ".tmp"
+	if err := dumpPostgresBackup(ctx, b.cfg.DB, tmpPath); err != nil {
+		_ = os.Remove(tmpPath)
+		return err
+	}
+	if err := os.Rename(tmpPath, path); err != nil {
+		_ = os.Remove(tmpPath)
+		return fmt.Errorf("commit backup file: %w", err)
 	}
 	return rotateOldFiles(b.cfg.Backup.Dir, b.cfg.Backup.RetentionDays)
+}
+
+func dumpPostgresBackup(ctx context.Context, db config.DBConfig, path string) error {
+	file, err := os.OpenFile(path, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o640)
+	if err != nil {
+		return err
+	}
+
+	gzipWriter := gzip.NewWriter(file)
+	var stderr bytes.Buffer
+	cmd := exec.CommandContext(ctx, "pg_dump", "-h", db.Host, "-p", strconv.Itoa(db.Port), "-U", db.User, db.Name)
+	cmd.Env = append(os.Environ(), "PGPASSWORD="+db.Password)
+	if strings.TrimSpace(db.SSLMode) != "" {
+		cmd.Env = append(cmd.Env, "PGSSLMODE="+db.SSLMode)
+	}
+	cmd.Stdout = gzipWriter
+	cmd.Stderr = &stderr
+
+	runErr := cmd.Run()
+	closeGzipErr := gzipWriter.Close()
+	closeFileErr := file.Close()
+	if runErr != nil {
+		return fmt.Errorf("backup failed: %s: %w", strings.TrimSpace(stderr.String()), runErr)
+	}
+	if closeGzipErr != nil {
+		return fmt.Errorf("finish backup gzip: %w", closeGzipErr)
+	}
+	if closeFileErr != nil {
+		return fmt.Errorf("finish backup file: %w", closeFileErr)
+	}
+	return nil
 }
 
 func rotateOldFiles(dir string, keepDays int) error {

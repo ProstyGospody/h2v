@@ -109,7 +109,6 @@ func (s *Server) routes(r chi.Router) {
 	r.Post("/api/auth/logout", s.handleLogout)
 
 	r.With(s.rateLimit("sub", 60)).Get("/sub/{token}", s.handleSubscription)
-	r.With(s.rateLimit("sub", 60)).Post("/sub/{token}/rotate", s.handleSubscriptionRotate)
 	r.Post("/hy2/auth", s.handleHY2Auth)
 	r.Get("/healthz", s.handleHealth)
 
@@ -585,6 +584,7 @@ func (s *Server) handleBackupExport(w http.ResponseWriter, r *http.Request) {
 		jsonError(w, err)
 		return
 	}
+	w.Header().Set("Content-Disposition", `attachment; filename="h2v-backup.json"`)
 	jsonData(w, http.StatusOK, backup, nil)
 }
 
@@ -631,6 +631,7 @@ func (s *Server) handleSubscription(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
 		return
 	}
+	w.Header().Set("Cache-Control", "no-store")
 	links = linksForRequest(r, links, token)
 	format := strings.ToLower(strings.TrimSpace(r.URL.Query().Get("format")))
 	if format == "json" {
@@ -664,21 +665,6 @@ func (s *Server) handleSubscription(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename="%s"`, user.Username))
 		_, _ = w.Write([]byte(services.EncodedLinks(links)))
 	}
-}
-
-func (s *Server) handleSubscriptionRotate(w http.ResponseWriter, r *http.Request) {
-	token := strings.TrimSpace(chi.URLParam(r, "token"))
-	if len(token) < 32 {
-		http.NotFound(w, r)
-		return
-	}
-	links, err := s.services.Subscription.RotateByToken(r.Context(), token)
-	if err != nil {
-		jsonError(w, err)
-		return
-	}
-	responseToken := subscriptionTokenFromURL(links.Subscription)
-	jsonData(w, http.StatusOK, linksForRequest(r, links, responseToken), nil)
 }
 
 func (s *Server) handleHY2Auth(w http.ResponseWriter, r *http.Request) {
@@ -880,6 +866,8 @@ func jsonError(w http.ResponseWriter, err error) {
 }
 
 func writeJSON(w http.ResponseWriter, status int, payload any) {
+	w.Header().Set("Cache-Control", "no-store")
+	w.Header().Set("Pragma", "no-cache")
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
 	_ = json.NewEncoder(w).Encode(payload)

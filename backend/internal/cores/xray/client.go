@@ -94,14 +94,10 @@ func (c *Client) QueryStats(ctx context.Context) (map[string]domain.TrafficDelta
 	if strings.TrimSpace(c.cfg.Binary) == "" {
 		return map[string]domain.TrafficDelta{}, nil
 	}
-	if _, err := os.Stat(c.cfg.Binary); err != nil {
-		if errors.Is(err, os.ErrNotExist) {
-			return nil, fmt.Errorf("xray binary %q not found", c.cfg.Binary)
-		}
-		return nil, fmt.Errorf("check xray binary: %w", err)
+	if err := c.ensureStatsBinary(); err != nil {
+		return nil, err
 	}
-
-	out, err := c.runStatsQuery(ctx)
+	out, err := c.runStatsQuery(ctx, false)
 	if err != nil {
 		return nil, err
 	}
@@ -112,17 +108,42 @@ func (c *Client) QueryStats(ctx context.Context) (map[string]domain.TrafficDelta
 	return stats, nil
 }
 
-func (c *Client) runStatsQuery(ctx context.Context) ([]byte, error) {
-	argSets := [][]string{
-		{"api", "statsquery", "-s", c.cfg.APIAddr, "-pattern", "user>>>", "-reset"},
-		{"api", "statsquery", "-server", c.cfg.APIAddr, "-pattern", "user>>>", "-reset"},
-		{"api", "statsquery", "--server", c.cfg.APIAddr, "--pattern", "user>>>", "--reset"},
-		{"api", "statsquery", "-s=" + c.cfg.APIAddr, "-pattern=user>>>", "-reset"},
-		{"api", "statsquery", "--server=" + c.cfg.APIAddr, "--pattern=user>>>", "--reset"},
+func (c *Client) ResetStats(ctx context.Context) error {
+	if strings.TrimSpace(c.cfg.Binary) == "" {
+		return nil
 	}
+	if err := c.ensureStatsBinary(); err != nil {
+		return err
+	}
+	_, err := c.runStatsQuery(ctx, true)
+	return err
+}
+
+func (c *Client) ensureStatsBinary() error {
+	if _, err := os.Stat(c.cfg.Binary); err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return fmt.Errorf("xray binary %q not found", c.cfg.Binary)
+		}
+		return fmt.Errorf("check xray binary: %w", err)
+	}
+	return nil
+}
+
+func (c *Client) runStatsQuery(ctx context.Context, reset bool) ([]byte, error) {
+	argSets := [][]string{
+		{"api", "statsquery", "-s", c.cfg.APIAddr, "-pattern", "user>>>"},
+		{"api", "statsquery", "-server", c.cfg.APIAddr, "-pattern", "user>>>"},
+		{"api", "statsquery", "--server", c.cfg.APIAddr, "--pattern", "user>>>"},
+		{"api", "statsquery", "-s=" + c.cfg.APIAddr, "-pattern=user>>>"},
+		{"api", "statsquery", "--server=" + c.cfg.APIAddr, "--pattern=user>>>"},
+	}
+	resetFlags := []string{"-reset", "-reset", "--reset", "-reset", "--reset"}
 
 	failures := make([]string, 0, len(argSets))
-	for _, args := range argSets {
+	for i, args := range argSets {
+		if reset {
+			args = append(append([]string{}, args...), resetFlags[i])
+		}
 		cmd := exec.CommandContext(ctx, c.cfg.Binary, args...)
 		out, err := cmd.CombinedOutput()
 		if err == nil {

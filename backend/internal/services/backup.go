@@ -3,6 +3,7 @@ package services
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"strings"
 	"time"
 
@@ -119,15 +120,20 @@ func (s *BackupService) Import(ctx context.Context, backup PanelBackup) (*Backup
 		return nil, err
 	}
 
+	snapshot, err := s.Export(ctx)
+	if err != nil {
+		return nil, domain.NewError(500, "backup_snapshot_failed", "Unable to snapshot current state before import", err)
+	}
+
 	if err := s.settings.Update(ctx, settings); err != nil {
 		return nil, err
 	}
 	if err := s.repo.ReplaceUsers(ctx, users); err != nil {
-		return nil, err
+		return s.rollbackImport(ctx, snapshot, err)
 	}
 	if s.cache != nil {
 		if err := s.cache.LoadAll(ctx); err != nil {
-			return nil, err
+			return s.rollbackImport(ctx, snapshot, err)
 		}
 	}
 
@@ -138,16 +144,16 @@ func (s *BackupService) Import(ctx context.Context, backup PanelBackup) (*Backup
 			continue
 		}
 		if err := s.configs.Apply(ctx, core, content); err != nil {
-			return nil, err
+			return s.rollbackImport(ctx, snapshot, err)
 		}
 		configCount++
 	}
 	if configCount == 0 {
 		if err := s.configs.ReconcileXray(ctx); err != nil {
-			return nil, err
+			return s.rollbackImport(ctx, snapshot, err)
 		}
 		if err := s.configs.ReconcileHysteria(ctx); err != nil {
-			return nil, err
+			return s.rollbackImport(ctx, snapshot, err)
 		}
 	}
 
@@ -156,6 +162,49 @@ func (s *BackupService) Import(ctx context.Context, backup PanelBackup) (*Backup
 		Users:    len(users),
 		Configs:  configCount,
 	}, nil
+}
+
+func (s *BackupService) rollbackImport(ctx context.Context, snapshot *PanelBackup, cause error) (*BackupImportSummary, error) {
+	if snapshot == nil {
+		return nil, cause
+	}
+	if err := s.restoreSnapshot(ctx, snapshot); err != nil {
+		return nil, domain.NewError(
+			500,
+			"backup_import_rollback_failed",
+			fmt.Sprintf("Backup import failed (%v) and rollback also failed", cause),
+			err,
+		)
+	}
+	return nil, cause
+}
+
+func (s *BackupService) restoreSnapshot(ctx context.Context, snapshot *PanelBackup) error {
+	settings, err := backupSettingsForUpdate(snapshot.Settings)
+	if err != nil {
+		return err
+	}
+	if err := s.settings.Restore(ctx, settings); err != nil {
+		return err
+	}
+	if err := s.repo.ReplaceUsers(ctx, domainUsersFromBackup(snapshot.Users)); err != nil {
+		return err
+	}
+	if s.cache != nil {
+		if err := s.cache.LoadAll(ctx); err != nil {
+			return err
+		}
+	}
+	for _, core := range []string{"xray", "hysteria"} {
+		content := strings.TrimSpace(snapshot.Configs[core])
+		if content == "" {
+			continue
+		}
+		if err := s.configs.Apply(ctx, core, []byte(content)); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func validatePanelBackup(backup PanelBackup) error {
@@ -205,9 +254,10 @@ func validateBackupUsers(users []domain.User) error {
 		if user.ID == uuid.Nil || user.VlessUUID == uuid.Nil || user.Username == "" || user.Hy2Password == "" || user.SubToken == "" {
 			return domain.NewError(400, "invalid_backup", "Backup contains invalid users", nil)
 		}
-		switch user.Status {
-		case domain.StatusActive, domain.StatusDisabled, domain.StatusExpired, domain.StatusLimited:
-		default:
+		if !validUsername(user.Username) || user.TrafficLimit < 0 || user.TrafficUsed < 0 || len(user.Note) > maxUserNoteBytes {
+			return domain.NewError(400, "invalid_backup", "Backup contains invalid users", nil)
+		}
+		if !validUserStatus(user.Status) {
 			return domain.NewError(400, "invalid_backup", "Backup contains users with invalid status", nil)
 		}
 		if _, ok := ids[user.ID]; ok {

@@ -13,6 +13,14 @@ ExecStart=/usr/local/bin/hysteria server -c /opt/mypanel/configs/hysteria/config
 Restart=on-failure
 RestartSec=5
 LimitNOFILE=1048576
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+LockPersonality=true
 
 [Install]
 WantedBy=multi-user.target

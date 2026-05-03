@@ -3,6 +3,8 @@ package services
 import (
 	"context"
 	"log/slog"
+	"regexp"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -33,6 +35,10 @@ type BulkUsersResult struct {
 	Matched int    `json:"matched"`
 }
 
+const maxUserNoteBytes = 1000
+
+var userUsernamePattern = regexp.MustCompile(`^[a-zA-Z0-9_-]{3,32}$`)
+
 func NewUserService(repository *repo.Repository, xray XrayAdapter, hysteria HysteriaAdapter, cache SubscriptionCache, subscription *SubscriptionService, configs *ConfigService, logger *slog.Logger) *UserService {
 	return &UserService{
 		repo:         repository,
@@ -54,13 +60,16 @@ func (s *UserService) Get(ctx context.Context, id uuid.UUID) (*domain.User, erro
 }
 
 func (s *UserService) Create(ctx context.Context, req CreateUserRequest) (*domain.User, error) {
-	username := req.Username
+	username := strings.TrimSpace(req.Username)
 	if username == "" {
 		suffix, err := util.RandomToken(4)
 		if err != nil {
 			return nil, err
 		}
 		username = "user_" + suffix[:6]
+	}
+	if err := validateUserFields(username, req.TrafficLimit, 0, domain.StatusActive, req.Note); err != nil {
+		return nil, err
 	}
 
 	hy2Password, err := util.RandomToken(24)
@@ -102,7 +111,7 @@ func (s *UserService) Update(ctx context.Context, id uuid.UUID, req UpdateUserRe
 		return nil, err
 	}
 	if req.Username != nil {
-		user.Username = *req.Username
+		user.Username = strings.TrimSpace(*req.Username)
 	}
 	if req.TrafficLimit != nil {
 		user.TrafficLimit = *req.TrafficLimit
@@ -118,6 +127,9 @@ func (s *UserService) Update(ctx context.Context, id uuid.UUID, req UpdateUserRe
 	}
 	if req.Note != nil {
 		user.Note = *req.Note
+	}
+	if err := validateUserFields(user.Username, user.TrafficLimit, user.TrafficUsed, user.Status, user.Note); err != nil {
+		return nil, err
 	}
 	user.UpdatedAt = time.Now().UTC()
 
@@ -298,6 +310,38 @@ func dedupeUUIDs(ids []uuid.UUID) []uuid.UUID {
 		out = append(out, id)
 	}
 	return out
+}
+
+func validateUserFields(username string, trafficLimit, trafficUsed int64, status domain.UserStatus, note string) error {
+	if !validUsername(username) {
+		return domain.NewError(400, "invalid_user", "Username must be 3-32 characters and contain only letters, numbers, underscores, or hyphens", nil)
+	}
+	if trafficLimit < 0 {
+		return domain.NewError(400, "invalid_user", "Traffic limit cannot be negative", nil)
+	}
+	if trafficUsed < 0 {
+		return domain.NewError(400, "invalid_user", "Traffic used cannot be negative", nil)
+	}
+	if !validUserStatus(status) {
+		return domain.NewError(400, "invalid_user", "User status is not supported", nil)
+	}
+	if len(note) > maxUserNoteBytes {
+		return domain.NewError(400, "invalid_user", "User note is too long", nil)
+	}
+	return nil
+}
+
+func validUsername(username string) bool {
+	return userUsernamePattern.MatchString(username)
+}
+
+func validUserStatus(status domain.UserStatus) bool {
+	switch status {
+	case domain.StatusActive, domain.StatusDisabled, domain.StatusExpired, domain.StatusLimited:
+		return true
+	default:
+		return false
+	}
 }
 
 // reconcileXray regenerates xray/config.json from the current DB state and
