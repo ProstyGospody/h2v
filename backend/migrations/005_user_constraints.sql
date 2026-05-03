@@ -23,6 +23,7 @@ UPDATE traffic_log
 SET downlink = 0
 WHERE downlink < 0;
 
+-- +goose StatementBegin
 DO $$
 BEGIN
     IF NOT EXISTS (
@@ -85,6 +86,7 @@ BEGIN
             CHECK (downlink >= 0);
     END IF;
 END $$;
+-- +goose StatementEnd
 
 -- +goose Down
 ALTER TABLE traffic_log DROP CONSTRAINT IF EXISTS traffic_log_downlink_nonnegative;
