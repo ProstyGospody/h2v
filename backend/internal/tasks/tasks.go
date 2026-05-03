@@ -8,7 +8,6 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime/debug"
-	"sort"
 	"sync"
 	"time"
 
@@ -143,11 +142,12 @@ type Enforcer struct {
 	xray     interface{ RemoveUser(context.Context, string) error }
 	hysteria interface{ Kick(context.Context, []string) error }
 	cache    interface{ Delete(*domain.User) }
+	reconcileXray func(context.Context) error
 	logger   *slog.Logger
 }
 
-func NewEnforcer(repository *repo.Repository, xray interface{ RemoveUser(context.Context, string) error }, hysteria interface{ Kick(context.Context, []string) error }, cache interface{ Delete(*domain.User) }, logger *slog.Logger) *Enforcer {
-	return &Enforcer{repo: repository, xray: xray, hysteria: hysteria, cache: cache, logger: logger}
+func NewEnforcer(repository *repo.Repository, xray interface{ RemoveUser(context.Context, string) error }, hysteria interface{ Kick(context.Context, []string) error }, cache interface{ Delete(*domain.User) }, reconcileXray func(context.Context) error, logger *slog.Logger) *Enforcer {
+	return &Enforcer{repo: repository, xray: xray, hysteria: hysteria, cache: cache, reconcileXray: reconcileXray, logger: logger}
 }
 
 func (t *Enforcer) Run(ctx context.Context) error {
@@ -168,53 +168,33 @@ func (t *Enforcer) Run(ctx context.Context) error {
 		_ = t.hysteria.Kick(ctx, []string{user.Username})
 		t.cache.Delete(&user)
 	}
+	if len(users) > 0 && t.reconcileXray != nil {
+		if err := t.reconcileXray(ctx); err != nil {
+			return fmt.Errorf("reconcile xray after enforcement: %w", err)
+		}
+	}
 	return nil
 }
 
-type Reconciler struct {
-	repo   *repo.Repository
-	xray   interface {
-		ListUsers(context.Context) ([]string, error)
-		AddUser(context.Context, *domain.User) error
-		RemoveUser(context.Context, string) error
-	}
-	logger *slog.Logger
+type CoreReconciler struct {
+	reconcileXray     func(context.Context) error
+	reconcileHysteria func(context.Context) error
+	logger            *slog.Logger
 }
 
-func NewReconciler(repository *repo.Repository, xray interface {
-	ListUsers(context.Context) ([]string, error)
-	AddUser(context.Context, *domain.User) error
-	RemoveUser(context.Context, string) error
-}, logger *slog.Logger) *Reconciler {
-	return &Reconciler{repo: repository, xray: xray, logger: logger}
+func NewCoreReconciler(reconcileXray, reconcileHysteria func(context.Context) error, logger *slog.Logger) *CoreReconciler {
+	return &CoreReconciler{reconcileXray: reconcileXray, reconcileHysteria: reconcileHysteria, logger: logger}
 }
 
-func (t *Reconciler) Run(ctx context.Context) error {
-	dbUsers, err := t.repo.ListActiveUsers(ctx)
-	if err != nil {
-		return err
-	}
-	xUsers, err := t.xray.ListUsers(ctx)
-	if err != nil {
-		return err
-	}
-
-	dbSet := make(map[string]domain.User, len(dbUsers))
-	for _, user := range dbUsers {
-		dbSet[user.Username] = user
-	}
-	sort.Strings(xUsers)
-
-	xSet := make(map[string]struct{}, len(xUsers))
-	for _, username := range xUsers {
-		xSet[username] = struct{}{}
-		if _, ok := dbSet[username]; !ok {
-			_ = t.xray.RemoveUser(ctx, username)
+func (t *CoreReconciler) Run(ctx context.Context) error {
+	if t.reconcileXray != nil {
+		if err := t.reconcileXray(ctx); err != nil {
+			return fmt.Errorf("reconcile xray: %w", err)
 		}
 	}
-	for _, user := range dbUsers {
-		if _, ok := xSet[user.Username]; !ok {
-			_ = t.xray.AddUser(ctx, &user)
+	if t.reconcileHysteria != nil {
+		if err := t.reconcileHysteria(ctx); err != nil {
+			return fmt.Errorf("reconcile hysteria: %w", err)
 		}
 	}
 	return nil

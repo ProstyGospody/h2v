@@ -11,7 +11,7 @@ TMP_SOURCE_DIR=""
 INSTALL_DIR="/opt/mypanel"
 ENV_FILE="${INSTALL_DIR}/.env"
 BUILD_STATE_DIR="${INSTALL_DIR}/build"
-GO_VERSION="${GO_VERSION:-1.22.12}"
+GO_VERSION="${GO_VERSION:-1.26.2}"
 NODE_VERSION="${NODE_VERSION:-22.22.2}"
 NPM_VERSION="${NPM_VERSION:-10.9.7}"
 XRAY_GEODATA_DIR_DEFAULT="${INSTALL_DIR}/data/geodata"
@@ -1203,10 +1203,7 @@ install_sudoers() {
   local tmp="${path}.tmp"
   cat >"${tmp}" <<'EOF'
 panel ALL=(root) NOPASSWD: /bin/systemctl restart xray.service, /bin/systemctl restart hysteria.service
-panel ALL=(root) NOPASSWD: /bin/systemctl restart panel.service
-panel ALL=(root) NOPASSWD: /bin/systemctl reload caddy.service, /bin/systemctl restart caddy.service
 panel ALL=(root) NOPASSWD: /bin/systemctl reload xray.service, /bin/systemctl reload hysteria.service
-panel ALL=(root) NOPASSWD: /usr/bin/tee /etc/caddy/Caddyfile
 EOF
   chmod 0440 "${tmp}"
   if command_exists visudo; then
@@ -1266,6 +1263,10 @@ setup_reverse_proxy() {
 
 ${site_address} {
   encode zstd gzip
+
+  @private path /metrics /hy2/auth
+  respond @private 404
+
   reverse_proxy 127.0.0.1:${panel_port}
 }
 EOF

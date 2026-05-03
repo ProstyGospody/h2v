@@ -91,7 +91,6 @@ func (s *Server) Shutdown(ctx context.Context) error {
 func (s *Server) routes(r chi.Router) {
 	r.Use(chimw.Recoverer)
 	r.Use(chimw.RequestID)
-	r.Use(chimw.RealIP)
 	r.Use(s.metricsMiddleware)
 	r.Use(cors.Handler(cors.Options{
 		AllowedOrigins:   []string{"https://" + s.cfg.Panel.Domain, "http://localhost:5173", "http://127.0.0.1:5173"},
@@ -103,7 +102,7 @@ func (s *Server) routes(r chi.Router) {
 	r.Use(s.securityHeaders)
 	r.Use(s.rateLimit("global", 100))
 
-	r.Handle("/metrics", promhttp.Handler())
+	r.Handle("/metrics", s.localOnly(promhttp.Handler()))
 
 	r.Post("/api/auth/login", s.rateLimit("login", 5)(http.HandlerFunc(s.handleLogin)).ServeHTTP)
 	r.Post("/api/auth/refresh", s.handleRefresh)
@@ -683,11 +682,7 @@ func (s *Server) handleSubscriptionRotate(w http.ResponseWriter, r *http.Request
 }
 
 func (s *Server) handleHY2Auth(w http.ResponseWriter, r *http.Request) {
-	ip, _, _ := net.SplitHostPort(r.RemoteAddr)
-	if ip == "" {
-		ip = r.RemoteAddr
-	}
-	if ip != "127.0.0.1" && ip != "::1" {
+	if !isLocalDirectRequest(r) {
 		hy2AuthRequests.WithLabelValues("denied").Inc()
 		jsonError(w, domain.NewError(403, "forbidden", "Forbidden", nil))
 		return
@@ -767,6 +762,16 @@ func (s *Server) requireAuth(next http.Handler) http.Handler {
 			return
 		}
 		next.ServeHTTP(w, r.WithContext(context.WithValue(r.Context(), claimsContextKey, claims)))
+	})
+}
+
+func (s *Server) localOnly(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if !isLocalDirectRequest(r) {
+			jsonError(w, domain.NewError(404, "not_found", "Not found", nil))
+			return
+		}
+		next.ServeHTTP(w, r)
 	})
 }
 
@@ -946,7 +951,10 @@ func linksForRequest(r *http.Request, links *domain.SubscriptionLinks, token str
 }
 
 func requestOrigin(r *http.Request) string {
-	host := cleanRequestHost(firstForwardedValue(r.Header.Get("X-Forwarded-Host")))
+	host := ""
+	if trustsForwardedHeaders(r) {
+		host = cleanRequestHost(firstForwardedValue(r.Header.Get("X-Forwarded-Host")))
+	}
 	if host == "" {
 		host = cleanRequestHost(r.Host)
 	}
@@ -954,7 +962,10 @@ func requestOrigin(r *http.Request) string {
 		return ""
 	}
 
-	proto := strings.ToLower(firstForwardedValue(r.Header.Get("X-Forwarded-Proto")))
+	proto := ""
+	if trustsForwardedHeaders(r) {
+		proto = strings.ToLower(firstForwardedValue(r.Header.Get("X-Forwarded-Proto")))
+	}
 	if proto == "" {
 		if r.TLS != nil {
 			proto = "https"
@@ -981,6 +992,32 @@ func cleanRequestHost(value string) string {
 
 func firstForwardedValue(value string) string {
 	return strings.TrimSpace(strings.Split(value, ",")[0])
+}
+
+func trustsForwardedHeaders(r *http.Request) bool {
+	remote := remoteIP(r)
+	return remote != nil && remote.IsLoopback()
+}
+
+func isLocalDirectRequest(r *http.Request) bool {
+	remote := remoteIP(r)
+	return remote != nil && remote.IsLoopback() && !hasForwardedHeaders(r)
+}
+
+func hasForwardedHeaders(r *http.Request) bool {
+	return r.Header.Get("Forwarded") != "" ||
+		r.Header.Get("X-Forwarded-For") != "" ||
+		r.Header.Get("X-Forwarded-Host") != "" ||
+		r.Header.Get("X-Forwarded-Proto") != "" ||
+		r.Header.Get("X-Real-IP") != ""
+}
+
+func remoteIP(r *http.Request) net.IP {
+	host, _, err := net.SplitHostPort(r.RemoteAddr)
+	if err != nil {
+		host = r.RemoteAddr
+	}
+	return net.ParseIP(strings.TrimSpace(host))
 }
 
 func isClashLikeUserAgent(ua string) bool {
@@ -1076,8 +1113,13 @@ func cloneRawMessage(raw json.RawMessage) json.RawMessage {
 }
 
 func clientIP(r *http.Request) string {
-	if forwarded := firstForwardedValue(r.Header.Get("X-Forwarded-For")); forwarded != "" {
-		return forwarded
+	if trustsForwardedHeaders(r) {
+		if forwarded := firstForwardedValue(r.Header.Get("X-Forwarded-For")); forwarded != "" {
+			return forwarded
+		}
+	}
+	if remote := remoteIP(r); remote != nil {
+		return remote.String()
 	}
 	host, _, err := net.SplitHostPort(r.RemoteAddr)
 	if err != nil {
@@ -1092,5 +1134,14 @@ func routePath(r *http.Request) string {
 			return pattern
 		}
 	}
-	return r.URL.Path
+	switch {
+	case strings.HasPrefix(r.URL.Path, "/assets/"):
+		return "/assets/*"
+	case strings.HasPrefix(r.URL.Path, "/clients/"):
+		return "/clients/*"
+	case strings.HasPrefix(r.URL.Path, "/cores/"):
+		return "/cores/*"
+	default:
+		return "_unmatched"
+	}
 }

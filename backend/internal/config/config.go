@@ -2,6 +2,7 @@ package config
 
 import (
 	"bufio"
+	"errors"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -30,6 +31,7 @@ type PanelConfig struct {
 	FrontendDir      string
 	TemplatesDir     string
 	DisableSystemctl bool
+	AllowInsecure    bool
 }
 
 type DBConfig struct {
@@ -101,6 +103,7 @@ func Load() Config {
 			FrontendDir:      frontendDir,
 			TemplatesDir:     templatesDir,
 			DisableSystemctl: getenvBool("PANEL_DISABLE_SYSTEMCTL", false),
+			AllowInsecure:    getenvBool("PANEL_ALLOW_INSECURE_DEFAULTS", false),
 		},
 		DB: DBConfig{
 			Host:     getenv("DB_HOST", "127.0.0.1"),
@@ -147,6 +150,33 @@ func Load() Config {
 			RetentionDays: getenvInt("BACKUP_RETENTION_DAYS", 14),
 		},
 	}
+}
+
+func (c Config) ValidateServe() error {
+	if c.Panel.AllowInsecure {
+		return nil
+	}
+
+	var issues []string
+	if c.Panel.JWTSecret == "" || c.Panel.JWTSecret == "dev-secret-change-me" || len(c.Panel.JWTSecret) < 32 {
+		issues = append(issues, "PANEL_JWT_SECRET must be a random value at least 32 characters long")
+	}
+	if c.DB.Password == "" {
+		issues = append(issues, "DB_PASSWORD must not be empty")
+	}
+	if c.Xray.RealityPrivKey == "" || c.Xray.RealityPubKey == "" {
+		issues = append(issues, "REALITY_PRIVATE_KEY and REALITY_PUBLIC_KEY must be configured")
+	}
+	if c.Hysteria.TrafficSecret == "" {
+		issues = append(issues, "HY2_TRAFFIC_SECRET must not be empty")
+	}
+	if c.Hysteria.ObfsEnabled && c.Hysteria.ObfsPassword == "" {
+		issues = append(issues, "HY2_OBFS_PASSWORD must not be empty when HY2_OBFS_ENABLED=true")
+	}
+	if len(issues) > 0 {
+		return errors.New("unsafe serve configuration: " + strings.Join(issues, "; "))
+	}
+	return nil
 }
 
 func EnvFilePath() string {

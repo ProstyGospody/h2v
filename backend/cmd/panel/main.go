@@ -61,6 +61,10 @@ func main() {
 }
 
 func runServe(cfg config.Config, logger *slog.Logger) {
+	if err := cfg.ValidateServe(); err != nil {
+		fatal(logger, err)
+	}
+
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer cancel()
 
@@ -125,15 +129,18 @@ func buildApp(ctx context.Context, cfg config.Config, logger *slog.Logger) (*pgx
 	if err := serviceBundle.Configs.ReconcileXray(ctx); err != nil {
 		logger.Warn("initial xray config reconcile failed", "err", err)
 	}
-
-	reconciler := tasks.NewReconciler(repository, xrayClient, logger)
-	if err := reconciler.Run(ctx); err != nil {
-		logger.Warn("initial reconcile failed", "err", err)
+	if err := serviceBundle.Configs.ReconcileHysteria(ctx); err != nil {
+		logger.Warn("initial hysteria config reconcile failed", "err", err)
 	}
+
+	reconcileXray := func(ctx context.Context) error { return serviceBundle.Configs.ReconcileXray(ctx) }
+	reconcileHysteria := func(ctx context.Context) error { return serviceBundle.Configs.ReconcileHysteria(ctx) }
+	coreReconciler := tasks.NewCoreReconciler(reconcileXray, reconcileHysteria, logger)
+
 	scheduler := tasks.NewScheduler(logger)
 	scheduler.Every("collector", 10*time.Second, tasks.NewCollector(repository, xrayClient, hysteriaClient, logger).Run)
-	scheduler.Every("enforcer", 30*time.Second, tasks.NewEnforcer(repository, xrayClient, hysteriaClient, userCache, logger).Run)
-	scheduler.Every("reconciler", 60*time.Second, reconciler.Run)
+	scheduler.Every("enforcer", 30*time.Second, tasks.NewEnforcer(repository, xrayClient, hysteriaClient, userCache, reconcileXray, logger).Run)
+	scheduler.Every("core_reconciler", 60*time.Second, coreReconciler.Run)
 	scheduler.Every("cache_refresh", 5*time.Minute, userCache.Refresh)
 	scheduler.Every("backup", 24*time.Hour, tasks.NewBackup(cfg).Run)
 
