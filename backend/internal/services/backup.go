@@ -114,12 +114,9 @@ func (s *BackupService) Import(ctx context.Context, backup PanelBackup) (*Backup
 		configContents[core] = raw
 	}
 
-	settings := make(map[string]json.RawMessage, len(backup.Settings))
-	for _, setting := range backup.Settings {
-		if setting.Key == "" || !json.Valid(setting.Value) {
-			return nil, domain.NewError(400, "invalid_backup", "Backup contains invalid settings", nil)
-		}
-		settings[setting.Key] = setting.Value
+	settings, err := backupSettingsForUpdate(backup.Settings)
+	if err != nil {
+		return nil, err
 	}
 
 	if err := s.settings.Update(ctx, settings); err != nil {
@@ -169,6 +166,33 @@ func validatePanelBackup(backup PanelBackup) error {
 		return domain.NewError(400, "invalid_backup", "Backup version is not supported", nil)
 	}
 	return nil
+}
+
+func backupSettingsForUpdate(items []domain.Setting) (map[string]json.RawMessage, error) {
+	settings := make(map[string]json.RawMessage, len(items))
+	for _, setting := range items {
+		if setting.Key == "" || !json.Valid(setting.Value) {
+			return nil, domain.NewError(400, "invalid_backup", "Backup contains invalid settings", nil)
+		}
+		if ignoredBackupSetting(setting.Key) {
+			continue
+		}
+		settings[setting.Key] = setting.Value
+	}
+	return settings, nil
+}
+
+func ignoredBackupSetting(key string) bool {
+	return installerManagedSetting(key) || legacyBackupSetting(key)
+}
+
+func legacyBackupSetting(key string) bool {
+	switch key {
+	case "subscription.credential":
+		return true
+	default:
+		return false
+	}
 }
 
 func validateBackupUsers(users []domain.User) error {

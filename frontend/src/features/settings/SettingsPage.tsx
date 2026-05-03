@@ -200,7 +200,7 @@ export function SettingsPage() {
     },
     onSuccess: (backup) => {
       downloadBackupFile(backup);
-      toast.success('Backup downloaded');
+      toast.success('Backup saved');
     },
   });
 
@@ -256,7 +256,7 @@ export function SettingsPage() {
     const file = event.currentTarget.files?.[0];
     event.currentTarget.value = '';
     if (!file) return;
-    if (!window.confirm('Import backup and replace current settings, users, and protocol configs?')) return;
+    if (!window.confirm('Restore backup and replace current settings, users, and protocol configs?')) return;
 
     try {
       const payload = JSON.parse(await file.text()) as PanelBackup;
@@ -290,7 +290,7 @@ export function SettingsPage() {
               variant="secondary"
             >
               <Download />
-              Download
+              Save Backup
             </Button>
             <Button
               className="h-10"
@@ -301,7 +301,7 @@ export function SettingsPage() {
               variant="secondary"
             >
               <Upload />
-              Upload
+              Restore Backup
             </Button>
             <input
               ref={backupInputRef}
