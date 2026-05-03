@@ -5,9 +5,11 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SOURCE_DIR="${ROOT_DIR}"
 REPO_OWNER="ProstyGospody"
 REPO_NAME="h2v"
-# Use main branch by default (always latest commit)
+# Use latest commit from main by default. Override H2V_REF only when you need
+# to install a specific branch, tag, or commit.
 REPO_REF="${H2V_REF:-main}"
-# Allow floating refs (main branch) for development
+# main is a moving ref, so allow floating refs by default. Set to 0 only when
+# you intentionally require a pinned tag/commit.
 H2V_ALLOW_FLOATING_REF="${H2V_ALLOW_FLOATING_REF:-1}"
 ARCHIVE_URL="https://codeload.github.com/${REPO_OWNER}/${REPO_NAME}/tar.gz/${REPO_REF}"
 H2V_SOURCE_SHA256="${H2V_SOURCE_SHA256:-}"
@@ -195,7 +197,7 @@ print_summary() {
   fi
   printf '\n'
   printf '  %sEnv file%s     %s\n' "${DIM}" "${RESET}" "${ENV_FILE}"
-  printf '  %sSource ref%s   %s %s(defaults to release tag; avoid moving refs)%s\n' "${DIM}" "${RESET}" "${REPO_REF}" "${DIM}" "${RESET}"
+  printf '  %sSource ref%s   %s %s(defaults to latest main commit)%s\n' "${DIM}" "${RESET}" "${REPO_REF}" "${DIM}" "${RESET}"
   printf '  %sToolchain%s    Go %s · Node %s · npm %s\n' "${DIM}" "${RESET}" "$(go version | awk '{print $3}')" "$(node -v)" "$(npm -v)"
   printf '\n'
   printf '  %sReset admin password:%s  %s/opt/mypanel/install.sh reset-admin%s\n' "${DIM}" "${RESET}" "${CYAN}" "${RESET}"
@@ -564,7 +566,7 @@ resolve_source_dir() {
   case "${REPO_REF}" in
     main|master|HEAD|latest)
       if [[ "${H2V_ALLOW_FLOATING_REF:-0}" != "1" ]]; then
-        fail "ref ${REPO_REF} is moving; set H2V_REF to a release tag/commit or H2V_ALLOW_FLOATING_REF=1 for development"
+        fail "ref ${REPO_REF} is moving; set H2V_REF to a pinned tag/commit or H2V_ALLOW_FLOATING_REF=1 to use latest main"
       fi
       ;;
   esac
@@ -575,7 +577,7 @@ resolve_source_dir() {
   archive="${TMP_SOURCE_DIR}/source.tar.gz"
   if ! curl -fsSL "${ARCHIVE_URL}" -o "${archive}"; then
     if [[ "${REPO_REF}" == "v${H2V_VERSION}" ]]; then
-      fail "repository tag ${REPO_REF} was not found. Publish the release tag first, run from a full local checkout, or set H2V_REF=main H2V_ALLOW_FLOATING_REF=1 for a development install"
+      fail "repository ref ${REPO_REF} was not found. Run from a full local checkout, set H2V_REF=main H2V_ALLOW_FLOATING_REF=1, or set H2V_REF to an existing tag/commit"
     fi
     fail "unable to download repository source ${REPO_OWNER}/${REPO_NAME}@${REPO_REF}"
   fi
@@ -584,7 +586,7 @@ resolve_source_dir() {
   elif [[ "${H2V_REQUIRE_SOURCE_SHA256:-0}" == "1" ]]; then
     fail "H2V_SOURCE_SHA256 is required for repository source verification"
   else
-    warn "repository source checksum not set; using pinned ref ${REPO_REF}"
+    warn "repository source checksum not set; using repository ref ${REPO_REF}"
   fi
   tar -xzf "${archive}" -C "${TMP_SOURCE_DIR}"
 
@@ -1720,7 +1722,7 @@ Usage:
   install.sh restore <file>                  restore database from a gzip dump
 
 Env overrides:
-  H2V_REF=<tag|commit>                       pin repository source
+  H2V_REF=<branch|tag|commit>                repository source; defaults to main
   H2V_VERSION=0.1.1                          panel version embedded via ldflags
   H2V_SOURCE_SHA256=<sha256>                 verify downloaded source archive
   H2V_REQUIRE_SOURCE_SHA256=1                fail if source checksum is absent
