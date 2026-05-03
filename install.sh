@@ -7,6 +7,8 @@ REPO_OWNER="ProstyGospody"
 REPO_NAME="h2v"
 # Use main branch by default (always latest commit)
 REPO_REF="${H2V_REF:-main}"
+# Allow floating refs (main branch) for development
+H2V_ALLOW_FLOATING_REF="${H2V_ALLOW_FLOATING_REF:-1}"
 ARCHIVE_URL="https://codeload.github.com/${REPO_OWNER}/${REPO_NAME}/tar.gz/${REPO_REF}"
 H2V_SOURCE_SHA256="${H2V_SOURCE_SHA256:-}"
 TMP_SOURCE_DIR=""
