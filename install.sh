@@ -8,6 +8,8 @@ REPO_NAME="h2v"
 # Use latest commit from main by default. Override H2V_REF only when you need
 # to install a specific branch, tag, or commit.
 REPO_REF="${H2V_REF:-main}"
+# Version embedded into the panel binary. Defaults to the selected ref for main/dev installs.
+H2V_VERSION="${H2V_VERSION:-${REPO_REF}}"
 # main is a moving ref, so allow floating refs by default. Set to 0 only when
 # you intentionally require a pinned tag/commit.
 H2V_ALLOW_FLOATING_REF="${H2V_ALLOW_FLOATING_REF:-1}"
@@ -576,7 +578,7 @@ resolve_source_dir() {
   local archive
   archive="${TMP_SOURCE_DIR}/source.tar.gz"
   if ! curl -fsSL "${ARCHIVE_URL}" -o "${archive}"; then
-    if [[ "${REPO_REF}" == "v${H2V_VERSION}" ]]; then
+    if [[ "${REPO_REF}" == "v${H2V_VERSION:-}" ]]; then
       fail "repository ref ${REPO_REF} was not found. Run from a full local checkout, set H2V_REF=main H2V_ALLOW_FLOATING_REF=1, or set H2V_REF to an existing tag/commit"
     fi
     fail "unable to download repository source ${REPO_OWNER}/${REPO_NAME}@${REPO_REF}"
@@ -1723,7 +1725,7 @@ Usage:
 
 Env overrides:
   H2V_REF=<branch|tag|commit>                repository source; defaults to main
-  H2V_VERSION=0.1.1                          panel version embedded via ldflags
+  H2V_VERSION=<version>                      panel version embedded via ldflags; defaults to H2V_REF/main
   H2V_SOURCE_SHA256=<sha256>                 verify downloaded source archive
   H2V_REQUIRE_SOURCE_SHA256=1                fail if source checksum is absent
   XRAY_VERSION, HYSTERIA_VERSION             override pinned core versions
