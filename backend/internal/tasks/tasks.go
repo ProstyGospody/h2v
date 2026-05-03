@@ -273,6 +273,31 @@ func dumpPostgresBackup(ctx context.Context, db config.DBConfig, path string) er
 	return nil
 }
 
+type TrafficRetention struct {
+	repo          *repo.Repository
+	retentionDays int
+	logger        *slog.Logger
+}
+
+func NewTrafficRetention(repository *repo.Repository, retentionDays int, logger *slog.Logger) *TrafficRetention {
+	return &TrafficRetention{repo: repository, retentionDays: retentionDays, logger: logger}
+}
+
+func (t *TrafficRetention) Run(ctx context.Context) error {
+	if t.retentionDays <= 0 {
+		return nil
+	}
+	cutoff := time.Now().UTC().AddDate(0, 0, -t.retentionDays)
+	deleted, err := t.repo.PurgeTrafficBefore(ctx, cutoff)
+	if err != nil {
+		return fmt.Errorf("purge traffic log: %w", err)
+	}
+	if deleted > 0 {
+		t.logger.Info("traffic log retention applied", "deleted", deleted, "retention_days", t.retentionDays)
+	}
+	return nil
+}
+
 func rotateOldFiles(dir string, keepDays int) error {
 	entries, err := os.ReadDir(dir)
 	if err != nil {

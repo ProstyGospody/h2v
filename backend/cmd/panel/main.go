@@ -34,7 +34,11 @@ import (
 	"github.com/prost/h2v/backend/internal/util"
 )
 
-var version = "0.1.0"
+var (
+	version = "0.1.0"
+	commit  = "unknown"
+	builtAt = "unknown"
+)
 
 func main() {
 	cfg := config.Load()
@@ -58,6 +62,16 @@ func main() {
 	default:
 		fatal(logger, fmt.Errorf("unknown subcommand %q", os.Args[1]))
 	}
+}
+
+func versionString() string {
+	if commit == "" || commit == "unknown" {
+		return version
+	}
+	if builtAt == "" || builtAt == "unknown" {
+		return version + " (" + commit + ")"
+	}
+	return version + " (" + commit + ", " + builtAt + ")"
 }
 
 func runServe(cfg config.Config, logger *slog.Logger) {
@@ -118,7 +132,7 @@ func buildApp(ctx context.Context, cfg config.Config, logger *slog.Logger) (*pgx
 		Systemctl: systemctl.New(cfg.Panel.DisableSystemctl),
 		Cache:     userCache,
 		Logger:    logger,
-		Version:   version,
+		Version:   versionString(),
 		StartedAt: time.Now(),
 	})
 
@@ -143,6 +157,7 @@ func buildApp(ctx context.Context, cfg config.Config, logger *slog.Logger) (*pgx
 	scheduler.Every("core_reconciler", 60*time.Second, coreReconciler.Run)
 	scheduler.Every("cache_refresh", 5*time.Minute, userCache.Refresh)
 	scheduler.Every("backup", 24*time.Hour, tasks.NewBackup(cfg).Run)
+	scheduler.Every("traffic_retention", 24*time.Hour, tasks.NewTrafficRetention(repository, cfg.Traffic.RetentionDays, logger).Run)
 
 	httpServer := api.New(cfg, serviceBundle, logger)
 	return pool, scheduler, httpServer

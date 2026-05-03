@@ -935,6 +935,7 @@ func linksForRequest(r *http.Request, links *domain.SubscriptionLinks, token str
 	}
 	copy := *links
 	copy.Subscription = strings.TrimSuffix(origin, "/") + "/sub/" + url.PathEscape(token)
+	copy.Portal = strings.TrimSuffix(origin, "/") + "/u/" + url.PathEscape(token)
 	return &copy
 }
 

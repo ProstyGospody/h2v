@@ -34,7 +34,7 @@ type RealityKeyPair struct {
 }
 
 var (
-	bandwidthPattern = regexp.MustCompile(`(?i)^\d+(?:\.\d+)?\s*(g|gbps|m|mbps)$`)
+	bandwidthPattern = regexp.MustCompile(`(?i)^\d+(?:\.\d+)?\s*(bps|kbps|mbps|gbps|tbps|k|m|g|t)$`)
 	shortIDPattern   = regexp.MustCompile(`^[0-9a-fA-F]{0,16}$`)
 )
 
@@ -335,7 +335,7 @@ func normalizeStringSetting(key, value string) (string, error) {
 	case "hy2.bandwidth_up", "hy2.bandwidth_down":
 		value = strings.ToLower(value)
 		if !bandwidthPattern.MatchString(value) {
-			return "", invalidSetting(key, "must use mbps or gbps")
+			return "", invalidSetting(key, "must use bps, kbps, mbps, gbps, or tbps")
 		}
 	case "reality.private_key", "reality.public_key":
 		if value == "" {

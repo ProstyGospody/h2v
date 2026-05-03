@@ -11,8 +11,10 @@
   "scripts": {
     "audit": "npm audit --audit-level=high",
     "dev": "vite",
+    "lint": "tsc -b --pretty false",
     "build": "tsc -b && vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test": "npm run lint"
   },
   "dependencies": {
     "@codemirror/lang-json": "6.0.2",

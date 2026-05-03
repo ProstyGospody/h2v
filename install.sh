@@ -5,8 +5,10 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SOURCE_DIR="${ROOT_DIR}"
 REPO_OWNER="ProstyGospody"
 REPO_NAME="h2v"
-REPO_REF="${H2V_REF:-main}"
+H2V_VERSION="${H2V_VERSION:-0.1.0}"
+REPO_REF="${H2V_REF:-v${H2V_VERSION}}"
 ARCHIVE_URL="https://codeload.github.com/${REPO_OWNER}/${REPO_NAME}/tar.gz/${REPO_REF}"
+H2V_SOURCE_SHA256="${H2V_SOURCE_SHA256:-}"
 TMP_SOURCE_DIR=""
 INSTALL_DIR="/opt/mypanel"
 ENV_FILE="${INSTALL_DIR}/.env"
@@ -14,6 +16,12 @@ BUILD_STATE_DIR="${INSTALL_DIR}/build"
 GO_VERSION="${GO_VERSION:-1.26.2}"
 NODE_VERSION="${NODE_VERSION:-22.22.2}"
 NPM_VERSION="${NPM_VERSION:-10.9.7}"
+XRAY_VERSION="${XRAY_VERSION:-v26.3.27}"
+XRAY_SHA256_64="${XRAY_SHA256_64:-23cd9af937744d97776ee35ecad4972cf4b2109d1e0fe6be9930467608f7c8ae}"
+XRAY_SHA256_ARM64_V8A="${XRAY_SHA256_ARM64_V8A:-4d30283ae614e3057f730f67cd088a42be6fdf91f8639d82cb69e48cde80413c}"
+HYSTERIA_VERSION="${HYSTERIA_VERSION:-app/v2.8.2}"
+HYSTERIA_SHA256_AMD64="${HYSTERIA_SHA256_AMD64:-b11bf0fb5f84a3f5c6baff3696e899539e68af4cee868c9203cfb896784ad3b0}"
+HYSTERIA_SHA256_ARM64="${HYSTERIA_SHA256_ARM64:-802d77ae3ca37bdc235ec848edfaaa7cb9109007d9044f50b0746239269cb8cf}"
 XRAY_GEODATA_DIR_DEFAULT="${INSTALL_DIR}/data/geodata"
 XRAY_GEODATA_DIR_LEGACY="/usr/local/share/xray"
 XRAY_GEOIP_URL_DEFAULT="https://github.com/v2fly/geoip/releases/latest/download/geoip.dat"
@@ -185,7 +193,7 @@ print_summary() {
   fi
   printf '\n'
   printf '  %sEnv file%s     %s\n' "${DIM}" "${RESET}" "${ENV_FILE}"
-  printf '  %sSource ref%s   %s %s(set H2V_REF to pin to a tag/commit)%s\n' "${DIM}" "${RESET}" "${REPO_REF}" "${DIM}" "${RESET}"
+  printf '  %sSource ref%s   %s %s(defaults to release tag; avoid moving refs)%s\n' "${DIM}" "${RESET}" "${REPO_REF}" "${DIM}" "${RESET}"
   printf '  %sToolchain%s    Go %s · Node %s · npm %s\n' "${DIM}" "${RESET}" "$(go version | awk '{print $3}')" "$(node -v)" "$(npm -v)"
   printf '\n'
   printf '  %sReset admin password:%s  %s/opt/mypanel/install.sh reset-admin%s\n' "${DIM}" "${RESET}" "${CYAN}" "${RESET}"
@@ -229,6 +237,26 @@ normalize_version() {
   printf '%s' "${raw}"
 }
 
+verify_sha256() {
+  local file="$1"
+  local expected="$2"
+  local label="$3"
+  if [[ -z "${expected}" || ! "${expected}" =~ ^[0-9a-fA-F]{64}$ ]]; then
+    fail "missing or invalid SHA256 for ${label}"
+  fi
+  printf '%s  %s\n' "${expected}" "${file}" | sha256sum -c - >/dev/null \
+    || fail "${label} checksum verification failed"
+}
+
+download_verified() {
+  local url="$1"
+  local file="$2"
+  local expected="$3"
+  local label="$4"
+  curl -fsSL "${url}" -o "${file}" || fail "${label} download failed"
+  verify_sha256 "${file}" "${expected}" "${label}"
+}
+
 ensure_base_packages() {
   apt-get update
   apt-get install -y \
@@ -255,21 +283,29 @@ ensure_base_packages() {
 }
 
 install_xray_binary() {
-  local arch
+  local arch sha
   case "$(uname -m)" in
-    x86_64) arch="64" ;;
-    aarch64|arm64) arch="arm64-v8a" ;;
+    x86_64) arch="64"; sha="${XRAY_SHA256_64}" ;;
+    aarch64|arm64) arch="arm64-v8a"; sha="${XRAY_SHA256_ARM64_V8A}" ;;
     *) fail "Unsupported architecture for Xray-core: $(uname -m)" ;;
   esac
   if [[ -x /usr/local/bin/xray ]]; then
-    substep "Xray-core already installed ($(/usr/local/bin/xray version 2>/dev/null | awk 'NR==1 {print $2}'))"
-    return
+    local current
+    current="$(/usr/local/bin/xray version 2>/dev/null | awk 'NR==1 {print $2}')"
+    if [[ "$(normalize_version "${current}")" == "$(normalize_version "${XRAY_VERSION}")" ]]; then
+      substep "Xray-core already installed (${current})"
+      return
+    fi
+    substep "replacing Xray-core ${current:-unknown} with ${XRAY_VERSION}"
   fi
-  substep "downloading Xray-core (${arch})"
+  substep "downloading Xray-core ${XRAY_VERSION} (${arch})"
   local tmp
   tmp="$(mktemp -d)"
-  curl -fsSL "https://github.com/XTLS/Xray-core/releases/latest/download/Xray-linux-${arch}.zip" -o "${tmp}/xray.zip" \
-    || fail "Xray-core download failed"
+  download_verified \
+    "https://github.com/XTLS/Xray-core/releases/download/${XRAY_VERSION}/Xray-linux-${arch}.zip" \
+    "${tmp}/xray.zip" \
+    "${sha}" \
+    "Xray-core ${XRAY_VERSION} (${arch})"
   unzip -qo "${tmp}/xray.zip" -d "${tmp}"
   install -m 0755 "${tmp}/xray" /usr/local/bin/xray
   install -d -m 0755 /usr/local/share/xray
@@ -279,20 +315,32 @@ install_xray_binary() {
 }
 
 install_hysteria_binary() {
-  local arch
+  local arch sha
   case "$(uname -m)" in
-    x86_64) arch="amd64" ;;
-    aarch64|arm64) arch="arm64" ;;
+    x86_64) arch="amd64"; sha="${HYSTERIA_SHA256_AMD64}" ;;
+    aarch64|arm64) arch="arm64"; sha="${HYSTERIA_SHA256_ARM64}" ;;
     *) fail "Unsupported architecture for Hysteria: $(uname -m)" ;;
   esac
   if [[ -x /usr/local/bin/hysteria ]]; then
-    substep "Hysteria 2 already installed ($(/usr/local/bin/hysteria version 2>/dev/null | awk '/Version:/ {print $2}'))"
-    return
+    local current
+    current="$(/usr/local/bin/hysteria version 2>/dev/null | awk '/Version:/ {print $2}')"
+    if [[ "$(normalize_version "${current}")" == "$(normalize_version "${HYSTERIA_VERSION##*/}")" ]]; then
+      substep "Hysteria 2 already installed (${current})"
+      return
+    fi
+    substep "replacing Hysteria 2 ${current:-unknown} with ${HYSTERIA_VERSION}"
   fi
-  substep "downloading Hysteria 2 (${arch})"
-  curl -fsSL "https://github.com/apernet/hysteria/releases/latest/download/hysteria-linux-${arch}" \
-    -o /usr/local/bin/hysteria || fail "Hysteria 2 download failed"
-  chmod 0755 /usr/local/bin/hysteria
+  substep "downloading Hysteria 2 ${HYSTERIA_VERSION} (${arch})"
+  local tmp version_path
+  tmp="$(mktemp -d)"
+  version_path="${HYSTERIA_VERSION//\//%2F}"
+  download_verified \
+    "https://github.com/apernet/hysteria/releases/download/${version_path}/hysteria-linux-${arch}" \
+    "${tmp}/hysteria" \
+    "${sha}" \
+    "Hysteria 2 ${HYSTERIA_VERSION} (${arch})"
+  install -m 0755 "${tmp}/hysteria" /usr/local/bin/hysteria
+  rm -rf "${tmp}"
   setcap 'cap_net_bind_service=+ep' /usr/local/bin/hysteria 2>/dev/null || true
 }
 
@@ -511,9 +559,27 @@ resolve_source_dir() {
     return
   fi
 
+  case "${REPO_REF}" in
+    main|master|HEAD|latest)
+      if [[ "${H2V_ALLOW_FLOATING_REF:-0}" != "1" ]]; then
+        fail "ref ${REPO_REF} is moving; set H2V_REF to a release tag/commit or H2V_ALLOW_FLOATING_REF=1 for development"
+      fi
+      ;;
+  esac
+
   substep "downloading repository source ${REPO_OWNER}/${REPO_NAME}@${REPO_REF}"
   TMP_SOURCE_DIR="$(mktemp -d)"
-  curl -fsSL "${ARCHIVE_URL}" | tar -xz -C "${TMP_SOURCE_DIR}"
+  local archive
+  archive="${TMP_SOURCE_DIR}/source.tar.gz"
+  curl -fsSL "${ARCHIVE_URL}" -o "${archive}"
+  if [[ -n "${H2V_SOURCE_SHA256}" ]]; then
+    verify_sha256 "${archive}" "${H2V_SOURCE_SHA256}" "${REPO_OWNER}/${REPO_NAME}@${REPO_REF}"
+  elif [[ "${H2V_REQUIRE_SOURCE_SHA256:-0}" == "1" ]]; then
+    fail "H2V_SOURCE_SHA256 is required for repository source verification"
+  else
+    warn "repository source checksum not set; using pinned ref ${REPO_REF}"
+  fi
+  tar -xzf "${archive}" -C "${TMP_SOURCE_DIR}"
 
   local extracted
   extracted="$(find "${TMP_SOURCE_DIR}" -mindepth 1 -maxdepth 1 -type d | head -n 1)"
@@ -1119,17 +1185,26 @@ build_artifacts() {
   local cached_lock
   local backend_log
   local frontend_log
+  local build_commit
+  local build_time
+  local ldflags
   frontend_dir="${SOURCE_DIR}/frontend"
   cached_lock="${BUILD_STATE_DIR}/frontend-package-lock.json"
   backend_log="${BUILD_STATE_DIR}/backend-build.log"
   frontend_log="${BUILD_STATE_DIR}/frontend-build.log"
+  build_commit="${REPO_REF}"
+  if [[ -d "${SOURCE_DIR}/.git" ]]; then
+    build_commit="$(git -C "${SOURCE_DIR}" rev-parse --short=12 HEAD 2>/dev/null || printf '%s' "${REPO_REF}")"
+  fi
+  build_time="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+  ldflags="-s -w -X main.version=${H2V_VERSION} -X main.commit=${build_commit} -X main.builtAt=${build_time}"
 
   substep "compiling backend (go build ./cmd/panel)"
   if ! (
     cd "${SOURCE_DIR}/backend" &&
     go mod download &&
     go mod verify &&
-    go build -mod=readonly -o "${INSTALL_DIR}/bin/panel" ./cmd/panel
+    go build -mod=readonly -ldflags "${ldflags}" -o "${INSTALL_DIR}/bin/panel" ./cmd/panel
   ) >"${backend_log}" 2>&1; then
     red "backend build failed"
     printf '  %slog:%s %s\n' "${DIM}" "${RESET}" "${backend_log}"
@@ -1146,7 +1221,8 @@ build_artifacts() {
   if [[ -f "${frontend_dir}/package-lock.json" ]]; then
     if ! (
       cd "${frontend_dir}" &&
-      npm ci --no-fund --no-audit &&
+      npm ci --no-fund &&
+      npm audit --audit-level=high &&
       npm run build
     ) >"${frontend_log}" 2>&1; then
       red "frontend build failed"
@@ -1157,7 +1233,8 @@ build_artifacts() {
   else
     if ! (
       cd "${frontend_dir}" &&
-      npm install --no-fund --no-audit &&
+      npm install --no-fund &&
+      npm audit --audit-level=high &&
       npm run build
     ) >"${frontend_log}" 2>&1; then
       red "frontend build failed"
@@ -1637,6 +1714,10 @@ Usage:
 
 Env overrides:
   H2V_REF=<tag|commit>                       pin repository source
+  H2V_VERSION=0.1.0                          panel version embedded via ldflags
+  H2V_SOURCE_SHA256=<sha256>                 verify downloaded source archive
+  H2V_REQUIRE_SOURCE_SHA256=1                fail if source checksum is absent
+  XRAY_VERSION, HYSTERIA_VERSION             override pinned core versions
   H2V_NO_CLEAR=1                             keep previous terminal output
   PANEL_ADMIN_USERNAME, PANEL_ADMIN_PASSWORD seed non-interactive admin
 

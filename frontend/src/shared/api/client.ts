@@ -23,6 +23,11 @@ class ApiClient {
   }
 
   async request<T>(path: string, init?: RequestInit): Promise<T> {
+    const payload = await this.requestEnvelope<T>(path, init);
+    return payload.data;
+  }
+
+  async requestEnvelope<T, M = Record<string, unknown>>(path: string, init?: RequestInit): Promise<ApiEnvelope<T, M>> {
     const target = path.startsWith('/sub/') ? path : `/api${path}`;
     const response = await fetch(target, {
       ...init,
@@ -38,7 +43,7 @@ class ApiClient {
     if (response.status === 401 && path !== '/auth/refresh' && this.accessToken) {
       const refreshed = await this.refresh();
       if (refreshed) {
-        return this.request(path, init);
+        return this.requestEnvelope<T, M>(path, init);
       }
     }
 
@@ -47,11 +52,11 @@ class ApiClient {
       throw new ApiError(body.error?.code, body.error?.message ?? 'Request failed', response.status);
     }
 
-    const payload = (await response.json()) as ApiEnvelope<T> | T;
-    if ('data' in (payload as ApiEnvelope<T>)) {
-      return (payload as ApiEnvelope<T>).data;
+    const payload = (await response.json()) as ApiEnvelope<T, M> | T;
+    if (payload && typeof payload === 'object' && 'data' in (payload as ApiEnvelope<T>)) {
+      return payload as ApiEnvelope<T, M>;
     }
-    return payload as T;
+    return { data: payload as T };
   }
 
   async refresh(): Promise<{ access_token: string; admin: Admin } | null> {

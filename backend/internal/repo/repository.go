@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -506,6 +507,14 @@ func (r *Repository) AddTrafficBatch(ctx context.Context, core string, stats map
 		return 0, err
 	}
 	return matched, nil
+}
+
+func (r *Repository) PurgeTrafficBefore(ctx context.Context, cutoff time.Time) (int64, error) {
+	tag, err := r.pool.Exec(ctx, `DELETE FROM traffic_log WHERE recorded_at < $1`, cutoff)
+	if err != nil {
+		return 0, err
+	}
+	return tag.RowsAffected(), nil
 }
 
 func (r *Repository) GetUserTraffic(ctx context.Context, id uuid.UUID, days int) ([]domain.TrafficPoint, error) {

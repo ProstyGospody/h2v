@@ -1,6 +1,12 @@
-export type ApiEnvelope<T> = {
+export type ApiEnvelope<T, M = Record<string, unknown>> = {
   data: T;
-  meta?: Record<string, unknown>;
+  meta?: M;
+};
+
+export type ListMeta = {
+  page: number;
+  per_page: number;
+  total: number;
 };
 
 export type ApiErrorShape = {
@@ -25,6 +31,7 @@ export type User = {
 
 export type UserLinks = {
   subscription: string;
+  portal?: string;
   vless: string;
   hysteria2: string;
   usage: {

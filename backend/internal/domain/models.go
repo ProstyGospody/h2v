@@ -101,6 +101,7 @@ type OverviewStats struct {
 
 type SubscriptionLinks struct {
 	Subscription string        `json:"subscription"`
+	Portal       string        `json:"portal,omitempty"`
 	VLESS        string        `json:"vless"`
 	Hysteria2    string        `json:"hysteria2"`
 	Usage        UsageSnapshot `json:"usage"`

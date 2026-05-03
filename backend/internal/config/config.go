@@ -17,6 +17,7 @@ type Config struct {
 	Hysteria     HysteriaConfig
 	Subscription SubscriptionConfig
 	Backup       BackupConfig
+	Traffic      TrafficConfig
 }
 
 type PanelConfig struct {
@@ -80,6 +81,10 @@ type SubscriptionConfig struct {
 
 type BackupConfig struct {
 	Dir           string
+	RetentionDays int
+}
+
+type TrafficConfig struct {
 	RetentionDays int
 }
 
@@ -148,6 +153,9 @@ func Load() Config {
 		Backup: BackupConfig{
 			Dir:           getenv("BACKUP_DIR", filepath.Join(rootDir, "data", "backups")),
 			RetentionDays: getenvInt("BACKUP_RETENTION_DAYS", 14),
+		},
+		Traffic: TrafficConfig{
+			RetentionDays: getenvInt("TRAFFIC_RETENTION_DAYS", 180),
 		},
 	}
 }

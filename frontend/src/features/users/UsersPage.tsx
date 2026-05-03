@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { addDays } from 'date-fns';
 import { QRCodeSVG } from 'qrcode.react';
@@ -55,7 +55,7 @@ import {
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
 import { apiClient, ApiError } from '@/shared/api/client';
-import { TrafficPoint, User, UserLinks, UserStatus } from '@/shared/api/types';
+import { ListMeta, TrafficPoint, User, UserLinks, UserStatus } from '@/shared/api/types';
 import { daysUntil, formatBytes, formatDate, formatDateTime, usagePercent } from '@/shared/lib/format';
 
 const statusOptions: Array<{ label: string; value: 'all' | UserStatus }> = [
@@ -78,6 +78,7 @@ export function UsersPage() {
   const [search, setSearch] = useState('');
   const [status, setStatus] = useState<'all' | UserStatus>('all');
   const [nearExpiry, setNearExpiry] = useState(false);
+  const [page, setPage] = useState(1);
   const [drawerUserId, setDrawerUserId] = useState<string | null>(null);
   const [qrUserId, setQrUserId] = useState<string | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
@@ -91,28 +92,50 @@ export function UsersPage() {
   const [note, setNote] = useState('');
   const trafficPresets = [10, 50, 100, 500];
   const expiryPresets = [7, 30, 90, 365];
+  const perPage = 50;
+
+  useEffect(() => {
+    setPage(1);
+    setSelectedIds([]);
+  }, [search, status, nearExpiry]);
+
+  useEffect(() => {
+    setSelectedIds([]);
+  }, [page]);
 
   const users = useQuery({
-    queryKey: ['users', search, status, nearExpiry],
+    queryKey: ['users', search, status, nearExpiry, page, perPage],
     queryFn: async () => {
       const params = new URLSearchParams();
       if (search) params.set('search', search);
       if (status !== 'all') params.set('status', status);
       if (nearExpiry) params.set('near_expiry', '14');
-      params.set('per_page', '100');
+      params.set('page', String(page));
+      params.set('per_page', String(perPage));
       const q = params.toString();
-      return apiClient.request<User[]>(`/users${q ? `?${q}` : ''}`);
+      return apiClient.requestEnvelope<User[], ListMeta>(`/users${q ? `?${q}` : ''}`);
     },
     refetchInterval: 10_000,
   });
+  const userItems = users.data?.data ?? [];
+  const usersMeta = users.data?.meta ?? { page, per_page: perPage, total: userItems.length };
+  const totalPages = Math.max(1, Math.ceil(usersMeta.total / usersMeta.per_page));
+  const firstItem = usersMeta.total === 0 ? 0 : (usersMeta.page - 1) * usersMeta.per_page + 1;
+  const lastItem = Math.min(usersMeta.total, usersMeta.page * usersMeta.per_page);
+
+  useEffect(() => {
+    if (!users.isLoading && page > totalPages) {
+      setPage(totalPages);
+    }
+  }, [page, totalPages, users.isLoading]);
 
   const drawerUser = useMemo(
-    () => users.data?.find((u) => u.id === drawerUserId) ?? null,
-    [drawerUserId, users.data],
+    () => userItems.find((u) => u.id === drawerUserId) ?? null,
+    [drawerUserId, userItems],
   );
   const qrUser = useMemo(
-    () => users.data?.find((u) => u.id === qrUserId) ?? null,
-    [qrUserId, users.data],
+    () => userItems.find((u) => u.id === qrUserId) ?? null,
+    [qrUserId, userItems],
   );
   const drawerOpen = Boolean(drawerUser);
   const qrOpen = Boolean(qrUser);
@@ -141,7 +164,7 @@ export function UsersPage() {
   );
   const hasDrawerTrafficSamples = drawerTrafficData.some((p) => p.total > 0);
 
-  const allSelected = Boolean(users.data?.length) && selectedIds.length === users.data?.length;
+  const allSelected = Boolean(userItems.length) && selectedIds.length === userItems.length;
   const drawerTrafficPercent = drawerUser
     ? usagePercent(drawerUser.traffic_used, drawerUser.traffic_limit)
     : 0;
@@ -338,7 +361,7 @@ export function UsersPage() {
                 <Skeleton key={i} className="h-12 w-full" />
               ))}
             </CardContent>
-          ) : users.data?.length ? (
+          ) : userItems.length ? (
             <Table>
               <TableHeader>
                 <TableRow className="hover:bg-transparent">
@@ -348,7 +371,7 @@ export function UsersPage() {
                       checked={allSelected}
                       onChange={() => {
                         if (allSelected) setSelectedIds([]);
-                        else setSelectedIds(users.data?.map((u) => u.id) ?? []);
+                        else setSelectedIds(userItems.map((u) => u.id));
                       }}
                       type="checkbox"
                     />
@@ -363,7 +386,7 @@ export function UsersPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {users.data.map((user) => {
+                {userItems.map((user) => {
                   const checked = selectedIds.includes(user.id);
                   const trafficPercent = usagePercent(user.traffic_used, user.traffic_limit);
                   const trafficFillClass =
@@ -545,6 +568,36 @@ export function UsersPage() {
             </CardContent>
           )}
         </Card>
+        {usersMeta.total > 0 ? (
+          <div className="flex flex-col items-start justify-between gap-3 px-1 text-sm text-muted-foreground sm:flex-row sm:items-center">
+            <div>
+              {firstItem}-{lastItem} of {usersMeta.total}
+            </div>
+            <div className="flex items-center gap-2">
+              <Button
+                disabled={users.isFetching || usersMeta.page <= 1}
+                onClick={() => setPage((current) => Math.max(1, current - 1))}
+                size="sm"
+                type="button"
+                variant="secondary"
+              >
+                Previous
+              </Button>
+              <span className="min-w-16 text-center font-mono text-xs">
+                {usersMeta.page}/{totalPages}
+              </span>
+              <Button
+                disabled={users.isFetching || usersMeta.page >= totalPages}
+                onClick={() => setPage((current) => Math.min(totalPages, current + 1))}
+                size="sm"
+                type="button"
+                variant="secondary"
+              >
+                Next
+              </Button>
+            </div>
+          </div>
+        ) : null}
       </div>
 
       <Sheet onOpenChange={(next) => (next ? null : setDrawerUserId(null))} open={drawerOpen}>
@@ -620,7 +673,8 @@ export function UsersPage() {
                     </>
                   ) : links.data ? (
                     <div className="space-y-1.5">
-                      <LinkCopyRow label="Subscription" value={links.data.subscription} />
+                      <LinkCopyRow label="Public page" value={publicLink(links.data)} />
+                      <LinkCopyRow label="Raw subscription" value={links.data.subscription} />
                       <LinkCopyRow label="VLESS" value={links.data.vless} />
                       <LinkCopyRow label="Hys2" value={links.data.hysteria2} />
                     </div>
@@ -829,6 +883,7 @@ function QRDialogContent({
   links: UserLinks | null;
   username: string;
 }) {
+  const portal = links ? publicLink(links) : '';
   return (
     <div className="min-w-0 space-y-5 overflow-hidden p-6">
       <DialogHeader className="pr-8">
@@ -845,24 +900,25 @@ function QRDialogContent({
       ) : links ? (
         <div className="space-y-4">
           <div className="mx-auto w-full max-w-[260px]">
-            <QRCodePreview label={`${username || 'User'} subscription QR`} value={links.subscription} />
+            <QRCodePreview label={`${username || 'User'} public page QR`} value={portal} />
           </div>
 
           <Button
             className="w-full"
-            disabled={!links.subscription}
+            disabled={!portal}
             onClick={async () => {
-              if (!links.subscription) return;
-              await navigator.clipboard.writeText(links.subscription);
-              toast.success('Subscription copied');
+              if (!portal) return;
+              await navigator.clipboard.writeText(portal);
+              toast.success('Public page copied');
             }}
             type="button"
           >
             <Copy className="size-4" />
-            Copy subscription
+            Copy public page
           </Button>
 
           <div className="min-w-0 space-y-1.5">
+            <LinkCopyRow label="Raw subscription" value={links.subscription} />
             <LinkCopyRow label="VLESS" value={links.vless} />
             <LinkCopyRow label="Hys2" value={links.hysteria2} />
           </div>
@@ -874,6 +930,10 @@ function QRDialogContent({
       )}
     </div>
   );
+}
+
+function publicLink(links: UserLinks): string {
+  return links.portal || links.subscription.replace('/sub/', '/u/');
 }
 
 function QRCodePreview({ label, value }: { label: string; value: string }) {

@@ -35,9 +35,11 @@ func (s *SubscriptionService) LinksForUser(ctx context.Context, user *domain.Use
 	vless := buildVLESS(runtime, user)
 	hy2 := buildHysteria2(runtime, user)
 	subURL := buildSubscriptionURL(runtime.SubURLPrefix, user.SubToken)
+	portalURL := buildPortalURL(runtime.SubURLPrefix, user.SubToken)
 
 	return &domain.SubscriptionLinks{
 		Subscription: subURL,
+		Portal:       portalURL,
 		VLESS:        vless,
 		Hysteria2:    hy2,
 		Usage: domain.UsageSnapshot{
@@ -188,6 +190,10 @@ func (r RuntimeSettings) XrayClients() []ClientEntry {
 
 func buildSubscriptionURL(prefix, token string) string {
 	return strings.TrimSuffix(prefix, "/") + "/sub/" + url.PathEscape(token)
+}
+
+func buildPortalURL(prefix, token string) string {
+	return strings.TrimSuffix(prefix, "/") + "/u/" + url.PathEscape(token)
 }
 
 // buildVLESS emits a VLESS + Reality URI per Xray's share-link convention:

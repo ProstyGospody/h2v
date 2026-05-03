@@ -99,7 +99,7 @@ const masqueradePresets: URLPreset[] = [
 
 const vlessPortPresets = [443, 8443, 8444, 2053, 2083];
 const hy2PortPresets = [443, 8443, 8444, 2083, 9443];
-const bandwidthPresets = ['100 mbps', '500 mbps', '1 gbps'];
+const bandwidthPresets = ['100 mbps', '500 mbps', '1 gbps', '10 gbps'];
 const portDefinitions: Array<{ key: PortKey; presets: number[]; protocol: 'tcp' | 'udp' }> = [
   { key: 'vless.port', presets: vlessPortPresets, protocol: 'tcp' },
   { key: 'hy2.port', presets: hy2PortPresets, protocol: 'udp' },
@@ -953,7 +953,7 @@ function validateDraft(draft: SettingsDraft, values: ReturnType<typeof createSet
       issues.push('Reality / Short Ids must contain empty or even-length hex values up to 16 characters.');
     }
     if ((key === 'hy2.bandwidth_up' || key === 'hy2.bandwidth_down') && !validBandwidth(values.string(key))) {
-      issues.push(`${settingLabel(key)} must use mbps or gbps.`);
+      issues.push(`${settingLabel(key)} must use bps, kbps, mbps, gbps, or tbps.`);
     }
   }
   if (draft['hy2.obfs_enabled'] === true || draft['hy2.obfs_password'] !== undefined) {
@@ -1062,7 +1062,7 @@ function validRealityShortID(value: string): boolean {
 }
 
 function validBandwidth(value: string): boolean {
-  return /^\d+(?:\.\d+)?\s*(g|gbps|m|mbps)$/i.test(value.trim());
+  return /^\d+(?:\.\d+)?\s*(bps|kbps|mbps|gbps|tbps|k|m|g|t)$/i.test(value.trim());
 }
 
 function randomHex(bytes: number): string {
