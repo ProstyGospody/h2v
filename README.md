@@ -15,11 +15,18 @@ h2v is a self-hosted VPN panel for Xray VLESS Reality and Hysteria 2. It ships a
 
 ## Install
 
-Use a release tag. Avoid installing from `main`.
+Use a published release tag. Avoid installing from `main` for production.
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/ProstyGospody/h2v/v0.1.0/install.sh -o install.sh
 sudo H2V_REF=v0.1.0 bash install.sh install
+```
+
+Before the first release tag is published, run from a full local checkout or make the development ref explicit:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/ProstyGospody/h2v/main/install.sh -o install.sh
+sudo H2V_REF=main H2V_ALLOW_FLOATING_REF=1 bash install.sh install
 ```
 
 For stricter source verification, pass `H2V_SOURCE_SHA256=<sha256>` or set `H2V_REQUIRE_SOURCE_SHA256=1`.

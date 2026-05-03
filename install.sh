@@ -571,7 +571,12 @@ resolve_source_dir() {
   TMP_SOURCE_DIR="$(mktemp -d)"
   local archive
   archive="${TMP_SOURCE_DIR}/source.tar.gz"
-  curl -fsSL "${ARCHIVE_URL}" -o "${archive}"
+  if ! curl -fsSL "${ARCHIVE_URL}" -o "${archive}"; then
+    if [[ "${REPO_REF}" == "v${H2V_VERSION}" ]]; then
+      fail "repository tag ${REPO_REF} was not found. Publish the release tag first, run from a full local checkout, or set H2V_REF=main H2V_ALLOW_FLOATING_REF=1 for a development install"
+    fi
+    fail "unable to download repository source ${REPO_OWNER}/${REPO_NAME}@${REPO_REF}"
+  fi
   if [[ -n "${H2V_SOURCE_SHA256}" ]]; then
     verify_sha256 "${archive}" "${H2V_SOURCE_SHA256}" "${REPO_OWNER}/${REPO_NAME}@${REPO_REF}"
   elif [[ "${H2V_REQUIRE_SOURCE_SHA256:-0}" == "1" ]]; then
