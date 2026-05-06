@@ -12,7 +12,6 @@ import (
 	"os/exec"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/prost/h2v/backend/internal/config"
@@ -24,16 +23,12 @@ import (
 type Client struct {
 	cfg    config.XrayConfig
 	logger *slog.Logger
-
-	mu    sync.RWMutex
-	users map[string]domain.User
 }
 
 func NewClient(cfg config.XrayConfig, logger *slog.Logger) *Client {
 	return &Client{
 		cfg:    cfg,
 		logger: logger,
-		users:  make(map[string]domain.User),
 	}
 }
 
@@ -66,28 +61,12 @@ func (c *Client) Health(ctx context.Context) error {
 	return nil
 }
 
-func (c *Client) AddUser(_ context.Context, user *domain.User) error {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	c.users[user.Username] = *user
+func (_ *Client) AddUser(_ context.Context, _ *domain.User) error {
 	return nil
 }
 
-func (c *Client) RemoveUser(_ context.Context, username string) error {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	delete(c.users, username)
+func (_ *Client) RemoveUser(_ context.Context, _ string) error {
 	return nil
-}
-
-func (c *Client) ListUsers(_ context.Context) ([]string, error) {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
-	out := make([]string, 0, len(c.users))
-	for username := range c.users {
-		out = append(out, username)
-	}
-	return out, nil
 }
 
 func (c *Client) QueryStats(ctx context.Context) (map[string]domain.TrafficDelta, error) {

@@ -9,7 +9,6 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/prost/h2v/backend/internal/domain"
 	"github.com/prost/h2v/backend/internal/repo"
@@ -50,24 +49,6 @@ func (s *SubscriptionService) LinksForUser(ctx context.Context, user *domain.Use
 		},
 		Username: user.Username,
 	}, nil
-}
-
-func (s *SubscriptionService) RotateByToken(ctx context.Context, token string) (*domain.SubscriptionLinks, error) {
-	user, err := s.repo.GetUserByToken(ctx, token)
-	if err != nil {
-		return nil, err
-	}
-	next, err := util.RandomToken(32)
-	if err != nil {
-		return nil, err
-	}
-	user.SubToken = next
-	user.UpdatedAt = time.Now().UTC()
-	if err := s.repo.UpdateUser(ctx, user); err != nil {
-		return nil, err
-	}
-	s.cache.Set(user)
-	return s.LinksForUser(ctx, user)
 }
 
 func (s *SubscriptionService) CheckPasswordCached(password string) (*domain.User, bool) {
