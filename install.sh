@@ -59,15 +59,18 @@ fi
 
 STAGE_INDEX=0
 STAGE_TOTAL=0
+PROGRESS_ACTIVE=false
+PROGRESS_COUNTER=""
+PROGRESS_TITLE=""
 
-green()   { printf '%s%s%s\n' "${GREEN}" "$1" "${RESET}"; }
-yellow()  { printf '%s%s%s\n' "${YELLOW}" "$1" "${RESET}"; }
-red()     { printf '%s%s%s\n' "${RED}" "$1" "${RESET}"; }
-log()     { printf '    %s\n' "$1"; }
-substep() { printf '  %s→%s %s\n' "${DIM}" "${RESET}" "$1"; }
-success() { printf '  %s✓%s %s\n' "${GREEN}" "${RESET}" "$1"; }
-warn()    { printf '  %s⚠%s %s\n' "${YELLOW}" "${RESET}" "$1"; }
-info()    { printf '  %si%s %s\n' "${CYAN}" "${RESET}" "$1"; }
+green()   { ui_line "${GREEN}$1${RESET}"; }
+yellow()  { ui_line "${YELLOW}$1${RESET}"; }
+red()     { ui_line "${RED}$1${RESET}"; }
+log()     { ui_line "    $1"; }
+substep() { ui_line "  ${DIM}→${RESET} $1"; }
+success() { ui_line "  ${GREEN}✓${RESET} $1"; }
+warn()    { ui_line "  ${YELLOW}⚠${RESET} $1"; }
+info()    { ui_line "  ${CYAN}i${RESET} $1"; }
 
 terminal_width() {
   local width="${COLUMNS:-}"
@@ -94,18 +97,20 @@ clear_screen() {
 progress_bar() {
   local current="$1"
   local total="$2"
-  local width
+  local width="${3:-}"
   local filled empty percent fill_chunk empty_chunk
 
   if (( total <= 0 )); then
     return 0
   fi
 
-  width=$(( $(terminal_width) / 3 ))
-  if (( width < 20 )); then
-    width=20
-  elif (( width > 40 )); then
-    width=40
+  if [[ -z "${width}" || ! "${width}" =~ ^[0-9]+$ ]]; then
+    width=$(( $(terminal_width) / 3 ))
+    if (( width < 20 )); then
+      width=20
+    elif (( width > 40 )); then
+      width=40
+    fi
   fi
 
   filled=$(( current * width / total ))
@@ -118,6 +123,89 @@ progress_bar() {
   empty_chunk="${empty_chunk// /░}"
 
   printf '%s[%s%s%s%s]%s %3d%%' "${DIM}" "${CYAN}" "${fill_chunk}" "${DIM}" "${empty_chunk}" "${RESET}" "${percent}"
+}
+
+truncate_text() {
+  local text="$1"
+  local max="$2"
+  if (( max <= 0 )); then
+    printf ''
+  elif (( ${#text} <= max )); then
+    printf '%s' "${text}"
+  elif (( max <= 3 )); then
+    printf '%s' "${text:0:max}"
+  else
+    printf '%s...' "${text:0:max-3}"
+  fi
+}
+
+progress_text() {
+  local width bar_width title_width title
+  width="$(terminal_width)"
+  bar_width=$(( width / 4 ))
+  if (( bar_width < 16 )); then
+    bar_width=16
+  elif (( bar_width > 28 )); then
+    bar_width=28
+  fi
+  title_width=$(( width - bar_width - 25 ))
+  if (( title_width < 12 )); then
+    title_width=12
+  fi
+  title="$(truncate_text "${PROGRESS_TITLE}" "${title_width}")"
+  printf '%s▶%s %s%s%s %s%s%s  %s' \
+    "${CYAN}" "${RESET}" \
+    "${DIM}" "${PROGRESS_COUNTER}" "${RESET}" \
+    "${BOLD}" "${title}" "${RESET}" \
+    "$(progress_bar "${STAGE_INDEX}" "${STAGE_TOTAL}" "${bar_width}")"
+}
+
+progress_render() {
+  ${UI_TTY} || return 0
+  ${PROGRESS_ACTIVE} || return 0
+  printf '\r\033[2K%s' "$(progress_text)"
+}
+
+progress_clear() {
+  ${UI_TTY} || return 0
+  ${PROGRESS_ACTIVE} || return 0
+  printf '\r\033[2K'
+}
+
+progress_finish() {
+  ${PROGRESS_ACTIVE} || return 0
+  progress_clear
+  PROGRESS_ACTIVE=false
+  printf '\n'
+}
+
+with_progress_hidden() {
+  local was_active=false
+  if ${PROGRESS_ACTIVE}; then
+    progress_clear
+    PROGRESS_ACTIVE=false
+    was_active=true
+  fi
+  set +e
+  "$@"
+  local status=$?
+  set -e
+  if ${was_active}; then
+    PROGRESS_ACTIVE=true
+    progress_render
+  fi
+  return "${status}"
+}
+
+ui_line() {
+  local line="${1:-}"
+  if ${PROGRESS_ACTIVE}; then
+    progress_clear
+    printf '%s\n' "${line}"
+    progress_render
+  else
+    printf '%s\n' "${line}"
+  fi
 }
 
 tty_clean_previous_line() {
@@ -152,9 +240,17 @@ step() {
   else
     counter=$(printf '%s' "$1")
   fi
-  printf '\n%s▶%s %s%s%s %s%s%s\n' "${CYAN}" "${RESET}" "${DIM}" "${counter}" "${RESET}" "${BOLD}" "$2" "${RESET}"
-  if (( STAGE_TOTAL > 0 )); then
-    printf '  %s\n' "$(progress_bar "${STAGE_INDEX}" "${STAGE_TOTAL}")"
+  if ${UI_TTY} && (( STAGE_TOTAL > 0 )); then
+    progress_clear
+    PROGRESS_COUNTER="${counter}"
+    PROGRESS_TITLE="$2"
+    PROGRESS_ACTIVE=true
+    progress_render
+  else
+    printf '\n%s▶%s %s%s%s %s%s%s\n' "${CYAN}" "${RESET}" "${DIM}" "${counter}" "${RESET}" "${BOLD}" "$2" "${RESET}"
+    if (( STAGE_TOTAL > 0 )); then
+      printf '  %s\n' "$(progress_bar "${STAGE_INDEX}" "${STAGE_TOTAL}")"
+    fi
   fi
 }
 
@@ -180,6 +276,7 @@ banner() {
 print_summary() {
   local access_url="$1"
   local local_url="$2"
+  progress_finish
   printf '\n'
   printf '%s╔══════════════════════════════════════════════════════════════╗%s\n' "${GREEN}" "${RESET}"
   printf '%s║%s %s✓ h2v panel ready%s%44s%s║%s\n' "${GREEN}" "${RESET}" "${BOLD}${GREEN}" "${RESET}" "" "${GREEN}" "${RESET}"
@@ -237,7 +334,8 @@ detect_os() {
 }
 
 fail() {
-  red "$1"
+  progress_finish
+  printf '%s%s%s\n' "${RED}" "$1" "${RESET}"
   exit 1
 }
 
@@ -271,8 +369,10 @@ download_verified() {
 }
 
 ensure_base_packages() {
-  apt-get update
-  apt-get install -y \
+  substep "updating apt package index"
+  with_progress_hidden apt-get update -qq
+  substep "installing required Ubuntu packages"
+  with_progress_hidden apt-get install -y -qq \
     bash \
     ca-certificates \
     curl \
@@ -540,7 +640,7 @@ install_node() {
   if [[ -x "${node_dir}/bin/corepack" ]]; then
     ln -sf "${node_dir}/bin/corepack" /usr/local/bin/corepack
   fi
-  npm install -g "npm@${NPM_VERSION}"
+  with_progress_hidden npm install -g "npm@${NPM_VERSION}"
 }
 
 ensure_node() {
