@@ -16,6 +16,7 @@ H2V_ALLOW_FLOATING_REF="${H2V_ALLOW_FLOATING_REF:-1}"
 ARCHIVE_URL="https://codeload.github.com/${REPO_OWNER}/${REPO_NAME}/tar.gz/${REPO_REF}"
 H2V_SOURCE_SHA256="${H2V_SOURCE_SHA256:-}"
 TMP_SOURCE_DIR=""
+INSTALL_LOG="${H2V_INSTALL_LOG:-/tmp/h2v-install.log}"
 INSTALL_DIR="/opt/mypanel"
 ENV_FILE="${INSTALL_DIR}/.env"
 BUILD_STATE_DIR="${INSTALL_DIR}/build"
@@ -56,6 +57,10 @@ UI_TTY=false
 if [[ -t 1 && "${TERM:-}" != "dumb" ]]; then
   UI_TTY=true
 fi
+UI_VERBOSE=false
+case "${H2V_VERBOSE:-0}" in
+  1|true|yes|on) UI_VERBOSE=true ;;
+esac
 
 STAGE_INDEX=0
 STAGE_TOTAL=0
@@ -66,11 +71,11 @@ PROGRESS_TITLE=""
 green()   { ui_line "${GREEN}$1${RESET}"; }
 yellow()  { ui_line "${YELLOW}$1${RESET}"; }
 red()     { ui_line "${RED}$1${RESET}"; }
-log()     { ui_line "    $1"; }
-substep() { ui_line "  ${DIM}→${RESET} $1"; }
-success() { ui_line "  ${GREEN}✓${RESET} $1"; }
+log()     { ui_detail "    $1"; }
+substep() { ui_detail "  ${DIM}→${RESET} $1"; }
+success() { ui_detail "  ${GREEN}✓${RESET} $1"; }
 warn()    { ui_line "  ${YELLOW}⚠${RESET} $1"; }
-info()    { ui_line "  ${CYAN}i${RESET} $1"; }
+info()    { ui_detail "  ${CYAN}i${RESET} $1"; }
 
 terminal_width() {
   local width="${COLUMNS:-}"
@@ -197,6 +202,32 @@ with_progress_hidden() {
   return "${status}"
 }
 
+run_quiet() {
+  local label="$1"
+  shift
+  local status=0
+
+  if ${UI_VERBOSE}; then
+    with_progress_hidden "$@"
+    return $?
+  fi
+
+  mkdir -p "$(dirname "${INSTALL_LOG}")" 2>/dev/null || true
+  printf '\n== %s ==\n' "${label}" >>"${INSTALL_LOG}" 2>/dev/null || true
+
+  set +e
+  "$@" >>"${INSTALL_LOG}" 2>&1
+  status=$?
+  set -e
+
+  if [[ ${status} -ne 0 ]]; then
+    progress_finish
+    red "${label} failed. Last log lines from ${INSTALL_LOG}:"
+    tail -n 60 "${INSTALL_LOG}" || true
+  fi
+  return "${status}"
+}
+
 ui_line() {
   local line="${1:-}"
   if ${PROGRESS_ACTIVE}; then
@@ -206,6 +237,14 @@ ui_line() {
   else
     printf '%s\n' "${line}"
   fi
+}
+
+ui_detail() {
+  local line="${1:-}"
+  if ${PROGRESS_ACTIVE} && ! ${UI_VERBOSE}; then
+    return 0
+  fi
+  ui_line "${line}"
 }
 
 tty_clean_previous_line() {
@@ -370,9 +409,9 @@ download_verified() {
 
 ensure_base_packages() {
   substep "updating apt package index"
-  with_progress_hidden apt-get update -qq
+  run_quiet "apt-get update" apt-get update -qq
   substep "installing required Ubuntu packages"
-  with_progress_hidden apt-get install -y -qq \
+  run_quiet "apt-get install" apt-get install -y -qq \
     bash \
     ca-certificates \
     curl \
@@ -499,9 +538,9 @@ ensure_reality_keys() {
 
 render_core_configs() {
   [[ -x "${INSTALL_DIR}/bin/panel" ]] || fail "panel binary missing; cannot render core configs"
-  PANEL_ENV_FILE="${ENV_FILE}" sudo -u panel "${INSTALL_DIR}/bin/panel" config render --core xray \
+  run_quiet "render xray config" env PANEL_ENV_FILE="${ENV_FILE}" sudo -u panel "${INSTALL_DIR}/bin/panel" config render --core xray \
     || fail "failed to render xray config"
-  PANEL_ENV_FILE="${ENV_FILE}" sudo -u panel "${INSTALL_DIR}/bin/panel" config render --core hysteria \
+  run_quiet "render hysteria config" env PANEL_ENV_FILE="${ENV_FILE}" sudo -u panel "${INSTALL_DIR}/bin/panel" config render --core hysteria \
     || fail "failed to render hysteria config"
   rm -f "${INSTALL_DIR}/configs/hysteria/config.yaml" "${INSTALL_DIR}/configs/hysteria/config.yml"
   chown panel:xray "${INSTALL_DIR}/configs/xray/config.json" 2>/dev/null || true
@@ -550,7 +589,7 @@ grant_cert_access() {
       caddy_was_active=true
       systemctl stop caddy.service || true
     fi
-    if ! certbot certonly --standalone --non-interactive --agree-tos --register-unsafely-without-email --keep-until-expiring -d "${domain}"; then
+    if ! run_quiet "certbot ${domain}" certbot certonly --standalone --non-interactive --agree-tos --register-unsafely-without-email --keep-until-expiring -d "${domain}"; then
       warn "certbot failed to obtain ${domain}; Hysteria 2 will not start until HY2_CERT_PATH/HY2_KEY_PATH exist"
       info "manual command: systemctl stop caddy && certbot certonly --standalone -d ${domain} && systemctl start caddy"
       ${caddy_was_active} && systemctl start caddy.service || true
@@ -640,7 +679,7 @@ install_node() {
   if [[ -x "${node_dir}/bin/corepack" ]]; then
     ln -sf "${node_dir}/bin/corepack" /usr/local/bin/corepack
   fi
-  with_progress_hidden npm install -g "npm@${NPM_VERSION}"
+  run_quiet "npm install -g npm@${NPM_VERSION}" npm install -g "npm@${NPM_VERSION}"
 }
 
 ensure_node() {
@@ -1240,19 +1279,19 @@ ensure_postgres() {
 
   if [[ -z "$(sudo -u postgres psql -tA --dbname=postgres --port="${db_port}" -c "SELECT 1 FROM pg_roles WHERE rolname = '${db_user_literal}'")" ]]; then
     sudo -u postgres psql -v ON_ERROR_STOP=1 --dbname=postgres --port="${db_port}" \
-      -c "CREATE ROLE \"${db_user_ident}\" LOGIN PASSWORD '${db_password_literal}'"
+      -c "CREATE ROLE \"${db_user_ident}\" LOGIN PASSWORD '${db_password_literal}'" >/dev/null
   else
     sudo -u postgres psql -v ON_ERROR_STOP=1 --dbname=postgres --port="${db_port}" \
-      -c "ALTER ROLE \"${db_user_ident}\" WITH LOGIN PASSWORD '${db_password_literal}'"
+      -c "ALTER ROLE \"${db_user_ident}\" WITH LOGIN PASSWORD '${db_password_literal}'" >/dev/null
   fi
 
   if [[ -z "$(sudo -u postgres psql -tA --dbname=postgres --port="${db_port}" -c "SELECT 1 FROM pg_database WHERE datname = '${db_name_literal}'")" ]]; then
     sudo -u postgres psql -v ON_ERROR_STOP=1 --dbname=postgres --port="${db_port}" \
-      -c "CREATE DATABASE \"${db_name_ident}\" OWNER \"${db_user_ident}\""
+      -c "CREATE DATABASE \"${db_name_ident}\" OWNER \"${db_user_ident}\"" >/dev/null
   fi
 
   sudo -u postgres psql -v ON_ERROR_STOP=1 --dbname=postgres --port="${db_port}" \
-    -c "ALTER DATABASE \"${db_name_ident}\" OWNER TO \"${db_user_ident}\""
+    -c "ALTER DATABASE \"${db_name_ident}\" OWNER TO \"${db_user_ident}\"" >/dev/null
 }
 
 sync_runtime_settings() {
@@ -1301,10 +1340,10 @@ sync_runtime_settings() {
   warn "database setting vless.port still conflicts with PANEL_PUBLIC_PORT=${panel_public_port}; updating it to ${vless_port}"
   if [[ "${db_host}" == "127.0.0.1" || "${db_host}" == "localhost" || "${db_host}" == "::1" ]]; then
     sudo -u postgres psql -v ON_ERROR_STOP=1 --dbname="${db_name}" --port="${db_port}" \
-      -c "INSERT INTO settings (key, value, updated_at) VALUES ('vless.port', '${vless_port}'::jsonb, now()) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = now()"
+      -c "INSERT INTO settings (key, value, updated_at) VALUES ('vless.port', '${vless_port}'::jsonb, now()) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = now()" >/dev/null
   else
     PGPASSWORD="${db_password}" psql -v ON_ERROR_STOP=1 -h "${db_host}" -p "${db_port}" -U "${db_user}" "${db_name}" \
-      -c "INSERT INTO settings (key, value, updated_at) VALUES ('vless.port', '${vless_port}'::jsonb, now()) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = now()"
+      -c "INSERT INTO settings (key, value, updated_at) VALUES ('vless.port', '${vless_port}'::jsonb, now()) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = now()" >/dev/null
   fi
 }
 
@@ -1606,6 +1645,7 @@ install_all() {
 
   collect_install_inputs
   print_install_plan
+  : >"${INSTALL_LOG}" 2>/dev/null || true
 
   STAGE_INDEX=0
   STAGE_TOTAL=13
@@ -1870,6 +1910,8 @@ Env overrides:
   H2V_SOURCE_SHA256=<sha256>                 verify downloaded source archive
   H2V_REQUIRE_SOURCE_SHA256=1                fail if source checksum is absent
   XRAY_VERSION, HYSTERIA_VERSION             override pinned core versions
+  H2V_VERBOSE=1                              show detailed install output
+  H2V_INSTALL_LOG=/path/to/log               quiet-mode command log
   H2V_NO_CLEAR=1                             keep previous terminal output
   PANEL_ADMIN_USERNAME, PANEL_ADMIN_PASSWORD seed non-interactive admin
 
