@@ -729,7 +729,7 @@ export function UsersPage() {
         }}
         open={qrOpen}
       >
-        <DialogContent className="min-w-0 w-[calc(100vw-32px)] max-w-105 overflow-hidden p-0 sm:max-w-105">
+        <DialogContent className="max-h-[calc(100vh-32px)] min-w-0 w-[calc(100vw-32px)] overflow-hidden p-0 sm:max-w-2xl">
           <QRDialogContent
             isLoading={qrLinks.isLoading}
             links={qrLinks.data ?? null}
@@ -882,45 +882,67 @@ function QRDialogContent({
   links: UserLinks | null;
   username: string;
 }) {
-  const portal = links ? publicLink(links) : '';
+  const qrItems = links
+    ? [
+        {
+          copyLabel: 'Copy subscription',
+          label: 'Subscription',
+          toastLabel: 'Subscription link',
+          value: links.subscription,
+        },
+        {
+          copyLabel: 'Copy VLESS',
+          label: 'VLESS',
+          toastLabel: 'VLESS',
+          value: links.vless,
+        },
+        {
+          copyLabel: 'Copy Hys2',
+          label: 'Hys2',
+          toastLabel: 'Hys2',
+          value: links.hysteria2,
+        },
+      ]
+    : [];
+
   return (
-    <div className="min-w-0 space-y-5 overflow-hidden p-6">
+    <div className="min-w-0 space-y-5 overflow-y-auto p-6">
       <DialogHeader className="pr-8">
         <DialogTitle>{username || 'User'} QR</DialogTitle>
       </DialogHeader>
 
       {isLoading ? (
-        <div className="min-w-0 space-y-4">
-          <Skeleton className="mx-auto aspect-square w-full max-w-[260px] rounded-md" />
-          <Skeleton className="h-9 w-full" />
-          <Skeleton className="h-11 w-full" />
-          <Skeleton className="h-11 w-full" />
+        <div className="grid min-w-0 gap-4 sm:grid-cols-3">
+          {Array.from({ length: 3 }).map((_, index) => (
+            <div className="space-y-3 rounded-md bg-muted/35 p-3" key={index}>
+              <Skeleton className="h-4 w-20" />
+              <Skeleton className="aspect-square w-full rounded-md" />
+              <Skeleton className="h-9 w-full" />
+            </div>
+          ))}
         </div>
       ) : links ? (
-        <div className="space-y-4">
-          <div className="mx-auto w-full max-w-[260px]">
-            <QRCodePreview label={`${username || 'User'} public page QR`} value={portal} />
-          </div>
-
-          <Button
-            className="w-full"
-            disabled={!portal}
-            onClick={async () => {
-              if (!portal) return;
-              await navigator.clipboard.writeText(portal);
-              toast.success('Public page copied');
-            }}
-            type="button"
-          >
-            <Copy className="size-4" />
-            Copy public page
-          </Button>
-
-          <div className="min-w-0 space-y-1.5">
-            <LinkCopyRow label="Subscription URL" value={links.subscription} />
-            <LinkCopyRow label="VLESS" value={links.vless} />
-            <LinkCopyRow label="Hys2" value={links.hysteria2} />
-          </div>
+        <div className="grid gap-4 sm:grid-cols-3">
+          {qrItems.map((item) => (
+            <div className="space-y-3 rounded-md bg-muted/35 p-3" key={item.label}>
+              <div className="t-label">{item.label}</div>
+              <QRCodePreview label={`${username || 'User'} ${item.label} QR`} value={item.value} />
+              <Button
+                className="w-full"
+                disabled={!item.value}
+                onClick={async () => {
+                  if (!item.value) return;
+                  await navigator.clipboard.writeText(item.value);
+                  toast.success(`${item.toastLabel} copied`);
+                }}
+                type="button"
+                variant="secondary"
+              >
+                <Copy className="size-4" />
+                {item.copyLabel}
+              </Button>
+            </div>
+          ))}
         </div>
       ) : (
         <div className="rounded-md bg-destructive/10 px-3 py-6 text-center text-sm text-destructive">

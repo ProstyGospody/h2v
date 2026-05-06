@@ -300,11 +300,9 @@ export function SubPage() {
                       >
                         <div className="t-label">{item.label}</div>
                         <QRCodePreview label={item.label} value={item.value} />
-                        <div className="overflow-hidden text-ellipsis whitespace-nowrap font-mono text-xs text-foreground">
-                          {item.value}
-                        </div>
                         <Button
                           className="w-full"
+                          disabled={!item.value}
                           onClick={async () => {
                             if (!item.value) return;
                             await navigator.clipboard.writeText(item.value);
