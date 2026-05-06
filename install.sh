@@ -34,7 +34,7 @@ XRAY_GEOIP_URL_DEFAULT="https://github.com/v2fly/geoip/releases/latest/download/
 XRAY_GEOSITE_URL_DEFAULT="https://github.com/v2fly/domain-list-community/releases/latest/download/dlc.dat"
 
 FIRST_INSTALL=false
-NEEDS_CONFIG=false
+RECONFIGURE_RUNTIME=false
 PANEL_DOMAIN_INPUT=""
 PANEL_PUBLIC_PORT_INPUT=""
 VLESS_PORT_INPUT=""
@@ -187,7 +187,7 @@ print_summary() {
   printf '\n'
   printf '  %sPanel URL%s   %s%s%s\n' "${BOLD}" "${RESET}" "${CYAN}" "${access_url}" "${RESET}"
   printf '  %sLocal URL%s   %s%s%s\n' "${BOLD}" "${RESET}" "${DIM}" "${local_url}" "${RESET}"
-  if ${NEEDS_CONFIG}; then
+  if ${FIRST_INSTALL}; then
     printf '\n'
     printf '  %sAdmin login%s    %s\n' "${BOLD}" "${RESET}" "${ADMIN_USERNAME_INPUT}"
     if ${ADMIN_PASSWORD_GENERATED}; then
@@ -202,7 +202,11 @@ print_summary() {
   printf '  %sSource ref%s   %s %s(defaults to latest main commit)%s\n' "${DIM}" "${RESET}" "${REPO_REF}" "${DIM}" "${RESET}"
   printf '  %sToolchain%s    Go %s · Node %s · npm %s\n' "${DIM}" "${RESET}" "$(go version | awk '{print $3}')" "$(node -v)" "$(npm -v)"
   printf '\n'
-  printf '  %sReset admin password:%s  %s/opt/mypanel/install.sh reset-admin%s\n' "${DIM}" "${RESET}" "${CYAN}" "${RESET}"
+  printf '  %sUseful commands%s\n' "${BOLD}" "${RESET}"
+  printf '    %s/opt/mypanel/install.sh update%s\n' "${CYAN}" "${RESET}"
+  printf '    %s/opt/mypanel/install.sh geodata%s\n' "${CYAN}" "${RESET}"
+  printf '    %s/opt/mypanel/install.sh reset-admin%s\n' "${CYAN}" "${RESET}"
+  printf '    %s/opt/mypanel/install.sh backup%s\n' "${CYAN}" "${RESET}"
   printf '\n'
 }
 
@@ -216,7 +220,9 @@ trap cleanup EXIT
 
 require_root() {
   if [[ "${EUID}" -ne 0 ]]; then
-    red "This script must run as root."
+    red "Root privileges are required."
+    info "Open a root shell with sudo -i, then run:"
+    printf '  %sbash <(curl -fsSL https://raw.githubusercontent.com/%s/%s/main/install.sh)%s\n' "${CYAN}" "${REPO_OWNER}" "${REPO_NAME}" "${RESET}"
     exit 1
   fi
 }
@@ -224,7 +230,8 @@ require_root() {
 detect_os() {
   . /etc/os-release
   if [[ "${ID:-}" != "ubuntu" ]]; then
-    red "Ubuntu 22.04 or 24.04 is required."
+    red "Unsupported OS: ${PRETTY_NAME:-unknown}."
+    info "h2v supports Ubuntu 22.04 and Ubuntu 24.04."
     exit 1
   fi
 }
@@ -647,35 +654,36 @@ prompt_password() {
   printf '%s' "${answer}"
 }
 
-prompt_yes_no() {
-  local prompt="$1"
-  local default="${2:-no}"
+prompt_reconfigure_choice() {
   local answer=""
-  local suffix="[y/N]"
-  if [[ "${default}" == "yes" ]]; then
-    suffix="[Y/n]"
+  if ! can_prompt; then
+    return 1
   fi
-  if can_prompt; then
-    printf '%s %s: ' "${prompt}" "${suffix}" >/dev/tty
+
+  printf '\n%sExisting h2v configuration found%s\n' "${BOLD}" "${RESET}" >/dev/tty
+  printf '  1) Keep current /opt/mypanel/.env and update the app\n' >/dev/tty
+  printf '  2) Reconfigure domain and public ports\n' >/dev/tty
+
+  while true; do
+    printf 'Choose an option [1]: ' >/dev/tty
     read -r answer </dev/tty
-  fi
-  answer="${answer#"${answer%%[![:space:]]*}"}"
-  answer="${answer%"${answer##*[![:space:]]}"}"
-  answer="${answer:-${default}}"
-  case "${answer,,}" in
-    y|yes|1|true|д|да)
-      if can_prompt; then
-        tty_prompt_result "${prompt}" "yes"
-      fi
-      return 0
-      ;;
-    *)
-      if can_prompt; then
-        tty_prompt_result "${prompt}" "no"
-      fi
-      return 1
-      ;;
-  esac
+    answer="${answer#"${answer%%[![:space:]]*}"}"
+    answer="${answer%"${answer##*[![:space:]]}"}"
+    answer="${answer:-1}"
+    case "${answer}" in
+      1)
+        tty_prompt_result_current "Configuration" "keep existing .env"
+        return 1
+        ;;
+      2)
+        tty_prompt_result_current "Configuration" "reconfigure"
+        return 0
+        ;;
+      *)
+        printf '%sEnter 1 or 2.%s\n' "${RED}" "${RESET}" >/dev/tty
+        ;;
+    esac
+  done
 }
 
 valid_port_number() {
@@ -728,6 +736,7 @@ prompt_service_port() {
   local label="$2"
   local default="$3"
   local protocol="$4"
+  local current_port="${5:-}"
   local port
   local is_tty=false
   can_prompt && is_tty=true
@@ -749,7 +758,9 @@ prompt_service_port() {
       ${is_tty} || fail "${label} ${port}/tcp conflicts with panel public HTTPS"
       continue
     fi
-    if [[ "${key}" != "PANEL_PUBLIC_PORT" || selected_panel_domain_is_real ]] && port_listener_in_use "${protocol}" "${port}"; then
+    if [[ -n "${current_port}" && "${port}" == "${current_port}" ]]; then
+      :
+    elif [[ "${key}" != "PANEL_PUBLIC_PORT" || selected_panel_domain_is_real ]] && port_listener_in_use "${protocol}" "${port}"; then
       red "${label} ${port}/${protocol} is already in use. Choose another port." >&2
       ${is_tty} || fail "${label} ${port}/${protocol} is already in use"
       continue
@@ -768,6 +779,9 @@ collect_install_inputs() {
   local default_panel_public_port="443"
   local default_vless_port="8444"
   local default_hy2_port="8443"
+  local current_panel_public_port=""
+  local current_vless_port=""
+  local current_hy2_port=""
   local default_admin_username="${PANEL_ADMIN_USERNAME:-admin}"
 
   if [[ -f "${ENV_FILE}" ]]; then
@@ -781,19 +795,22 @@ collect_install_inputs() {
     [[ -n "${cur_panel_public_port}" ]] && default_panel_public_port="${cur_panel_public_port}"
     [[ -n "${cur_vless_port}" ]] && default_vless_port="${cur_vless_port}"
     [[ -n "${cur_hy2_port}" ]] && default_hy2_port="${cur_hy2_port}"
+    current_panel_public_port="${cur_panel_public_port}"
+    current_vless_port="${cur_vless_port}"
+    current_hy2_port="${cur_hy2_port}"
   else
     FIRST_INSTALL=true
-    NEEDS_CONFIG=true
   fi
 
   if ${env_exists}; then
     if ! can_prompt; then
       return
     fi
-    if ! prompt_yes_no "Reconfigure panel variables (domain and public ports)?" "no"; then
+    if ! prompt_reconfigure_choice; then
       return
     fi
-    info "reconfiguration enabled - panel domain and ports will be prompted"
+    RECONFIGURE_RUNTIME=true
+    info "reconfiguration enabled - domain and public ports will be prompted"
   fi
 
   local is_tty=false
@@ -826,16 +843,16 @@ collect_install_inputs() {
     red "A real domain is required."
   done
 
-  PANEL_PUBLIC_PORT_INPUT="$(prompt_service_port PANEL_PUBLIC_PORT "Panel public HTTPS port" "${default_panel_public_port}" tcp)"
+  PANEL_PUBLIC_PORT_INPUT="$(prompt_service_port PANEL_PUBLIC_PORT "Panel public HTTPS port" "${default_panel_public_port}" tcp "${current_panel_public_port}")"
   while true; do
-    VLESS_PORT_INPUT="$(prompt_service_port VLESS_PORT "VLESS Reality TCP port" "${default_vless_port}" tcp)"
+    VLESS_PORT_INPUT="$(prompt_service_port VLESS_PORT "VLESS Reality TCP port" "${default_vless_port}" tcp "${current_vless_port}")"
     if [[ "${VLESS_PORT_INPUT}" != "${PANEL_PUBLIC_PORT_INPUT}" ]]; then
       break
     fi
     red "VLESS Reality TCP port must differ from Panel public HTTPS port." >&2
     ${is_tty} || fail "VLESS Reality TCP port conflicts with Panel public HTTPS port"
   done
-  HY2_PORT_INPUT="$(prompt_service_port HY2_PORT "Hysteria 2 UDP port" "${default_hy2_port}" udp)"
+  HY2_PORT_INPUT="$(prompt_service_port HY2_PORT "Hysteria 2 UDP port" "${default_hy2_port}" udp "${current_hy2_port}")"
   if ! ${env_exists}; then
     ADMIN_USERNAME_INPUT="$(prompt_value "Admin username" "${default_admin_username}")"
 
@@ -1028,7 +1045,7 @@ validate_selected_runtime_ports() {
     fail "PANEL_PUBLIC_PORT and VLESS_PORT cannot both use TCP ${panel_public_port}"
   fi
 
-  if ${NEEDS_CONFIG}; then
+  if ${FIRST_INSTALL}; then
     if port_listener_in_use tcp "${panel_port}"; then
       fail "PANEL_PORT=${panel_port}/tcp is already in use"
     fi
@@ -1268,6 +1285,8 @@ build_artifacts() {
 install_templates() {
   rsync -a --delete "${SOURCE_DIR}/templates/" "${INSTALL_DIR}/templates/"
   rsync -a --delete "${SOURCE_DIR}/backend/migrations/" "${INSTALL_DIR}/migrations/"
+  install -m 0755 "${SOURCE_DIR}/install.sh" "${INSTALL_DIR}/install.sh"
+  chown root:root "${INSTALL_DIR}/install.sh" 2>/dev/null || true
   chown -R panel:panel "${INSTALL_DIR}/templates"
   chown -R panel:panel "${INSTALL_DIR}/migrations"
 }
@@ -1382,7 +1401,7 @@ run_migrations() {
 }
 
 create_admin() {
-  if ! ${NEEDS_CONFIG}; then
+  if ! ${FIRST_INSTALL}; then
     return
   fi
   local admin_username="${ADMIN_USERNAME_INPUT:-${PANEL_ADMIN_USERNAME:-admin}}"
@@ -1400,7 +1419,7 @@ create_admin() {
   fi
   if [[ "${admin_output}" == *"already taken"* || "${admin_output}" == *"already exists"* ]]; then
     warn "admin account already exists - keeping existing credentials"
-    NEEDS_CONFIG=false
+    FIRST_INSTALL=false
     ADMIN_PASSWORD_GENERATED=false
     return
   fi
@@ -1443,7 +1462,7 @@ print_install_plan() {
 
   if ${FIRST_INSTALL}; then
     mode="fresh install"
-  elif ${NEEDS_CONFIG}; then
+  elif ${RECONFIGURE_RUNTIME}; then
     mode="reconfigure"
   else
     mode="update"
@@ -1456,7 +1475,25 @@ print_install_plan() {
   printf '  %s%-18s%s %s\n' "${DIM}" "Panel URL" "${RESET}" "${panel_url}"
   printf '  %s%-18s%s %s/tcp\n' "${DIM}" "VLESS Reality" "${RESET}" "${vless_port}"
   printf '  %s%-18s%s %s/udp\n' "${DIM}" "Hysteria 2" "${RESET}" "${hy2_port}"
+  if ${FIRST_INSTALL}; then
+    printf '  %s%-18s%s %s\n' "${DIM}" "Config" "${RESET}" "create new .env"
+  elif ${RECONFIGURE_RUNTIME}; then
+    printf '  %s%-18s%s %s\n' "${DIM}" "Config" "${RESET}" "will update .env values"
+  else
+    printf '  %s%-18s%s %s\n' "${DIM}" "Config" "${RESET}" "preserve existing secrets"
+  fi
   printf '\n'
+}
+
+print_welcome() {
+  printf '\n'
+  printf '  %sThis installer will prepare:%s\n' "${BOLD}" "${RESET}"
+  printf '    - panel backend and web UI\n'
+  printf '    - PostgreSQL database and migrations\n'
+  printf '    - Xray VLESS Reality and Hysteria 2 services\n'
+  printf '    - Caddy TLS reverse proxy, geodata timer, and backups\n'
+  printf '\n'
+  printf '  %sTip:%s press Enter to accept suggested defaults during setup.\n' "${DIM}" "${RESET}"
 }
 
 install_all() {
@@ -1464,6 +1501,7 @@ install_all() {
   detect_os
   clear_screen
   banner "h2v panel installer" "VLESS Reality + Hysteria 2 | Ubuntu 22.04/24.04"
+  print_welcome
   resolve_source_dir
 
   collect_install_inputs
@@ -1530,7 +1568,7 @@ install_all() {
 
   step "admin" "Ensuring initial admin account"
   create_admin
-  if ${NEEDS_CONFIG}; then
+  if ${FIRST_INSTALL}; then
     success "admin '${ADMIN_USERNAME_INPUT}' ready"
   else
     info "existing admin account preserved"
@@ -1714,9 +1752,12 @@ case "${1:-install}" in
     cat <<'USAGE'
 h2v panel installer
 
+Quick install:
+  bash <(curl -fsSL https://raw.githubusercontent.com/ProstyGospody/h2v/main/install.sh)
+
 Usage:
-  install.sh install                         full install (interactive prompts)
-  install.sh update | reinstall              re-run install against existing .env
+  install.sh install                         full install or update with interactive prompts
+  install.sh update | reinstall              same as install; keeps .env unless you choose reconfigure
   install.sh geodata | update-geodata        refresh core geoip.dat/geosite.dat
   install.sh uninstall                       remove /opt/mypanel and systemd units
   install.sh reset-admin [user] [pw]         reset admin password
