@@ -134,6 +134,9 @@ func (s *Server) routes(r chi.Router) {
 		api.Patch("/settings", s.handleSettingsUpdate)
 		api.Post("/settings/ports/check", s.handleSettingsPortsCheck)
 		api.Post("/settings/reality-keypair", s.handleSettingsRealityKeyPair)
+		api.Get("/telegram-proxy", s.handleTelegramProxyGet)
+		api.Patch("/telegram-proxy", s.handleTelegramProxyUpdate)
+		api.Post("/telegram-proxy/regenerate", s.handleTelegramProxyRegenerate)
 		api.Post("/geodata/update", s.handleGeodataUpdate)
 		api.Get("/backup/export", s.handleBackupExport)
 		api.Post("/backup/import", s.handleBackupImport)
@@ -567,6 +570,38 @@ func (s *Server) handleSettingsRealityKeyPair(w http.ResponseWriter, _ *http.Req
 		return
 	}
 	jsonData(w, http.StatusOK, keyPair, nil)
+}
+
+func (s *Server) handleTelegramProxyGet(w http.ResponseWriter, r *http.Request) {
+	info, err := s.services.Telegram.Get(r.Context())
+	if err != nil {
+		jsonError(w, err)
+		return
+	}
+	jsonData(w, http.StatusOK, info, nil)
+}
+
+func (s *Server) handleTelegramProxyUpdate(w http.ResponseWriter, r *http.Request) {
+	var req services.TelegramProxyUpdate
+	if err := decodeJSON(r, &req); err != nil {
+		jsonError(w, err)
+		return
+	}
+	info, err := s.services.Telegram.Update(r.Context(), req)
+	if err != nil {
+		jsonError(w, err)
+		return
+	}
+	jsonData(w, http.StatusOK, info, nil)
+}
+
+func (s *Server) handleTelegramProxyRegenerate(w http.ResponseWriter, r *http.Request) {
+	info, err := s.services.Telegram.RegenerateSecret(r.Context())
+	if err != nil {
+		jsonError(w, err)
+		return
+	}
+	jsonData(w, http.StatusOK, info, nil)
 }
 
 func (s *Server) handleGeodataUpdate(w http.ResponseWriter, r *http.Request) {

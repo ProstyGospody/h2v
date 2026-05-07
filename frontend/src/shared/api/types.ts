@@ -70,6 +70,17 @@ export type Setting = {
   updated_at: string;
 };
 
+export type TelegramProxyInfo = {
+  host: string;
+  port: number;
+  stats_port: number;
+  secret: string;
+  workers: number;
+  link: string;
+  tg_link: string;
+  status: string;
+};
+
 export type Admin = {
   id: string;
   username: string;

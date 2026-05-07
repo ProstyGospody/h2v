@@ -15,6 +15,7 @@ type Config struct {
 	DB           DBConfig
 	Xray         XrayConfig
 	Hysteria     HysteriaConfig
+	Telegram     TelegramProxyConfig
 	Subscription SubscriptionConfig
 	Backup       BackupConfig
 	Traffic      TrafficConfig
@@ -72,6 +73,15 @@ type HysteriaConfig struct {
 	MasqueradeURL  string
 	CertPath       string
 	KeyPath        string
+}
+
+type TelegramProxyConfig struct {
+	Host      string
+	Port      int
+	StatsPort int
+	Secret    string
+	Workers   int
+	EnvFile   string
 }
 
 type SubscriptionConfig struct {
@@ -145,6 +155,14 @@ func Load() Config {
 			MasqueradeURL: getenv("HY2_MASQUERADE_URL", "https://www.bing.com"),
 			CertPath:      getenv("HY2_CERT_PATH", ""),
 			KeyPath:       getenv("HY2_KEY_PATH", ""),
+		},
+		Telegram: TelegramProxyConfig{
+			Host:      getenv("TELEGRAM_PROXY_PUBLIC_HOST", getenv("PANEL_DOMAIN", "panel.example.com")),
+			Port:      getenvInt("TELEGRAM_PROXY_PORT", 8445),
+			StatsPort: getenvInt("TELEGRAM_PROXY_STATS_PORT", 8888),
+			Secret:    getenv("TELEGRAM_PROXY_SECRET", ""),
+			Workers:   getenvInt("TELEGRAM_PROXY_WORKERS", 1),
+			EnvFile:   EnvFilePath(),
 		},
 		Subscription: SubscriptionConfig{
 			URLPrefix:           getenv("SUB_URL_PREFIX", "https://panel.example.com"),

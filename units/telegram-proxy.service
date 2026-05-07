@@ -1,0 +1,19 @@
+[Unit]
+Description=h2v Telegram MTProxy
+Documentation=https://github.com/TelegramMessenger/MTProxy
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+EnvironmentFile=/opt/mypanel/.env
+WorkingDirectory=/opt/mypanel/mtproxy
+ExecStartPre=/usr/bin/curl -fsSL https://core.telegram.org/getProxySecret -o /opt/mypanel/mtproxy/proxy-secret
+ExecStartPre=/usr/bin/curl -fsSL https://core.telegram.org/getProxyConfig -o /opt/mypanel/mtproxy/proxy-multi.conf
+ExecStart=/opt/mypanel/bin/mtproto-proxy -u telegram-proxy -p ${TELEGRAM_PROXY_STATS_PORT} -H ${TELEGRAM_PROXY_PORT} -S ${TELEGRAM_PROXY_SECRET} --aes-pwd /opt/mypanel/mtproxy/proxy-secret /opt/mypanel/mtproxy/proxy-multi.conf -M ${TELEGRAM_PROXY_WORKERS}
+Restart=on-failure
+RestartSec=5
+LimitNOFILE=65536
+
+[Install]
+WantedBy=multi-user.target

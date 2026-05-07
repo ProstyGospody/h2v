@@ -1,7 +1,9 @@
 import { useMemo, useRef, useState, type ChangeEvent, type ComponentType, type ReactNode } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { QRCodeSVG } from 'qrcode.react';
 import {
   AlertTriangle,
+  Copy as CopyIcon,
   Download,
   Eye,
   EyeOff,
@@ -9,6 +11,7 @@ import {
   RefreshCw,
   RotateCcw,
   Save,
+  Send,
   Upload,
 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -21,7 +24,7 @@ import { CoreLogo, type CoreLogoName } from '@/components/core-logo';
 import { PageHeader } from '@/components/page-header';
 import { cn } from '@/lib/utils';
 import { apiClient, ApiError } from '@/shared/api/client';
-import { Setting } from '@/shared/api/types';
+import { Setting, TelegramProxyInfo } from '@/shared/api/types';
 
 type SettingKey =
   | 'hy2.bandwidth_down'
@@ -99,6 +102,7 @@ const masqueradePresets: URLPreset[] = [
 
 const vlessPortPresets = [443, 8443, 8444, 2053, 2083];
 const hy2PortPresets = [443, 8443, 8444, 2083, 9443];
+const telegramPortPresets = [443, 8445, 9443, 2053, 2083];
 const bandwidthPresets = ['100 mbps', '500 mbps', '1 gbps', '10 gbps'];
 const portDefinitions: Array<{ key: PortKey; presets: number[]; protocol: 'tcp' | 'udp' }> = [
   { key: 'vless.port', presets: vlessPortPresets, protocol: 'tcp' },
@@ -121,15 +125,22 @@ type PortCheckResult = PortCheckItem & {
   reason?: string;
 };
 
+type TelegramDraft = Partial<Pick<TelegramProxyInfo, 'host' | 'port' | 'secret' | 'workers'>>;
+
 export function SettingsPage() {
   const queryClient = useQueryClient();
   const [draft, setDraft] = useState<SettingsDraft>({});
+  const [telegramDraft, setTelegramDraft] = useState<TelegramDraft>({});
   const [showSecrets, setShowSecrets] = useState(false);
   const backupInputRef = useRef<HTMLInputElement>(null);
 
   const settings = useQuery({
     queryKey: ['settings'],
     queryFn: () => apiClient.request<Setting[]>('/settings'),
+  });
+  const telegram = useQuery({
+    queryKey: ['telegram-proxy'],
+    queryFn: () => apiClient.request<TelegramProxyInfo>('/telegram-proxy'),
   });
 
   const values = useMemo(
@@ -161,6 +172,19 @@ export function SettingsPage() {
   const hasIssues = allIssues.length > 0;
   const currentRealityPreset = findRealityPreset(values.string('reality.sni'), values.string('reality.dest'));
   const currentMasqueradePreset = findURLPreset(values.string('hy2.masquerade_url'), masqueradePresets);
+  const telegramValues = useMemo<TelegramProxyInfo>(() => {
+    const base = telegram.data ?? fallbackTelegramProxy();
+    const next = {
+      ...base,
+      host: telegramDraft.host ?? base.host,
+      port: telegramDraft.port ?? base.port,
+      secret: telegramDraft.secret ?? base.secret,
+      workers: telegramDraft.workers ?? base.workers,
+    };
+    return { ...next, ...telegramLinks(next.host, next.port, next.secret) };
+  }, [telegram.data, telegramDraft]);
+  const telegramHasDraft = Object.keys(telegramDraft).length > 0;
+  const telegramIssues = useMemo(() => validateTelegramDraft(telegramValues), [telegramValues]);
 
   const save = useMutation({
     mutationFn: () =>
@@ -190,6 +214,37 @@ export function SettingsPage() {
       setValue('reality.private_key', keyPair.private_key);
       setValue('reality.public_key', keyPair.public_key);
       toast.success('Reality key pair generated');
+    },
+  });
+
+  const saveTelegram = useMutation({
+    mutationFn: () =>
+      apiClient.request<TelegramProxyInfo>('/telegram-proxy', {
+        body: JSON.stringify(telegramDraft),
+        method: 'PATCH',
+      }),
+    onError: (error) => {
+      toast.error(error instanceof ApiError ? error.message : 'Unable to update Telegram proxy');
+    },
+    onSuccess: async () => {
+      toast.success('Telegram proxy updated');
+      setTelegramDraft({});
+      await queryClient.invalidateQueries({ queryKey: ['telegram-proxy'] });
+    },
+  });
+
+  const regenerateTelegram = useMutation({
+    mutationFn: () =>
+      apiClient.request<TelegramProxyInfo>('/telegram-proxy/regenerate', {
+        method: 'POST',
+      }),
+    onError: (error) => {
+      toast.error(error instanceof ApiError ? error.message : 'Unable to regenerate Telegram secret');
+    },
+    onSuccess: async () => {
+      toast.success('Telegram proxy secret regenerated');
+      setTelegramDraft({});
+      await queryClient.invalidateQueries({ queryKey: ['telegram-proxy'] });
     },
   });
 
@@ -250,6 +305,24 @@ export function SettingsPage() {
     if (!preset) return;
     setValue('reality.sni', preset.sni);
     setValue('reality.dest', preset.dest);
+  }
+
+  function setTelegramValue<K extends keyof TelegramDraft>(key: K, value: TelegramDraft[K]) {
+    setTelegramDraft((current) => {
+      const original = telegram.data?.[key];
+      const next = { ...current };
+      if (JSON.stringify(value) === JSON.stringify(original)) {
+        delete next[key];
+      } else {
+        next[key] = value;
+      }
+      return next;
+    });
+  }
+
+  async function copyTelegramLink() {
+    await navigator.clipboard.writeText(telegramValues.link);
+    toast.success('Telegram proxy link copied');
   }
 
   async function handleBackupUpload(event: ChangeEvent<HTMLInputElement>) {
@@ -498,6 +571,95 @@ export function SettingsPage() {
                   />
                 </SettingsSection>
 
+                <SettingsSection
+                  icon={Send}
+                  kicker="Telegram"
+                  title="MTProto proxy"
+                >
+                  {telegram.isLoading ? (
+                    <div className="space-y-4">
+                      <Skeleton className="h-9 w-full" />
+                      <Skeleton className="h-28 w-full" />
+                    </div>
+                  ) : telegram.isError ? (
+                    <InlineError error={telegram.error} onRetry={() => telegram.refetch()} />
+                  ) : (
+                    <>
+                      <div className="flex items-center justify-between gap-3 rounded-md bg-muted/35 px-3 py-2">
+                        <span className="text-sm text-muted-foreground">Service status</span>
+                        <span
+                          className={cn(
+                            'rounded-full px-2 py-0.5 text-xs font-medium',
+                            serviceStatusClass(telegramValues.status),
+                          )}
+                        >
+                          {telegramValues.status || 'unknown'}
+                        </span>
+                      </div>
+                      <TextControl
+                        label="Public host"
+                        onChange={(value) => setTelegramValue('host', value)}
+                        placeholder="vpn.example.com"
+                        value={telegramValues.host}
+                      />
+                      <PortControl
+                        label="MTProto port"
+                        max={65535}
+                        min={1}
+                        onChange={(value) => setTelegramValue('port', value)}
+                        presets={telegramPortPresets}
+                        value={telegramValues.port}
+                      />
+                      <SecretControl
+                        generating={regenerateTelegram.isPending}
+                        label="MTProto secret"
+                        onChange={(value) => setTelegramValue('secret', value)}
+                        onGenerate={() => regenerateTelegram.mutate()}
+                        reveal={showSecrets}
+                        value={telegramValues.secret}
+                      />
+                      <TelegramLinkBox
+                        link={telegramValues.link}
+                        onCopy={copyTelegramLink}
+                      />
+                      {telegramValues.link ? (
+                        <div className="flex justify-center rounded-md bg-white p-3">
+                          <QRCodeSVG
+                            bgColor="#ffffff"
+                            fgColor="#111827"
+                            includeMargin
+                            size={156}
+                            value={telegramValues.link}
+                          />
+                        </div>
+                      ) : null}
+                      {telegramIssues.length > 0 ? <SettingsIssues issues={telegramIssues} /> : null}
+                      {telegramHasDraft ? (
+                        <div className="flex justify-end gap-2">
+                          <Button
+                            disabled={saveTelegram.isPending}
+                            onClick={() => setTelegramDraft({})}
+                            size="sm"
+                            type="button"
+                            variant="ghost"
+                          >
+                            <RotateCcw />
+                            Discard
+                          </Button>
+                          <Button
+                            disabled={saveTelegram.isPending || telegramIssues.length > 0}
+                            onClick={() => saveTelegram.mutate()}
+                            size="sm"
+                            type="button"
+                          >
+                            <Save />
+                            Save Telegram
+                          </Button>
+                        </div>
+                      ) : null}
+                    </>
+                  )}
+                </SettingsSection>
               </div>
             </section>
           </>
@@ -783,6 +945,21 @@ function SelectControl({
   );
 }
 
+function TelegramLinkBox({ link, onCopy }: { link: string; onCopy: () => void }) {
+  return (
+    <div className="space-y-[13px]">
+      <Label>Telegram link</Label>
+      <div className="flex min-w-0 gap-2">
+        <Input className="min-w-0 flex-1 font-mono text-xs" readOnly value={link} />
+        <Button aria-label="Copy Telegram proxy link" className="shrink-0" onClick={onCopy} type="button">
+          <CopyIcon className="size-4" />
+          Copy
+        </Button>
+      </div>
+    </div>
+  );
+}
+
 function SettingsIssues({ issues }: { issues: string[] }) {
   return (
     <div className="rounded-md border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
@@ -831,6 +1008,23 @@ function SettingsError({ error, onRetry }: { error: unknown; onRetry: () => void
   );
 }
 
+function InlineError({ error, onRetry }: { error: unknown; onRetry: () => void }) {
+  return (
+    <div className="rounded-md border border-destructive/30 bg-destructive/10 px-4 py-3">
+      <div className="flex items-start gap-3">
+        <AlertTriangle className="mt-0.5 size-4 shrink-0 text-destructive" />
+        <div className="min-w-0 flex-1">
+          <div className="text-sm font-medium text-destructive">Unable to load Telegram proxy</div>
+          <p className="mt-1 text-xs text-destructive/80">{errorMessage(error)}</p>
+        </div>
+        <Button onClick={onRetry} size="sm" type="button" variant="secondary">
+          Retry
+        </Button>
+      </div>
+    </div>
+  );
+}
+
 function createSettingsValues(items: Setting[], draft: SettingsDraft) {
   const map = new Map(items.map((item) => [item.key, item.value]));
 
@@ -856,6 +1050,33 @@ function createSettingsValues(items: Setting[], draft: SettingsDraft) {
       return Array.isArray(raw) ? raw.map(String) : asStringArray(fallbackValues[key]);
     },
     value,
+  };
+}
+
+function fallbackTelegramProxy(): TelegramProxyInfo {
+  return {
+    host: 'panel.example.com',
+    link: '',
+    port: 8445,
+    secret: '',
+    stats_port: 8888,
+    status: 'unknown',
+    tg_link: '',
+    workers: 1,
+  };
+}
+
+function telegramLinks(host: string, port: number, secret: string): Pick<TelegramProxyInfo, 'link' | 'tg_link'> {
+  const cleanSecret = secret.trim().replace(/^dd(?=[0-9a-fA-F]{32}$)/i, '');
+  const linkSecret = cleanSecret ? `dd${cleanSecret.toLowerCase()}` : '';
+  const query = new URLSearchParams({
+    port: String(port),
+    secret: linkSecret,
+    server: host.trim(),
+  });
+  return {
+    link: `https://t.me/proxy?${query.toString()}`,
+    tg_link: `tg://proxy?${query.toString()}`,
   };
 }
 
@@ -969,6 +1190,20 @@ function validateDraft(draft: SettingsDraft, values: ReturnType<typeof createSet
   return issues;
 }
 
+function validateTelegramDraft(values: TelegramProxyInfo): string[] {
+  const issues: string[] = [];
+  if (values.host.trim() === '') {
+    issues.push('Telegram proxy host cannot be empty.');
+  }
+  if (!validPort(values.port)) {
+    issues.push('Telegram proxy port must be between 1 and 65535.');
+  }
+  if (!/^(dd)?[0-9a-fA-F]{32}$/.test(values.secret.trim())) {
+    issues.push('Telegram proxy secret must be 32 hexadecimal characters.');
+  }
+  return issues;
+}
+
 function normalizeDraftForSave(draft: SettingsDraft): SettingsDraft {
   const normalized: SettingsDraft = {};
   for (const [key, value] of Object.entries(draft) as Array<[SettingKey, SettingValue]>) {
@@ -1063,6 +1298,12 @@ function validRealityShortID(value: string): boolean {
 
 function validBandwidth(value: string): boolean {
   return /^\d+(?:\.\d+)?\s*(bps|kbps|mbps|gbps|tbps|k|m|g|t)$/i.test(value.trim());
+}
+
+function serviceStatusClass(status: string): string {
+  return status === 'active'
+    ? 'bg-success/15 text-success'
+    : 'bg-warning/15 text-warning';
 }
 
 function randomHex(bytes: number): string {
