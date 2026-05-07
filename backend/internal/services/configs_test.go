@@ -5,6 +5,7 @@ import (
 	"io"
 	"log/slog"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/prost/h2v/backend/internal/config"
@@ -96,6 +97,9 @@ func TestRenderXrayConfigWithoutClientsKeepsVLESSInboundWithFallbackClient(t *te
 	}
 	if payload.Inbounds[2].Tag != "telegram-socks" {
 		t.Fatalf("third inbound tag = %q, want telegram-socks", payload.Inbounds[2].Tag)
+	}
+	if strings.Contains(string(content), "geoip:telegram") || strings.Contains(string(content), "geosite:telegram") {
+		t.Fatal("telegram routing must not depend on optional geodata categories")
 	}
 	if len(payload.Inbounds[1].Settings.Clients) != 1 {
 		t.Fatalf("fallback clients = %d, want 1", len(payload.Inbounds[1].Settings.Clients))
