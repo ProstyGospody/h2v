@@ -34,7 +34,6 @@ type Services struct {
 	Users        *UserService
 	Subscription *SubscriptionService
 	Settings     *SettingsService
-	Telegram     *TelegramProxyService
 	Configs      *ConfigService
 	Geodata      *GeodataService
 	Backup       *BackupService
@@ -88,7 +87,6 @@ func New(deps ServiceDeps) *Services {
 		Users:        NewUserService(deps.Repo, deps.Xray, deps.Hysteria, deps.Cache, subscription, configs, deps.Logger),
 		Subscription: subscription,
 		Settings:     settings,
-		Telegram:     NewTelegramProxyService(deps.Config, deps.Systemctl),
 		Configs:      configs,
 		Geodata:      NewGeodataService(deps.Config.Xray, deps.Logger, deps.Systemctl),
 		Backup:       NewBackupService(deps.Repo, settings, configs, deps.Cache),

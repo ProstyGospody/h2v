@@ -134,9 +134,7 @@ func (s *Server) routes(r chi.Router) {
 		api.Patch("/settings", s.handleSettingsUpdate)
 		api.Post("/settings/ports/check", s.handleSettingsPortsCheck)
 		api.Post("/settings/reality-keypair", s.handleSettingsRealityKeyPair)
-		api.Get("/telegram-proxy", s.handleTelegramProxyGet)
-		api.Patch("/telegram-proxy", s.handleTelegramProxyUpdate)
-		api.Post("/telegram-proxy/regenerate", s.handleTelegramProxyRegenerate)
+		api.Post("/settings/telegram-credentials", s.handleSettingsTelegramCredentials)
 		api.Post("/geodata/update", s.handleGeodataUpdate)
 		api.Get("/backup/export", s.handleBackupExport)
 		api.Post("/backup/import", s.handleBackupImport)
@@ -543,7 +541,7 @@ func (s *Server) handleSettingsPortsCheck(w http.ResponseWriter, r *http.Request
 	}
 	results := make([]portResult, 0, len(req.Ports))
 	for _, item := range req.Ports {
-		if item.Key != "vless.port" && item.Key != "hy2.port" {
+		if item.Key != "vless.port" && item.Key != "hy2.port" && item.Key != "telegram.port" {
 			jsonError(w, domain.NewError(400, "invalid_request", "Unknown port key", nil))
 			return
 		}
@@ -572,36 +570,13 @@ func (s *Server) handleSettingsRealityKeyPair(w http.ResponseWriter, _ *http.Req
 	jsonData(w, http.StatusOK, keyPair, nil)
 }
 
-func (s *Server) handleTelegramProxyGet(w http.ResponseWriter, r *http.Request) {
-	info, err := s.services.Telegram.Get(r.Context())
+func (s *Server) handleSettingsTelegramCredentials(w http.ResponseWriter, _ *http.Request) {
+	credentials, err := s.services.Settings.GenerateTelegramCredentials()
 	if err != nil {
 		jsonError(w, err)
 		return
 	}
-	jsonData(w, http.StatusOK, info, nil)
-}
-
-func (s *Server) handleTelegramProxyUpdate(w http.ResponseWriter, r *http.Request) {
-	var req services.TelegramProxyUpdate
-	if err := decodeJSON(r, &req); err != nil {
-		jsonError(w, err)
-		return
-	}
-	info, err := s.services.Telegram.Update(r.Context(), req)
-	if err != nil {
-		jsonError(w, err)
-		return
-	}
-	jsonData(w, http.StatusOK, info, nil)
-}
-
-func (s *Server) handleTelegramProxyRegenerate(w http.ResponseWriter, r *http.Request) {
-	info, err := s.services.Telegram.RegenerateSecret(r.Context())
-	if err != nil {
-		jsonError(w, err)
-		return
-	}
-	jsonData(w, http.StatusOK, info, nil)
+	jsonData(w, http.StatusOK, credentials, nil)
 }
 
 func (s *Server) handleGeodataUpdate(w http.ResponseWriter, r *http.Request) {
@@ -1081,6 +1056,9 @@ func subscriptionTokenFromURL(raw string) string {
 func shouldReconcileXray(values map[string]json.RawMessage) bool {
 	for key := range values {
 		if strings.HasPrefix(key, "vless.") || strings.HasPrefix(key, "reality.") {
+			return true
+		}
+		if key == "telegram.port" || key == "telegram.username" || key == "telegram.password" {
 			return true
 		}
 	}

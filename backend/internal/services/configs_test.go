@@ -64,6 +64,9 @@ func TestRenderXrayConfigWithoutClientsKeepsVLESSInboundWithFallbackClient(t *te
 		RealityServerNames: []string{"www.cloudflare.com"},
 		RealityShortIDs:    []string{"", "a1b2c3d4"},
 		VlessPort:          8444,
+		TelegramPort:       8445,
+		TelegramUsername:   "telegram",
+		TelegramPassword:   "secret",
 		Clients:            nil,
 		FallbackClient:     ClientEntry{UUID: "22222222-2222-2222-2222-222222222222", Email: "__h2v_no_active_users__"},
 	})
@@ -82,14 +85,17 @@ func TestRenderXrayConfigWithoutClientsKeepsVLESSInboundWithFallbackClient(t *te
 	if err := json.Unmarshal(content, &payload); err != nil {
 		t.Fatal(err)
 	}
-	if len(payload.Inbounds) != 2 {
-		t.Fatalf("inbounds = %d, want api and vless inbounds", len(payload.Inbounds))
+	if len(payload.Inbounds) != 3 {
+		t.Fatalf("inbounds = %d, want api, vless, and telegram inbounds", len(payload.Inbounds))
 	}
 	if payload.Inbounds[0].Tag != "api" {
 		t.Fatalf("inbound tag = %q, want api", payload.Inbounds[0].Tag)
 	}
 	if payload.Inbounds[1].Tag != "vless-reality" {
 		t.Fatalf("second inbound tag = %q, want vless-reality", payload.Inbounds[1].Tag)
+	}
+	if payload.Inbounds[2].Tag != "telegram-socks" {
+		t.Fatalf("third inbound tag = %q, want telegram-socks", payload.Inbounds[2].Tag)
 	}
 	if len(payload.Inbounds[1].Settings.Clients) != 1 {
 		t.Fatalf("fallback clients = %d, want 1", len(payload.Inbounds[1].Settings.Clients))
@@ -106,6 +112,9 @@ func TestRenderXrayConfigWithClientsIncludesVLESSInbound(t *testing.T) {
 		RealityServerNames: []string{"www.cloudflare.com"},
 		RealityShortIDs:    []string{"", "a1b2c3d4"},
 		VlessPort:          8444,
+		TelegramPort:       8445,
+		TelegramUsername:   "telegram",
+		TelegramPassword:   "secret",
 		Clients: []ClientEntry{
 			{UUID: "11111111-1111-1111-1111-111111111111", Email: "alice"},
 		},

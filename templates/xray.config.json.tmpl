@@ -59,6 +59,24 @@
         "destOverride": ["http", "tls", "quic"],
         "routeOnly": true
       }
+    },
+    {
+      "tag": "telegram-socks",
+      "listen": "0.0.0.0",
+      "port": {{ .TelegramPort }},
+      "protocol": "socks",
+      "settings": {
+        "auth": "password",
+        "accounts": [
+          { "user": {{ .TelegramUsername | json }}, "pass": {{ .TelegramPassword | json }} }
+        ],
+        "udp": true
+      },
+      "sniffing": {
+        "enabled": true,
+        "destOverride": ["http", "tls"],
+        "routeOnly": true
+      }
     }
   ],
   "outbounds": [
@@ -69,6 +87,19 @@
     "domainStrategy": "IPIfNonMatch",
     "rules": [
       { "type": "field", "inboundTag": ["api"], "outboundTag": "api" },
+      {
+        "type": "field",
+        "inboundTag": ["telegram-socks"],
+        "domain": ["geosite:telegram"],
+        "outboundTag": "direct"
+      },
+      {
+        "type": "field",
+        "inboundTag": ["telegram-socks"],
+        "ip": ["geoip:telegram"],
+        "outboundTag": "direct"
+      },
+      { "type": "field", "inboundTag": ["telegram-socks"], "outboundTag": "block" },
       { "type": "field", "protocol": ["bittorrent"], "outboundTag": "block" },
       {
         "type": "field",

@@ -48,6 +48,10 @@ func (r *Repository) BootstrapSettings(ctx context.Context, cfg config.Config) e
 		"hy2.bandwidth_down": rawJSONString(cfg.Hysteria.BandwidthDown),
 		"hy2.masquerade_url": rawJSONString(cfg.Hysteria.MasqueradeURL),
 		"hy2.traffic_secret": rawJSONString(cfg.Hysteria.TrafficSecret),
+		"telegram.host":      rawJSONString(cfg.Telegram.Host),
+		"telegram.port":      rawJSONInt(cfg.Telegram.Port),
+		"telegram.username":  rawJSONString(cfg.Telegram.Username),
+		"telegram.password":  rawJSONString(cfg.Telegram.Password),
 	}
 	return r.InsertMissingSettings(ctx, settings)
 }

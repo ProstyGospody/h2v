@@ -24,7 +24,7 @@ import { CoreLogo, type CoreLogoName } from '@/components/core-logo';
 import { PageHeader } from '@/components/page-header';
 import { cn } from '@/lib/utils';
 import { apiClient, ApiError } from '@/shared/api/client';
-import { Setting, TelegramProxyInfo } from '@/shared/api/types';
+import { Setting, TelegramCredentials } from '@/shared/api/types';
 
 type SettingKey =
   | 'hy2.bandwidth_down'
@@ -40,11 +40,15 @@ type SettingKey =
   | 'reality.public_key'
   | 'reality.short_ids'
   | 'reality.sni'
+  | 'telegram.host'
+  | 'telegram.password'
+  | 'telegram.port'
+  | 'telegram.username'
   | 'vless.port';
 
 type SettingValue = boolean | number | string | string[];
 type SettingsDraft = Partial<Record<SettingKey, SettingValue>>;
-type PortKey = 'hy2.port' | 'vless.port';
+type PortKey = 'hy2.port' | 'telegram.port' | 'vless.port';
 
 type RealityPreset = {
   dest: string;
@@ -84,6 +88,10 @@ const fallbackValues: Record<SettingKey, SettingValue> = {
   'reality.public_key': '',
   'reality.short_ids': [''],
   'reality.sni': 'www.cloudflare.com',
+  'telegram.host': 'panel.example.com',
+  'telegram.password': '',
+  'telegram.port': 8445,
+  'telegram.username': 'telegram',
   'vless.port': 8444,
 };
 
@@ -107,6 +115,7 @@ const bandwidthPresets = ['100 mbps', '500 mbps', '1 gbps', '10 gbps'];
 const portDefinitions: Array<{ key: PortKey; presets: number[]; protocol: 'tcp' | 'udp' }> = [
   { key: 'vless.port', presets: vlessPortPresets, protocol: 'tcp' },
   { key: 'hy2.port', presets: hy2PortPresets, protocol: 'udp' },
+  { key: 'telegram.port', presets: telegramPortPresets, protocol: 'tcp' },
 ];
 
 type SettingsUpdateResult = {
@@ -125,22 +134,15 @@ type PortCheckResult = PortCheckItem & {
   reason?: string;
 };
 
-type TelegramDraft = Partial<Pick<TelegramProxyInfo, 'host' | 'port' | 'secret' | 'workers'>>;
-
 export function SettingsPage() {
   const queryClient = useQueryClient();
   const [draft, setDraft] = useState<SettingsDraft>({});
-  const [telegramDraft, setTelegramDraft] = useState<TelegramDraft>({});
   const [showSecrets, setShowSecrets] = useState(false);
   const backupInputRef = useRef<HTMLInputElement>(null);
 
   const settings = useQuery({
     queryKey: ['settings'],
     queryFn: () => apiClient.request<Setting[]>('/settings'),
-  });
-  const telegram = useQuery({
-    queryKey: ['telegram-proxy'],
-    queryFn: () => apiClient.request<TelegramProxyInfo>('/telegram-proxy'),
   });
 
   const values = useMemo(
@@ -172,19 +174,16 @@ export function SettingsPage() {
   const hasIssues = allIssues.length > 0;
   const currentRealityPreset = findRealityPreset(values.string('reality.sni'), values.string('reality.dest'));
   const currentMasqueradePreset = findURLPreset(values.string('hy2.masquerade_url'), masqueradePresets);
-  const telegramValues = useMemo<TelegramProxyInfo>(() => {
-    const base = telegram.data ?? fallbackTelegramProxy();
-    const next = {
-      ...base,
-      host: telegramDraft.host ?? base.host,
-      port: telegramDraft.port ?? base.port,
-      secret: telegramDraft.secret ?? base.secret,
-      workers: telegramDraft.workers ?? base.workers,
-    };
-    return { ...next, ...telegramLinks(next.host, next.port, next.secret) };
-  }, [telegram.data, telegramDraft]);
-  const telegramHasDraft = Object.keys(telegramDraft).length > 0;
-  const telegramIssues = useMemo(() => validateTelegramDraft(telegramValues), [telegramValues]);
+  const telegramLink = useMemo(
+    () =>
+      buildTelegramSocksLink(
+        values.string('telegram.host'),
+        values.number('telegram.port'),
+        values.string('telegram.username'),
+        values.string('telegram.password'),
+      ),
+    [values],
+  );
 
   const save = useMutation({
     mutationFn: () =>
@@ -217,34 +216,18 @@ export function SettingsPage() {
     },
   });
 
-  const saveTelegram = useMutation({
+  const generateTelegram = useMutation({
     mutationFn: () =>
-      apiClient.request<TelegramProxyInfo>('/telegram-proxy', {
-        body: JSON.stringify(telegramDraft),
-        method: 'PATCH',
-      }),
-    onError: (error) => {
-      toast.error(error instanceof ApiError ? error.message : 'Unable to update Telegram proxy');
-    },
-    onSuccess: async () => {
-      toast.success('Telegram proxy updated');
-      setTelegramDraft({});
-      await queryClient.invalidateQueries({ queryKey: ['telegram-proxy'] });
-    },
-  });
-
-  const regenerateTelegram = useMutation({
-    mutationFn: () =>
-      apiClient.request<TelegramProxyInfo>('/telegram-proxy/regenerate', {
+      apiClient.request<TelegramCredentials>('/settings/telegram-credentials', {
         method: 'POST',
       }),
     onError: (error) => {
-      toast.error(error instanceof ApiError ? error.message : 'Unable to regenerate Telegram secret');
+      toast.error(error instanceof ApiError ? error.message : 'Unable to generate Telegram credentials');
     },
-    onSuccess: async () => {
-      toast.success('Telegram proxy secret regenerated');
-      setTelegramDraft({});
-      await queryClient.invalidateQueries({ queryKey: ['telegram-proxy'] });
+    onSuccess: (credentials) => {
+      setValue('telegram.username', credentials.username);
+      setValue('telegram.password', credentials.password);
+      toast.success('Telegram credentials generated');
     },
   });
 
@@ -307,22 +290,9 @@ export function SettingsPage() {
     setValue('reality.dest', preset.dest);
   }
 
-  function setTelegramValue<K extends keyof TelegramDraft>(key: K, value: TelegramDraft[K]) {
-    setTelegramDraft((current) => {
-      const original = telegram.data?.[key];
-      const next = { ...current };
-      if (JSON.stringify(value) === JSON.stringify(original)) {
-        delete next[key];
-      } else {
-        next[key] = value;
-      }
-      return next;
-    });
-  }
-
   async function copyTelegramLink() {
-    await navigator.clipboard.writeText(telegramValues.link);
-    toast.success('Telegram proxy link copied');
+    await navigator.clipboard.writeText(telegramLink);
+    toast.success('Telegram SOCKS link copied');
   }
 
   async function handleBackupUpload(event: ChangeEvent<HTMLInputElement>) {
@@ -574,91 +544,52 @@ export function SettingsPage() {
                 <SettingsSection
                   icon={Send}
                   kicker="Telegram"
-                  title="MTProto proxy"
+                  title="Dedicated SOCKS proxy"
                 >
-                  {telegram.isLoading ? (
-                    <div className="space-y-4">
-                      <Skeleton className="h-9 w-full" />
-                      <Skeleton className="h-28 w-full" />
+                  <TextControl
+                    label="Public host"
+                    onChange={(value) => setValue('telegram.host', value)}
+                    placeholder="vpn.example.com"
+                    value={values.string('telegram.host')}
+                  />
+                  <PortControl
+                    label="Telegram port"
+                    max={65535}
+                    min={1}
+                    onChange={(value) => setValue('telegram.port', value)}
+                    presets={telegramPortPresets}
+                    unavailablePorts={unavailablePresetPorts('telegram.port', originalValues, portAvailability.data)}
+                    value={values.number('telegram.port')}
+                  />
+                  <TextControl
+                    label="Username"
+                    onChange={(value) => setValue('telegram.username', value)}
+                    placeholder="telegram"
+                    value={values.string('telegram.username')}
+                  />
+                  <SecretControl
+                    generating={generateTelegram.isPending}
+                    label="Password"
+                    onChange={(value) => setValue('telegram.password', value)}
+                    onGenerate={() => generateTelegram.mutate()}
+                    reveal={showSecrets}
+                    value={values.string('telegram.password')}
+                  />
+                  <TelegramLinkBox
+                    link={telegramLink}
+                    onCopy={copyTelegramLink}
+                  />
+                  {telegramLink ? (
+                    <div className="flex justify-center rounded-md bg-white p-3">
+                      <QRCodeSVG
+                        bgColor="#ffffff"
+                        fgColor="#111827"
+                        includeMargin
+                        size={156}
+                        value={telegramLink}
+                      />
                     </div>
-                  ) : telegram.isError ? (
-                    <InlineError error={telegram.error} onRetry={() => telegram.refetch()} />
-                  ) : (
-                    <>
-                      <div className="flex items-center justify-between gap-3 rounded-md bg-muted/35 px-3 py-2">
-                        <span className="text-sm text-muted-foreground">Service status</span>
-                        <span
-                          className={cn(
-                            'rounded-full px-2 py-0.5 text-xs font-medium',
-                            serviceStatusClass(telegramValues.status),
-                          )}
-                        >
-                          {telegramValues.status || 'unknown'}
-                        </span>
-                      </div>
-                      <TextControl
-                        label="Public host"
-                        onChange={(value) => setTelegramValue('host', value)}
-                        placeholder="vpn.example.com"
-                        value={telegramValues.host}
-                      />
-                      <PortControl
-                        label="MTProto port"
-                        max={65535}
-                        min={1}
-                        onChange={(value) => setTelegramValue('port', value)}
-                        presets={telegramPortPresets}
-                        value={telegramValues.port}
-                      />
-                      <SecretControl
-                        generating={regenerateTelegram.isPending}
-                        label="MTProto secret"
-                        onChange={(value) => setTelegramValue('secret', value)}
-                        onGenerate={() => regenerateTelegram.mutate()}
-                        reveal={showSecrets}
-                        value={telegramValues.secret}
-                      />
-                      <TelegramLinkBox
-                        link={telegramValues.link}
-                        onCopy={copyTelegramLink}
-                      />
-                      {telegramValues.link ? (
-                        <div className="flex justify-center rounded-md bg-white p-3">
-                          <QRCodeSVG
-                            bgColor="#ffffff"
-                            fgColor="#111827"
-                            includeMargin
-                            size={156}
-                            value={telegramValues.link}
-                          />
-                        </div>
-                      ) : null}
-                      {telegramIssues.length > 0 ? <SettingsIssues issues={telegramIssues} /> : null}
-                      {telegramHasDraft ? (
-                        <div className="flex justify-end gap-2">
-                          <Button
-                            disabled={saveTelegram.isPending}
-                            onClick={() => setTelegramDraft({})}
-                            size="sm"
-                            type="button"
-                            variant="ghost"
-                          >
-                            <RotateCcw />
-                            Discard
-                          </Button>
-                          <Button
-                            disabled={saveTelegram.isPending || telegramIssues.length > 0}
-                            onClick={() => saveTelegram.mutate()}
-                            size="sm"
-                            type="button"
-                          >
-                            <Save />
-                            Save Telegram
-                          </Button>
-                        </div>
-                      ) : null}
-                    </>
-                  )}
+                  ) : null}
                 </SettingsSection>
               </div>
             </section>
@@ -949,9 +880,17 @@ function TelegramLinkBox({ link, onCopy }: { link: string; onCopy: () => void })
   return (
     <div className="space-y-[13px]">
       <Label>Telegram link</Label>
-      <div className="flex min-w-0 gap-2">
-        <Input className="min-w-0 flex-1 font-mono text-xs" readOnly value={link} />
-        <Button aria-label="Copy Telegram proxy link" className="shrink-0" onClick={onCopy} type="button">
+      <div className="flex items-center justify-between gap-3 rounded-md bg-muted/35 px-3 py-2">
+        <span className="truncate text-sm text-muted-foreground">
+          {link ? 'Ready for Telegram' : 'Generate credentials'}
+        </span>
+        <Button
+          aria-label="Copy Telegram SOCKS link"
+          className="shrink-0"
+          disabled={!link}
+          onClick={onCopy}
+          type="button"
+        >
           <CopyIcon className="size-4" />
           Copy
         </Button>
@@ -1008,23 +947,6 @@ function SettingsError({ error, onRetry }: { error: unknown; onRetry: () => void
   );
 }
 
-function InlineError({ error, onRetry }: { error: unknown; onRetry: () => void }) {
-  return (
-    <div className="rounded-md border border-destructive/30 bg-destructive/10 px-4 py-3">
-      <div className="flex items-start gap-3">
-        <AlertTriangle className="mt-0.5 size-4 shrink-0 text-destructive" />
-        <div className="min-w-0 flex-1">
-          <div className="text-sm font-medium text-destructive">Unable to load Telegram proxy</div>
-          <p className="mt-1 text-xs text-destructive/80">{errorMessage(error)}</p>
-        </div>
-        <Button onClick={onRetry} size="sm" type="button" variant="secondary">
-          Retry
-        </Button>
-      </div>
-    </div>
-  );
-}
-
 function createSettingsValues(items: Setting[], draft: SettingsDraft) {
   const map = new Map(items.map((item) => [item.key, item.value]));
 
@@ -1053,31 +975,20 @@ function createSettingsValues(items: Setting[], draft: SettingsDraft) {
   };
 }
 
-function fallbackTelegramProxy(): TelegramProxyInfo {
-  return {
-    host: 'panel.example.com',
-    link: '',
-    port: 8445,
-    secret: '',
-    stats_port: 8888,
-    status: 'unknown',
-    tg_link: '',
-    workers: 1,
-  };
-}
-
-function telegramLinks(host: string, port: number, secret: string): Pick<TelegramProxyInfo, 'link' | 'tg_link'> {
-  const cleanSecret = secret.trim().replace(/^dd(?=[0-9a-fA-F]{32}$)/i, '');
-  const linkSecret = cleanSecret ? `dd${cleanSecret.toLowerCase()}` : '';
+function buildTelegramSocksLink(host: string, port: number, username: string, password: string): string {
+  const cleanHost = host.trim();
+  const cleanUsername = username.trim();
+  const cleanPassword = password.trim();
+  if (!cleanHost || !validPort(port) || !cleanUsername || !cleanPassword) {
+    return '';
+  }
   const query = new URLSearchParams({
     port: String(port),
-    secret: linkSecret,
-    server: host.trim(),
+    pass: cleanPassword,
+    server: cleanHost,
+    user: cleanUsername,
   });
-  return {
-    link: `https://t.me/proxy?${query.toString()}`,
-    tg_link: `tg://proxy?${query.toString()}`,
-  };
+  return `https://t.me/socks?${query.toString()}`;
 }
 
 function coerceSettingValue(key: SettingKey, value: unknown): SettingValue {
@@ -1161,7 +1072,13 @@ function validateDraft(draft: SettingsDraft, values: ReturnType<typeof createSet
     if (isPortSetting(key) && !validPort(values.number(key))) {
       issues.push(`${settingLabel(key)} must be between 1 and 65535.`);
     }
-    if ((key.includes('domain') || key === 'reality.sni') && values.string(key).trim() === '') {
+    if (
+      (key.includes('domain') || key === 'reality.sni' || key === 'telegram.host') &&
+      values.string(key).trim() === ''
+    ) {
+      issues.push(`${settingLabel(key)} cannot be empty.`);
+    }
+    if ((key === 'telegram.username' || key === 'telegram.password') && values.string(key).trim() === '') {
       issues.push(`${settingLabel(key)} cannot be empty.`);
     }
     if (key === 'hy2.masquerade_url' && !validURL(values.string(key))) {
@@ -1187,19 +1104,10 @@ function validateDraft(draft: SettingsDraft, values: ReturnType<typeof createSet
       issues.push('Reality private and public keys must be saved together.');
     }
   }
-  return issues;
-}
-
-function validateTelegramDraft(values: TelegramProxyInfo): string[] {
-  const issues: string[] = [];
-  if (values.host.trim() === '') {
-    issues.push('Telegram proxy host cannot be empty.');
-  }
-  if (!validPort(values.port)) {
-    issues.push('Telegram proxy port must be between 1 and 65535.');
-  }
-  if (!/^(dd)?[0-9a-fA-F]{32}$/.test(values.secret.trim())) {
-    issues.push('Telegram proxy secret must be 32 hexadecimal characters.');
+  if (draft['telegram.username'] !== undefined || draft['telegram.password'] !== undefined) {
+    if (values.string('telegram.username').trim() === '' || values.string('telegram.password').trim() === '') {
+      issues.push('Telegram username and password must be saved together.');
+    }
   }
   return issues;
 }
@@ -1209,7 +1117,7 @@ function normalizeDraftForSave(draft: SettingsDraft): SettingsDraft {
   for (const [key, value] of Object.entries(draft) as Array<[SettingKey, SettingValue]>) {
     if (typeof value === 'string') {
       const trimmed = value.trim();
-      if (key === 'hy2.domain' || key === 'reality.sni') {
+      if (key === 'hy2.domain' || key === 'reality.sni' || key === 'telegram.host') {
         normalized[key] = normalizeHostnameForSave(trimmed);
       } else {
         normalized[key] = trimmed;
@@ -1298,12 +1206,6 @@ function validRealityShortID(value: string): boolean {
 
 function validBandwidth(value: string): boolean {
   return /^\d+(?:\.\d+)?\s*(bps|kbps|mbps|gbps|tbps|k|m|g|t)$/i.test(value.trim());
-}
-
-function serviceStatusClass(status: string): string {
-  return status === 'active'
-    ? 'bg-success/15 text-success'
-    : 'bg-warning/15 text-warning';
 }
 
 function randomHex(bytes: number): string {
