@@ -169,7 +169,7 @@ export function SubPage() {
                 type="button"
               >
                 <Link2 className="size-4" />
-                Copy subscription link
+                Copy
               </Button>
             </CardContent>
           </Card>

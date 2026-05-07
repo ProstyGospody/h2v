@@ -885,19 +885,19 @@ function QRDialogContent({
   const qrItems = links
     ? [
         {
-          copyLabel: 'Copy subscription',
+          copyLabel: 'Copy',
           label: 'Subscription',
           toastLabel: 'Subscription link',
           value: links.subscription,
         },
         {
-          copyLabel: 'Copy VLESS',
+          copyLabel: 'Copy',
           label: 'VLESS',
           toastLabel: 'VLESS',
           value: links.vless,
         },
         {
-          copyLabel: 'Copy Hys2',
+          copyLabel: 'Copy',
           label: 'Hys2',
           toastLabel: 'Hys2',
           value: links.hysteria2,
