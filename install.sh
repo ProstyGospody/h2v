@@ -644,6 +644,16 @@ start_cores() {
   fi
 }
 
+remove_legacy_telegram_proxy() {
+  if systemctl cat telegram-proxy.service >/dev/null 2>&1 || [[ -f /etc/systemd/system/telegram-proxy.service ]]; then
+    substep "removing legacy telegram-proxy.service"
+    systemctl disable --now telegram-proxy.service >/dev/null 2>&1 || true
+    rm -f /etc/systemd/system/telegram-proxy.service
+    systemctl daemon-reload
+  fi
+  rm -f "${INSTALL_DIR}/bin/mtproto-proxy" 2>/dev/null || true
+}
+
 install_go() {
   local arch
   case "$(uname -m)" in
@@ -1760,6 +1770,7 @@ install_all() {
   success "core configs written to ${INSTALL_DIR}/configs/"
 
   step "service" "Starting panel, cores, and reverse proxy"
+  remove_legacy_telegram_proxy
   start_panel
   setup_reverse_proxy
   start_cores
@@ -1853,12 +1864,12 @@ uninstall_all() {
   STAGE_TOTAL=2
 
   step "stop" "Stopping and disabling services"
-  systemctl disable --now panel hysteria xray h2v-geodata-update.timer h2v-geodata-update.service 2>/dev/null || true
+  systemctl disable --now panel hysteria xray telegram-proxy h2v-geodata-update.timer h2v-geodata-update.service 2>/dev/null || true
   success "panel/hysteria/xray services and geodata timer stopped"
 
   step "purge" "Removing application files and units"
   rm -rf "${INSTALL_DIR}"
-  rm -f /etc/systemd/system/panel.service /etc/systemd/system/xray.service /etc/systemd/system/hysteria.service
+  rm -f /etc/systemd/system/panel.service /etc/systemd/system/xray.service /etc/systemd/system/hysteria.service /etc/systemd/system/telegram-proxy.service
   rm -f /etc/systemd/system/h2v-geodata-update.service /etc/systemd/system/h2v-geodata-update.timer
   rm -f /etc/sudoers.d/mypanel-systemctl
   systemctl daemon-reload
