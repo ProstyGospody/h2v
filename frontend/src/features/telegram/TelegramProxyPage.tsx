@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, type ComponentType, type ReactNode } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { AlertTriangle, Copy, Eye, EyeOff, KeyRound, RefreshCw, Save, Send } from 'lucide-react';
+import { AlertTriangle, Copy, Eye, EyeOff, KeyRound, RefreshCw, RotateCcw, Save, Send } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
 import { PageHeader } from '@/components/page-header';
+import { cn } from '@/lib/utils';
 import { apiClient, ApiError } from '@/shared/api/client';
 import type { TelegramProxyInfo } from '@/shared/api/types';
 
@@ -106,154 +107,139 @@ export function TelegramProxyPage() {
     toast.success('Telegram link copied');
   }
 
+  function resetForm() {
+    if (!proxy.data) return;
+    setForm({
+      enabled: proxy.data.enabled,
+      fallback_addr: proxy.data.fallback_addr,
+      host: proxy.data.host,
+      mask_domain: proxy.data.mask_domain,
+      port: proxy.data.port,
+      secret: proxy.data.secret,
+    });
+  }
+
   function setValue<K extends keyof TelegramForm>(key: K, value: TelegramForm[K]) {
     setForm((current) => ({ ...current, [key]: value }));
   }
 
   return (
-    <div className="min-h-screen bg-app-background px-4 py-6 md:px-8">
-      <div className="mx-auto flex w-full max-w-5xl flex-col gap-6">
-        <PageHeader
-          action={
-            <div className="flex flex-wrap items-center gap-2">
-              <Button disabled={!proxy.data?.link} onClick={copyLink} type="button" variant="secondary">
-                <Copy className="size-4" />
-                Copy
-              </Button>
-              <Button
-                disabled={save.isPending || !isDirty || issues.length > 0}
-                onClick={() => save.mutate()}
-                type="button"
-              >
-                <Save className="size-4" />
-                Save
-              </Button>
-            </div>
-          }
-          description="External MTProxy-compatible entrypoint powered by Telemt."
-          title="Telegram Proxy"
-        />
+    <div className="pb-10">
+      <PageHeader
+        action={
+          <>
+            <Button
+              aria-label={showSecret ? 'Hide secret' : 'Show secret'}
+              className="size-10"
+              onClick={() => setShowSecret((value) => !value)}
+              size="icon"
+              type="button"
+            >
+              {showSecret ? <EyeOff className="size-5" /> : <Eye className="size-5" />}
+            </Button>
+            <Button
+              className="h-10"
+              disabled={!proxy.data?.link}
+              onClick={copyLink}
+              size="sm"
+              type="button"
+              variant="secondary"
+            >
+              <Copy />
+              Copy
+            </Button>
+            {isDirty ? (
+              <>
+                <Button
+                  className="h-10"
+                  disabled={save.isPending}
+                  onClick={resetForm}
+                  size="sm"
+                  type="button"
+                  variant="ghost"
+                >
+                  <RotateCcw />
+                  Discard
+                </Button>
+                <Button
+                  className="h-10"
+                  disabled={save.isPending || issues.length > 0}
+                  onClick={() => save.mutate()}
+                  size="sm"
+                  type="button"
+                >
+                  <Save />
+                  Save
+                </Button>
+              </>
+            ) : null}
+          </>
+        }
+        title="Telegram Proxy"
+      />
 
+      <div className="space-y-5 px-page pt-7">
         {proxy.isLoading ? (
           <TelegramSkeleton />
         ) : proxy.isError ? (
-          <Card className="border-0">
-            <CardContent className="flex min-h-64 flex-col items-center justify-center gap-3 px-6 py-12 text-center">
-              <AlertTriangle className="size-8 text-destructive" />
-              <div className="text-base font-semibold text-foreground">Unable to load Telegram proxy</div>
-              <p className="max-w-xl text-sm text-muted-foreground">{errorMessage(proxy.error)}</p>
-              <Button onClick={() => proxy.refetch()} size="sm" variant="secondary">
-                Retry
-              </Button>
-            </CardContent>
-          </Card>
+          <TelegramError error={proxy.error} onRetry={() => proxy.refetch()} />
         ) : (
-          <div className="grid gap-4 xl:grid-cols-[1.3fr_0.7fr]">
-            <Card className="border-0">
-              <CardContent className="space-y-6 p-6">
-                <div className="flex items-start justify-between gap-4">
-                  <div>
-                    <div className="t-label">Endpoint</div>
-                    <h2 className="mt-1 font-display text-xl font-semibold text-foreground">MTProxy Fake TLS</h2>
-                  </div>
-                  <span className="rounded-md bg-muted/55 px-2.5 py-1 text-xs font-medium text-muted-foreground">
-                    {form.enabled ? 'Enabled' : 'Disabled'}
-                  </span>
-                </div>
+          <>
+            {issues.length > 0 ? <TelegramIssues issues={issues} /> : null}
+            <section className="grid gap-5 xl:grid-cols-2">
+              <TelegramSection kicker="Telegram" title="MTProxy Fake TLS">
+                <ToggleControl
+                  label="Service"
+                  offLabel="Disabled"
+                  onChange={(value) => setValue('enabled', value)}
+                  onLabel="Enabled"
+                  value={form.enabled}
+                />
+                <TextField
+                  label="Public host"
+                  onChange={(value) => setValue('host', value)}
+                  placeholder="tg.example.com"
+                  value={form.host}
+                />
+                <PortControl
+                  label="Port"
+                  onChange={(value) => setValue('port', value)}
+                  presets={[443, 8443, 9443, 2053, 2083]}
+                  value={form.port}
+                />
+                <TextField
+                  label="Mask domain"
+                  onChange={(value) => setValue('mask_domain', value)}
+                  placeholder="www.cloudflare.com"
+                  value={form.mask_domain}
+                />
+                <TextField
+                  label="Fallback"
+                  onChange={(value) => setValue('fallback_addr', value)}
+                  placeholder="www.cloudflare.com:443"
+                  value={form.fallback_addr}
+                />
+                <SecretControl
+                  generating={regenerate.isPending}
+                  label="Secret"
+                  onChange={(value) => setValue('secret', value)}
+                  onGenerate={() => regenerate.mutate()}
+                  reveal={showSecret}
+                  value={form.secret}
+                />
+              </TelegramSection>
 
-                <label className="flex items-center gap-3 rounded-md bg-muted/35 px-3 py-2 text-sm text-foreground">
-                  <input
-                    checked={form.enabled}
-                    className="size-4 accent-[var(--accent)]"
-                    onChange={(event) => setValue('enabled', event.target.checked)}
-                    type="checkbox"
-                  />
-                  Enable Telegram proxy
-                </label>
-
-                <div className="grid gap-4 md:grid-cols-2">
-                  <TextField
-                    label="Public host"
-                    onChange={(value) => setValue('host', value)}
-                    placeholder="tg.example.com"
-                    value={form.host}
-                  />
-                  <NumberField
-                    label="Port"
-                    onChange={(value) => setValue('port', value)}
-                    value={form.port}
-                  />
-                  <TextField
-                    label="Mask domain"
-                    onChange={(value) => setValue('mask_domain', value)}
-                    placeholder="www.cloudflare.com"
-                    value={form.mask_domain}
-                  />
-                  <TextField
-                    label="Fallback"
-                    onChange={(value) => setValue('fallback_addr', value)}
-                    placeholder="www.cloudflare.com:443"
-                    value={form.fallback_addr}
-                  />
-                </div>
-
-                <div className="space-y-[13px]">
-                  <Label>Secret</Label>
-                  <div className="flex gap-2">
-                    <Input
-                      className="font-mono"
-                      onChange={(event) => setValue('secret', event.target.value)}
-                      spellCheck={false}
-                      type={showSecret ? 'text' : 'password'}
-                      value={form.secret}
-                    />
-                    <Button
-                      aria-label={showSecret ? 'Hide secret' : 'Show secret'}
-                      className="size-9 shrink-0"
-                      onClick={() => setShowSecret((value) => !value)}
-                      size="icon"
-                      type="button"
-                      variant="secondary"
-                    >
-                      {showSecret ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
-                    </Button>
-                    <Button
-                      disabled={regenerate.isPending}
-                      onClick={() => regenerate.mutate()}
-                      type="button"
-                      variant="secondary"
-                    >
-                      {regenerate.isPending ? <RefreshCw className="size-4 animate-spin" /> : <KeyRound className="size-4" />}
-                      Generate
-                    </Button>
-                  </div>
-                </div>
-
-                {issues.length > 0 ? <TelegramIssues issues={issues} /> : null}
-              </CardContent>
-            </Card>
-
-            <Card className="border-0">
-              <CardContent className="space-y-5 p-6">
-                <div className="flex items-center gap-3">
-                  <div className="flex size-10 items-center justify-center rounded-md bg-accent-gradient-soft">
-                    <Send className="size-5 text-foreground" />
-                  </div>
-                  <div>
-                    <div className="t-label">Telegram</div>
-                    <div className="font-display text-lg font-semibold text-foreground">Ready link</div>
-                  </div>
-                </div>
+              <TelegramSection icon={Send} kicker="Link" title="Telegram client">
                 <div className="rounded-md bg-muted/35 px-3 py-2 text-sm text-muted-foreground">
-                  {proxy.data?.link ? 'Generated and ready to copy' : 'Generate a valid secret to create the link'}
+                  {proxy.data?.link ? 'Ready' : 'Unavailable'}
                 </div>
                 <Button className="w-full" disabled={!proxy.data?.link} onClick={copyLink} type="button">
-                  <Copy className="size-4" />
+                  <Copy />
                   Copy
                 </Button>
-              </CardContent>
-            </Card>
-          </div>
+              </TelegramSection>
+            </section>
+          </>
         )}
       </div>
     </div>
@@ -279,19 +265,146 @@ function TextField({
   );
 }
 
-function NumberField({ label, onChange, value }: { label: string; onChange: (value: number) => void; value: number }) {
+function SecretControl({
+  generating,
+  label,
+  onChange,
+  onGenerate,
+  reveal,
+  value,
+}: {
+  generating?: boolean;
+  label: string;
+  onChange: (value: string) => void;
+  onGenerate: () => void;
+  reveal: boolean;
+  value: string;
+}) {
   return (
     <div className="space-y-[13px]">
       <Label>{label}</Label>
-      <Input
-        inputMode="numeric"
-        max={65535}
-        min={1}
-        onChange={(event) => onChange(Number(event.target.value))}
-        type="number"
-        value={Number.isFinite(value) ? value : ''}
-      />
+      <div className="relative">
+        <KeyRound className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+        <Input
+          className="pl-9 pr-11 font-mono"
+          onChange={(event) => onChange(event.target.value)}
+          spellCheck={false}
+          type={reveal ? 'text' : 'password'}
+          value={value}
+        />
+        <Button
+          aria-label={`Regenerate ${label}`}
+          className="absolute inset-y-0 right-0 h-full w-10 rounded-l-none"
+          disabled={generating}
+          onClick={onGenerate}
+          size="icon"
+          type="button"
+          variant="ghost"
+        >
+          <RefreshCw className={cn('size-4', generating && 'animate-spin')} />
+        </Button>
+      </div>
     </div>
+  );
+}
+
+function PortControl({
+  label,
+  onChange,
+  presets,
+  value,
+}: {
+  label: string;
+  onChange: (value: number) => void;
+  presets: number[];
+  value: number;
+}) {
+  return (
+    <div className="space-y-[13px]">
+      <Label>{label}</Label>
+      <div className="flex flex-wrap items-center gap-2.5">
+        {presets.map((port) => (
+          <Button
+            key={port}
+            onClick={() => onChange(port)}
+            size="sm"
+            type="button"
+            variant={value === port ? 'default' : 'secondary'}
+          >
+            {port}
+          </Button>
+        ))}
+        <Input
+          className="h-9 w-28 shrink-0 font-mono text-xs"
+          inputMode="numeric"
+          max={65535}
+          min={1}
+          onChange={(event) => onChange(event.target.value === '' ? 0 : Number(event.target.value))}
+          step={1}
+          type="number"
+          value={Number.isFinite(value) ? String(value) : ''}
+        />
+      </div>
+    </div>
+  );
+}
+
+function ToggleControl({
+  label,
+  offLabel,
+  onChange,
+  onLabel,
+  value,
+}: {
+  label: string;
+  offLabel: string;
+  onChange: (value: boolean) => void;
+  onLabel: string;
+  value: boolean;
+}) {
+  return (
+    <div className="space-y-[13px]">
+      <Label>{label}</Label>
+      <div className="grid grid-cols-2 gap-1 rounded-md bg-muted/45 p-1">
+        <Button onClick={() => onChange(true)} size="sm" type="button" variant={value ? 'default' : 'ghost'}>
+          {onLabel}
+        </Button>
+        <Button onClick={() => onChange(false)} size="sm" type="button" variant={!value ? 'default' : 'ghost'}>
+          {offLabel}
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+function TelegramSection({
+  children,
+  icon: Icon,
+  kicker,
+  title,
+}: {
+  children: ReactNode;
+  icon?: ComponentType<{ className?: string }>;
+  kicker: string;
+  title: string;
+}) {
+  return (
+    <Card className="border-0">
+      <CardContent className="space-y-6 p-6">
+        <div className="flex items-start justify-between gap-4">
+          <div className="flex min-w-0 items-center gap-3">
+            <span className="flex size-9 shrink-0 items-center justify-center rounded-md bg-accent-gradient-soft">
+              {Icon ? <Icon className="size-4" /> : <Send className="size-4" />}
+            </span>
+            <div className="min-w-0">
+              <div className="t-label">{kicker}</div>
+              <h2 className="truncate text-base font-semibold leading-6 text-foreground">{title}</h2>
+            </div>
+          </div>
+        </div>
+        <div className="space-y-5">{children}</div>
+      </CardContent>
+    </Card>
   );
 }
 
@@ -313,23 +426,33 @@ function TelegramIssues({ issues }: { issues: string[] }) {
 
 function TelegramSkeleton() {
   return (
-    <div className="grid gap-4 xl:grid-cols-[1.3fr_0.7fr]">
-      <Card className="border-0">
-        <CardContent className="space-y-5 p-6">
-          <Skeleton className="h-10 w-56" />
-          <Skeleton className="h-9 w-full" />
-          <Skeleton className="h-20 w-full" />
-          <Skeleton className="h-9 w-44" />
-        </CardContent>
-      </Card>
-      <Card className="border-0">
-        <CardContent className="space-y-5 p-6">
-          <Skeleton className="h-12 w-44" />
-          <Skeleton className="h-16 w-full" />
-          <Skeleton className="h-9 w-full" />
-        </CardContent>
-      </Card>
-    </div>
+    <section className="grid gap-4 xl:grid-cols-2">
+      {Array.from({ length: 2 }).map((_, index) => (
+        <Card className="border-0" key={index}>
+          <CardContent className="space-y-5 p-5">
+            <Skeleton className="h-10 w-52" />
+            <Skeleton className="h-20 w-full" />
+            <Skeleton className="h-20 w-full" />
+            <Skeleton className="h-9 w-36" />
+          </CardContent>
+        </Card>
+      ))}
+    </section>
+  );
+}
+
+function TelegramError({ error, onRetry }: { error: unknown; onRetry: () => void }) {
+  return (
+    <Card className="border-0">
+      <CardContent className="flex min-h-64 flex-col items-center justify-center gap-3 px-6 py-12 text-center">
+        <AlertTriangle className="size-8 text-destructive" />
+        <div className="text-base font-semibold text-foreground">Unable to load Telegram proxy</div>
+        <p className="max-w-xl text-sm text-muted-foreground">{errorMessage(error)}</p>
+        <Button onClick={onRetry} size="sm" variant="secondary">
+          Retry
+        </Button>
+      </CardContent>
+    </Card>
   );
 }
 
