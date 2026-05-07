@@ -124,6 +124,16 @@ journalctl -u xray.service -n 80 --no-pager
 journalctl -u hysteria.service -n 80 --no-pager
 ```
 
+Telegram SOCKS unavailable from outside:
+
+```bash
+sudo ss -ltnp | grep ':8445'
+sudo ufw allow 8445/tcp
+```
+
+Also check the VPS/cloud firewall and keep the Telegram DNS record in DNS-only
+mode if it is hosted on Cloudflare.
+
 Restart services:
 
 ```bash

@@ -1252,6 +1252,42 @@ normalize_config_paths() {
   fi
 }
 
+ufw_allow_port() {
+  local port="$1"
+  local protocol="$2"
+  local label="$3"
+
+  if ufw allow "${port}/${protocol}" >/dev/null 2>&1; then
+    substep "UFW allows ${label} on ${port}/${protocol}"
+  else
+    warn "failed to update UFW for ${label} (${port}/${protocol}); open it manually if needed"
+  fi
+}
+
+configure_local_firewall() {
+  if ! command_exists ufw; then
+    return
+  fi
+  if ! ufw status 2>/dev/null | grep -qi '^Status: active'; then
+    return
+  fi
+
+  local domain panel_public_port vless_port hy2_port telegram_port
+  domain="$(env_get PANEL_DOMAIN || true)"
+  panel_public_port="$(env_get PANEL_PUBLIC_PORT || echo 443)"
+  vless_port="$(env_get VLESS_PORT || echo 8444)"
+  hy2_port="$(env_get HY2_PORT || echo 8443)"
+  telegram_port="$(env_get TELEGRAM_PROXY_PORT || echo 8445)"
+
+  substep "opening required ports in UFW"
+  if [[ -n "${domain}" && "${domain}" != "panel.example.com" ]]; then
+    ufw_allow_port "${panel_public_port}" tcp "panel HTTPS"
+  fi
+  ufw_allow_port "${vless_port}" tcp "VLESS Reality"
+  ufw_allow_port "${telegram_port}" tcp "Telegram SOCKS"
+  ufw_allow_port "${hy2_port}" udp "Hysteria 2"
+}
+
 ensure_secret_value() {
   local key="${1}"
   local value
@@ -1721,6 +1757,7 @@ install_all() {
   normalize_vless_env_port
   ensure_runtime_secrets
   validate_selected_runtime_ports
+  configure_local_firewall
   ensure_reality_keys
   success "user/panel and ${INSTALL_DIR} prepared"
 
