@@ -130,7 +130,7 @@ export function TelegramProxyPage() {
               </Button>
             </div>
           }
-          description="External MTProxy-compatible entrypoint powered by h2v relay."
+          description="External MTProxy-compatible entrypoint powered by Telemt."
           title="Telegram Proxy"
         />
 

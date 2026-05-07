@@ -27,6 +27,7 @@ type HysteriaAdapter interface {
 
 type SystemctlAdapter interface {
 	Restart(ctx context.Context, service string) error
+	Stop(ctx context.Context, service string) error
 }
 
 type Services struct {

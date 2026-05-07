@@ -29,6 +29,8 @@ XRAY_SHA256_ARM64_V8A="${XRAY_SHA256_ARM64_V8A:-4d30283ae614e3057f730f67cd088a42
 HYSTERIA_VERSION="${HYSTERIA_VERSION:-app/v2.8.2}"
 HYSTERIA_SHA256_AMD64="${HYSTERIA_SHA256_AMD64:-b11bf0fb5f84a3f5c6baff3696e899539e68af4cee868c9203cfb896784ad3b0}"
 HYSTERIA_SHA256_ARM64="${HYSTERIA_SHA256_ARM64:-802d77ae3ca37bdc235ec848edfaaa7cb9109007d9044f50b0746239269cb8cf}"
+TELEMT_REPO="${TELEMT_REPO:-telemt/telemt}"
+TELEMT_VERSION="${TELEMT_VERSION:-latest}"
 XRAY_GEODATA_DIR_DEFAULT="${INSTALL_DIR}/data/geodata"
 XRAY_GEODATA_DIR_LEGACY="/usr/local/share/xray"
 XRAY_GEOIP_URL_DEFAULT="https://github.com/v2fly/geoip/releases/latest/download/geoip.dat"
@@ -324,20 +326,21 @@ urlencode() {
 print_summary() {
   local access_url="$1"
   local local_url="$2"
-  local telegram_host telegram_port telegram_secret telegram_mask telegram_link
+  local telegram_enabled telegram_host telegram_port telegram_secret telegram_mask telegram_link
   local telegram_host_q telegram_port_q telegram_secret_q telegram_mask_hex
   progress_finish
   telegram_host="$(env_get TELEGRAM_PROXY_PUBLIC_HOST || env_get PANEL_DOMAIN || echo panel.example.com)"
   telegram_port="$(env_get TELEGRAM_PROXY_PORT || echo 9443)"
   telegram_secret="$(env_get TELEGRAM_PROXY_SECRET || true)"
   telegram_mask="$(env_get TELEGRAM_PROXY_MASK_DOMAIN || echo www.cloudflare.com)"
+  telegram_enabled="$(env_get TELEGRAM_PROXY_ENABLED || echo true)"
   telegram_link=""
-  if [[ -n "${telegram_secret}" && -n "${telegram_mask}" ]]; then
+  if [[ "${telegram_enabled}" != "false" && -n "${telegram_secret}" && -n "${telegram_mask}" ]]; then
     telegram_host_q="$(urlencode "${telegram_host}")"
     telegram_port_q="$(urlencode "${telegram_port}")"
     telegram_mask_hex="$(printf '%s' "${telegram_mask}" | od -An -tx1 | tr -d ' \n')"
     telegram_secret_q="$(urlencode "ee${telegram_secret}${telegram_mask_hex}")"
-    telegram_link="https://t.me/proxy?server=${telegram_host_q}&port=${telegram_port_q}&secret=${telegram_secret_q}"
+    telegram_link="tg://proxy?server=${telegram_host_q}&port=${telegram_port_q}&secret=${telegram_secret_q}"
   fi
   printf '\n'
   printf '%s╔══════════════════════════════════════════════════════════════╗%s\n' "${GREEN}" "${RESET}"
@@ -522,6 +525,72 @@ install_hysteria_binary() {
   setcap 'cap_net_bind_service=+ep' /usr/local/bin/hysteria 2>/dev/null || true
 }
 
+telemt_arch() {
+  case "$(uname -m)" in
+    x86_64)
+      if [[ -r /proc/cpuinfo ]] && grep -q "avx2" /proc/cpuinfo 2>/dev/null && grep -q "bmi2" /proc/cpuinfo 2>/dev/null; then
+        printf 'x86_64-v3'
+      else
+        printf 'x86_64'
+      fi
+      ;;
+    aarch64|arm64) printf 'aarch64' ;;
+    *) fail "Unsupported architecture for Telemt: $(uname -m)" ;;
+  esac
+}
+
+telemt_libc() {
+  if grep -qi '^ID="?alpine"?' /etc/os-release 2>/dev/null; then
+    printf 'musl'
+    return
+  fi
+  if command_exists ldd && ldd --version 2>&1 | grep -qi musl; then
+    printf 'musl'
+    return
+  fi
+  printf 'gnu'
+}
+
+install_telemt_binary() {
+  local arch libc file version url tmp archive extracted
+  arch="$(telemt_arch)"
+  libc="$(telemt_libc)"
+  version="${TELEMT_VERSION#v}"
+  file="telemt-${arch}-linux-${libc}.tar.gz"
+  if [[ "${TELEMT_VERSION}" == "latest" ]]; then
+    url="https://github.com/${TELEMT_REPO}/releases/latest/download/${file}"
+  else
+    url="https://github.com/${TELEMT_REPO}/releases/download/${version}/${file}"
+  fi
+
+  substep "downloading Telemt ${TELEMT_VERSION} (${arch}/${libc})"
+  tmp="$(mktemp -d)"
+  archive="${tmp}/${file}"
+  if ! curl -fsSL "${url}" -o "${archive}"; then
+    if [[ "${arch}" == "x86_64-v3" ]]; then
+      arch="x86_64"
+      file="telemt-${arch}-linux-${libc}.tar.gz"
+      archive="${tmp}/${file}"
+      if [[ "${TELEMT_VERSION}" == "latest" ]]; then
+        url="https://github.com/${TELEMT_REPO}/releases/latest/download/${file}"
+      else
+        url="https://github.com/${TELEMT_REPO}/releases/download/${version}/${file}"
+      fi
+      substep "Telemt x86_64-v3 unavailable, falling back to x86_64"
+      curl -fsSL "${url}" -o "${archive}" || fail "Telemt download failed"
+    else
+      fail "Telemt download failed"
+    fi
+  fi
+  gzip -dc "${archive}" | tar -xf - -C "${tmp}" || fail "Telemt archive extraction failed"
+  extracted="$(find "${tmp}" -type f -name telemt -print | head -n 1)"
+  [[ -n "${extracted}" ]] || fail "Telemt binary not found in release archive"
+  mkdir -p "${INSTALL_DIR}/bin"
+  install -m 0755 "${extracted}" "${INSTALL_DIR}/bin/telemt"
+  rm -rf "${tmp}"
+  setcap 'cap_net_bind_service=+ep' "${INSTALL_DIR}/bin/telemt" 2>/dev/null || true
+}
+
 ensure_core_users() {
   if ! id -u xray >/dev/null 2>&1; then
     useradd -r -s /bin/false xray
@@ -680,6 +749,7 @@ remove_legacy_telegram_proxy() {
     systemctl daemon-reload
   fi
   rm -f "${INSTALL_DIR}/bin/mtproto-proxy" 2>/dev/null || true
+  rm -f "${INSTALL_DIR}/bin/h2v-telegramd" 2>/dev/null || true
 }
 
 install_go() {
@@ -1074,6 +1144,7 @@ ensure_dirs() {
     "${INSTALL_DIR}/frontend" \
     "${BUILD_STATE_DIR}" \
     "${INSTALL_DIR}/data/backups" \
+    "${INSTALL_DIR}/data/telegram" \
     "${INSTALL_DIR}/logs"
   chown -R panel:panel "${INSTALL_DIR}"
   chmod 0755 "${INSTALL_DIR}" "${INSTALL_DIR}/configs"
@@ -1283,8 +1354,8 @@ normalize_config_paths() {
   fi
 
   telegram_config_path="$(env_get TELEGRAM_PROXY_CONFIG_PATH || true)"
-  if [[ -z "${telegram_config_path}" || "${telegram_config_path}" != "${INSTALL_DIR}/configs/telegram/config.json" ]]; then
-    env_set TELEGRAM_PROXY_CONFIG_PATH "${INSTALL_DIR}/configs/telegram/config.json"
+  if [[ -z "${telegram_config_path}" || "${telegram_config_path}" != "${INSTALL_DIR}/configs/telegram/telemt.toml" ]]; then
+    env_set TELEGRAM_PROXY_CONFIG_PATH "${INSTALL_DIR}/configs/telegram/telemt.toml"
   fi
 }
 
@@ -1358,7 +1429,7 @@ ensure_runtime_secrets() {
   if [[ -z "${telegram_host}" || "${telegram_host}" == "panel.example.com" ]]; then
     env_set TELEGRAM_PROXY_PUBLIC_HOST "${panel_domain}"
   fi
-  env_set_default TELEGRAM_PROXY_CONFIG_PATH "${INSTALL_DIR}/configs/telegram/config.json"
+  env_set_default TELEGRAM_PROXY_CONFIG_PATH "${INSTALL_DIR}/configs/telegram/telemt.toml"
   env_set_default TELEGRAM_PROXY_ENABLED "true"
   env_set_default TELEGRAM_PROXY_PORT "9443"
   env_set_default TELEGRAM_PROXY_MASK_DOMAIN "www.cloudflare.com"
@@ -1488,13 +1559,12 @@ build_artifacts() {
   build_time="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
   ldflags="-s -w -X main.version=${H2V_VERSION:-${REPO_REF}} -X main.commit=${build_commit} -X main.builtAt=${build_time}"
 
-  substep "compiling backend (panel and telegram daemon)"
+  substep "compiling backend panel"
   if ! (
     cd "${SOURCE_DIR}/backend" &&
     go mod download &&
     go mod verify &&
-    go build -mod=readonly -ldflags "${ldflags}" -o "${INSTALL_DIR}/bin/panel" ./cmd/panel &&
-    go build -mod=readonly -ldflags "${ldflags}" -o "${INSTALL_DIR}/bin/h2v-telegramd" ./cmd/telegramd
+    go build -mod=readonly -ldflags "${ldflags}" -o "${INSTALL_DIR}/bin/panel" ./cmd/panel
   ) >"${backend_log}" 2>&1; then
     red "backend build failed"
     printf '  %slog:%s %s\n' "${DIM}" "${RESET}" "${backend_log}"
@@ -1539,7 +1609,6 @@ build_artifacts() {
   rsync -a --delete "${frontend_dir}/dist/" "${INSTALL_DIR}/frontend/"
 
   [[ -x "${INSTALL_DIR}/bin/panel" ]] || fail "backend build completed without producing ${INSTALL_DIR}/bin/panel"
-  [[ -x "${INSTALL_DIR}/bin/h2v-telegramd" ]] || fail "backend build completed without producing ${INSTALL_DIR}/bin/h2v-telegramd"
   [[ -f "${INSTALL_DIR}/frontend/index.html" ]] || fail "frontend build completed without producing ${INSTALL_DIR}/frontend/index.html"
 
   chown -R panel:panel "${INSTALL_DIR}/bin" "${INSTALL_DIR}/frontend" "${BUILD_STATE_DIR}"
@@ -1573,6 +1642,7 @@ install_sudoers() {
   local tmp="${path}.tmp"
   cat >"${tmp}" <<'EOF'
 panel ALL=(root) NOPASSWD: /bin/systemctl restart xray.service, /bin/systemctl restart hysteria.service, /bin/systemctl restart h2v-telegram.service
+panel ALL=(root) NOPASSWD: /bin/systemctl stop h2v-telegram.service
 panel ALL=(root) NOPASSWD: /bin/systemctl reload xray.service, /bin/systemctl reload hysteria.service
 EOF
   chmod 0440 "${tmp}"
@@ -1755,7 +1825,7 @@ print_welcome() {
   printf '  %sThis installer will prepare:%s\n' "${BOLD}" "${RESET}"
   printf '    - panel backend and web UI\n'
   printf '    - PostgreSQL database and migrations\n'
-  printf '    - Xray VLESS Reality, Hysteria 2, and h2v Telegram Proxy services\n'
+  printf '    - Xray VLESS Reality, Hysteria 2, and Telemt-powered Telegram Proxy services\n'
   printf '    - Caddy TLS reverse proxy, geodata timer, and backups\n'
   printf '\n'
   printf '  %sTip:%s press Enter to accept suggested defaults during setup.\n' "${DIM}" "${RESET}"
@@ -1784,11 +1854,12 @@ install_all() {
   ensure_build_toolchain
   success "Go $(go version | awk '{print $3}') · Node $(node -v) · npm $(npm -v)"
 
-  step "cores" "Installing Xray-core and Hysteria 2 binaries"
+  step "cores" "Installing Xray-core, Hysteria 2, and Telemt binaries"
   install_xray_binary
   install_hysteria_binary
+  install_telemt_binary
   ensure_core_users
-  success "core binaries installed"
+  success "core and Telegram proxy binaries installed"
 
   step "layout" "Creating panel user and directory layout"
   ensure_panel_user
@@ -1948,6 +2019,7 @@ uninstall_all() {
 
   step "purge" "Removing application files and units"
   rm -rf "${INSTALL_DIR}"
+  rm -f /usr/local/bin/h2v-telegramd 2>/dev/null || true
   rm -f /etc/systemd/system/panel.service /etc/systemd/system/xray.service /etc/systemd/system/hysteria.service /etc/systemd/system/h2v-telegram.service /etc/systemd/system/telegram-proxy.service
   rm -f /etc/systemd/system/h2v-geodata-update.service /etc/systemd/system/h2v-geodata-update.timer
   rm -f /etc/sudoers.d/mypanel-systemctl

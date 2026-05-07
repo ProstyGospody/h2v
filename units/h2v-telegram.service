@@ -4,11 +4,11 @@ After=network-online.target
 Wants=network-online.target
 
 [Service]
-Type=notify
+Type=simple
 User=panel
 Group=panel
-WorkingDirectory=/opt/mypanel
-ExecStart=/opt/mypanel/bin/h2v-telegramd -config /opt/mypanel/configs/telegram/config.json
+WorkingDirectory=/opt/mypanel/data/telegram
+ExecStart=/opt/mypanel/bin/telemt /opt/mypanel/configs/telegram/telemt.toml
 Restart=always
 RestartSec=3
 StartLimitInterval=60
@@ -17,7 +17,7 @@ LimitNOFILE=1048576
 NoNewPrivileges=true
 ProtectSystem=strict
 ProtectHome=true
-ReadWritePaths=/opt/mypanel/logs
+ReadWritePaths=/opt/mypanel/data/telegram /opt/mypanel/logs
 PrivateTmp=true
 ProtectKernelTunables=true
 ProtectKernelModules=true

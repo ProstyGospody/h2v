@@ -24,3 +24,14 @@ func (c *Controller) Restart(ctx context.Context, service string) error {
 	}
 	return nil
 }
+
+func (c *Controller) Stop(ctx context.Context, service string) error {
+	if c.Disabled {
+		return nil
+	}
+	cmd := exec.CommandContext(ctx, "sudo", "/bin/systemctl", "stop", service+".service")
+	if out, err := cmd.CombinedOutput(); err != nil {
+		return fmt.Errorf("systemctl stop %s: %s", service, string(out))
+	}
+	return nil
+}

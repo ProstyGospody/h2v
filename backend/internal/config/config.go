@@ -158,7 +158,7 @@ func Load() Config {
 			KeyPath:       getenv("HY2_KEY_PATH", ""),
 		},
 		Telegram: TelegramProxyConfig{
-			ConfigPath:   getenv("TELEGRAM_PROXY_CONFIG_PATH", filepath.Join(rootDir, "configs", "telegram", "config.json")),
+			ConfigPath:   getenv("TELEGRAM_PROXY_CONFIG_PATH", filepath.Join(rootDir, "configs", "telegram", "telemt.toml")),
 			Enabled:      getenvBool("TELEGRAM_PROXY_ENABLED", true),
 			Host:         getenv("TELEGRAM_PROXY_PUBLIC_HOST", getenv("PANEL_DOMAIN", "panel.example.com")),
 			Port:         getenvInt("TELEGRAM_PROXY_PORT", 9443),

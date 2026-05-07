@@ -1,7 +1,7 @@
 # h2v
 
 h2v is a self-hosted VPN panel for Xray VLESS Reality, Hysteria 2, and a
-dedicated Telegram MTProxy-compatible relay.
+dedicated Telemt-powered Telegram MTProxy-compatible relay.
 
 It gives you a private admin UI, user management, traffic accounting, automatic
 core config rendering, subscription links, QR codes, backups, geodata updates,
@@ -24,8 +24,8 @@ The installer is interactive. It will ask for:
 - admin username and password
 
 The installer also generates a Telegram proxy secret. The ready
-`https://t.me/proxy?...` link lives on the Telegram page, separate from users
-and subscription QR codes.
+`tg://proxy?...` link lives on the Telegram page, separate from users and
+subscription QR codes.
 
 On updates, if `/opt/mypanel/.env` already exists, the installer asks whether to
 keep the current config or reconfigure it with a simple `1 / 2` choice.
@@ -50,7 +50,7 @@ keep the current config or reconfigure it with a simple `1 / 2` choice.
 - PostgreSQL database and migrations
 - Xray-core with VLESS Reality
 - Hysteria 2 server
-- h2v Telegram Proxy service: `h2v-telegram.service`
+- Telemt-backed Telegram Proxy service: `h2v-telegram.service`
 - Caddy reverse proxy with automatic TLS
 - Geodata updater: `h2v-geodata-update.timer`
 - Backup and restore helpers
@@ -161,6 +161,7 @@ the same install command shown above.
 | `H2V_REF=v0.1.1` | Install a specific tag, branch, or commit |
 | `H2V_SOURCE_SHA256=<sha256>` | Verify the downloaded source archive |
 | `H2V_REQUIRE_SOURCE_SHA256=1` | Fail if a source checksum is not provided |
+| `TELEMT_VERSION=3.4.3` | Pin the Telemt release used by Telegram Proxy |
 
 ## Development
 
