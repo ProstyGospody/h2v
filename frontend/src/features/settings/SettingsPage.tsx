@@ -2,7 +2,6 @@ import { useMemo, useRef, useState, type ChangeEvent, type ComponentType, type R
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   AlertTriangle,
-  Copy as CopyIcon,
   Download,
   Eye,
   EyeOff,
@@ -10,7 +9,6 @@ import {
   RefreshCw,
   RotateCcw,
   Save,
-  Send,
   Upload,
 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -23,7 +21,7 @@ import { CoreLogo, type CoreLogoName } from '@/components/core-logo';
 import { PageHeader } from '@/components/page-header';
 import { cn } from '@/lib/utils';
 import { apiClient, ApiError } from '@/shared/api/client';
-import { Setting, TelegramCredentials } from '@/shared/api/types';
+import { Setting } from '@/shared/api/types';
 
 type SettingKey =
   | 'hy2.bandwidth_down'
@@ -39,15 +37,11 @@ type SettingKey =
   | 'reality.public_key'
   | 'reality.short_ids'
   | 'reality.sni'
-  | 'telegram.host'
-  | 'telegram.password'
-  | 'telegram.port'
-  | 'telegram.username'
   | 'vless.port';
 
 type SettingValue = boolean | number | string | string[];
 type SettingsDraft = Partial<Record<SettingKey, SettingValue>>;
-type PortKey = 'hy2.port' | 'telegram.port' | 'vless.port';
+type PortKey = 'hy2.port' | 'vless.port';
 
 type RealityPreset = {
   dest: string;
@@ -87,10 +81,6 @@ const fallbackValues: Record<SettingKey, SettingValue> = {
   'reality.public_key': '',
   'reality.short_ids': [''],
   'reality.sni': 'www.cloudflare.com',
-  'telegram.host': 'panel.example.com',
-  'telegram.password': '',
-  'telegram.port': 8445,
-  'telegram.username': 'telegram',
   'vless.port': 8444,
 };
 
@@ -109,12 +99,10 @@ const masqueradePresets: URLPreset[] = [
 
 const vlessPortPresets = [443, 8443, 8444, 2053, 2083];
 const hy2PortPresets = [443, 8443, 8444, 2083, 9443];
-const telegramPortPresets = [443, 8445, 9443, 2053, 2083];
 const bandwidthPresets = ['100 mbps', '500 mbps', '1 gbps', '10 gbps'];
 const portDefinitions: Array<{ key: PortKey; presets: number[]; protocol: 'tcp' | 'udp' }> = [
   { key: 'vless.port', presets: vlessPortPresets, protocol: 'tcp' },
   { key: 'hy2.port', presets: hy2PortPresets, protocol: 'udp' },
-  { key: 'telegram.port', presets: telegramPortPresets, protocol: 'tcp' },
 ];
 
 type SettingsUpdateResult = {
@@ -173,16 +161,6 @@ export function SettingsPage() {
   const hasIssues = allIssues.length > 0;
   const currentRealityPreset = findRealityPreset(values.string('reality.sni'), values.string('reality.dest'));
   const currentMasqueradePreset = findURLPreset(values.string('hy2.masquerade_url'), masqueradePresets);
-  const telegramLink = useMemo(
-    () =>
-      buildTelegramSocksLink(
-        values.string('telegram.host'),
-        values.number('telegram.port'),
-        values.string('telegram.username'),
-        values.string('telegram.password'),
-      ),
-    [values],
-  );
 
   const save = useMutation({
     mutationFn: () =>
@@ -212,21 +190,6 @@ export function SettingsPage() {
       setValue('reality.private_key', keyPair.private_key);
       setValue('reality.public_key', keyPair.public_key);
       toast.success('Reality key pair generated');
-    },
-  });
-
-  const generateTelegram = useMutation({
-    mutationFn: () =>
-      apiClient.request<TelegramCredentials>('/settings/telegram-credentials', {
-        method: 'POST',
-      }),
-    onError: (error) => {
-      toast.error(error instanceof ApiError ? error.message : 'Unable to generate Telegram credentials');
-    },
-    onSuccess: (credentials) => {
-      setValue('telegram.username', credentials.username);
-      setValue('telegram.password', credentials.password);
-      toast.success('Telegram credentials generated');
     },
   });
 
@@ -287,11 +250,6 @@ export function SettingsPage() {
     if (!preset) return;
     setValue('reality.sni', preset.sni);
     setValue('reality.dest', preset.dest);
-  }
-
-  async function copyTelegramLink() {
-    await navigator.clipboard.writeText(telegramLink);
-    toast.success('Telegram SOCKS link copied');
   }
 
   async function handleBackupUpload(event: ChangeEvent<HTMLInputElement>) {
@@ -540,45 +498,6 @@ export function SettingsPage() {
                   />
                 </SettingsSection>
 
-                <SettingsSection
-                  icon={Send}
-                  kicker="Telegram"
-                  title="Dedicated SOCKS proxy"
-                >
-                  <TextControl
-                    label="Public host"
-                    onChange={(value) => setValue('telegram.host', value)}
-                    placeholder="vpn.example.com"
-                    value={values.string('telegram.host')}
-                  />
-                  <PortControl
-                    label="Telegram port"
-                    max={65535}
-                    min={1}
-                    onChange={(value) => setValue('telegram.port', value)}
-                    presets={telegramPortPresets}
-                    unavailablePorts={unavailablePresetPorts('telegram.port', originalValues, portAvailability.data)}
-                    value={values.number('telegram.port')}
-                  />
-                  <TextControl
-                    label="Username"
-                    onChange={(value) => setValue('telegram.username', value)}
-                    placeholder="telegram"
-                    value={values.string('telegram.username')}
-                  />
-                  <SecretControl
-                    generating={generateTelegram.isPending}
-                    label="Password"
-                    onChange={(value) => setValue('telegram.password', value)}
-                    onGenerate={() => generateTelegram.mutate()}
-                    reveal={showSecrets}
-                    value={values.string('telegram.password')}
-                  />
-                  <TelegramLinkBox
-                    link={telegramLink}
-                    onCopy={copyTelegramLink}
-                  />
-                </SettingsSection>
               </div>
             </section>
           </>
@@ -864,29 +783,6 @@ function SelectControl({
   );
 }
 
-function TelegramLinkBox({ link, onCopy }: { link: string; onCopy: () => void }) {
-  return (
-    <div className="space-y-[13px]">
-      <Label>Telegram link</Label>
-      <div className="flex items-center justify-between gap-3 rounded-md bg-muted/35 px-3 py-2">
-        <span className="truncate text-sm text-muted-foreground">
-          {link ? 'Ready for Telegram' : 'Generate credentials'}
-        </span>
-        <Button
-          aria-label="Copy Telegram SOCKS link"
-          className="shrink-0"
-          disabled={!link}
-          onClick={onCopy}
-          type="button"
-        >
-          <CopyIcon className="size-4" />
-          Copy
-        </Button>
-      </div>
-    </div>
-  );
-}
-
 function SettingsIssues({ issues }: { issues: string[] }) {
   return (
     <div className="rounded-md border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
@@ -961,22 +857,6 @@ function createSettingsValues(items: Setting[], draft: SettingsDraft) {
     },
     value,
   };
-}
-
-function buildTelegramSocksLink(host: string, port: number, username: string, password: string): string {
-  const cleanHost = host.trim();
-  const cleanUsername = username.trim();
-  const cleanPassword = password.trim();
-  if (!cleanHost || !validPort(port) || !cleanUsername || !cleanPassword) {
-    return '';
-  }
-  const query = new URLSearchParams({
-    port: String(port),
-    pass: cleanPassword,
-    server: cleanHost,
-    user: cleanUsername,
-  });
-  return `https://t.me/socks?${query.toString()}`;
 }
 
 function coerceSettingValue(key: SettingKey, value: unknown): SettingValue {
@@ -1060,13 +940,7 @@ function validateDraft(draft: SettingsDraft, values: ReturnType<typeof createSet
     if (isPortSetting(key) && !validPort(values.number(key))) {
       issues.push(`${settingLabel(key)} must be between 1 and 65535.`);
     }
-    if (
-      (key.includes('domain') || key === 'reality.sni' || key === 'telegram.host') &&
-      values.string(key).trim() === ''
-    ) {
-      issues.push(`${settingLabel(key)} cannot be empty.`);
-    }
-    if ((key === 'telegram.username' || key === 'telegram.password') && values.string(key).trim() === '') {
+    if ((key.includes('domain') || key === 'reality.sni') && values.string(key).trim() === '') {
       issues.push(`${settingLabel(key)} cannot be empty.`);
     }
     if (key === 'hy2.masquerade_url' && !validURL(values.string(key))) {
@@ -1092,11 +966,6 @@ function validateDraft(draft: SettingsDraft, values: ReturnType<typeof createSet
       issues.push('Reality private and public keys must be saved together.');
     }
   }
-  if (draft['telegram.username'] !== undefined || draft['telegram.password'] !== undefined) {
-    if (values.string('telegram.username').trim() === '' || values.string('telegram.password').trim() === '') {
-      issues.push('Telegram username and password must be saved together.');
-    }
-  }
   return issues;
 }
 
@@ -1105,7 +974,7 @@ function normalizeDraftForSave(draft: SettingsDraft): SettingsDraft {
   for (const [key, value] of Object.entries(draft) as Array<[SettingKey, SettingValue]>) {
     if (typeof value === 'string') {
       const trimmed = value.trim();
-      if (key === 'hy2.domain' || key === 'reality.sni' || key === 'telegram.host') {
+      if (key === 'hy2.domain' || key === 'reality.sni') {
         normalized[key] = normalizeHostnameForSave(trimmed);
       } else {
         normalized[key] = trimmed;

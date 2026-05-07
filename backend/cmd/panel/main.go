@@ -146,6 +146,9 @@ func buildApp(ctx context.Context, cfg config.Config, logger *slog.Logger) (*pgx
 	if err := serviceBundle.Configs.ReconcileHysteria(ctx); err != nil {
 		logger.Warn("initial hysteria config reconcile failed", "err", err)
 	}
+	if err := serviceBundle.Telegram.Reconcile(ctx); err != nil {
+		logger.Warn("initial telegram proxy reconcile failed", "err", err)
+	}
 
 	reconcileXray := func(ctx context.Context) error { return serviceBundle.Configs.ReconcileXray(ctx) }
 	reconcileHysteria := func(ctx context.Context) error { return serviceBundle.Configs.ReconcileHysteria(ctx) }

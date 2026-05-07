@@ -76,10 +76,13 @@ type HysteriaConfig struct {
 }
 
 type TelegramProxyConfig struct {
-	Host     string
-	Port     int
-	Username string
-	Password string
+	ConfigPath   string
+	Enabled      bool
+	Host         string
+	Port         int
+	Secret       string
+	MaskDomain   string
+	FallbackAddr string
 }
 
 type SubscriptionConfig struct {
@@ -155,10 +158,13 @@ func Load() Config {
 			KeyPath:       getenv("HY2_KEY_PATH", ""),
 		},
 		Telegram: TelegramProxyConfig{
-			Host:     getenv("TELEGRAM_PROXY_PUBLIC_HOST", getenv("PANEL_DOMAIN", "panel.example.com")),
-			Port:     getenvInt("TELEGRAM_PROXY_PORT", 8445),
-			Username: getenv("TELEGRAM_PROXY_USERNAME", "telegram"),
-			Password: getenv("TELEGRAM_PROXY_PASSWORD", ""),
+			ConfigPath:   getenv("TELEGRAM_PROXY_CONFIG_PATH", filepath.Join(rootDir, "configs", "telegram", "config.json")),
+			Enabled:      getenvBool("TELEGRAM_PROXY_ENABLED", true),
+			Host:         getenv("TELEGRAM_PROXY_PUBLIC_HOST", getenv("PANEL_DOMAIN", "panel.example.com")),
+			Port:         getenvInt("TELEGRAM_PROXY_PORT", 9443),
+			Secret:       getenv("TELEGRAM_PROXY_SECRET", ""),
+			MaskDomain:   getenv("TELEGRAM_PROXY_MASK_DOMAIN", "www.cloudflare.com"),
+			FallbackAddr: getenv("TELEGRAM_PROXY_FALLBACK_ADDR", "www.cloudflare.com:443"),
 		},
 		Subscription: SubscriptionConfig{
 			URLPrefix:           getenv("SUB_URL_PREFIX", "https://panel.example.com"),
@@ -194,9 +200,6 @@ func (c Config) ValidateServe() error {
 	}
 	if c.Hysteria.ObfsEnabled && c.Hysteria.ObfsPassword == "" {
 		issues = append(issues, "HY2_OBFS_PASSWORD must not be empty when HY2_OBFS_ENABLED=true")
-	}
-	if c.Telegram.Password == "" {
-		issues = append(issues, "TELEGRAM_PROXY_PASSWORD must not be empty")
 	}
 	if len(issues) > 0 {
 		return errors.New("unsafe serve configuration: " + strings.Join(issues, "; "))

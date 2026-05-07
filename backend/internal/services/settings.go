@@ -6,6 +6,7 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/base64"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"log/slog"
@@ -33,9 +34,8 @@ type RealityKeyPair struct {
 	PublicKey  string `json:"public_key"`
 }
 
-type TelegramCredentials struct {
-	Username string `json:"username"`
-	Password string `json:"password"`
+type TelegramSecret struct {
+	Secret string `json:"secret"`
 }
 
 var (
@@ -100,15 +100,12 @@ func (s *SettingsService) GenerateRealityKeyPair() (*RealityKeyPair, error) {
 	}, nil
 }
 
-func (s *SettingsService) GenerateTelegramCredentials() (*TelegramCredentials, error) {
-	raw := make([]byte, 24)
+func (s *SettingsService) GenerateTelegramSecret() (*TelegramSecret, error) {
+	raw := make([]byte, 16)
 	if _, err := rand.Read(raw); err != nil {
-		return nil, domain.NewError(500, "secret_generation_failed", "Unable to generate Telegram SOCKS credentials", err)
+		return nil, domain.NewError(500, "secret_generation_failed", "Unable to generate Telegram proxy secret", err)
 	}
-	return &TelegramCredentials{
-		Username: "telegram",
-		Password: base64.RawURLEncoding.EncodeToString(raw),
-	}, nil
+	return &TelegramSecret{Secret: hex.EncodeToString(raw)}, nil
 }
 
 func (s *SettingsService) validateUpdate(ctx context.Context, values map[string]json.RawMessage) error {
@@ -130,12 +127,6 @@ func (s *SettingsService) validateUpdate(ctx context.Context, values map[string]
 	if runtime.PanelPort == runtime.VlessPort {
 		return domain.NewError(400, "port_conflict", "Panel internal port conflicts with VLESS port; use different TCP ports", nil)
 	}
-	if runtime.PanelPort == runtime.TelegramPort {
-		return domain.NewError(400, "port_conflict", "Panel internal port conflicts with Telegram SOCKS port; use different TCP ports", nil)
-	}
-	if runtime.VlessPort == runtime.TelegramPort {
-		return domain.NewError(400, "port_conflict", "VLESS port conflicts with Telegram SOCKS port; use different TCP ports", nil)
-	}
 	if runtime.PanelDomain != "" && runtime.PanelDomain != "panel.example.com" {
 		if runtime.PanelPublicPort == runtime.PanelPort {
 			return domain.NewError(400, "port_conflict", "Panel public port conflicts with the internal panel listener; use different TCP ports", nil)
@@ -143,8 +134,16 @@ func (s *SettingsService) validateUpdate(ctx context.Context, values map[string]
 		if runtime.PanelPublicPort == runtime.VlessPort {
 			return domain.NewError(400, "port_conflict", "Panel public port conflicts with VLESS port; use different TCP ports", nil)
 		}
-		if runtime.PanelPublicPort == runtime.TelegramPort {
-			return domain.NewError(400, "port_conflict", "Panel public port conflicts with Telegram SOCKS port; use different TCP ports", nil)
+	}
+	if runtime.TelegramEnabled {
+		if runtime.PanelPort == runtime.TelegramPort {
+			return domain.NewError(400, "port_conflict", "Panel internal port conflicts with Telegram proxy port; use different TCP ports", nil)
+		}
+		if runtime.VlessPort == runtime.TelegramPort {
+			return domain.NewError(400, "port_conflict", "VLESS port conflicts with Telegram proxy port; use different TCP ports", nil)
+		}
+		if runtime.PanelDomain != "" && runtime.PanelDomain != "panel.example.com" && runtime.PanelPublicPort == runtime.TelegramPort {
+			return domain.NewError(400, "port_conflict", "Panel public port conflicts with Telegram proxy port; use different TCP ports", nil)
 		}
 	}
 	if err := validatePortAvailability(currentRuntime, runtime, values); err != nil {
@@ -156,8 +155,8 @@ func (s *SettingsService) validateUpdate(ctx context.Context, values map[string]
 	if touchesAny(values, "reality.private_key", "reality.public_key") && (runtime.RealityPrivateKey == "" || runtime.RealityPublicKey == "") {
 		return domain.NewError(400, "invalid_setting", "Reality private and public keys must be saved together", nil)
 	}
-	if touchesAny(values, "telegram.username", "telegram.password") && (runtime.TelegramUsername == "" || runtime.TelegramPassword == "") {
-		return domain.NewError(400, "invalid_setting", "Telegram SOCKS username and password must be saved together", nil)
+	if runtime.TelegramEnabled && runtime.TelegramSecret == "" {
+		return domain.NewError(400, "invalid_setting", "Telegram proxy secret is required when the proxy is enabled", nil)
 	}
 	return nil
 }
@@ -216,10 +215,12 @@ func DefaultRuntime(cfg config.Config) RuntimeSettings {
 		Hy2TrafficSecret:   cfg.Hysteria.TrafficSecret,
 		Hy2CertPath:        cfg.Hysteria.CertPath,
 		Hy2KeyPath:         cfg.Hysteria.KeyPath,
+		TelegramEnabled:    cfg.Telegram.Enabled,
 		TelegramHost:       cfg.Telegram.Host,
 		TelegramPort:       cfg.Telegram.Port,
-		TelegramUsername:   cfg.Telegram.Username,
-		TelegramPassword:   cfg.Telegram.Password,
+		TelegramSecret:     cfg.Telegram.Secret,
+		TelegramMaskDomain: cfg.Telegram.MaskDomain,
+		TelegramFallback:   cfg.Telegram.FallbackAddr,
 		GeoIPPath:          filepath.Join(cfg.Xray.GeodataDir, "geoip.dat"),
 		GeositePath:        filepath.Join(cfg.Xray.GeodataDir, "geosite.dat"),
 		Clients:            nil,
@@ -257,10 +258,12 @@ func applyRuntimeValues(runtime *RuntimeSettings, values map[string]json.RawMess
 	runtime.Hy2BandwidthDown = stringOr(values, "hy2.bandwidth_down", runtime.Hy2BandwidthDown)
 	runtime.Hy2MasqueradeURL = stringOr(values, "hy2.masquerade_url", runtime.Hy2MasqueradeURL)
 	runtime.Hy2TrafficSecret = stringOr(values, "hy2.traffic_secret", runtime.Hy2TrafficSecret)
+	runtime.TelegramEnabled = boolOr(values, "telegram.enabled", runtime.TelegramEnabled)
 	runtime.TelegramHost = stringOr(values, "telegram.host", runtime.TelegramHost)
 	runtime.TelegramPort = intOr(values, "telegram.port", runtime.TelegramPort)
-	runtime.TelegramUsername = stringOr(values, "telegram.username", runtime.TelegramUsername)
-	runtime.TelegramPassword = stringOr(values, "telegram.password", runtime.TelegramPassword)
+	runtime.TelegramSecret = stringOr(values, "telegram.secret", runtime.TelegramSecret)
+	runtime.TelegramMaskDomain = stringOr(values, "telegram.mask_domain", runtime.TelegramMaskDomain)
+	runtime.TelegramFallback = stringOr(values, "telegram.fallback", runtime.TelegramFallback)
 }
 
 func applyStoredRuntimeValues(runtime *RuntimeSettings, values map[string]json.RawMessage) {
@@ -317,7 +320,7 @@ func normalizeSettingValue(key string, raw json.RawMessage) (any, error) {
 			return nil, invalidSetting(key, "must be an integer between 1 and 65535")
 		}
 		return value, nil
-	case "hy2.obfs_enabled":
+	case "hy2.obfs_enabled", "telegram.enabled":
 		var value bool
 		if err := json.Unmarshal(raw, &value); err != nil {
 			return nil, invalidSetting(key, "must be a boolean")
@@ -335,9 +338,9 @@ func normalizeSettingValue(key string, raw json.RawMessage) (any, error) {
 			}
 		}
 		return values, nil
-	case "hy2.domain", "telegram.host", "reality.sni", "reality.dest", "reality.private_key", "reality.public_key",
+	case "hy2.domain", "telegram.host", "telegram.mask_domain", "reality.sni", "reality.dest", "reality.private_key", "reality.public_key",
 		"hy2.obfs_password", "hy2.bandwidth_up", "hy2.bandwidth_down",
-		"hy2.masquerade_url", "hy2.traffic_secret", "telegram.username", "telegram.password":
+		"hy2.masquerade_url", "hy2.traffic_secret", "telegram.secret", "telegram.fallback":
 		var value string
 		if err := json.Unmarshal(raw, &value); err != nil {
 			return nil, invalidSetting(key, "must be a string")
@@ -351,7 +354,7 @@ func normalizeSettingValue(key string, raw json.RawMessage) (any, error) {
 func normalizeStringSetting(key, value string) (string, error) {
 	value = strings.TrimSpace(value)
 	switch key {
-	case "hy2.domain", "telegram.host", "reality.sni":
+	case "hy2.domain", "telegram.host", "telegram.mask_domain", "reality.sni":
 		if value == "" {
 			return "", invalidSetting(key, "cannot be empty")
 		}
@@ -361,6 +364,10 @@ func normalizeStringSetting(key, value string) (string, error) {
 		}
 		value = hostname
 	case "reality.dest":
+		if !validHostPort(value) {
+			return "", invalidSetting(key, "must be a host:port value")
+		}
+	case "telegram.fallback":
 		if !validHostPort(value) {
 			return "", invalidSetting(key, "must be a host:port value")
 		}
@@ -377,9 +384,13 @@ func normalizeStringSetting(key, value string) (string, error) {
 		if value == "" {
 			return "", invalidSetting(key, "cannot be empty")
 		}
-	case "telegram.username", "telegram.password":
+	case "telegram.secret":
+		value = strings.ToLower(value)
 		if value == "" {
-			return "", invalidSetting(key, "cannot be empty")
+			return "", nil
+		}
+		if !validTelegramSecret(value) {
+			return "", invalidSetting(key, "must be 32 lowercase or uppercase hex characters")
 		}
 	}
 	return value, nil
@@ -395,7 +406,7 @@ func validatePortAvailability(current, next RuntimeSettings, values map[string]j
 	}{
 		{current: current.VlessPort, key: "vless.port", label: "VLESS port", next: next.VlessPort, protocol: "tcp"},
 		{current: current.Hy2Port, key: "hy2.port", label: "Hysteria port", next: next.Hy2Port, protocol: "udp"},
-		{current: current.TelegramPort, key: "telegram.port", label: "Telegram SOCKS port", next: next.TelegramPort, protocol: "tcp"},
+		{current: current.TelegramPort, key: "telegram.port", label: "Telegram proxy port", next: next.TelegramPort, protocol: "tcp"},
 	}
 
 	for _, check := range checks {
@@ -421,6 +432,14 @@ func invalidSetting(key, reason string) error {
 
 func validRuntimePort(value int) bool {
 	return value >= 1 && value <= 65535
+}
+
+func validTelegramSecret(value string) bool {
+	if len(value) != 32 {
+		return false
+	}
+	_, err := hex.DecodeString(value)
+	return err == nil
 }
 
 func validHTTPURL(value string) bool {

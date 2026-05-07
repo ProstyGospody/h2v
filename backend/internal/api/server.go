@@ -134,7 +134,9 @@ func (s *Server) routes(r chi.Router) {
 		api.Patch("/settings", s.handleSettingsUpdate)
 		api.Post("/settings/ports/check", s.handleSettingsPortsCheck)
 		api.Post("/settings/reality-keypair", s.handleSettingsRealityKeyPair)
-		api.Post("/settings/telegram-credentials", s.handleSettingsTelegramCredentials)
+		api.Get("/telegram-proxy", s.handleTelegramProxyGet)
+		api.Patch("/telegram-proxy", s.handleTelegramProxyUpdate)
+		api.Post("/telegram-proxy/secret", s.handleTelegramProxySecret)
 		api.Post("/geodata/update", s.handleGeodataUpdate)
 		api.Get("/backup/export", s.handleBackupExport)
 		api.Post("/backup/import", s.handleBackupImport)
@@ -570,13 +572,36 @@ func (s *Server) handleSettingsRealityKeyPair(w http.ResponseWriter, _ *http.Req
 	jsonData(w, http.StatusOK, keyPair, nil)
 }
 
-func (s *Server) handleSettingsTelegramCredentials(w http.ResponseWriter, _ *http.Request) {
-	credentials, err := s.services.Settings.GenerateTelegramCredentials()
+func (s *Server) handleTelegramProxyGet(w http.ResponseWriter, r *http.Request) {
+	info, err := s.services.Telegram.Info(r.Context())
 	if err != nil {
 		jsonError(w, err)
 		return
 	}
-	jsonData(w, http.StatusOK, credentials, nil)
+	jsonData(w, http.StatusOK, info, nil)
+}
+
+func (s *Server) handleTelegramProxyUpdate(w http.ResponseWriter, r *http.Request) {
+	values := map[string]json.RawMessage{}
+	if err := decodeJSON(r, &values); err != nil {
+		jsonError(w, err)
+		return
+	}
+	info, err := s.services.Telegram.Update(r.Context(), values)
+	if err != nil {
+		jsonError(w, err)
+		return
+	}
+	jsonData(w, http.StatusOK, info, nil)
+}
+
+func (s *Server) handleTelegramProxySecret(w http.ResponseWriter, r *http.Request) {
+	info, err := s.services.Telegram.RegenerateSecret(r.Context())
+	if err != nil {
+		jsonError(w, err)
+		return
+	}
+	jsonData(w, http.StatusOK, info, nil)
 }
 
 func (s *Server) handleGeodataUpdate(w http.ResponseWriter, r *http.Request) {
@@ -1056,9 +1081,6 @@ func subscriptionTokenFromURL(raw string) string {
 func shouldReconcileXray(values map[string]json.RawMessage) bool {
 	for key := range values {
 		if strings.HasPrefix(key, "vless.") || strings.HasPrefix(key, "reality.") {
-			return true
-		}
-		if key == "telegram.port" || key == "telegram.username" || key == "telegram.password" {
 			return true
 		}
 	}

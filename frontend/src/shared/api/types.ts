@@ -70,9 +70,14 @@ export type Setting = {
   updated_at: string;
 };
 
-export type TelegramCredentials = {
-  username: string;
-  password: string;
+export type TelegramProxyInfo = {
+  enabled: boolean;
+  host: string;
+  port: number;
+  secret: string;
+  mask_domain: string;
+  fallback_addr: string;
+  link: string;
 };
 
 export type Admin = {

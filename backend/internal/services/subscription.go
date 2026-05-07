@@ -153,10 +153,12 @@ type RuntimeSettings struct {
 	Hy2TrafficSecret   string
 	Hy2CertPath        string
 	Hy2KeyPath         string
+	TelegramEnabled    bool
 	TelegramHost       string
 	TelegramPort       int
-	TelegramUsername   string
-	TelegramPassword   string
+	TelegramSecret     string
+	TelegramMaskDomain string
+	TelegramFallback   string
 	GeoIPPath          string
 	GeositePath        string
 	Clients            []ClientEntry

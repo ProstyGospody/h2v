@@ -59,24 +59,6 @@
         "destOverride": ["http", "tls", "quic"],
         "routeOnly": true
       }
-    },
-    {
-      "tag": "telegram-socks",
-      "listen": "0.0.0.0",
-      "port": {{ .TelegramPort }},
-      "protocol": "socks",
-      "settings": {
-        "auth": "password",
-        "accounts": [
-          { "user": {{ .TelegramUsername | json }}, "pass": {{ .TelegramPassword | json }} }
-        ],
-        "udp": true
-      },
-      "sniffing": {
-        "enabled": true,
-        "destOverride": ["http", "tls"],
-        "routeOnly": true
-      }
     }
   ],
   "outbounds": [
@@ -87,39 +69,6 @@
     "domainStrategy": "IPIfNonMatch",
     "rules": [
       { "type": "field", "inboundTag": ["api"], "outboundTag": "api" },
-      {
-        "type": "field",
-        "inboundTag": ["telegram-socks"],
-        "domain": [
-          "domain:t.me",
-          "domain:telegram.org",
-          "domain:telegram.me",
-          "domain:telegram.dog",
-          "domain:telegra.ph",
-          "domain:telesco.pe",
-          "domain:tdesktop.com",
-          "domain:cdn-telegram.org"
-        ],
-        "outboundTag": "direct"
-      },
-      {
-        "type": "field",
-        "inboundTag": ["telegram-socks"],
-        "ip": [
-          "91.108.4.0/22",
-          "91.108.8.0/22",
-          "91.108.12.0/22",
-          "91.108.16.0/22",
-          "91.108.20.0/22",
-          "91.108.56.0/22",
-          "149.154.160.0/20",
-          "2001:67c:4e8::/48",
-          "2001:b28:f23c::/47",
-          "2001:b28:f23f::/48"
-        ],
-        "outboundTag": "direct"
-      },
-      { "type": "field", "inboundTag": ["telegram-socks"], "outboundTag": "block" },
       { "type": "field", "protocol": ["bittorrent"], "outboundTag": "block" },
       {
         "type": "field",

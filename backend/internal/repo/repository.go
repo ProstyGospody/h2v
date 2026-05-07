@@ -30,7 +30,15 @@ func (r *Repository) Ping(ctx context.Context) error {
 }
 
 func (r *Repository) BootstrapSettings(ctx context.Context, cfg config.Config) error {
-	if err := r.deleteSettings(ctx, "panel.domain", "panel.port", "panel.public_port", "subscription.url_prefix"); err != nil {
+	if err := r.deleteSettings(
+		ctx,
+		"panel.domain",
+		"panel.port",
+		"panel.public_port",
+		"subscription.url_prefix",
+		"telegram.username",
+		"telegram.password",
+	); err != nil {
 		return err
 	}
 	settings := map[string]json.RawMessage{
@@ -48,10 +56,12 @@ func (r *Repository) BootstrapSettings(ctx context.Context, cfg config.Config) e
 		"hy2.bandwidth_down": rawJSONString(cfg.Hysteria.BandwidthDown),
 		"hy2.masquerade_url": rawJSONString(cfg.Hysteria.MasqueradeURL),
 		"hy2.traffic_secret": rawJSONString(cfg.Hysteria.TrafficSecret),
-		"telegram.host":      rawJSONString(cfg.Telegram.Host),
-		"telegram.port":      rawJSONInt(cfg.Telegram.Port),
-		"telegram.username":  rawJSONString(cfg.Telegram.Username),
-		"telegram.password":  rawJSONString(cfg.Telegram.Password),
+		"telegram.enabled":     rawJSONBool(cfg.Telegram.Enabled),
+		"telegram.host":        rawJSONString(cfg.Telegram.Host),
+		"telegram.port":        rawJSONInt(cfg.Telegram.Port),
+		"telegram.secret":      rawJSONString(cfg.Telegram.Secret),
+		"telegram.mask_domain": rawJSONString(cfg.Telegram.MaskDomain),
+		"telegram.fallback":    rawJSONString(cfg.Telegram.FallbackAddr),
 	}
 	if err := r.InsertMissingSettings(ctx, settings); err != nil {
 		return err

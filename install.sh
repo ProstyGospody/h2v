@@ -324,20 +324,20 @@ urlencode() {
 print_summary() {
   local access_url="$1"
   local local_url="$2"
-  local telegram_host telegram_port telegram_username telegram_password telegram_link
-  local telegram_host_q telegram_port_q telegram_username_q telegram_password_q
+  local telegram_host telegram_port telegram_secret telegram_mask telegram_link
+  local telegram_host_q telegram_port_q telegram_secret_q telegram_mask_hex
   progress_finish
   telegram_host="$(env_get TELEGRAM_PROXY_PUBLIC_HOST || env_get PANEL_DOMAIN || echo panel.example.com)"
-  telegram_port="$(env_get TELEGRAM_PROXY_PORT || echo 8445)"
-  telegram_username="$(env_get TELEGRAM_PROXY_USERNAME || echo telegram)"
-  telegram_password="$(env_get TELEGRAM_PROXY_PASSWORD || true)"
+  telegram_port="$(env_get TELEGRAM_PROXY_PORT || echo 9443)"
+  telegram_secret="$(env_get TELEGRAM_PROXY_SECRET || true)"
+  telegram_mask="$(env_get TELEGRAM_PROXY_MASK_DOMAIN || echo www.cloudflare.com)"
   telegram_link=""
-  if [[ -n "${telegram_username}" && -n "${telegram_password}" ]]; then
+  if [[ -n "${telegram_secret}" && -n "${telegram_mask}" ]]; then
     telegram_host_q="$(urlencode "${telegram_host}")"
     telegram_port_q="$(urlencode "${telegram_port}")"
-    telegram_username_q="$(urlencode "${telegram_username}")"
-    telegram_password_q="$(urlencode "${telegram_password}")"
-    telegram_link="https://t.me/socks?server=${telegram_host_q}&port=${telegram_port_q}&user=${telegram_username_q}&pass=${telegram_password_q}"
+    telegram_mask_hex="$(printf '%s' "${telegram_mask}" | od -An -tx1 | tr -d ' \n')"
+    telegram_secret_q="$(urlencode "ee${telegram_secret}${telegram_mask_hex}")"
+    telegram_link="https://t.me/proxy?server=${telegram_host_q}&port=${telegram_port_q}&secret=${telegram_secret_q}"
   fi
   printf '\n'
   printf '%s╔══════════════════════════════════════════════════════════════╗%s\n' "${GREEN}" "${RESET}"
@@ -655,6 +655,20 @@ start_cores() {
     warn "hysteria is NOT running — Hysteria 2 traffic will be rejected until resolved (most often a missing TLS cert)"
   else
     substep "hysteria.service active (Hysteria 2 on UDP ${hy2_port})"
+  fi
+}
+
+start_telegram_proxy() {
+  local telegram_port
+  telegram_port="$(env_get TELEGRAM_PROXY_PORT || echo 9443)"
+  systemctl enable h2v-telegram.service >/dev/null 2>&1 || true
+  systemctl reset-failed h2v-telegram.service >/dev/null 2>&1 || true
+  if ! systemctl restart h2v-telegram.service; then
+    red "h2v-telegram.service failed to start. Recent logs:"
+    journalctl -u h2v-telegram.service -n 40 --no-pager || true
+    warn "Telegram Proxy is NOT running until resolved"
+  else
+    substep "h2v-telegram.service active (MTProxy on TCP ${telegram_port})"
   fi
 }
 
@@ -1054,6 +1068,7 @@ ensure_dirs() {
   mkdir -p "${INSTALL_DIR}/bin" \
     "${INSTALL_DIR}/configs/xray" \
     "${INSTALL_DIR}/configs/hysteria" \
+    "${INSTALL_DIR}/configs/telegram" \
     "${INSTALL_DIR}/templates" \
     "${INSTALL_DIR}/migrations" \
     "${INSTALL_DIR}/frontend" \
@@ -1073,6 +1088,8 @@ ensure_dirs() {
     chmod 2750 "${INSTALL_DIR}/configs/hysteria"
     usermod -aG hysteria panel 2>/dev/null || true
   fi
+  chown panel:panel "${INSTALL_DIR}/configs/telegram"
+  chmod 0750 "${INSTALL_DIR}/configs/telegram"
 }
 
 ensure_env() {
@@ -1199,7 +1216,7 @@ validate_selected_runtime_ports() {
   panel_public_port="$(env_get PANEL_PUBLIC_PORT || echo 443)"
   vless_port="$(env_get VLESS_PORT || echo 8444)"
   hy2_port="$(env_get HY2_PORT || echo 8443)"
-  telegram_port="$(env_get TELEGRAM_PROXY_PORT || echo 8445)"
+  telegram_port="$(env_get TELEGRAM_PROXY_PORT || echo 9443)"
 
   valid_port_number "${panel_port}" || fail "PANEL_PORT must be a number between 1 and 65535"
   valid_port_number "${panel_public_port}" || fail "PANEL_PUBLIC_PORT must be a number between 1 and 65535"
@@ -1252,7 +1269,7 @@ validate_selected_runtime_ports() {
 }
 
 normalize_config_paths() {
-  local hy2_config_path xray_config_path
+  local hy2_config_path telegram_config_path xray_config_path
 
   xray_config_path="$(env_get XRAY_CONFIG_PATH || true)"
   if [[ -z "${xray_config_path}" || "${xray_config_path}" != "${INSTALL_DIR}/configs/xray/config.json" ]]; then
@@ -1263,6 +1280,11 @@ normalize_config_paths() {
   if [[ -z "${hy2_config_path}" || "${hy2_config_path}" != "${INSTALL_DIR}/configs/hysteria/config.json" ]]; then
     warn "HY2_CONFIG_PATH must point to JSON; switching it to ${INSTALL_DIR}/configs/hysteria/config.json"
     env_set HY2_CONFIG_PATH "${INSTALL_DIR}/configs/hysteria/config.json"
+  fi
+
+  telegram_config_path="$(env_get TELEGRAM_PROXY_CONFIG_PATH || true)"
+  if [[ -z "${telegram_config_path}" || "${telegram_config_path}" != "${INSTALL_DIR}/configs/telegram/config.json" ]]; then
+    env_set TELEGRAM_PROXY_CONFIG_PATH "${INSTALL_DIR}/configs/telegram/config.json"
   fi
 }
 
@@ -1291,14 +1313,14 @@ configure_local_firewall() {
   panel_public_port="$(env_get PANEL_PUBLIC_PORT || echo 443)"
   vless_port="$(env_get VLESS_PORT || echo 8444)"
   hy2_port="$(env_get HY2_PORT || echo 8443)"
-  telegram_port="$(env_get TELEGRAM_PROXY_PORT || echo 8445)"
+  telegram_port="$(env_get TELEGRAM_PROXY_PORT || echo 9443)"
 
   substep "opening required ports in UFW"
   if [[ -n "${domain}" && "${domain}" != "panel.example.com" ]]; then
     ufw_allow_port "${panel_public_port}" tcp "panel HTTPS"
   fi
   ufw_allow_port "${vless_port}" tcp "VLESS Reality"
-  ufw_allow_port "${telegram_port}" tcp "Telegram SOCKS"
+  ufw_allow_port "${telegram_port}" tcp "Telegram Proxy"
   ufw_allow_port "${hy2_port}" udp "Hysteria 2"
 }
 
@@ -1316,7 +1338,7 @@ ensure_secret_value() {
     DB_PASSWORD) value="$(openssl rand -hex 24)" ;;
     HY2_TRAFFIC_SECRET) value="$(openssl rand -hex 32)" ;;
     HY2_OBFS_PASSWORD) value="$(openssl rand -base64 24 | tr -d '\n')" ;;
-    TELEGRAM_PROXY_PASSWORD) value="$(openssl rand -base64 24 | tr -dc 'A-Za-z0-9' | cut -c1-24)" ;;
+    TELEGRAM_PROXY_SECRET) value="$(openssl rand -hex 16)" ;;
     *)
       fail "unknown secret key requested: ${key}"
       ;;
@@ -1336,9 +1358,12 @@ ensure_runtime_secrets() {
   if [[ -z "${telegram_host}" || "${telegram_host}" == "panel.example.com" ]]; then
     env_set TELEGRAM_PROXY_PUBLIC_HOST "${panel_domain}"
   fi
-  env_set_default TELEGRAM_PROXY_PORT "8445"
-  env_set_default TELEGRAM_PROXY_USERNAME "telegram"
-  ensure_secret_value TELEGRAM_PROXY_PASSWORD
+  env_set_default TELEGRAM_PROXY_CONFIG_PATH "${INSTALL_DIR}/configs/telegram/config.json"
+  env_set_default TELEGRAM_PROXY_ENABLED "true"
+  env_set_default TELEGRAM_PROXY_PORT "9443"
+  env_set_default TELEGRAM_PROXY_MASK_DOMAIN "www.cloudflare.com"
+  env_set_default TELEGRAM_PROXY_FALLBACK_ADDR "www.cloudflare.com:443"
+  ensure_secret_value TELEGRAM_PROXY_SECRET
 }
 
 ensure_postgres() {
@@ -1463,12 +1488,13 @@ build_artifacts() {
   build_time="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
   ldflags="-s -w -X main.version=${H2V_VERSION:-${REPO_REF}} -X main.commit=${build_commit} -X main.builtAt=${build_time}"
 
-  substep "compiling backend (go build ./cmd/panel)"
+  substep "compiling backend (panel and telegram daemon)"
   if ! (
     cd "${SOURCE_DIR}/backend" &&
     go mod download &&
     go mod verify &&
-    go build -mod=readonly -ldflags "${ldflags}" -o "${INSTALL_DIR}/bin/panel" ./cmd/panel
+    go build -mod=readonly -ldflags "${ldflags}" -o "${INSTALL_DIR}/bin/panel" ./cmd/panel &&
+    go build -mod=readonly -ldflags "${ldflags}" -o "${INSTALL_DIR}/bin/h2v-telegramd" ./cmd/telegramd
   ) >"${backend_log}" 2>&1; then
     red "backend build failed"
     printf '  %slog:%s %s\n' "${DIM}" "${RESET}" "${backend_log}"
@@ -1513,6 +1539,7 @@ build_artifacts() {
   rsync -a --delete "${frontend_dir}/dist/" "${INSTALL_DIR}/frontend/"
 
   [[ -x "${INSTALL_DIR}/bin/panel" ]] || fail "backend build completed without producing ${INSTALL_DIR}/bin/panel"
+  [[ -x "${INSTALL_DIR}/bin/h2v-telegramd" ]] || fail "backend build completed without producing ${INSTALL_DIR}/bin/h2v-telegramd"
   [[ -f "${INSTALL_DIR}/frontend/index.html" ]] || fail "frontend build completed without producing ${INSTALL_DIR}/frontend/index.html"
 
   chown -R panel:panel "${INSTALL_DIR}/bin" "${INSTALL_DIR}/frontend" "${BUILD_STATE_DIR}"
@@ -1545,7 +1572,7 @@ install_sudoers() {
   local path="/etc/sudoers.d/mypanel-systemctl"
   local tmp="${path}.tmp"
   cat >"${tmp}" <<'EOF'
-panel ALL=(root) NOPASSWD: /bin/systemctl restart xray.service, /bin/systemctl restart hysteria.service
+panel ALL=(root) NOPASSWD: /bin/systemctl restart xray.service, /bin/systemctl restart hysteria.service, /bin/systemctl restart h2v-telegram.service
 panel ALL=(root) NOPASSWD: /bin/systemctl reload xray.service, /bin/systemctl reload hysteria.service
 EOF
   chmod 0440 "${tmp}"
@@ -1685,7 +1712,7 @@ print_install_plan() {
   panel_public_port="$(plan_value "${PANEL_PUBLIC_PORT_INPUT}" "PANEL_PUBLIC_PORT" "443")"
   vless_port="$(plan_value "${VLESS_PORT_INPUT}" "VLESS_PORT" "8444")"
   hy2_port="$(plan_value "${HY2_PORT_INPUT}" "HY2_PORT" "8443")"
-  telegram_port="$(plan_value "" "TELEGRAM_PROXY_PORT" "8445")"
+  telegram_port="$(plan_value "" "TELEGRAM_PROXY_PORT" "9443")"
 
   if [[ -n "${domain}" && "${domain}" != "panel.example.com" ]]; then
     if [[ "${panel_public_port}" == "443" ]]; then
@@ -1712,7 +1739,7 @@ print_install_plan() {
   printf '  %s%-18s%s %s\n' "${DIM}" "Panel URL" "${RESET}" "${panel_url}"
   printf '  %s%-18s%s %s/tcp\n' "${DIM}" "VLESS Reality" "${RESET}" "${vless_port}"
   printf '  %s%-18s%s %s/udp\n' "${DIM}" "Hysteria 2" "${RESET}" "${hy2_port}"
-  printf '  %s%-18s%s %s/tcp\n' "${DIM}" "Telegram SOCKS" "${RESET}" "${telegram_port}"
+  printf '  %s%-18s%s %s/tcp\n' "${DIM}" "Telegram Proxy" "${RESET}" "${telegram_port}"
   if ${FIRST_INSTALL}; then
     printf '  %s%-18s%s %s\n' "${DIM}" "Config" "${RESET}" "create new .env"
   elif ${RECONFIGURE_RUNTIME}; then
@@ -1728,7 +1755,7 @@ print_welcome() {
   printf '  %sThis installer will prepare:%s\n' "${BOLD}" "${RESET}"
   printf '    - panel backend and web UI\n'
   printf '    - PostgreSQL database and migrations\n'
-  printf '    - Xray VLESS Reality, Telegram SOCKS, and Hysteria 2 services\n'
+  printf '    - Xray VLESS Reality, Hysteria 2, and h2v Telegram Proxy services\n'
   printf '    - Caddy TLS reverse proxy, geodata timer, and backups\n'
   printf '\n'
   printf '  %sTip:%s press Enter to accept suggested defaults during setup.\n' "${DIM}" "${RESET}"
@@ -1825,6 +1852,7 @@ install_all() {
   start_panel
   setup_reverse_proxy
   start_cores
+  start_telegram_proxy
   success "services active"
 
   local final_domain final_port final_public_port access_url local_url
@@ -1915,12 +1943,12 @@ uninstall_all() {
   STAGE_TOTAL=2
 
   step "stop" "Stopping and disabling services"
-  systemctl disable --now panel hysteria xray telegram-proxy h2v-geodata-update.timer h2v-geodata-update.service 2>/dev/null || true
-  success "panel/hysteria/xray services and geodata timer stopped"
+  systemctl disable --now panel hysteria xray h2v-telegram telegram-proxy h2v-geodata-update.timer h2v-geodata-update.service 2>/dev/null || true
+  success "panel/hysteria/xray/telegram services and geodata timer stopped"
 
   step "purge" "Removing application files and units"
   rm -rf "${INSTALL_DIR}"
-  rm -f /etc/systemd/system/panel.service /etc/systemd/system/xray.service /etc/systemd/system/hysteria.service /etc/systemd/system/telegram-proxy.service
+  rm -f /etc/systemd/system/panel.service /etc/systemd/system/xray.service /etc/systemd/system/hysteria.service /etc/systemd/system/h2v-telegram.service /etc/systemd/system/telegram-proxy.service
   rm -f /etc/systemd/system/h2v-geodata-update.service /etc/systemd/system/h2v-geodata-update.timer
   rm -f /etc/sudoers.d/mypanel-systemctl
   systemctl daemon-reload
