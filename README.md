@@ -24,7 +24,7 @@ The installer is interactive. It will ask for:
 - admin username and password
 
 The installer also generates Telegram SOCKS credentials. The ready
-`https://t.me/socks?...` link and QR live in Settings, separate from users and
+`https://t.me/socks?...` link lives in Settings, separate from users and
 subscription QR codes.
 
 On updates, if `/opt/mypanel/.env` already exists, the installer asks whether to

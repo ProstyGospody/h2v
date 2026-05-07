@@ -1,6 +1,5 @@
 import { useMemo, useRef, useState, type ChangeEvent, type ComponentType, type ReactNode } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { QRCodeSVG } from 'qrcode.react';
 import {
   AlertTriangle,
   Copy as CopyIcon,
@@ -579,17 +578,6 @@ export function SettingsPage() {
                     link={telegramLink}
                     onCopy={copyTelegramLink}
                   />
-                  {telegramLink ? (
-                    <div className="flex justify-center rounded-md bg-white p-3">
-                      <QRCodeSVG
-                        bgColor="#ffffff"
-                        fgColor="#111827"
-                        includeMargin
-                        size={156}
-                        value={telegramLink}
-                      />
-                    </div>
-                  ) : null}
                 </SettingsSection>
               </div>
             </section>

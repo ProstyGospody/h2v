@@ -312,10 +312,20 @@ banner() {
   printf '%s╚══════════════════════════════════════════════════════════════╝%s\n' "${CYAN}" "${RESET}"
 }
 
+urlencode() {
+  local value="$1"
+  if command_exists jq; then
+    jq -rn --arg value "${value}" '$value|@uri'
+  else
+    printf '%s' "${value}"
+  fi
+}
+
 print_summary() {
   local access_url="$1"
   local local_url="$2"
   local telegram_host telegram_port telegram_username telegram_password telegram_link
+  local telegram_host_q telegram_port_q telegram_username_q telegram_password_q
   progress_finish
   telegram_host="$(env_get TELEGRAM_PROXY_PUBLIC_HOST || env_get PANEL_DOMAIN || echo panel.example.com)"
   telegram_port="$(env_get TELEGRAM_PROXY_PORT || echo 8445)"
@@ -323,7 +333,11 @@ print_summary() {
   telegram_password="$(env_get TELEGRAM_PROXY_PASSWORD || true)"
   telegram_link=""
   if [[ -n "${telegram_username}" && -n "${telegram_password}" ]]; then
-    telegram_link="https://t.me/socks?server=${telegram_host}&port=${telegram_port}&user=${telegram_username}&pass=${telegram_password}"
+    telegram_host_q="$(urlencode "${telegram_host}")"
+    telegram_port_q="$(urlencode "${telegram_port}")"
+    telegram_username_q="$(urlencode "${telegram_username}")"
+    telegram_password_q="$(urlencode "${telegram_password}")"
+    telegram_link="https://t.me/socks?server=${telegram_host_q}&port=${telegram_port_q}&user=${telegram_username_q}&pass=${telegram_password_q}"
   fi
   printf '\n'
   printf '%s╔══════════════════════════════════════════════════════════════╗%s\n' "${GREEN}" "${RESET}"

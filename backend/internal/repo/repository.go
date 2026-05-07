@@ -53,7 +53,13 @@ func (r *Repository) BootstrapSettings(ctx context.Context, cfg config.Config) e
 		"telegram.username":  rawJSONString(cfg.Telegram.Username),
 		"telegram.password":  rawJSONString(cfg.Telegram.Password),
 	}
-	return r.InsertMissingSettings(ctx, settings)
+	if err := r.InsertMissingSettings(ctx, settings); err != nil {
+		return err
+	}
+	if cfg.Telegram.Host != "" && cfg.Telegram.Host != "panel.example.com" {
+		return r.updateSettingIfCurrent(ctx, "telegram.host", rawJSONString("panel.example.com"), rawJSONString(cfg.Telegram.Host))
+	}
+	return nil
 }
 
 func (r *Repository) CreateUser(ctx context.Context, user *domain.User) error {
@@ -706,6 +712,17 @@ func (r *Repository) deleteSettings(ctx context.Context, keys ...string) error {
 		args = append(args, key)
 	}
 	_, err := r.pool.Exec(ctx, `DELETE FROM settings WHERE key IN (`+strings.Join(placeholders, ",")+`)`, args...)
+	return err
+}
+
+func (r *Repository) updateSettingIfCurrent(ctx context.Context, key string, current, next json.RawMessage) error {
+	_, err := r.pool.Exec(ctx, `
+		UPDATE settings
+		SET value = $3::jsonb,
+		    updated_at = now()
+		WHERE key = $1
+		  AND value = $2::jsonb
+	`, key, string(current), string(next))
 	return err
 }
 
