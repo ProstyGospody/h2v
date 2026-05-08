@@ -2,8 +2,9 @@ import { useEffect, useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useParams } from '@tanstack/react-router';
 import { QRCodeSVG } from 'qrcode.react';
-import { ChevronRight, Copy, Link2, ShieldCheck } from 'lucide-react';
+import { ChevronRight, Copy, Link2 } from 'lucide-react';
 import { toast } from 'sonner';
+import { BrandLogo } from '@/components/brand-logo';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -141,10 +142,7 @@ export function SubPage() {
       <div className="relative min-h-screen">
         <div className="relative mx-auto w-full max-w-120 space-y-6 px-4 py-10 sm:py-14">
           <header className="space-y-5 text-center">
-            <div className="mx-auto flex size-12 items-center justify-center rounded-md bg-accent-gradient-soft text-foreground">
-              <ShieldCheck className="size-6" />
-            </div>
-            <div className="t-hero text-accent-gradient">h2v</div>
+            <BrandLogo className="mx-auto size-16 rounded-lg shadow-overlay" />
           </header>
 
           <Card>

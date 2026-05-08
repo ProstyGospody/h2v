@@ -1,0 +1,24 @@
+name: Feature request
+description: Suggest an improvement for h2v
+title: "feature: "
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What operational or user problem should this solve?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposal
+      description: Describe the expected behavior and any UI/API/runtime contract changes.
+    validations:
+      required: true
+  - type: textarea
+    id: risks
+    attributes:
+      label: Compatibility and risk
+      description: Mention migration, install/update, security, or runtime risks if known.

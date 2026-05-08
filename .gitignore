@@ -3,6 +3,8 @@ Thumbs.db
 .env
 .env.*
 !.env.example
+.env.local
+.envrc
 node_modules/
 dist/
 coverage/
@@ -12,4 +14,20 @@ tmp/
 backend/bin/
 backend/.cache/
 *.log
+*.pid
 
+# Runtime and backup artifacts
+*.sql.gz
+*.dump
+*.backup
+*.bak
+backups/
+secrets/
+
+# Private keys and certificates
+*.key
+*.pem
+*.p12
+*.pfx
+*.crt
+*.csr

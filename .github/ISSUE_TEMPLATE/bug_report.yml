@@ -1,0 +1,66 @@
+name: Bug report
+description: Report a reproducible h2v issue
+title: "bug: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Do not paste secrets, backup exports, subscription tokens, private keys, or full `.env` files.
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: Release tag, commit, or `H2V_REF`
+      placeholder: "v0.1.1"
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Installer
+        - Backend
+        - Frontend
+        - Xray
+        - Hysteria 2
+        - Telegram Proxy
+        - Documentation
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: OS, VPS size, install method, exposed ports
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. ...
+        2. ...
+        3. ...
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Sanitized logs
+      render: text

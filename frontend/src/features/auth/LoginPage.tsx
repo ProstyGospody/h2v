@@ -4,6 +4,7 @@ import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useNavigate } from '@tanstack/react-router';
 import { Eye, EyeOff } from 'lucide-react';
+import { BrandLogo } from '@/components/brand-logo';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -67,9 +68,7 @@ export function LoginPage() {
       <Card className="relative z-10 w-full max-w-100 border-border/60 bg-card/90 shadow-overlay backdrop-blur-xl">
         <CardContent className="space-y-9 px-7 py-10 sm:px-9 sm:py-12">
           <div className="flex flex-col items-center gap-3 text-center">
-            <span className="block font-display text-5xl font-bold italic leading-none text-accent-gradient">
-              h2v
-            </span>
+            <BrandLogo className="size-24 rounded-xl shadow-overlay" />
           </div>
 
           <form

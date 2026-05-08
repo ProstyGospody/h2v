@@ -12,6 +12,7 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import { AppProviders } from '@/app/providers';
+import { BrandLogo } from '@/components/brand-logo';
 import { CoreLogo, type CoreLogoName } from '@/components/core-logo';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent } from '@/components/ui/sheet';
@@ -275,14 +276,7 @@ function serviceDotTone(tone: StatusTone): string {
 function AppBrand({ compact = false }: { compact?: boolean }) {
   return (
     <div className="flex items-center">
-      <span
-        className={cn(
-          'font-display font-bold italic leading-none text-accent-gradient',
-          compact ? 'text-2xl' : 'text-[34px]',
-        )}
-      >
-        h2v
-      </span>
+      <BrandLogo className={cn('rounded-md', compact ? 'size-10' : 'size-12')} />
     </div>
   );
 }
