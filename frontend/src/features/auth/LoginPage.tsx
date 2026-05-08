@@ -71,7 +71,7 @@ export function LoginPage() {
         <LanguageSwitcher />
       </div>
 
-      <Card className="relative z-10 w-full max-w-100 overflow-hidden border-white/15 !bg-white/[0.06] shadow-overlay backdrop-blur-2xl backdrop-saturate-200 ring-1 ring-white/15 before:pointer-events-none before:absolute before:inset-0 before:bg-gradient-to-br before:from-white/[0.10] before:via-white/[0.025] before:to-transparent">
+      <Card className="relative z-10 w-full max-w-100 border-white/20 !bg-background/[0.18] shadow-overlay backdrop-blur-[6px] backdrop-saturate-150 ring-1 ring-white/10">
         <CardContent className="relative z-10 space-y-9 px-7 py-10 sm:px-9 sm:py-12">
           <div className="flex flex-col items-center gap-3 text-center">
             <BrandLogo className="h-24 w-44" />
