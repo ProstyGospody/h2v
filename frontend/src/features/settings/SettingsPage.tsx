@@ -1,7 +1,8 @@
-import { useMemo, useRef, useState, type ChangeEvent, type ComponentType, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, type ChangeEvent, type ComponentType, type ReactNode } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   AlertTriangle,
+  Copy,
   Download,
   Eye,
   EyeOff,
@@ -9,6 +10,7 @@ import {
   RefreshCw,
   RotateCcw,
   Save,
+  Send,
   Upload,
 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -21,7 +23,7 @@ import { CoreLogo, type CoreLogoName } from '@/components/core-logo';
 import { PageHeader } from '@/components/page-header';
 import { cn } from '@/lib/utils';
 import { apiClient, ApiError } from '@/shared/api/client';
-import { Setting } from '@/shared/api/types';
+import type { Setting, TelegramProxyInfo } from '@/shared/api/types';
 
 type SettingKey =
   | 'hy2.bandwidth_down'
@@ -42,6 +44,15 @@ type SettingKey =
 type SettingValue = boolean | number | string | string[];
 type SettingsDraft = Partial<Record<SettingKey, SettingValue>>;
 type PortKey = 'hy2.port' | 'vless.port';
+
+type TelegramForm = {
+  enabled: boolean;
+  fallback_addr: string;
+  host: string;
+  mask_domain: string;
+  port: number;
+  secret: string;
+};
 
 type RealityPreset = {
   dest: string;
@@ -99,11 +110,21 @@ const masqueradePresets: URLPreset[] = [
 
 const vlessPortPresets = [443, 8443, 8444, 2053, 2083];
 const hy2PortPresets = [443, 8443, 8444, 2083, 9443];
+const telegramPortPresets = [443, 8443, 9443, 2053, 2083];
 const bandwidthPresets = ['100 mbps', '500 mbps', '1 gbps', '10 gbps'];
 const portDefinitions: Array<{ key: PortKey; presets: number[]; protocol: 'tcp' | 'udp' }> = [
   { key: 'vless.port', presets: vlessPortPresets, protocol: 'tcp' },
   { key: 'hy2.port', presets: hy2PortPresets, protocol: 'udp' },
 ];
+
+const telegramFallbackForm: TelegramForm = {
+  enabled: true,
+  fallback_addr: 'www.cloudflare.com:443',
+  host: 'panel.example.com',
+  mask_domain: 'www.cloudflare.com',
+  port: 9443,
+  secret: '',
+};
 
 type SettingsUpdateResult = {
   restart?: string;
@@ -497,13 +518,194 @@ export function SettingsPage() {
                     value={values.string('hy2.traffic_secret')}
                   />
                 </SettingsSection>
-
               </div>
+            </section>
+
+            <section className="grid gap-5 xl:grid-cols-2">
+              <TelegramSettingsSection revealSecrets={showSecrets} />
             </section>
           </>
         )}
       </div>
     </div>
+  );
+}
+
+function TelegramSettingsSection({ revealSecrets }: { revealSecrets: boolean }) {
+  const queryClient = useQueryClient();
+  const [form, setForm] = useState<TelegramForm>(telegramFallbackForm);
+
+  const proxy = useQuery({
+    queryKey: ['telegram-proxy'],
+    queryFn: () => apiClient.request<TelegramProxyInfo>('/telegram-proxy'),
+  });
+
+  useEffect(() => {
+    if (!proxy.data) return;
+    setForm(telegramFormFromInfo(proxy.data));
+  }, [proxy.data]);
+
+  const issues = useMemo(() => validateTelegramForm(form), [form]);
+  const isDirty = useMemo(() => {
+    if (!proxy.data) return false;
+    const original = telegramFormFromInfo(proxy.data);
+    return (
+      form.enabled !== original.enabled ||
+      form.fallback_addr !== original.fallback_addr ||
+      form.host !== original.host ||
+      form.mask_domain !== original.mask_domain ||
+      form.port !== original.port ||
+      form.secret !== original.secret
+    );
+  }, [form, proxy.data]);
+
+  const save = useMutation({
+    mutationFn: () =>
+      apiClient.request<TelegramProxyInfo>('/telegram-proxy', {
+        body: JSON.stringify({
+          'telegram.enabled': form.enabled,
+          'telegram.fallback': form.fallback_addr.trim(),
+          'telegram.host': form.host.trim(),
+          'telegram.mask_domain': form.mask_domain.trim(),
+          'telegram.port': form.port,
+          'telegram.secret': form.secret.trim(),
+        }),
+        method: 'PATCH',
+      }),
+    onError: (error) => {
+      toast.error(error instanceof ApiError ? error.message : 'Unable to update Telegram proxy');
+    },
+    onSuccess: async () => {
+      toast.success('Telegram proxy updated');
+      await queryClient.invalidateQueries({ queryKey: ['telegram-proxy'] });
+    },
+  });
+
+  const regenerate = useMutation({
+    mutationFn: () =>
+      apiClient.request<TelegramProxyInfo>('/telegram-proxy/secret', {
+        method: 'POST',
+      }),
+    onError: (error) => {
+      toast.error(error instanceof ApiError ? error.message : 'Unable to regenerate Telegram secret');
+    },
+    onSuccess: async () => {
+      toast.success('Telegram secret regenerated');
+      await queryClient.invalidateQueries({ queryKey: ['telegram-proxy'] });
+    },
+  });
+
+  function setTelegramValue<K extends keyof TelegramForm>(key: K, value: TelegramForm[K]) {
+    setForm((current) => ({ ...current, [key]: value }));
+  }
+
+  function resetTelegramForm() {
+    if (!proxy.data) return;
+    setForm(telegramFormFromInfo(proxy.data));
+  }
+
+  async function copyTelegramLink() {
+    if (!proxy.data?.link || isDirty) return;
+    await navigator.clipboard.writeText(proxy.data.link);
+    toast.success('Telegram link copied');
+  }
+
+  if (proxy.isLoading) {
+    return (
+      <SettingsSection icon={Send} kicker="Add-on" title="Telegram proxy">
+        <Skeleton className="h-20 w-full" />
+        <Skeleton className="h-20 w-full" />
+        <Skeleton className="h-9 w-36" />
+      </SettingsSection>
+    );
+  }
+
+  if (proxy.isError) {
+    return (
+      <SettingsSection icon={Send} kicker="Add-on" title="Telegram proxy">
+        <div className="rounded-md border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+          <div className="flex items-center gap-2 font-medium">
+            <AlertTriangle className="size-4" />
+            Unable to load Telegram proxy
+          </div>
+          <p className="mt-2 text-xs">{errorMessage(proxy.error)}</p>
+        </div>
+        <Button onClick={() => proxy.refetch()} size="sm" type="button" variant="secondary">
+          Retry
+        </Button>
+      </SettingsSection>
+    );
+  }
+
+  const linkState = isDirty ? 'Unsaved' : proxy.data?.link ? 'Ready' : 'Unavailable';
+
+  return (
+    <SettingsSection icon={Send} kicker="Add-on" title="Telegram proxy">
+      <ToggleControl
+        label="Service"
+        offLabel="Disabled"
+        onChange={(value) => setTelegramValue('enabled', value)}
+        onLabel="Enabled"
+        value={form.enabled}
+      />
+      <TextControl
+        label="Public host"
+        onChange={(value) => setTelegramValue('host', value)}
+        placeholder="tg.example.com"
+        value={form.host}
+      />
+      <PortControl
+        label="Port"
+        max={65535}
+        min={1}
+        onChange={(value) => setTelegramValue('port', value)}
+        presets={telegramPortPresets}
+        value={form.port}
+      />
+      <TextControl
+        label="Mask domain"
+        onChange={(value) => setTelegramValue('mask_domain', value)}
+        placeholder="www.cloudflare.com"
+        value={form.mask_domain}
+      />
+      <TextControl
+        label="Fallback"
+        onChange={(value) => setTelegramValue('fallback_addr', value)}
+        placeholder="www.cloudflare.com:443"
+        value={form.fallback_addr}
+      />
+      <SecretControl
+        generating={regenerate.isPending}
+        label="Secret"
+        onChange={(value) => setTelegramValue('secret', value)}
+        onGenerate={() => regenerate.mutate()}
+        reveal={revealSecrets}
+        value={form.secret}
+      />
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-md bg-muted/35 px-3 py-2">
+        <div>
+          <div className="t-label">Link</div>
+          <div className="text-sm font-medium text-foreground">{linkState}</div>
+        </div>
+        <Button disabled={isDirty || !proxy.data?.link} onClick={copyTelegramLink} size="sm" type="button">
+          <Copy />
+          Copy
+        </Button>
+      </div>
+      {issues.length > 0 ? <TelegramIssues issues={issues} /> : null}
+      {isDirty ? (
+        <div className="flex flex-wrap justify-end gap-2">
+          <Button disabled={save.isPending} onClick={resetTelegramForm} size="sm" type="button" variant="ghost">
+            <RotateCcw />
+            Discard
+          </Button>
+          <Button disabled={save.isPending || issues.length > 0} onClick={() => save.mutate()} size="sm" type="button">
+            <Save />
+            Save
+          </Button>
+        </div>
+      ) : null}
+    </SettingsSection>
   );
 }
 
@@ -783,6 +985,22 @@ function SelectControl({
   );
 }
 
+function TelegramIssues({ issues }: { issues: string[] }) {
+  return (
+    <div className="rounded-md border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+      <div className="flex items-center gap-2 font-medium">
+        <AlertTriangle className="size-4" />
+        Telegram proxy needs attention
+      </div>
+      <ul className="mt-2 space-y-1 text-xs">
+        {issues.map((issue) => (
+          <li key={issue}>{issue}</li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
 function SettingsIssues({ issues }: { issues: string[] }) {
   return (
     <div className="rounded-md border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
@@ -856,6 +1074,17 @@ function createSettingsValues(items: Setting[], draft: SettingsDraft) {
       return Array.isArray(raw) ? raw.map(String) : asStringArray(fallbackValues[key]);
     },
     value,
+  };
+}
+
+function telegramFormFromInfo(info: TelegramProxyInfo): TelegramForm {
+  return {
+    enabled: info.enabled,
+    fallback_addr: info.fallback_addr,
+    host: info.host,
+    mask_domain: info.mask_domain,
+    port: info.port,
+    secret: info.secret,
   };
 }
 
@@ -965,6 +1194,26 @@ function validateDraft(draft: SettingsDraft, values: ReturnType<typeof createSet
     if (values.string('reality.private_key').trim() === '' || values.string('reality.public_key').trim() === '') {
       issues.push('Reality private and public keys must be saved together.');
     }
+  }
+  return issues;
+}
+
+function validateTelegramForm(form: TelegramForm): string[] {
+  const issues: string[] = [];
+  if (form.enabled && form.host.trim() === '') {
+    issues.push('Public host cannot be empty.');
+  }
+  if (form.port < 1 || form.port > 65535 || !Number.isFinite(form.port)) {
+    issues.push('Port must be between 1 and 65535.');
+  }
+  if (form.enabled && !/^[0-9a-fA-F]{32}$/.test(form.secret.trim())) {
+    issues.push('Secret must be 32 hex characters.');
+  }
+  if (form.enabled && form.mask_domain.trim() === '') {
+    issues.push('Mask domain cannot be empty.');
+  }
+  if (form.enabled && !/^[^:]+:\d+$/.test(form.fallback_addr.trim())) {
+    issues.push('Fallback must be a host:port value.');
   }
   return issues;
 }

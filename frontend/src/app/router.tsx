@@ -6,7 +6,6 @@ import {
   LayoutDashboard,
   LogOut,
   Menu,
-  Send,
   Timer,
   Settings2,
   Users,
@@ -23,14 +22,13 @@ import { DashboardPage } from '@/features/dashboard/DashboardPage';
 import { NotFoundPage } from '@/features/errors/NotFoundPage';
 import { SettingsPage } from '@/features/settings/SettingsPage';
 import { SubPage } from '@/features/subscription/SubPage';
-import { TelegramProxyPage } from '@/features/telegram/TelegramProxyPage';
 import { UsersPage } from '@/features/users/UsersPage';
 import { cn } from '@/lib/utils';
 import { apiClient } from '@/shared/api/client';
 import type { OverviewStats } from '@/shared/api/types';
 import { formatDurationCompact } from '@/shared/lib/format';
 
-type LinkTo = '/' | '/users' | '/telegram' | '/settings' | '/configs';
+type LinkTo = '/' | '/users' | '/settings' | '/configs';
 type StatusTone = 'ok' | 'warn' | 'idle';
 
 const primaryLinks: Array<{
@@ -40,7 +38,6 @@ const primaryLinks: Array<{
 }> = [
   { icon: LayoutDashboard, label: 'Dashboard', to: '/' },
   { icon: Users, label: 'Users', to: '/users' },
-  { icon: Send, label: 'Telegram', to: '/telegram' },
   { icon: FileCode2, label: 'Configs', to: '/configs' },
   { icon: Settings2, label: 'Settings', to: '/settings' },
 ];
@@ -329,7 +326,6 @@ const appRoute = createRoute({ getParentRoute: () => rootRoute, id: 'app', compo
 const loginRoute = createRoute({ getParentRoute: () => rootRoute, path: '/login', component: LoginPage });
 const dashboardRoute = createRoute({ getParentRoute: () => appRoute, path: '/', component: DashboardPage });
 const usersRoute = createRoute({ getParentRoute: () => appRoute, path: '/users', component: UsersPage });
-const telegramRoute = createRoute({ getParentRoute: () => appRoute, path: '/telegram', component: TelegramProxyPage });
 const configsRoute = createRoute({ getParentRoute: () => appRoute, path: '/configs', component: ConfigsPage });
 const settingsRoute = createRoute({ getParentRoute: () => appRoute, path: '/settings', component: SettingsPage });
 const publicSubscriptionRoute = createRoute({ getParentRoute: () => rootRoute, path: '/u/$token', component: SubPage });
@@ -337,7 +333,7 @@ const publicSubscriptionRoute = createRoute({ getParentRoute: () => rootRoute, p
 const routeTree = rootRoute.addChildren([
   loginRoute,
   publicSubscriptionRoute,
-  appRoute.addChildren([dashboardRoute, usersRoute, telegramRoute, configsRoute, settingsRoute]),
+  appRoute.addChildren([dashboardRoute, usersRoute, configsRoute, settingsRoute]),
 ]);
 
 export const router = createRouter({ routeTree });
