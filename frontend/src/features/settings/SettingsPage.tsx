@@ -13,6 +13,7 @@ import {
   Upload,
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -390,6 +391,7 @@ export function SettingsPage() {
                     min={1}
                     onChange={(value) => setValue('vless.port', value)}
                     presets={vlessPortPresets}
+                    protocol="tcp"
                     unavailablePorts={unavailablePresetPorts('vless.port', originalValues, portAvailability.data)}
                     value={values.number('vless.port')}
                   />
@@ -458,6 +460,7 @@ export function SettingsPage() {
                     min={1}
                     onChange={(value) => setValue('hy2.port', value)}
                     presets={hy2PortPresets}
+                    protocol="udp"
                     unavailablePorts={unavailablePresetPorts('hy2.port', originalValues, portAvailability.data)}
                     value={values.number('hy2.port')}
                   />
@@ -659,6 +662,7 @@ function TelegramSettingsSection({ revealSecrets }: { revealSecrets: boolean }) 
         min={1}
         onChange={(value) => setTelegramValue('port', value)}
         presets={telegramPortPresets}
+        protocol="tcp"
         value={form.port}
       />
       <TextControl
@@ -831,6 +835,7 @@ function PortControl({
   min,
   onChange,
   presets,
+  protocol,
   unavailablePorts = [],
   value,
 }: {
@@ -839,6 +844,7 @@ function PortControl({
   min: number;
   onChange: (value: number) => void;
   presets: number[];
+  protocol?: 'tcp' | 'udp';
   unavailablePorts?: number[];
   value: number;
 }) {
@@ -846,7 +852,14 @@ function PortControl({
 
   return (
     <div className="space-y-[13px]">
-      <Label>{label}</Label>
+      <div className="flex items-center gap-2">
+        <Label>{label}</Label>
+        {protocol ? (
+          <Badge className="px-1.5 py-0 text-[10px] uppercase tracking-normal" variant="outline">
+            {protocol}
+          </Badge>
+        ) : null}
+      </div>
       <div className="flex flex-wrap items-center gap-2.5">
         {presets.map((port) => (
           <Button
