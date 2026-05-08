@@ -95,7 +95,7 @@ export function DashboardPage() {
             />
           }
           icon={Network}
-          label="Network"
+          label="Traffic"
           loading={overview.isLoading}
         />
         <MetricCard

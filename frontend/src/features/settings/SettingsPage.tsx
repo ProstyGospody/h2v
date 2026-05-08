@@ -741,12 +741,13 @@ function SettingsSection({
           <div className="flex min-w-0 items-center gap-3">
             <span
               className={cn(
-                'flex size-9 shrink-0 items-center justify-center',
+                'flex shrink-0 items-center justify-center',
+                logo === 'telegram' ? 'size-12' : 'size-9',
                 !logo && 'rounded-md bg-accent-gradient-soft',
               )}
             >
               {logo ? (
-                <CoreLogo className="size-8" core={logo} />
+                <CoreLogo className={logo === 'telegram' ? 'size-11' : 'size-8'} core={logo} />
               ) : Icon ? (
                 <Icon className="size-4" />
               ) : null}

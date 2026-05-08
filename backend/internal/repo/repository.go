@@ -553,6 +553,7 @@ func (r *Repository) GetUserTraffic(ctx context.Context, id uuid.UUID, days int)
 			SELECT date_trunc('day', recorded_at) AS bucket, sum(uplink) AS uplink, sum(downlink) AS downlink
 			FROM traffic_log
 			WHERE user_id = $1
+			  AND core IN ('xray', 'hysteria')
 			  AND recorded_at >= date_trunc('day', now()) - (($2::int - 1) * interval '1 day')
 			GROUP BY bucket
 		)
@@ -592,7 +593,8 @@ func (r *Repository) GetAggregateTraffic(ctx context.Context, days int) ([]domai
 		traffic AS (
 			SELECT date_trunc('day', recorded_at) AS bucket, sum(uplink) AS uplink, sum(downlink) AS downlink
 			FROM traffic_log
-			WHERE recorded_at >= date_trunc('day', now()) - (($1::int - 1) * interval '1 day')
+			WHERE core IN ('xray', 'hysteria')
+			  AND recorded_at >= date_trunc('day', now()) - (($1::int - 1) * interval '1 day')
 			GROUP BY bucket
 		)
 		SELECT buckets.bucket, coalesce(traffic.uplink, 0), coalesce(traffic.downlink, 0)
@@ -616,12 +618,31 @@ func (r *Repository) GetAggregateTraffic(ctx context.Context, days int) ([]domai
 	return points, rows.Err()
 }
 
+func (r *Repository) GetProtocolTrafficRate(ctx context.Context, window time.Duration) (int64, int64, error) {
+	seconds := int(window.Seconds())
+	if seconds <= 0 {
+		seconds = 30
+	}
+	var uplink int64
+	var downlink int64
+	if err := r.pool.QueryRow(ctx, `
+		SELECT coalesce(sum(uplink), 0), coalesce(sum(downlink), 0)
+		FROM traffic_log
+		WHERE core IN ('xray', 'hysteria')
+		  AND recorded_at >= now() - ($1::int * interval '1 second')
+	`, seconds).Scan(&uplink, &downlink); err != nil {
+		return 0, 0, err
+	}
+	return downlink / int64(seconds), uplink / int64(seconds), nil
+}
+
 func (r *Repository) GetOnlineUsers(ctx context.Context) ([]domain.OnlineUser, error) {
 	rows, err := r.pool.Query(ctx, `
 		SELECT u.username, max(t.recorded_at) AS recorded_at, max(t.uplink + t.downlink) AS bytes
 		FROM traffic_log t
 		JOIN users u ON u.id = t.user_id
 		WHERE t.recorded_at >= now() - interval '10 minutes'
+		  AND t.core IN ('xray', 'hysteria')
 		GROUP BY u.username
 		ORDER BY recorded_at DESC
 		LIMIT 10
@@ -662,7 +683,8 @@ func (r *Repository) GetOverviewCounts(ctx context.Context) (map[string]int64, i
 	if err := r.pool.QueryRow(ctx, `
 		SELECT coalesce(sum(uplink + downlink), 0)
 		FROM traffic_log
-		WHERE recorded_at >= date_trunc('day', now())
+		WHERE core IN ('xray', 'hysteria')
+		  AND recorded_at >= date_trunc('day', now())
 	`).Scan(&todayTraffic); err != nil {
 		return nil, 0, err
 	}
