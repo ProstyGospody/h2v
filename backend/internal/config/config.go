@@ -19,6 +19,7 @@ type Config struct {
 	Subscription SubscriptionConfig
 	Backup       BackupConfig
 	Traffic      TrafficConfig
+	Tasks        TaskConfig
 }
 
 type PanelConfig struct {
@@ -99,6 +100,13 @@ type TrafficConfig struct {
 	RetentionDays int
 }
 
+type TaskConfig struct {
+	CollectorInterval     time.Duration
+	EnforcerInterval      time.Duration
+	CoreReconcileInterval time.Duration
+	CacheRefreshInterval  time.Duration
+}
+
 func Load() Config {
 	loadEnvFile(EnvFilePath())
 
@@ -176,6 +184,12 @@ func Load() Config {
 		},
 		Traffic: TrafficConfig{
 			RetentionDays: getenvInt("TRAFFIC_RETENTION_DAYS", 180),
+		},
+		Tasks: TaskConfig{
+			CollectorInterval:     getenvPositiveDuration("PANEL_COLLECTOR_INTERVAL", 10*time.Second),
+			EnforcerInterval:      getenvPositiveDuration("PANEL_ENFORCER_INTERVAL", 30*time.Second),
+			CoreReconcileInterval: getenvPositiveDuration("PANEL_CORE_RECONCILE_INTERVAL", 60*time.Second),
+			CacheRefreshInterval:  getenvPositiveDuration("PANEL_CACHE_REFRESH_INTERVAL", 5*time.Minute),
 		},
 	}
 }
@@ -279,6 +293,14 @@ func getenvDuration(key string, fallback time.Duration) time.Duration {
 	}
 	value, err := time.ParseDuration(raw)
 	if err != nil {
+		return fallback
+	}
+	return value
+}
+
+func getenvPositiveDuration(key string, fallback time.Duration) time.Duration {
+	value := getenvDuration(key, fallback)
+	if value <= 0 {
 		return fallback
 	}
 	return value

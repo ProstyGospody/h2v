@@ -23,6 +23,7 @@ BUILD_STATE_DIR="${INSTALL_DIR}/build"
 GO_VERSION="${GO_VERSION:-1.26.2}"
 NODE_VERSION="${NODE_VERSION:-22.22.2}"
 NPM_VERSION="${NPM_VERSION:-10.9.7}"
+H2V_NODE_MAX_OLD_SPACE_MB="${H2V_NODE_MAX_OLD_SPACE_MB:-512}"
 XRAY_VERSION="${XRAY_VERSION:-v26.3.27}"
 XRAY_SHA256_64="${XRAY_SHA256_64:-23cd9af937744d97776ee35ecad4972cf4b2109d1e0fe6be9930467608f7c8ae}"
 XRAY_SHA256_ARM64_V8A="${XRAY_SHA256_ARM64_V8A:-4d30283ae614e3057f730f67cd088a42be6fdf91f8639d82cb69e48cde80413c}"
@@ -407,6 +408,25 @@ fail() {
 
 command_exists() {
   command -v "$1" >/dev/null 2>&1
+}
+
+frontend_build_node_options() {
+  local options="${NODE_OPTIONS:-}"
+  local max_mb="${H2V_NODE_MAX_OLD_SPACE_MB:-}"
+  if [[ -n "${max_mb}" && "${max_mb}" != "0" && "${max_mb}" =~ ^[0-9]+$ && "${options}" != *"--max-old-space-size="* ]]; then
+    options="${options:+${options} }--max-old-space-size=${max_mb}"
+  fi
+  printf '%s' "${options}"
+}
+
+warn_low_memory_build_host() {
+  [[ -r /proc/meminfo ]] || return 0
+  local mem_kb swap_kb
+  mem_kb="$(awk '/^MemTotal:/ {print $2}' /proc/meminfo 2>/dev/null || true)"
+  swap_kb="$(awk '/^SwapTotal:/ {print $2}' /proc/meminfo 2>/dev/null || true)"
+  if [[ "${mem_kb}" =~ ^[0-9]+$ && "${swap_kb}" =~ ^[0-9]+$ && "${mem_kb}" -lt 1572864 && "${swap_kb}" -eq 0 ]]; then
+    warn "low-memory host has no swap; frontend build may fail. Add swap or lower H2V_NODE_MAX_OLD_SPACE_MB."
+  fi
 }
 
 normalize_version() {
@@ -1181,6 +1201,11 @@ ensure_env() {
   fi
   env_set_default PANEL_PORT 8000
   env_set_default PANEL_PUBLIC_PORT 443
+  env_set_default PANEL_ARGON2_MAX_PARALLEL 2
+  env_set_default PANEL_COLLECTOR_INTERVAL 10s
+  env_set_default PANEL_ENFORCER_INTERVAL 30s
+  env_set_default PANEL_CORE_RECONCILE_INTERVAL 60s
+  env_set_default PANEL_CACHE_REFRESH_INTERVAL 5m
   if [[ -n "${VLESS_PORT_INPUT}" ]]; then
     env_set VLESS_PORT "${VLESS_PORT_INPUT}"
   fi
@@ -1625,10 +1650,12 @@ build_artifacts() {
   local build_commit
   local build_time
   local ldflags
+  local node_options
   frontend_dir="${SOURCE_DIR}/frontend"
   cached_lock="${BUILD_STATE_DIR}/frontend-package-lock.json"
   backend_log="${BUILD_STATE_DIR}/backend-build.log"
   frontend_log="${BUILD_STATE_DIR}/frontend-build.log"
+  node_options="$(frontend_build_node_options)"
   build_commit="${REPO_REF}"
   if [[ -d "${SOURCE_DIR}/.git" ]]; then
     build_commit="$(git -C "${SOURCE_DIR}" rev-parse --short=12 HEAD 2>/dev/null || printf '%s' "${REPO_REF}")"
@@ -1650,6 +1677,10 @@ build_artifacts() {
   fi
 
   substep "building frontend bundle (vite)"
+  if [[ -n "${node_options}" ]]; then
+    substep "frontend NODE_OPTIONS=${node_options}"
+  fi
+  warn_low_memory_build_host
 
   if [[ ! -f "${frontend_dir}/package-lock.json" && -f "${cached_lock}" ]]; then
     cp "${cached_lock}" "${frontend_dir}/package-lock.json"
@@ -1658,6 +1689,7 @@ build_artifacts() {
   if [[ -f "${frontend_dir}/package-lock.json" ]]; then
     if ! (
       cd "${frontend_dir}" &&
+      export NODE_OPTIONS="${node_options}" &&
       npm ci --no-fund &&
       { npm audit --audit-level=high || true; } &&
       npm run build
@@ -1670,6 +1702,7 @@ build_artifacts() {
   else
     if ! (
       cd "${frontend_dir}" &&
+      export NODE_OPTIONS="${node_options}" &&
       npm install --no-fund &&
       { npm audit --audit-level=high || true; } &&
       npm run build
@@ -2194,6 +2227,7 @@ Env overrides:
   H2V_VERBOSE=1                              show detailed install output
   H2V_INSTALL_LOG=/path/to/log               quiet-mode command log
   H2V_NO_CLEAR=1                             keep previous terminal output
+  H2V_NODE_MAX_OLD_SPACE_MB=512              cap Node.js heap during frontend build; 0 disables
   PANEL_ADMIN_USERNAME, PANEL_ADMIN_PASSWORD seed non-interactive admin
 
 USAGE

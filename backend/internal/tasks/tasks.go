@@ -52,6 +52,12 @@ func NewScheduler(logger *slog.Logger) *Scheduler {
 }
 
 func (s *Scheduler) Every(name string, interval time.Duration, fn func(context.Context) error) {
+	if interval <= 0 {
+		if s.logger != nil {
+			s.logger.Warn("task interval must be positive; using fallback", "task", name, "interval", interval)
+		}
+		interval = time.Minute
+	}
 	s.tasks = append(s.tasks, &Task{Name: name, Interval: interval, Fn: fn})
 }
 

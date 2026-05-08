@@ -143,10 +143,10 @@ func buildApp(ctx context.Context, cfg config.Config, logger *slog.Logger) (*pgx
 	coreReconciler := tasks.NewCoreReconciler(reconcileXray, reconcileHysteria, logger)
 
 	scheduler := tasks.NewScheduler(logger)
-	scheduler.Every("collector", 10*time.Second, tasks.NewCollector(repository, xrayClient, hysteriaClient, logger).Run)
-	scheduler.Every("enforcer", 30*time.Second, tasks.NewEnforcer(repository, xrayClient, hysteriaClient, userCache, reconcileXray, logger).Run)
-	scheduler.Every("core_reconciler", 60*time.Second, coreReconciler.Run)
-	scheduler.Every("cache_refresh", 5*time.Minute, userCache.Refresh)
+	scheduler.Every("collector", cfg.Tasks.CollectorInterval, tasks.NewCollector(repository, xrayClient, hysteriaClient, logger).Run)
+	scheduler.Every("enforcer", cfg.Tasks.EnforcerInterval, tasks.NewEnforcer(repository, xrayClient, hysteriaClient, userCache, reconcileXray, logger).Run)
+	scheduler.Every("core_reconciler", cfg.Tasks.CoreReconcileInterval, coreReconciler.Run)
+	scheduler.Every("cache_refresh", cfg.Tasks.CacheRefreshInterval, userCache.Refresh)
 	scheduler.Every("backup", 24*time.Hour, tasks.NewBackup(cfg).Run)
 	scheduler.Every("traffic_retention", 24*time.Hour, tasks.NewTrafficRetention(repository, cfg.Traffic.RetentionDays, logger).Run)
 
