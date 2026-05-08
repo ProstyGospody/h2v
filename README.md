@@ -30,15 +30,6 @@ h2v provides a private admin UI for a small self-hosted VPN node:
 
 ### Quick Install
 
-For production, install a released tag instead of a moving branch. Replace `v0.1.1` with the latest release tag:
-
-```bash
-export H2V_REF=v0.1.1
-bash <(curl -fsSL "https://raw.githubusercontent.com/ProstyGospody/h2v/${H2V_REF}/install.sh")
-```
-
-For development or testing the current `main` branch:
-
 ```bash
 bash <(curl -fsSL https://raw.githubusercontent.com/ProstyGospody/h2v/main/install.sh)
 ```
@@ -194,15 +185,6 @@ h2v - это панель для собственного VPN-сервера. О
 - готовые systemd-сервисы для эксплуатации.
 
 ### Быстрая установка
-
-Для production используйте релизный тег, а не плавающую ветку. Замените `v0.1.1` на актуальный тег релиза:
-
-```bash
-export H2V_REF=v0.1.1
-bash <(curl -fsSL "https://raw.githubusercontent.com/ProstyGospody/h2v/${H2V_REF}/install.sh")
-```
-
-Для теста текущей ветки `main`:
 
 ```bash
 bash <(curl -fsSL https://raw.githubusercontent.com/ProstyGospody/h2v/main/install.sh)
