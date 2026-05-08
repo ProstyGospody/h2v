@@ -24,8 +24,8 @@ The installer is interactive. It will ask for:
 - admin username and password
 
 The installer also generates a Telegram proxy secret. The ready
-`tg://proxy?...` link lives on the Telegram page, separate from users and
-subscription QR codes.
+`tg://proxy?...` link lives in Settings as an add-on block, separate from users
+and subscription QR codes.
 
 On updates, if `/opt/mypanel/.env` already exists, the installer asks whether to
 keep the current config or reconfigure it with a simple `1 / 2` choice.

@@ -410,6 +410,9 @@ func validatePortAvailability(current, next RuntimeSettings, values map[string]j
 	}
 
 	for _, check := range checks {
+		if check.key == "telegram.port" && !next.TelegramEnabled {
+			continue
+		}
 		if _, ok := values[check.key]; !ok || check.current == check.next {
 			continue
 		}

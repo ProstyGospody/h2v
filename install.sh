@@ -326,16 +326,15 @@ urlencode() {
 print_summary() {
   local access_url="$1"
   local local_url="$2"
-  local telegram_enabled telegram_host telegram_port telegram_secret telegram_mask telegram_link
+  local telegram_host telegram_port telegram_secret telegram_mask telegram_link
   local telegram_host_q telegram_port_q telegram_secret_q telegram_mask_hex
   progress_finish
   telegram_host="$(runtime_setting_value "telegram.host" "TELEGRAM_PROXY_PUBLIC_HOST" "$(env_get PANEL_DOMAIN || echo panel.example.com)")"
   telegram_port="$(runtime_setting_value "telegram.port" "TELEGRAM_PROXY_PORT" "9443")"
   telegram_secret="$(runtime_setting_value "telegram.secret" "TELEGRAM_PROXY_SECRET" "")"
   telegram_mask="$(runtime_setting_value "telegram.mask_domain" "TELEGRAM_PROXY_MASK_DOMAIN" "www.cloudflare.com")"
-  telegram_enabled="$(runtime_setting_value "telegram.enabled" "TELEGRAM_PROXY_ENABLED" "true")"
   telegram_link=""
-  if [[ "${telegram_enabled}" != "false" && -n "${telegram_secret}" && -n "${telegram_mask}" ]]; then
+  if telegram_proxy_enabled && [[ -n "${telegram_secret}" && -n "${telegram_mask}" ]]; then
     telegram_host_q="$(urlencode "${telegram_host}")"
     telegram_port_q="$(urlencode "${telegram_port}")"
     telegram_mask_hex="$(printf '%s' "${telegram_mask}" | od -An -tx1 | tr -d ' \n')"
@@ -460,6 +459,7 @@ ensure_base_packages() {
     gzip \
     xz-utils \
     build-essential \
+    libcap2-bin \
     sudo
 }
 
@@ -633,9 +633,9 @@ ensure_reality_keys() {
 
 render_core_configs() {
   [[ -x "${INSTALL_DIR}/bin/panel" ]] || fail "panel binary missing; cannot render core configs"
-  run_quiet "render xray config" env PANEL_ENV_FILE="${ENV_FILE}" sudo -u panel "${INSTALL_DIR}/bin/panel" config render --core xray \
+  run_quiet "render xray config" sudo -u panel env PANEL_ENV_FILE="${ENV_FILE}" "${INSTALL_DIR}/bin/panel" config render --core xray \
     || fail "failed to render xray config"
-  run_quiet "render hysteria config" env PANEL_ENV_FILE="${ENV_FILE}" sudo -u panel "${INSTALL_DIR}/bin/panel" config render --core hysteria \
+  run_quiet "render hysteria config" sudo -u panel env PANEL_ENV_FILE="${ENV_FILE}" "${INSTALL_DIR}/bin/panel" config render --core hysteria \
     || fail "failed to render hysteria config"
   rm -f "${INSTALL_DIR}/configs/hysteria/config.yaml" "${INSTALL_DIR}/configs/hysteria/config.yml"
   chown panel:xray "${INSTALL_DIR}/configs/xray/config.json" 2>/dev/null || true
@@ -729,6 +729,12 @@ start_cores() {
 
 start_telegram_proxy() {
   local telegram_port
+  if ! telegram_proxy_enabled; then
+    systemctl disable --now h2v-telegram.service >/dev/null 2>&1 || true
+    substep "h2v-telegram.service disabled"
+    return
+  fi
+
   telegram_port="$(runtime_setting_value "telegram.port" "TELEGRAM_PROXY_PORT" "9443")"
   systemctl enable h2v-telegram.service >/dev/null 2>&1 || true
   systemctl reset-failed h2v-telegram.service >/dev/null 2>&1 || true
@@ -1279,6 +1285,15 @@ runtime_setting_value() {
   printf '%s' "${value:-${fallback}}"
 }
 
+telegram_proxy_enabled() {
+  local enabled
+  enabled="$(runtime_setting_value "telegram.enabled" "TELEGRAM_PROXY_ENABLED" "true")"
+  case "$(printf '%s' "${enabled}" | tr '[:upper:]' '[:lower:]')" in
+    0|false|no|off) return 1 ;;
+    *) return 0 ;;
+  esac
+}
+
 selected_runtime_value() {
   local input="$1"
   local setting_key="$2"
@@ -1350,19 +1365,24 @@ normalize_vless_env_port() {
 }
 
 validate_selected_runtime_ports() {
-  local domain panel_port panel_public_port vless_port hy2_port telegram_port
+  local domain panel_port panel_public_port vless_port hy2_port telegram_port telegram_enabled=false
   domain="$(env_get PANEL_DOMAIN || true)"
   panel_port="$(env_get PANEL_PORT || echo 8000)"
   panel_public_port="$(env_get PANEL_PUBLIC_PORT || echo 443)"
   vless_port="$(selected_runtime_value "${VLESS_PORT_INPUT}" "vless.port" "VLESS_PORT" "8444")"
   hy2_port="$(selected_runtime_value "${HY2_PORT_INPUT}" "hy2.port" "HY2_PORT" "8443")"
   telegram_port="$(runtime_setting_value "telegram.port" "TELEGRAM_PROXY_PORT" "9443")"
+  if telegram_proxy_enabled; then
+    telegram_enabled=true
+  fi
 
   valid_port_number "${panel_port}" || fail "PANEL_PORT must be a number between 1 and 65535"
   valid_port_number "${panel_public_port}" || fail "PANEL_PUBLIC_PORT must be a number between 1 and 65535"
   valid_port_number "${vless_port}" || fail "VLESS_PORT must be a number between 1 and 65535"
   valid_port_number "${hy2_port}" || fail "HY2_PORT must be a number between 1 and 65535"
-  valid_port_number "${telegram_port}" || fail "TELEGRAM_PROXY_PORT must be a number between 1 and 65535"
+  if ${telegram_enabled}; then
+    valid_port_number "${telegram_port}" || fail "TELEGRAM_PROXY_PORT must be a number between 1 and 65535"
+  fi
 
   if (( panel_port < 1024 )); then
     fail "PANEL_PORT is the internal panel listener and must be 1024 or higher"
@@ -1379,14 +1399,16 @@ validate_selected_runtime_ports() {
   if [[ -n "${domain}" && "${domain}" != "panel.example.com" && "${panel_public_port}" == "${vless_port}" ]]; then
     fail "PANEL_PUBLIC_PORT and VLESS_PORT cannot both use TCP ${panel_public_port}"
   fi
-  if [[ "${panel_port}" == "${telegram_port}" ]]; then
-    fail "PANEL_PORT and TELEGRAM_PROXY_PORT cannot both use TCP ${panel_port}"
-  fi
-  if [[ "${vless_port}" == "${telegram_port}" ]]; then
-    fail "VLESS_PORT and TELEGRAM_PROXY_PORT cannot both use TCP ${vless_port}"
-  fi
-  if [[ -n "${domain}" && "${domain}" != "panel.example.com" && "${panel_public_port}" == "${telegram_port}" ]]; then
-    fail "PANEL_PUBLIC_PORT and TELEGRAM_PROXY_PORT cannot both use TCP ${panel_public_port}"
+  if ${telegram_enabled}; then
+    if [[ "${panel_port}" == "${telegram_port}" ]]; then
+      fail "PANEL_PORT and TELEGRAM_PROXY_PORT cannot both use TCP ${panel_port}"
+    fi
+    if [[ "${vless_port}" == "${telegram_port}" ]]; then
+      fail "VLESS_PORT and TELEGRAM_PROXY_PORT cannot both use TCP ${vless_port}"
+    fi
+    if [[ -n "${domain}" && "${domain}" != "panel.example.com" && "${panel_public_port}" == "${telegram_port}" ]]; then
+      fail "PANEL_PUBLIC_PORT and TELEGRAM_PROXY_PORT cannot both use TCP ${panel_public_port}"
+    fi
   fi
 
   if ${FIRST_INSTALL}; then
@@ -1402,7 +1424,7 @@ validate_selected_runtime_ports() {
     if port_listener_in_use udp "${hy2_port}"; then
       fail "HY2_PORT=${hy2_port}/udp is already in use"
     fi
-    if port_listener_in_use tcp "${telegram_port}"; then
+    if ${telegram_enabled} && port_listener_in_use tcp "${telegram_port}"; then
       fail "TELEGRAM_PROXY_PORT=${telegram_port}/tcp is already in use"
     fi
   fi
@@ -1460,7 +1482,9 @@ configure_local_firewall() {
     ufw_allow_port "${panel_public_port}" tcp "panel HTTPS"
   fi
   ufw_allow_port "${vless_port}" tcp "VLESS Reality"
-  ufw_allow_port "${telegram_port}" tcp "Telegram Proxy"
+  if telegram_proxy_enabled; then
+    ufw_allow_port "${telegram_port}" tcp "Telegram Proxy"
+  fi
   ufw_allow_port "${hy2_port}" udp "Hysteria 2"
 }
 
@@ -1651,7 +1675,7 @@ build_artifacts() {
     if ! (
       cd "${frontend_dir}" &&
       npm ci --no-fund &&
-      npm audit --audit-level=high &&
+      { npm audit --audit-level=high || true; } &&
       npm run build
     ) >"${frontend_log}" 2>&1; then
       red "frontend build failed"
@@ -1663,7 +1687,7 @@ build_artifacts() {
     if ! (
       cd "${frontend_dir}" &&
       npm install --no-fund &&
-      npm audit --audit-level=high &&
+      { npm audit --audit-level=high || true; } &&
       npm run build
     ) >"${frontend_log}" 2>&1; then
       red "frontend build failed"
@@ -1799,7 +1823,7 @@ EOF
 
 run_migrations() {
   [[ -x "${INSTALL_DIR}/bin/panel" ]] || fail "panel binary missing; cannot run migrations"
-  PANEL_ENV_FILE="${ENV_FILE}" sudo -u panel "${INSTALL_DIR}/bin/panel" migrate up
+  sudo -u panel env PANEL_ENV_FILE="${ENV_FILE}" "${INSTALL_DIR}/bin/panel" migrate up
 }
 
 create_admin() {
@@ -1812,7 +1836,7 @@ create_admin() {
 
   local admin_output
   local admin_status=0
-  admin_output="$(PANEL_ENV_FILE="${ENV_FILE}" sudo -u panel "${INSTALL_DIR}/bin/panel" admin create \
+  admin_output="$(sudo -u panel env PANEL_ENV_FILE="${ENV_FILE}" "${INSTALL_DIR}/bin/panel" admin create \
     --username="${admin_username}" \
     --password="${admin_password}" 2>&1)" || admin_status=$?
 
@@ -1878,7 +1902,11 @@ print_install_plan() {
   printf '  %s%-18s%s %s\n' "${DIM}" "Panel URL" "${RESET}" "${panel_url}"
   printf '  %s%-18s%s %s/tcp\n' "${DIM}" "VLESS Reality" "${RESET}" "${vless_port}"
   printf '  %s%-18s%s %s/udp\n' "${DIM}" "Hysteria 2" "${RESET}" "${hy2_port}"
-  printf '  %s%-18s%s %s/tcp\n' "${DIM}" "Telegram Proxy" "${RESET}" "${telegram_port}"
+  if telegram_proxy_enabled; then
+    printf '  %s%-18s%s %s/tcp\n' "${DIM}" "Telegram Proxy" "${RESET}" "${telegram_port}"
+  else
+    printf '  %s%-18s%s disabled\n' "${DIM}" "Telegram Proxy" "${RESET}"
+  fi
   if ${FIRST_INSTALL}; then
     printf '  %s%-18s%s %s\n' "${DIM}" "Config" "${RESET}" "create new .env"
   elif ${RECONFIGURE_RUNTIME}; then
@@ -2030,7 +2058,7 @@ backup_db() {
   backup_dir="${backup_dir:-${INSTALL_DIR}/data/backups}"
 
   mkdir -p "${backup_dir}"
-  local name="panel-$(date -u +%F).sql.gz"
+  local name="panel-$(date -u +%F-%H%M%S).sql.gz"
   PGPASSWORD="${db_password}" pg_dump -h "${db_host}" -p "${db_port}" -U "${db_user}" "${db_name}" | gzip > "${backup_dir}/${name}"
   green "Backup written to ${backup_dir}/${name}"
 }
@@ -2130,7 +2158,7 @@ reset_admin() {
   STAGE_TOTAL=1
   step "reset" "Applying new password for admin '${username}'"
   local out status=0
-  out="$(PANEL_ENV_FILE="${ENV_FILE}" sudo -u panel "${INSTALL_DIR}/bin/panel" admin set-password \
+  out="$(sudo -u panel env PANEL_ENV_FILE="${ENV_FILE}" "${INSTALL_DIR}/bin/panel" admin set-password \
     --username="${username}" \
     --password="${password}" 2>&1)" || status=$?
 

@@ -223,14 +223,12 @@ function NetworkSpeedValue({ rx, tx }: { rx: number; tx: number }) {
 
 function MetricCard({
   bar,
-  footer,
   icon: Icon,
   label,
   loading,
   value,
 }: {
   bar?: { percent: number; tone: string };
-  footer?: ReactNode;
   icon: LucideIcon;
   label: string;
   loading?: boolean;
@@ -243,11 +241,7 @@ function MetricCard({
       <CardContent className="flex h-full min-w-0 flex-col gap-1.5 p-2.5">
         <div className="flex min-w-0 items-start justify-between gap-2">
           <span className="t-label">{label}</span>
-          <span
-            className={cn(
-              'relative flex size-6 shrink-0 items-center justify-center',
-            )}
-          >
+          <span className="relative flex size-6 shrink-0 items-center justify-center">
             <svg aria-hidden="true" className="pointer-events-none absolute size-0 overflow-hidden">
               <defs>
                 <linearGradient id={gradientId} x1="4" x2="20" y1="4" y2="20" gradientUnits="userSpaceOnUse">
@@ -289,11 +283,6 @@ function MetricCard({
             )
           ) : null}
         </div>
-        {footer ? (
-          <div className="mt-auto">
-            {loading ? <Skeleton className="h-4 w-full" /> : footer}
-          </div>
-        ) : null}
       </CardContent>
     </Card>
   );
