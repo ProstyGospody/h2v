@@ -1005,8 +1005,8 @@ function SelectControl({
       <Label>{label}</Label>
       <select
         className={cn(
-          'h-9 w-full rounded-md border border-transparent bg-muted/65 px-3 text-sm text-foreground shadow-xs outline-none transition-colors',
-          'hover:bg-muted focus-visible:border-ring/45 focus-visible:bg-background focus-visible:ring-2 focus-visible:ring-ring/35',
+          'h-9 w-full rounded-md border border-transparent bg-background/70 px-3 text-sm text-foreground shadow-xs outline-none transition-colors',
+          'hover:bg-muted/55 focus-visible:border-ring/45 focus-visible:bg-background focus-visible:ring-2 focus-visible:ring-ring/35',
         )}
         onChange={(event) => onChange(event.target.value)}
         value={value}
