@@ -329,11 +329,11 @@ print_summary() {
   local telegram_enabled telegram_host telegram_port telegram_secret telegram_mask telegram_link
   local telegram_host_q telegram_port_q telegram_secret_q telegram_mask_hex
   progress_finish
-  telegram_host="$(env_get TELEGRAM_PROXY_PUBLIC_HOST || env_get PANEL_DOMAIN || echo panel.example.com)"
-  telegram_port="$(env_get TELEGRAM_PROXY_PORT || echo 9443)"
-  telegram_secret="$(env_get TELEGRAM_PROXY_SECRET || true)"
-  telegram_mask="$(env_get TELEGRAM_PROXY_MASK_DOMAIN || echo www.cloudflare.com)"
-  telegram_enabled="$(env_get TELEGRAM_PROXY_ENABLED || echo true)"
+  telegram_host="$(runtime_setting_value "telegram.host" "TELEGRAM_PROXY_PUBLIC_HOST" "$(env_get PANEL_DOMAIN || echo panel.example.com)")"
+  telegram_port="$(runtime_setting_value "telegram.port" "TELEGRAM_PROXY_PORT" "9443")"
+  telegram_secret="$(runtime_setting_value "telegram.secret" "TELEGRAM_PROXY_SECRET" "")"
+  telegram_mask="$(runtime_setting_value "telegram.mask_domain" "TELEGRAM_PROXY_MASK_DOMAIN" "www.cloudflare.com")"
+  telegram_enabled="$(runtime_setting_value "telegram.enabled" "TELEGRAM_PROXY_ENABLED" "true")"
   telegram_link=""
   if [[ "${telegram_enabled}" != "false" && -n "${telegram_secret}" && -n "${telegram_mask}" ]]; then
     telegram_host_q="$(urlencode "${telegram_host}")"
@@ -701,8 +701,8 @@ grant_cert_access() {
 start_cores() {
   local panel_public_port vless_port hy2_port
   panel_public_port="$(env_get PANEL_PUBLIC_PORT || echo 443)"
-  vless_port="$(env_get VLESS_PORT || echo 8444)"
-  hy2_port="$(env_get HY2_PORT || echo 8443)"
+  vless_port="$(selected_runtime_value "${VLESS_PORT_INPUT}" "vless.port" "VLESS_PORT" "8444")"
+  hy2_port="$(selected_runtime_value "${HY2_PORT_INPUT}" "hy2.port" "HY2_PORT" "8443")"
 
   if [[ "${vless_port}" == "${panel_public_port}" ]] && ss -tln 2>/dev/null | awk -v p="${panel_public_port}" '{print $4}' | grep -qE "(:|\\.)${panel_public_port}$"; then
     warn "VLESS_PORT=${vless_port} conflicts with another listener (likely Caddy panel HTTPS)"
@@ -729,7 +729,7 @@ start_cores() {
 
 start_telegram_proxy() {
   local telegram_port
-  telegram_port="$(env_get TELEGRAM_PROXY_PORT || echo 9443)"
+  telegram_port="$(runtime_setting_value "telegram.port" "TELEGRAM_PROXY_PORT" "9443")"
   systemctl enable h2v-telegram.service >/dev/null 2>&1 || true
   systemctl reset-failed h2v-telegram.service >/dev/null 2>&1 || true
   if ! systemctl restart h2v-telegram.service; then
@@ -1048,8 +1048,8 @@ collect_install_inputs() {
     local cur_domain cur_panel_public_port cur_vless_port cur_hy2_port
     cur_domain="$(env_get PANEL_DOMAIN || true)"
     cur_panel_public_port="$(env_get PANEL_PUBLIC_PORT || true)"
-    cur_vless_port="$(env_get VLESS_PORT || true)"
-    cur_hy2_port="$(env_get HY2_PORT || true)"
+    cur_vless_port="$(runtime_setting_value "vless.port" "VLESS_PORT" "")"
+    cur_hy2_port="$(runtime_setting_value "hy2.port" "HY2_PORT" "")"
     [[ -n "${cur_domain}" ]] && default_domain="${cur_domain}"
     [[ -n "${cur_panel_public_port}" ]] && default_panel_public_port="${cur_panel_public_port}"
     [[ -n "${cur_vless_port}" ]] && default_vless_port="${cur_vless_port}"
@@ -1223,6 +1223,75 @@ env_get() {
   ' "${ENV_FILE}"
 }
 
+json_scalar_unquote() {
+  local value="$1"
+  value="${value//$'\r'/}"
+  value="${value//$'\n'/}"
+  value="${value%\"}"
+  value="${value#\"}"
+  printf '%s' "${value}"
+}
+
+db_setting_get() {
+  local key="$1"
+  local db_host db_port db_name db_user db_password key_literal raw
+
+  [[ -f "${ENV_FILE}" ]] || return 1
+  command_exists psql || return 1
+
+  db_host="$(env_get DB_HOST || true)"
+  db_port="$(env_get DB_PORT || true)"
+  db_name="$(env_get DB_NAME || true)"
+  db_user="$(env_get DB_USER || true)"
+  db_password="$(env_get DB_PASSWORD || true)"
+  db_host="${db_host:-127.0.0.1}"
+  db_port="${db_port:-5432}"
+  db_name="${db_name:-mypanel}"
+  db_user="${db_user:-panel}"
+  key_literal="$(printf "%s" "${key}" | sed "s/'/''/g")"
+
+  if [[ "${db_host}" == "127.0.0.1" || "${db_host}" == "localhost" || "${db_host}" == "::1" ]] && command_exists sudo; then
+    raw="$(sudo -u postgres psql -tA --dbname="${db_name}" --port="${db_port}" \
+      -c "SELECT value::text FROM settings WHERE key = '${key_literal}'" 2>/dev/null || true)"
+  else
+    raw="$(PGPASSWORD="${db_password}" psql -tA -h "${db_host}" -p "${db_port}" -U "${db_user}" "${db_name}" \
+      -c "SELECT value::text FROM settings WHERE key = '${key_literal}'" 2>/dev/null || true)"
+  fi
+
+  raw="$(printf '%s\n' "${raw}" | awk 'NF {print; exit}')"
+  [[ -n "${raw}" ]] || return 1
+  json_scalar_unquote "${raw}"
+}
+
+runtime_setting_value() {
+  local setting_key="$1"
+  local env_key="$2"
+  local fallback="$3"
+  local value
+
+  value="$(db_setting_get "${setting_key}" || true)"
+  if [[ -n "${value}" ]]; then
+    printf '%s' "${value}"
+    return
+  fi
+
+  value="$(env_get "${env_key}" || true)"
+  printf '%s' "${value:-${fallback}}"
+}
+
+selected_runtime_value() {
+  local input="$1"
+  local setting_key="$2"
+  local env_key="$3"
+  local fallback="$4"
+
+  if [[ -n "${input}" ]]; then
+    printf '%s' "${input}"
+    return
+  fi
+  runtime_setting_value "${setting_key}" "${env_key}" "${fallback}"
+}
+
 env_set() {
   local key="${1}"
   local value="${2}"
@@ -1271,7 +1340,7 @@ normalize_vless_env_port() {
   fi
 
   panel_public_port="$(env_get PANEL_PUBLIC_PORT || echo 443)"
-  vless_port="$(env_get VLESS_PORT || echo 8444)"
+  vless_port="$(selected_runtime_value "${VLESS_PORT_INPUT}" "vless.port" "VLESS_PORT" "8444")"
   if [[ "${vless_port}" == "${panel_public_port}" ]]; then
     local fallback
     fallback="$(vless_fallback_port "${panel_public_port}")"
@@ -1285,9 +1354,9 @@ validate_selected_runtime_ports() {
   domain="$(env_get PANEL_DOMAIN || true)"
   panel_port="$(env_get PANEL_PORT || echo 8000)"
   panel_public_port="$(env_get PANEL_PUBLIC_PORT || echo 443)"
-  vless_port="$(env_get VLESS_PORT || echo 8444)"
-  hy2_port="$(env_get HY2_PORT || echo 8443)"
-  telegram_port="$(env_get TELEGRAM_PROXY_PORT || echo 9443)"
+  vless_port="$(selected_runtime_value "${VLESS_PORT_INPUT}" "vless.port" "VLESS_PORT" "8444")"
+  hy2_port="$(selected_runtime_value "${HY2_PORT_INPUT}" "hy2.port" "HY2_PORT" "8443")"
+  telegram_port="$(runtime_setting_value "telegram.port" "TELEGRAM_PROXY_PORT" "9443")"
 
   valid_port_number "${panel_port}" || fail "PANEL_PORT must be a number between 1 and 65535"
   valid_port_number "${panel_public_port}" || fail "PANEL_PUBLIC_PORT must be a number between 1 and 65535"
@@ -1382,9 +1451,9 @@ configure_local_firewall() {
   local domain panel_public_port vless_port hy2_port telegram_port
   domain="$(env_get PANEL_DOMAIN || true)"
   panel_public_port="$(env_get PANEL_PUBLIC_PORT || echo 443)"
-  vless_port="$(env_get VLESS_PORT || echo 8444)"
-  hy2_port="$(env_get HY2_PORT || echo 8443)"
-  telegram_port="$(env_get TELEGRAM_PROXY_PORT || echo 9443)"
+  vless_port="$(selected_runtime_value "${VLESS_PORT_INPUT}" "vless.port" "VLESS_PORT" "8444")"
+  hy2_port="$(selected_runtime_value "${HY2_PORT_INPUT}" "hy2.port" "HY2_PORT" "8443")"
+  telegram_port="$(runtime_setting_value "telegram.port" "TELEGRAM_PROXY_PORT" "9443")"
 
   substep "opening required ports in UFW"
   if [[ -n "${domain}" && "${domain}" != "panel.example.com" ]]; then
@@ -1494,7 +1563,7 @@ sync_runtime_settings() {
   fi
 
   panel_public_port="$(env_get PANEL_PUBLIC_PORT || echo 443)"
-  vless_port="$(env_get VLESS_PORT || echo 8444)"
+  vless_port="$(selected_runtime_value "${VLESS_PORT_INPUT}" "vless.port" "VLESS_PORT" "8444")"
   if [[ "${vless_port}" == "${panel_public_port}" ]]; then
     local fallback
     fallback="$(vless_fallback_port "${panel_public_port}")"
@@ -1780,9 +1849,9 @@ print_install_plan() {
   domain="$(plan_value "${PANEL_DOMAIN_INPUT}" "PANEL_DOMAIN" "panel.example.com")"
   panel_port="$(plan_value "" "PANEL_PORT" "8000")"
   panel_public_port="$(plan_value "${PANEL_PUBLIC_PORT_INPUT}" "PANEL_PUBLIC_PORT" "443")"
-  vless_port="$(plan_value "${VLESS_PORT_INPUT}" "VLESS_PORT" "8444")"
-  hy2_port="$(plan_value "${HY2_PORT_INPUT}" "HY2_PORT" "8443")"
-  telegram_port="$(plan_value "" "TELEGRAM_PROXY_PORT" "9443")"
+  vless_port="$(selected_runtime_value "${VLESS_PORT_INPUT}" "vless.port" "VLESS_PORT" "8444")"
+  hy2_port="$(selected_runtime_value "${HY2_PORT_INPUT}" "hy2.port" "HY2_PORT" "8443")"
+  telegram_port="$(runtime_setting_value "telegram.port" "TELEGRAM_PROXY_PORT" "9443")"
 
   if [[ -n "${domain}" && "${domain}" != "panel.example.com" ]]; then
     if [[ "${panel_public_port}" == "443" ]]; then

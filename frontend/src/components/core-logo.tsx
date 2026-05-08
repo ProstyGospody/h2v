@@ -1,14 +1,16 @@
 import { cn } from '@/lib/utils';
 
-export type CoreLogoName = 'xray' | 'hysteria';
+export type CoreLogoName = 'xray' | 'hysteria' | 'telegram';
 
 const coreLogoSrc: Record<CoreLogoName, string> = {
   hysteria: '/cores/hysteria2.svg',
+  telegram: '/cores/telegram.svg',
   xray: '/cores/xray.svg',
 };
 
 const coreLogoAlt: Record<CoreLogoName, string> = {
   hysteria: 'Hysteria 2',
+  telegram: 'Telegram',
   xray: 'Xray',
 };
 

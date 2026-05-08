@@ -10,7 +10,6 @@ import {
   RefreshCw,
   RotateCcw,
   Save,
-  Send,
   Upload,
 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -378,7 +377,7 @@ export function SettingsPage() {
           <>
             {hasIssues ? <SettingsIssues issues={allIssues} /> : null}
 
-            <section className="grid gap-5 xl:grid-cols-2">
+            <section className="grid gap-5 xl:grid-cols-3">
               <div className="space-y-5">
                 <SettingsSection
                   kicker="VLESS"
@@ -519,10 +518,10 @@ export function SettingsPage() {
                   />
                 </SettingsSection>
               </div>
-            </section>
 
-            <section className="grid gap-5">
-              <TelegramSettingsSection revealSecrets={showSecrets} />
+              <div className="space-y-5">
+                <TelegramSettingsSection revealSecrets={showSecrets} />
+              </div>
             </section>
           </>
         )}
@@ -612,7 +611,7 @@ function TelegramSettingsSection({ revealSecrets }: { revealSecrets: boolean }) 
 
   if (proxy.isLoading) {
     return (
-      <SettingsSection icon={Send} kicker="Add-on" title="Telegram proxy">
+      <SettingsSection kicker="Add-on" logo="telegram" title="Telegram proxy">
         <Skeleton className="h-20 w-full" />
         <Skeleton className="h-20 w-full" />
         <Skeleton className="h-9 w-36" />
@@ -622,7 +621,7 @@ function TelegramSettingsSection({ revealSecrets }: { revealSecrets: boolean }) 
 
   if (proxy.isError) {
     return (
-      <SettingsSection icon={Send} kicker="Add-on" title="Telegram proxy">
+      <SettingsSection kicker="Add-on" logo="telegram" title="Telegram proxy">
         <div className="rounded-md border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
           <div className="flex items-center gap-2 font-medium">
             <AlertTriangle className="size-4" />
@@ -640,54 +639,48 @@ function TelegramSettingsSection({ revealSecrets }: { revealSecrets: boolean }) 
   const linkState = isDirty ? 'Unsaved' : proxy.data?.link ? 'Ready' : 'Unavailable';
 
   return (
-    <SettingsSection icon={Send} kicker="Add-on" title="Telegram proxy">
-      <div className="grid gap-5 xl:grid-cols-2">
-        <div className="space-y-5">
-          <ToggleControl
-            label="Service"
-            offLabel="Disabled"
-            onChange={(value) => setTelegramValue('enabled', value)}
-            onLabel="Enabled"
-            value={form.enabled}
-          />
-          <TextControl
-            label="Public host"
-            onChange={(value) => setTelegramValue('host', value)}
-            placeholder="tg.example.com"
-            value={form.host}
-          />
-          <PortControl
-            label="Port"
-            max={65535}
-            min={1}
-            onChange={(value) => setTelegramValue('port', value)}
-            presets={telegramPortPresets}
-            value={form.port}
-          />
-        </div>
-        <div className="space-y-5">
-          <TextControl
-            label="Mask domain"
-            onChange={(value) => setTelegramValue('mask_domain', value)}
-            placeholder="www.cloudflare.com"
-            value={form.mask_domain}
-          />
-          <TextControl
-            label="Fallback"
-            onChange={(value) => setTelegramValue('fallback_addr', value)}
-            placeholder="www.cloudflare.com:443"
-            value={form.fallback_addr}
-          />
-          <SecretControl
-            generating={regenerate.isPending}
-            label="Secret"
-            onChange={(value) => setTelegramValue('secret', value)}
-            onGenerate={() => regenerate.mutate()}
-            reveal={revealSecrets}
-            value={form.secret}
-          />
-        </div>
-      </div>
+    <SettingsSection kicker="Add-on" logo="telegram" title="Telegram proxy">
+      <ToggleControl
+        label="Service"
+        offLabel="Disabled"
+        onChange={(value) => setTelegramValue('enabled', value)}
+        onLabel="Enabled"
+        value={form.enabled}
+      />
+      <TextControl
+        label="Public host"
+        onChange={(value) => setTelegramValue('host', value)}
+        placeholder="tg.example.com"
+        value={form.host}
+      />
+      <PortControl
+        label="Port"
+        max={65535}
+        min={1}
+        onChange={(value) => setTelegramValue('port', value)}
+        presets={telegramPortPresets}
+        value={form.port}
+      />
+      <TextControl
+        label="Mask domain"
+        onChange={(value) => setTelegramValue('mask_domain', value)}
+        placeholder="www.cloudflare.com"
+        value={form.mask_domain}
+      />
+      <TextControl
+        label="Fallback"
+        onChange={(value) => setTelegramValue('fallback_addr', value)}
+        placeholder="www.cloudflare.com:443"
+        value={form.fallback_addr}
+      />
+      <SecretControl
+        generating={regenerate.isPending}
+        label="Secret"
+        onChange={(value) => setTelegramValue('secret', value)}
+        onGenerate={() => regenerate.mutate()}
+        reveal={revealSecrets}
+        value={form.secret}
+      />
       <div className="flex flex-wrap items-center justify-between gap-3 rounded-md bg-muted/35 px-3 py-2">
         <div>
           <div className="t-label">Link</div>
