@@ -127,7 +127,6 @@ const telegramFallbackForm: TelegramForm = {
 };
 
 type SettingsUpdateResult = {
-  restart?: string;
   updated: boolean;
 };
 
@@ -192,8 +191,8 @@ export function SettingsPage() {
     onError: (error) => {
       toast.error(error instanceof ApiError ? error.message : 'Unable to update settings');
     },
-    onSuccess: async (result) => {
-      toast.success(result.restart === 'panel' ? 'Settings updated. Panel is restarting' : 'Settings updated');
+    onSuccess: async () => {
+      toast.success('Settings updated');
       setDraft({});
       await queryClient.invalidateQueries({ queryKey: ['settings'] });
     },

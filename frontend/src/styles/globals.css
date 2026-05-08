@@ -240,14 +240,6 @@
     letter-spacing: 0;
   }
 
-  .t-metric {
-    font-size: 24px;
-    font-weight: 600;
-    line-height: 1;
-    letter-spacing: 0;
-    font-variant-numeric: tabular-nums;
-  }
-
   .text-faint {
     color: hsl(var(--faint));
   }
@@ -284,10 +276,6 @@
 
   .bg-sidebar-panel {
     background: hsl(var(--sidebar));
-  }
-
-  .ring-focus {
-    @apply focus-visible:ring-2 focus-visible:ring-ring/45 focus-visible:ring-offset-0;
   }
 
   .px-page {
