@@ -1,8 +1,5 @@
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
 
-DROP TABLE IF EXISTS goose_db_version;
-DROP TABLE IF EXISTS config_history;
-
 CREATE TABLE IF NOT EXISTS users (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     username TEXT NOT NULL CONSTRAINT users_username_format CHECK (username ~ '^[a-zA-Z0-9_-]{3,32}$'),
@@ -65,5 +62,3 @@ CREATE TABLE IF NOT EXISTS settings (
     value JSONB NOT NULL,
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
-
-DELETE FROM settings WHERE key = 'subscription.credential';

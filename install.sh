@@ -32,7 +32,6 @@ HYSTERIA_SHA256_ARM64="${HYSTERIA_SHA256_ARM64:-802d77ae3ca37bdc235ec848edfaaa7c
 TELEMT_REPO="${TELEMT_REPO:-telemt/telemt}"
 TELEMT_VERSION="${TELEMT_VERSION:-latest}"
 XRAY_GEODATA_DIR_DEFAULT="${INSTALL_DIR}/data/geodata"
-XRAY_GEODATA_DIR_LEGACY="/usr/local/share/xray"
 XRAY_GEOIP_URL_DEFAULT="https://github.com/v2fly/geoip/releases/latest/download/geoip.dat"
 XRAY_GEOSITE_URL_DEFAULT="https://github.com/v2fly/domain-list-community/releases/latest/download/dlc.dat"
 
@@ -489,9 +488,6 @@ install_xray_binary() {
     "Xray-core ${XRAY_VERSION} (${arch})"
   unzip -qo "${tmp}/xray.zip" -d "${tmp}"
   install -m 0755 "${tmp}/xray" /usr/local/bin/xray
-  install -d -m 0755 /usr/local/share/xray
-  [[ -f "${tmp}/geoip.dat" ]] && install -m 0644 "${tmp}/geoip.dat" /usr/local/share/xray/geoip.dat
-  [[ -f "${tmp}/geosite.dat" ]] && install -m 0644 "${tmp}/geosite.dat" /usr/local/share/xray/geosite.dat
   rm -rf "${tmp}"
 }
 
@@ -745,17 +741,6 @@ start_telegram_proxy() {
   else
     substep "h2v-telegram.service active (MTProxy on TCP ${telegram_port})"
   fi
-}
-
-remove_legacy_telegram_proxy() {
-  if systemctl cat telegram-proxy.service >/dev/null 2>&1 || [[ -f /etc/systemd/system/telegram-proxy.service ]]; then
-    substep "removing legacy telegram-proxy.service"
-    systemctl disable --now telegram-proxy.service >/dev/null 2>&1 || true
-    rm -f /etc/systemd/system/telegram-proxy.service
-    systemctl daemon-reload
-  fi
-  rm -f "${INSTALL_DIR}/bin/mtproto-proxy" 2>/dev/null || true
-  rm -f "${INSTALL_DIR}/bin/h2v-telegramd" 2>/dev/null || true
 }
 
 install_go() {
@@ -1205,7 +1190,7 @@ ensure_env() {
 
   local geodata_dir
   geodata_dir="$(env_get XRAY_GEODATA_DIR || true)"
-  if [[ -z "${geodata_dir}" || "${geodata_dir}" == "${XRAY_GEODATA_DIR_LEGACY}" ]]; then
+  if [[ -z "${geodata_dir}" ]]; then
     geodata_dir="${XRAY_GEODATA_DIR_DEFAULT}"
     env_set XRAY_GEODATA_DIR "${geodata_dir}"
   fi
@@ -2016,7 +2001,6 @@ install_all() {
   success "core configs written to ${INSTALL_DIR}/configs/"
 
   step "service" "Starting panel, cores, and reverse proxy"
-  remove_legacy_telegram_proxy
   start_panel
   setup_reverse_proxy
   start_cores
@@ -2111,13 +2095,12 @@ uninstall_all() {
   STAGE_TOTAL=2
 
   step "stop" "Stopping and disabling services"
-  systemctl disable --now panel hysteria xray h2v-telegram telegram-proxy h2v-geodata-update.timer h2v-geodata-update.service 2>/dev/null || true
+  systemctl disable --now panel hysteria xray h2v-telegram h2v-geodata-update.timer h2v-geodata-update.service 2>/dev/null || true
   success "panel/hysteria/xray/telegram services and geodata timer stopped"
 
   step "purge" "Removing application files and units"
   rm -rf "${INSTALL_DIR}"
-  rm -f /usr/local/bin/h2v-telegramd 2>/dev/null || true
-  rm -f /etc/systemd/system/panel.service /etc/systemd/system/xray.service /etc/systemd/system/hysteria.service /etc/systemd/system/h2v-telegram.service /etc/systemd/system/telegram-proxy.service
+  rm -f /etc/systemd/system/panel.service /etc/systemd/system/xray.service /etc/systemd/system/hysteria.service /etc/systemd/system/h2v-telegram.service
   rm -f /etc/systemd/system/h2v-geodata-update.service /etc/systemd/system/h2v-geodata-update.timer
   rm -f /etc/sudoers.d/mypanel-systemctl
   systemctl daemon-reload
