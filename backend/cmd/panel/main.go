@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"database/sql"
 	"errors"
 	"flag"
 	"fmt"
@@ -17,8 +16,6 @@ import (
 	"github.com/coreos/go-systemd/v22/daemon"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
-	_ "github.com/jackc/pgx/v5/stdlib"
-	"github.com/pressly/goose/v3"
 
 	"github.com/prost/h2v/backend/internal/api"
 	"github.com/prost/h2v/backend/internal/cache"
@@ -45,14 +42,14 @@ func main() {
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{}))
 
 	if len(os.Args) < 2 {
-		fatal(logger, errors.New("expected subcommand: serve | migrate up | admin create | admin set-password | config render | geodata update"))
+		fatal(logger, errors.New("expected subcommand: serve | db init | admin create | admin set-password | config render | geodata update"))
 	}
 
 	switch os.Args[1] {
 	case "serve":
 		runServe(cfg, logger)
-	case "migrate":
-		runMigrate(cfg, logger, os.Args[2:])
+	case "db":
+		runDB(cfg, logger, os.Args[2:])
 	case "admin":
 		runAdmin(cfg, logger, os.Args[2:])
 	case "config":
@@ -166,30 +163,44 @@ func buildApp(ctx context.Context, cfg config.Config, logger *slog.Logger) (*pgx
 	return pool, scheduler, httpServer
 }
 
-func runMigrate(cfg config.Config, logger *slog.Logger, args []string) {
-	if len(args) == 0 || args[0] != "up" {
-		fatal(logger, errors.New("usage: panel migrate up"))
+func runDB(cfg config.Config, logger *slog.Logger, args []string) {
+	if len(args) == 0 || args[0] != "init" {
+		fatal(logger, errors.New("usage: panel db init"))
 	}
-	dbHandle, err := sql.Open("pgx", db.DSN(cfg.DB))
+
+	ctx := context.Background()
+	pool, err := db.Connect(ctx, cfg.DB)
 	if err != nil {
 		fatal(logger, err)
 	}
-	defer dbHandle.Close()
+	defer pool.Close()
 
-	if err := goose.SetDialect("postgres"); err != nil {
+	schema, path, err := loadSchema(cfg)
+	if err != nil {
 		fatal(logger, err)
 	}
-	dir := filepath.Join(cfg.Panel.RootDir, "migrations")
-	if _, err := os.Stat(dir); err != nil {
-		dir = filepath.Join("migrations")
+	if _, err := pool.Exec(ctx, string(schema)); err != nil {
+		fatal(logger, fmt.Errorf("apply database schema: %w", err))
 	}
-	if _, err := os.Stat(dir); err != nil {
-		dir = filepath.Join("backend", "migrations")
+	logger.Info("database schema ready", "path", path)
+}
+
+func loadSchema(cfg config.Config) ([]byte, string, error) {
+	candidates := []string{
+		filepath.Join(cfg.Panel.RootDir, "schema.sql"),
+		"schema.sql",
+		filepath.Join("backend", "schema.sql"),
 	}
-	if err := goose.Up(dbHandle, dir); err != nil {
-		fatal(logger, err)
+	for _, path := range candidates {
+		content, err := os.ReadFile(path)
+		if err == nil {
+			return content, path, nil
+		}
+		if !errors.Is(err, os.ErrNotExist) {
+			return nil, "", fmt.Errorf("read %s: %w", path, err)
+		}
 	}
-	logger.Info("migrations applied")
+	return nil, "", fmt.Errorf("schema.sql not found in %v", candidates)
 }
 
 func runAdmin(cfg config.Config, logger *slog.Logger, args []string) {

@@ -1146,7 +1146,6 @@ ensure_dirs() {
     "${INSTALL_DIR}/configs/hysteria" \
     "${INSTALL_DIR}/configs/telegram" \
     "${INSTALL_DIR}/templates" \
-    "${INSTALL_DIR}/migrations" \
     "${INSTALL_DIR}/frontend" \
     "${BUILD_STATE_DIR}" \
     "${INSTALL_DIR}/data/backups" \
@@ -1709,11 +1708,12 @@ build_artifacts() {
 
 install_templates() {
   rsync -a --delete "${SOURCE_DIR}/templates/" "${INSTALL_DIR}/templates/"
-  rsync -a --delete "${SOURCE_DIR}/backend/migrations/" "${INSTALL_DIR}/migrations/"
+  install -m 0644 "${SOURCE_DIR}/backend/schema.sql" "${INSTALL_DIR}/schema.sql"
+  rm -rf "${INSTALL_DIR}/migrations"
   install -m 0755 "${SOURCE_DIR}/install.sh" "${INSTALL_DIR}/install.sh"
   chown root:root "${INSTALL_DIR}/install.sh" 2>/dev/null || true
   chown -R panel:panel "${INSTALL_DIR}/templates"
-  chown -R panel:panel "${INSTALL_DIR}/migrations"
+  chown panel:panel "${INSTALL_DIR}/schema.sql"
 }
 
 install_units() {
@@ -1821,9 +1821,9 @@ EOF
   fi
 }
 
-run_migrations() {
-  [[ -x "${INSTALL_DIR}/bin/panel" ]] || fail "panel binary missing; cannot run migrations"
-  sudo -u panel env PANEL_ENV_FILE="${ENV_FILE}" "${INSTALL_DIR}/bin/panel" migrate up
+init_database_schema() {
+  [[ -x "${INSTALL_DIR}/bin/panel" ]] || fail "panel binary missing; cannot initialize database schema"
+  sudo -u panel env PANEL_ENV_FILE="${ENV_FILE}" "${INSTALL_DIR}/bin/panel" db init
 }
 
 create_admin() {
@@ -1921,7 +1921,7 @@ print_welcome() {
   printf '\n'
   printf '  %sThis installer will prepare:%s\n' "${BOLD}" "${RESET}"
   printf '    - panel backend and web UI\n'
-  printf '    - PostgreSQL database and migrations\n'
+  printf '    - PostgreSQL database schema\n'
   printf '    - Xray VLESS Reality, Hysteria 2, and Telemt-powered Telegram Proxy services\n'
   printf '    - Caddy TLS reverse proxy, geodata timer, and backups\n'
   printf '\n'
@@ -1974,9 +1974,9 @@ install_all() {
   ensure_postgres
   success "PostgreSQL configured"
 
-  step "assets" "Installing templates and migrations"
+  step "assets" "Installing templates and database schema"
   install_templates
-  success "templates and migrations synced"
+  success "templates and database schema synced"
 
   step "build" "Building backend and frontend"
   build_artifacts
@@ -1992,14 +1992,14 @@ install_all() {
   setup_geodata_timer
   success "systemd units installed"
 
-  step "migrate" "Running database migrations"
-  local migrate_out migrate_status=0
-  migrate_out="$(run_migrations 2>&1)" || migrate_status=$?
-  if [[ ${migrate_status} -ne 0 ]]; then
-    printf '%s\n' "${migrate_out}"
-    fail "migrations failed"
+  step "schema" "Initializing database schema"
+  local schema_out schema_status=0
+  schema_out="$(init_database_schema 2>&1)" || schema_status=$?
+  if [[ ${schema_status} -ne 0 ]]; then
+    printf '%s\n' "${schema_out}"
+    fail "database schema initialization failed"
   fi
-  success "migrations applied"
+  success "database schema ready"
 
   step "admin" "Ensuring initial admin account"
   create_admin

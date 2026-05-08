@@ -223,25 +223,12 @@ func backupSettingsForUpdate(items []domain.Setting) (map[string]json.RawMessage
 		if setting.Key == "" || !json.Valid(setting.Value) {
 			return nil, domain.NewError(400, "invalid_backup", "Backup contains invalid settings", nil)
 		}
-		if ignoredBackupSetting(setting.Key) {
+		if installerManagedSetting(setting.Key) {
 			continue
 		}
 		settings[setting.Key] = setting.Value
 	}
 	return settings, nil
-}
-
-func ignoredBackupSetting(key string) bool {
-	return installerManagedSetting(key) || legacyBackupSetting(key)
-}
-
-func legacyBackupSetting(key string) bool {
-	switch key {
-	case "subscription.credential":
-		return true
-	default:
-		return false
-	}
 }
 
 func validateBackupUsers(users []domain.User) error {

@@ -47,7 +47,7 @@ keep the current config or reconfigure it with a simple `1 / 2` choice.
 
 - Go backend service: `panel.service`
 - React admin frontend served by the panel
-- PostgreSQL database and migrations
+- PostgreSQL database schema
 - Xray-core with VLESS Reality
 - Hysteria 2 server
 - Telemt-backed Telegram Proxy service: `h2v-telegram.service`

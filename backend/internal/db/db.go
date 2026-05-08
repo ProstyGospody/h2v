@@ -33,12 +33,7 @@ func Connect(ctx context.Context, cfg config.DBConfig) (*pgxpool.Pool, error) {
 	return pool, nil
 }
 
-func DSN(cfg config.DBConfig) string {
-	return dsn(cfg)
-}
-
 func dsn(cfg config.DBConfig) string {
 	password := url.QueryEscape(cfg.Password)
 	return fmt.Sprintf("postgres://%s:%s@%s:%d/%s?sslmode=%s", cfg.User, password, cfg.Host, cfg.Port, cfg.Name, cfg.SSLMode)
 }
-

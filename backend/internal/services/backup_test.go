@@ -7,9 +7,8 @@ import (
 	"github.com/prost/h2v/backend/internal/domain"
 )
 
-func TestBackupSettingsForUpdateSkipsLegacyAndInstallerManagedSettings(t *testing.T) {
+func TestBackupSettingsForUpdateSkipsInstallerManagedSettings(t *testing.T) {
 	settings, err := backupSettingsForUpdate([]domain.Setting{
-		{Key: "subscription.credential", Value: json.RawMessage(`"legacy-token"`)},
 		{Key: "panel.domain", Value: json.RawMessage(`"panel.example.com"`)},
 		{Key: "hy2.domain", Value: json.RawMessage(`"vpn.example.com"`)},
 	})
@@ -17,9 +16,6 @@ func TestBackupSettingsForUpdateSkipsLegacyAndInstallerManagedSettings(t *testin
 		t.Fatal(err)
 	}
 
-	if _, ok := settings["subscription.credential"]; ok {
-		t.Fatal("legacy subscription credential should be skipped")
-	}
 	if _, ok := settings["panel.domain"]; ok {
 		t.Fatal("installer-managed panel domain should be skipped")
 	}
@@ -27,4 +23,3 @@ func TestBackupSettingsForUpdateSkipsLegacyAndInstallerManagedSettings(t *testin
 		t.Fatalf("hy2.domain = %s, want vpn.example.com", got)
 	}
 }
-
