@@ -1,4 +1,4 @@
-import { Check, Languages } from 'lucide-react';
+import { Check, Globe } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -28,7 +28,7 @@ export function LanguageSwitcher({ align = 'end', className, compact = false }: 
           type="button"
           variant="ghost"
         >
-          <Languages className="size-4" />
+          <Globe className="size-4" />
           {compact ? null : <span className="font-mono uppercase">{locale}</span>}
         </Button>
       </DropdownMenuTrigger>
