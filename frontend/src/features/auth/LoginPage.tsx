@@ -5,10 +5,12 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { useNavigate } from '@tanstack/react-router';
 import { Eye, EyeOff } from 'lucide-react';
 import { BrandLogo } from '@/components/brand-logo';
+import { LanguageSwitcher } from '@/components/language-switcher';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { useAuth } from '@/features/auth/useAuth';
+import { useI18n } from '@/shared/i18n/i18n';
 
 const schema = z.object({
   username: z.string().min(1),
@@ -50,6 +52,7 @@ const panelCodeFragments = [
 
 export function LoginPage() {
   const { admin, login } = useAuth();
+  const { t } = useI18n();
   const navigate = useNavigate();
   const [showPassword, setShowPassword] = useState(false);
   const form = useForm<FormValues>({
@@ -64,6 +67,9 @@ export function LoginPage() {
   return (
     <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-app-background px-4 py-10 text-foreground">
       <CodeRainBackground />
+      <div className="absolute right-4 top-4 z-20">
+        <LanguageSwitcher />
+      </div>
 
       <Card className="relative z-10 w-full max-w-100 border-border/60 bg-card/90 shadow-overlay backdrop-blur-xl">
         <CardContent className="space-y-9 px-7 py-10 sm:px-9 sm:py-12">
@@ -79,26 +85,26 @@ export function LoginPage() {
             })}
           >
             <Input
-              aria-label="Username"
+              aria-label={t('login.username')}
               autoComplete="username"
               className="h-11 px-4"
               id="username"
-              placeholder="Username"
+              placeholder={t('login.username')}
               {...form.register('username')}
             />
 
             <div className="relative">
               <Input
-                aria-label="Password"
+                aria-label={t('login.password')}
                 autoComplete="current-password"
                 className="h-11 px-4 pr-11"
                 id="password"
-                placeholder="Password"
+                placeholder={t('login.password')}
                 type={showPassword ? 'text' : 'password'}
                 {...form.register('password')}
               />
               <button
-                aria-label={showPassword ? 'Hide password' : 'Show password'}
+                aria-label={showPassword ? t('login.hidePassword') : t('login.showPassword')}
                 className="absolute inset-y-0 right-0 flex w-10 items-center justify-center text-muted-foreground transition hover:text-foreground"
                 onClick={() => setShowPassword((value) => !value)}
                 type="button"
@@ -108,7 +114,7 @@ export function LoginPage() {
             </div>
 
             <Button className="button-shine h-11 w-full" disabled={form.formState.isSubmitting} size="lg" type="submit">
-              {form.formState.isSubmitting ? 'Signing in...' : 'Sign in'}
+              {form.formState.isSubmitting ? t('login.signingIn') : t('login.signIn')}
             </Button>
           </form>
         </CardContent>

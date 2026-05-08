@@ -2,8 +2,11 @@ import { Link } from '@tanstack/react-router';
 import { ArrowLeft, Compass } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
+import { useI18n } from '@/shared/i18n/i18n';
 
 export function NotFoundPage() {
+  const { t } = useI18n();
+
   return (
     <div className="relative min-h-screen overflow-hidden bg-app-background px-4 py-10 text-foreground">
       <div className="relative mx-auto flex min-h-screen w-full max-w-120 flex-col items-center justify-center">
@@ -15,14 +18,16 @@ export function NotFoundPage() {
 
             <div className="space-y-2">
               <div className="font-mono text-xs text-faint">404</div>
-              <h1 className="font-display text-3xl font-semibold leading-tight text-white sm:text-4xl">Page not found</h1>
+              <h1 className="font-display text-3xl font-semibold leading-tight text-white sm:text-4xl">
+                {t('notFound.title')}
+              </h1>
             </div>
 
             <div className="flex items-center justify-center">
               <Button asChild>
                 <Link to="/">
                   <ArrowLeft className="size-4" />
-                  Back to dashboard
+                  {t('notFound.back')}
                 </Link>
               </Button>
             </div>

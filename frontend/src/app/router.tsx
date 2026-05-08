@@ -14,6 +14,7 @@ import {
 import { AppProviders } from '@/app/providers';
 import { BrandLogo } from '@/components/brand-logo';
 import { CoreLogo, type CoreLogoName } from '@/components/core-logo';
+import { LanguageSwitcher } from '@/components/language-switcher';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent } from '@/components/ui/sheet';
 import { LoginPage } from '@/features/auth/LoginPage';
@@ -27,6 +28,8 @@ import { UsersPage } from '@/features/users/UsersPage';
 import { cn } from '@/lib/utils';
 import { apiClient } from '@/shared/api/client';
 import type { OverviewStats } from '@/shared/api/types';
+import { useI18n, type Translate } from '@/shared/i18n/i18n';
+import type { TranslationKey } from '@/shared/i18n/translations';
 import { formatDurationCompact } from '@/shared/lib/format';
 
 type LinkTo = '/' | '/users' | '/settings' | '/configs';
@@ -34,13 +37,13 @@ type StatusTone = 'ok' | 'warn' | 'idle';
 
 const primaryLinks: Array<{
   icon: ComponentType<{ className?: string }>;
-  label: string;
+  labelKey: TranslationKey;
   to: LinkTo;
 }> = [
-  { icon: LayoutDashboard, label: 'Dashboard', to: '/' },
-  { icon: Users, label: 'Users', to: '/users' },
-  { icon: FileCode2, label: 'Configs', to: '/configs' },
-  { icon: Settings2, label: 'Settings', to: '/settings' },
+  { icon: LayoutDashboard, labelKey: 'nav.dashboard', to: '/' },
+  { icon: Users, labelKey: 'nav.users', to: '/users' },
+  { icon: FileCode2, labelKey: 'nav.configs', to: '/configs' },
+  { icon: Settings2, labelKey: 'nav.settings', to: '/settings' },
 ];
 
 function RootLayout() {
@@ -53,12 +56,13 @@ function RootLayout() {
 
 function ProtectedShell() {
   const { admin, logout, ready } = useAuth();
+  const { t } = useI18n();
   const [navOpen, setNavOpen] = useState(false);
 
   if (!ready) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-app-background text-sm text-muted-foreground">
-        Loading...
+        {t('common.loading')}
       </div>
     );
   }
@@ -73,7 +77,7 @@ function ProtectedShell() {
       <main className="flex min-w-0 flex-col overflow-x-hidden bg-transparent lg:pl-[260px]">
         <header className="sticky top-0 z-30 flex h-14 items-center gap-3 bg-background/90 px-4 shadow-sm backdrop-blur supports-backdrop-filter:bg-background/70 lg:hidden">
           <Button
-            aria-label="Open navigation"
+            aria-label={t('shell.openNavigation')}
             className="size-9"
             onClick={() => setNavOpen(true)}
             size="icon"
@@ -82,6 +86,7 @@ function ProtectedShell() {
             <Menu className="size-5" />
           </Button>
           <AppBrand compact />
+          <LanguageSwitcher className="ml-auto" compact />
         </header>
 
         <Outlet />
@@ -105,6 +110,7 @@ function SidebarBody({
   logout: () => Promise<void> | void;
   onNavigate?: () => void;
 }) {
+  const { locale, t } = useI18n();
   const overview = useQuery({
     queryKey: ['stats', 'overview'],
     queryFn: () => apiClient.request<OverviewStats>('/stats/overview'),
@@ -112,9 +118,9 @@ function SidebarBody({
   });
   const serviceStatuses = [
     {
-      label: 'Uptime',
+      label: t('shell.uptime'),
       icon: Timer,
-      value: formatDurationCompact(overview.data?.uptime_seconds),
+      value: formatDurationCompact(overview.data?.uptime_seconds, locale),
       showIndicator: false,
       showValue: true,
     },
@@ -122,7 +128,7 @@ function SidebarBody({
       label: 'Xray',
       logo: 'xray' as const,
       tone: serviceTone(overview.data?.xray_status, overview.isError),
-      value: serviceStatusLabel(overview.data?.xray_status, overview.isLoading, overview.isError),
+      value: serviceStatusLabel(overview.data?.xray_status, overview.isLoading, overview.isError, t),
       showIndicator: true,
       showValue: false,
     },
@@ -130,7 +136,7 @@ function SidebarBody({
       label: 'Hysteria 2',
       logo: 'hysteria' as const,
       tone: serviceTone(overview.data?.hysteria_status, overview.isError),
-      value: serviceStatusLabel(overview.data?.hysteria_status, overview.isLoading, overview.isError),
+      value: serviceStatusLabel(overview.data?.hysteria_status, overview.isLoading, overview.isError, t),
       showIndicator: true,
       showValue: false,
     },
@@ -143,13 +149,13 @@ function SidebarBody({
       </div>
 
       <div className="flex-1 overflow-y-auto px-3 py-4">
-        <div className="px-2 pb-2 t-label">Workspace</div>
+        <div className="px-2 pb-2 t-label">{t('nav.workspace')}</div>
         <nav className="space-y-0.5">
           {primaryLinks.map((link) => (
             <SidebarLink
               icon={link.icon}
               key={link.to}
-              label={link.label}
+              label={t(link.labelKey)}
               onClick={onNavigate}
               to={link.to}
             />
@@ -157,7 +163,7 @@ function SidebarBody({
         </nav>
 
         <div className="mt-6">
-          <div className="px-2 pb-2 t-label">Services</div>
+          <div className="px-2 pb-2 t-label">{t('nav.services')}</div>
           <ServiceStatusPanel items={serviceStatuses} />
         </div>
       </div>
@@ -170,8 +176,9 @@ function SidebarBody({
           <div className="min-w-0 flex-1">
             <div className="truncate text-sm font-medium leading-5 text-foreground">{admin.username}</div>
           </div>
+          <LanguageSwitcher className="shrink-0 text-muted-foreground" compact />
           <Button
-            aria-label="Sign out"
+            aria-label={t('nav.signOut')}
             className="size-8 shrink-0 text-muted-foreground"
             onClick={async () => {
               onNavigate?.();
@@ -260,11 +267,11 @@ function serviceTone(value: string | undefined, isError: boolean): StatusTone {
   return value.toLowerCase().startsWith('fail') ? 'warn' : 'ok';
 }
 
-function serviceStatusLabel(value: string | undefined, isLoading: boolean, isError: boolean): string {
-  if (isError) return 'Issue';
-  if (isLoading && !value) return 'Syncing';
-  if (!value) return 'Unknown';
-  return value.toLowerCase().startsWith('fail') ? 'Issue' : 'OK';
+function serviceStatusLabel(value: string | undefined, isLoading: boolean, isError: boolean, t: Translate): string {
+  if (isError) return t('common.issue');
+  if (isLoading && !value) return t('common.syncing');
+  if (!value) return t('common.unknown');
+  return value.toLowerCase().startsWith('fail') ? t('common.issue') : t('common.ok');
 }
 
 function serviceDotTone(tone: StatusTone): string {

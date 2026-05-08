@@ -24,6 +24,7 @@ import { CoreLogo, type CoreLogoName } from '@/components/core-logo';
 import { PageHeader } from '@/components/page-header';
 import { cn } from '@/lib/utils';
 import { apiClient, ApiError } from '@/shared/api/client';
+import { useI18n, type Translate } from '@/shared/i18n/i18n';
 import { formatBytes } from '@/shared/lib/format';
 
 type Core = 'xray' | 'hysteria';
@@ -61,9 +62,11 @@ const ConfigEditor = lazy(() =>
 );
 
 export function ConfigsPage() {
+  const { t } = useI18n();
+
   return (
     <div className="pb-10">
-      <PageHeader title="Configs" />
+      <PageHeader title={t('configs.title')} />
 
       <div className="grid gap-4 px-page pt-6 xl:grid-cols-2">
         {cores.map((core) => (
@@ -75,6 +78,7 @@ export function ConfigsPage() {
 }
 
 function ConfigPanel({ core }: { core: Core }) {
+  const { t } = useI18n();
   const queryClient = useQueryClient();
   const meta = coreMeta[core];
 
@@ -96,7 +100,7 @@ function ConfigPanel({ core }: { core: Core }) {
   const original = normalizeConfigText(config.data?.content ?? '');
   const content = draft ?? original;
   const dirty = Boolean(config.data && content !== original);
-  const jsonState = useMemo(() => inspectJson(content), [content]);
+  const jsonState = useMemo(() => inspectJson(content, t), [content, t]);
   const stats = useMemo(() => contentStats(content), [content]);
   const diffStats = useMemo(() => summarizeDiff(original, content), [original, content]);
 
@@ -108,11 +112,11 @@ function ConfigPanel({ core }: { core: Core }) {
       }),
     onError: (error) => {
       setValidation('invalid');
-      toast.error(error instanceof ApiError ? error.message : `${meta.label} validation failed`);
+      toast.error(error instanceof ApiError ? error.message : t('configs.validationFailed', { name: meta.label }));
     },
     onSuccess: () => {
       setValidation('valid');
-      toast.success(`${meta.label} configuration is valid`);
+      toast.success(t('configs.configurationValid', { name: meta.label }));
     },
   });
 
@@ -123,10 +127,10 @@ function ConfigPanel({ core }: { core: Core }) {
         method: 'POST',
       }),
     onError: (error) => {
-      toast.error(error instanceof ApiError ? error.message : `Unable to apply ${meta.label} configuration`);
+      toast.error(error instanceof ApiError ? error.message : t('configs.unableApply', { name: meta.label }));
     },
     onSuccess: async () => {
-      toast.success(`${meta.label} configuration applied`);
+      toast.success(t('configs.configurationApplied', { name: meta.label }));
       setDiffOpen(false);
       setValidation('idle');
       await queryClient.invalidateQueries({ queryKey: ['configs', core] });
@@ -157,9 +161,9 @@ function ConfigPanel({ core }: { core: Core }) {
     try {
       setDraft(JSON.stringify(JSON.parse(content), null, 2));
       setValidation('idle');
-      toast.success(`${meta.label} JSON formatted`);
+      toast.success(t('configs.formatJson', { name: meta.label }));
     } catch {
-      toast.error(`${meta.label} JSON contains syntax errors`);
+      toast.error(t('configs.jsonSyntaxError', { name: meta.label }));
     }
   }
 
@@ -176,7 +180,7 @@ function ConfigPanel({ core }: { core: Core }) {
               <div className="mt-0.5 flex flex-wrap items-center gap-2 font-mono text-[11px] text-muted-foreground">
                 <span>{meta.service}</span>
                 <span className="text-muted-foreground/35">/</span>
-                <span>{stats.lines} lines</span>
+                <span>{t('common.lines', { count: stats.lines })}</span>
                 <span className="text-muted-foreground/35">/</span>
                 <span>{formatBytes(stats.bytes)}</span>
               </div>
@@ -195,24 +199,24 @@ function ConfigPanel({ core }: { core: Core }) {
           <div className="flex flex-wrap items-center gap-2">
             <Button disabled={config.isFetching} onClick={reloadConfig} size="sm" variant="outline">
               <RefreshCw className={cn(config.isFetching && 'animate-spin')} />
-              Reload
+              {t('configs.reload')}
             </Button>
             <Button disabled={!dirty} onClick={resetDraft} size="sm" variant="outline">
               <RotateCcw />
-              Reset
+              {t('common.reset')}
             </Button>
             <Button disabled={!config.data || !jsonState.valid} onClick={formatDraft} size="sm" variant="outline">
               <Wand2 />
-              Format
+              {t('common.format')}
             </Button>
             <div className="flex w-full items-center gap-2 sm:ml-auto sm:w-auto">
               <Button disabled={!canValidate} onClick={() => validate.mutate()} size="sm" variant="secondary">
                 <CheckCircle2 />
-                Validate
+                {t('common.validate')}
               </Button>
               <Button disabled={!canApply} onClick={() => setDiffOpen(true)} size="sm">
                 <PlayCircle />
-                Apply
+                {t('common.apply')}
               </Button>
             </div>
           </div>
@@ -230,11 +234,13 @@ function ConfigPanel({ core }: { core: Core }) {
           ) : config.isError ? (
             <div className="flex h-[68vh] min-h-[520px] flex-col items-center justify-center gap-3 rounded-md border border-border/65 bg-card px-6 text-center xl:h-[calc(100vh-256px)] xl:min-h-[620px]">
               <XCircle className="size-8 text-destructive" />
-              <div className="text-base font-semibold text-foreground">Unable to load {meta.label}</div>
-              <p className="max-w-xl text-sm text-muted-foreground">{errorMessage(config.error)}</p>
+              <div className="text-base font-semibold text-foreground">
+                {t('configs.unableLoad', { name: meta.label })}
+              </div>
+              <p className="max-w-xl text-sm text-muted-foreground">{errorMessage(config.error, t('common.requestFailed'))}</p>
               <Button onClick={() => config.refetch()} size="sm" variant="secondary">
                 <RefreshCw />
-                Retry
+                {t('common.retry')}
               </Button>
             </div>
           ) : (
@@ -245,7 +251,7 @@ function ConfigPanel({ core }: { core: Core }) {
             >
               <ConfigEditor
                 className="h-[68vh] min-h-[520px] xl:h-[calc(100vh-256px)] xl:min-h-[620px]"
-                label={`${meta.label} configuration editor`}
+                label={t('configs.configurationEditor', { name: meta.label })}
                 onChange={updateDraft}
                 value={content}
               />
@@ -262,33 +268,33 @@ function ConfigPanel({ core }: { core: Core }) {
                 <CoreLogo className="size-8" core={meta.logo} />
               </span>
               <div className="min-w-0">
-                <DialogTitle className="truncate text-base">Apply {meta.label}</DialogTitle>
+                <DialogTitle className="truncate text-base">{t('configs.applyCore', { name: meta.label })}</DialogTitle>
               </div>
             </div>
           </DialogHeader>
 
           <div className="grid gap-2 border-b border-border/55 bg-card/35 px-4 py-3 sm:grid-cols-3">
-            <DiffMetric label="Current" value={`${diffStats.currentLines} lines`} />
-            <DiffMetric label="New" value={`${diffStats.nextLines} lines`} />
-            <DiffMetric label="Changed" value={`${diffStats.changed} lines`} />
+            <DiffMetric label={t('configs.current')} value={t('common.lines', { count: diffStats.currentLines })} />
+            <DiffMetric label={t('configs.new')} value={t('common.lines', { count: diffStats.nextLines })} />
+            <DiffMetric label={t('configs.changed')} value={t('common.lines', { count: diffStats.changed })} />
           </div>
 
           <div className="grid min-h-0 gap-3 overflow-auto bg-card p-3 md:grid-cols-2">
-            <DiffPanel label="Current" value={original} />
-            <DiffPanel label="New" value={content} />
+            <DiffPanel label={t('configs.current')} value={original} />
+            <DiffPanel label={t('configs.new')} value={content} />
           </div>
 
           <DialogFooter className="items-stretch border-t border-border/55 bg-card/35 px-4 py-3 sm:items-center">
             <div className="mr-auto flex items-start gap-2 text-xs text-warning">
               <AlertTriangle className="mt-0.5 size-4 shrink-0" />
-              <span>Active connections may briefly drop while {meta.label} restarts.</span>
+              <span>{t('configs.activeConnectionsWarning', { name: meta.label })}</span>
             </div>
             <Button onClick={() => setDiffOpen(false)} variant="secondary">
-              Cancel
+              {t('common.cancel')}
             </Button>
             <Button disabled={apply.isPending} onClick={() => apply.mutate()}>
               <PlayCircle />
-              Apply
+              {t('common.apply')}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -310,12 +316,14 @@ function ConfigStatus({
   jsonState: JsonState;
   validation: ValidationState;
 }) {
-  if (isLoading) return <Badge variant="secondary">Loading</Badge>;
+  const { t } = useI18n();
+
+  if (isLoading) return <Badge variant="secondary">{t('common.loading')}</Badge>;
   if (isChecking) {
     return (
       <Badge variant="secondary">
         <RefreshCw className="animate-spin" />
-        Checking
+        {t('configs.checking')}
       </Badge>
     );
   }
@@ -323,16 +331,16 @@ function ConfigStatus({
     return (
       <Badge variant="destructive">
         <XCircle />
-        JSON error
+        {t('configs.jsonError')}
       </Badge>
     );
   }
-  if (!dirty) return <Badge variant="secondary">Synced</Badge>;
+  if (!dirty) return <Badge variant="secondary">{t('configs.synced')}</Badge>;
   if (validation === 'valid') {
     return (
       <Badge variant="success">
         <CheckCircle2 />
-        Valid
+        {t('configs.valid')}
       </Badge>
     );
   }
@@ -340,11 +348,11 @@ function ConfigStatus({
     return (
       <Badge variant="destructive">
         <AlertTriangle />
-        Invalid
+        {t('configs.invalid')}
       </Badge>
     );
   }
-  return <Badge variant="warning">Modified</Badge>;
+  return <Badge variant="warning">{t('configs.modified')}</Badge>;
 }
 
 function DiffMetric({ label, value }: { label: string; value: string }) {
@@ -357,6 +365,7 @@ function DiffMetric({ label, value }: { label: string; value: string }) {
 }
 
 function DiffPanel({ label, value }: { label: string; value: string }) {
+  const { t } = useI18n();
   const stats = contentStats(value);
 
   return (
@@ -364,14 +373,14 @@ function DiffPanel({ label, value }: { label: string; value: string }) {
       <div className="flex items-center justify-between gap-3 border-b border-border/55 bg-surface px-3 py-2">
         <div className="text-xs font-medium text-foreground">{label}</div>
         <div className="font-mono text-[10px] text-muted-foreground">
-          {stats.lines} lines / {formatBytes(stats.bytes)}
+          {t('common.lines', { count: stats.lines })} / {formatBytes(stats.bytes)}
         </div>
       </div>
       <div className="min-h-0 flex-1">
         <Suspense fallback={<Skeleton className="h-full min-h-[360px] w-full rounded-none" />}>
           <ConfigEditor
             className="h-[42vh] min-h-[320px] rounded-none border-0 md:h-[50vh] md:min-h-[360px]"
-            label={`${label} configuration preview`}
+            label={t('configs.previewEditor', { label })}
             onChange={() => undefined}
             readOnly
             value={value}
@@ -382,20 +391,20 @@ function DiffPanel({ label, value }: { label: string; value: string }) {
   );
 }
 
-function inspectJson(value: string): JsonState {
+function inspectJson(value: string, t: Translate): JsonState {
   try {
     JSON.parse(value);
     return { valid: true };
   } catch (error) {
-    const rawMessage = error instanceof Error ? error.message : 'Invalid JSON';
+    const rawMessage = error instanceof Error ? error.message : t('configs.jsonError');
     return {
-      message: describeJsonError(rawMessage, value),
+      message: describeJsonError(rawMessage, value, t),
       valid: false,
     };
   }
 }
 
-function describeJsonError(message: string, value: string): string {
+function describeJsonError(message: string, value: string, t?: Translate): string {
   const match = message.match(/position\s+(\d+)/i);
   if (!match) return message;
   const position = Number(match[1]);
@@ -405,7 +414,7 @@ function describeJsonError(message: string, value: string): string {
   const line = before.split('\n').length;
   const lastBreak = before.lastIndexOf('\n');
   const column = position - lastBreak;
-  return `${message} (line ${line}, column ${column})`;
+  return t ? t('configs.lineColumn', { column, line, message }) : `${message} (line ${line}, column ${column})`;
 }
 
 function normalizeConfigText(value: string): string {
@@ -436,8 +445,8 @@ function summarizeDiff(current: string, next: string) {
   };
 }
 
-function errorMessage(error: unknown): string {
+function errorMessage(error: unknown, fallback = 'Request failed'): string {
   if (error instanceof ApiError) return error.message;
   if (error instanceof Error) return error.message;
-  return 'Request failed';
+  return fallback;
 }

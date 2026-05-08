@@ -56,24 +56,20 @@ import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
 import { apiClient, ApiError } from '@/shared/api/client';
 import { ListMeta, TrafficPoint, User, UserLinks, UserStatus } from '@/shared/api/types';
-import { daysUntil, formatBytes, formatDate, formatDateTime, usagePercent } from '@/shared/lib/format';
+import { useI18n } from '@/shared/i18n/i18n';
+import type { TranslationKey } from '@/shared/i18n/translations';
+import { daysUntil, formatBytes, formatDate, formatDateTime, formatMonthDay, usagePercent } from '@/shared/lib/format';
 
-const statusOptions: Array<{ label: string; value: 'all' | UserStatus }> = [
-  { label: 'All', value: 'all' },
-  { label: 'Active', value: 'active' },
-  { label: 'Limited', value: 'limited' },
-  { label: 'Expired', value: 'expired' },
-  { label: 'Disabled', value: 'disabled' },
+const statusOptions: Array<{ labelKey: TranslationKey; value: 'all' | UserStatus }> = [
+  { labelKey: 'users.all', value: 'all' },
+  { labelKey: 'users.active', value: 'active' },
+  { labelKey: 'users.limited', value: 'limited' },
+  { labelKey: 'common.expired', value: 'expired' },
+  { labelKey: 'common.disabled', value: 'disabled' },
 ];
 
-const userTrafficChartConfig = {
-  total: {
-    label: 'Traffic',
-    color: 'var(--gradient-accent)',
-  },
-} satisfies ChartConfig;
-
 export function UsersPage() {
+  const { locale, t } = useI18n();
   const queryClient = useQueryClient();
   const [search, setSearch] = useState('');
   const [status, setStatus] = useState<'all' | UserStatus>('all');
@@ -163,6 +159,15 @@ export function UsersPage() {
     [traffic.data],
   );
   const hasDrawerTrafficSamples = drawerTrafficData.some((p) => p.total > 0);
+  const userTrafficChartConfig = useMemo<ChartConfig>(
+    () => ({
+      total: {
+        label: t('dashboard.traffic'),
+        color: 'var(--gradient-accent)',
+      },
+    }),
+    [t],
+  );
 
   const allSelected = Boolean(userItems.length) && selectedIds.length === userItems.length;
   const drawerTrafficPercent = drawerUser
@@ -182,20 +187,20 @@ export function UsersPage() {
     ]);
   }
 
-  async function runBulk(label: string, body: Record<string, unknown>) {
+  async function runBulk(key: string, label: string, body: Record<string, unknown>) {
     if (!selectedIds.length) return;
     const ids = [...selectedIds];
-    setBusyAction(label);
+    setBusyAction(key);
     try {
       await apiClient.request('/users/bulk', {
         body: JSON.stringify({ ...body, ids }),
         method: 'POST',
       });
-      toast.success(`${label} complete`);
+      toast.success(t('users.bulkComplete', { action: label }));
       setSelectedIds([]);
       await refreshUsers();
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : `${label} failed`);
+      toast.error(error instanceof ApiError ? error.message : t('users.bulkFailed', { action: label }));
     } finally {
       setBusyAction(null);
     }
@@ -213,7 +218,7 @@ export function UsersPage() {
       toast.success(message);
       await refreshUsers();
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : 'Action failed');
+      toast.error(error instanceof ApiError ? error.message : t('users.actionFailed'));
     } finally {
       setRowAction(null);
     }
@@ -224,13 +229,13 @@ export function UsersPage() {
     setDrawerBusy('reset-sub');
     try {
       await apiClient.request(`/users/${drawerUser.id}/reset-sub`, { method: 'POST' });
-      toast.success('Subscription rotated');
+      toast.success(t('users.subscriptionRotated'));
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ['users', drawerUser.id, 'links'] }),
         queryClient.invalidateQueries({ queryKey: ['users'] }),
       ]);
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : 'Action failed');
+      toast.error(error instanceof ApiError ? error.message : t('users.actionFailed'));
     } finally {
       setDrawerBusy(null);
     }
@@ -248,25 +253,25 @@ export function UsersPage() {
         method: 'POST',
       }),
     onSuccess: async () => {
-      toast.success('User created');
+      toast.success(t('users.userCreated'));
       setUsername(generateUsername());
       setNote('');
       setCreateOpen(false);
       await refreshUsers();
     },
     onError: (error) => {
-      toast.error(error instanceof ApiError ? error.message : 'Unable to create user');
+      toast.error(error instanceof ApiError ? error.message : t('users.unableCreate'));
     },
   });
 
   return (
     <div className="pb-10">
       <PageHeader
-        title="Users"
+        title={t('nav.users')}
         action={
           <Button onClick={() => setCreateOpen(true)}>
             <Plus />
-            Create user
+            {t('users.createUser')}
           </Button>
         }
       />
@@ -278,7 +283,7 @@ export function UsersPage() {
             <Input
               className="pl-9"
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search by username..."
+              placeholder={t('users.searchPlaceholder')}
               value={search}
             />
           </div>
@@ -287,7 +292,7 @@ export function UsersPage() {
               <TabsList>
                 {statusOptions.map((o) => (
                   <TabsTrigger key={o.value} value={o.value}>
-                    {o.label}
+                    {t(o.labelKey)}
                   </TabsTrigger>
                 ))}
               </TabsList>
@@ -297,7 +302,7 @@ export function UsersPage() {
               size="sm"
               variant={nearExpiry ? 'outline' : 'ghost'}
             >
-              Near expiry
+              {t('users.nearExpiry')}
             </Button>
           </div>
         </div>
@@ -306,28 +311,28 @@ export function UsersPage() {
           <div className="flex flex-col items-start justify-between gap-3 rounded-md bg-accent-gradient-soft px-4 py-3 shadow-sm md:flex-row md:items-center">
             <div className="flex items-center gap-2 text-sm">
               <Badge>{selectedIds.length}</Badge>
-              <span className="text-muted-foreground">selected</span>
+              <span className="text-muted-foreground">{t('users.selected')}</span>
             </div>
             <div className="flex flex-wrap items-center gap-2">
               <Button
                 disabled={busyAction === 'enable'}
-                onClick={() => runBulk('enable', { action: 'enable' })}
+                onClick={() => runBulk('enable', t('common.enable'), { action: 'enable' })}
                 size="sm"
                 variant="secondary"
               >
-                Enable
+                {t('common.enable')}
               </Button>
               <Button
                 disabled={busyAction === 'disable'}
-                onClick={() => runBulk('disable', { action: 'disable' })}
+                onClick={() => runBulk('disable', t('common.disable'), { action: 'disable' })}
                 size="sm"
                 variant="secondary"
               >
-                Disable
+                {t('common.disable')}
               </Button>
               <Button
                 disabled={busyAction === 'extend'}
-                onClick={() => runBulk('extend', { action: 'extend', days: 30 })}
+                onClick={() => runBulk('extend', '+30d', { action: 'extend', days: 30 })}
                 size="sm"
                 variant="secondary"
               >
@@ -335,20 +340,20 @@ export function UsersPage() {
               </Button>
               <Button
                 disabled={busyAction === 'traffic'}
-                onClick={() => runBulk('traffic', { action: 'reset_traffic' })}
+                onClick={() => runBulk('traffic', t('users.resetTraffic'), { action: 'reset_traffic' })}
                 size="sm"
                 variant="secondary"
               >
-                Reset traffic
+                {t('users.resetTraffic')}
               </Button>
               <Button
                 disabled={busyAction === 'delete'}
-                onClick={() => runBulk('delete', { action: 'delete' })}
+                onClick={() => runBulk('delete', t('common.delete'), { action: 'delete' })}
                 size="sm"
                 variant="destructive"
               >
                 <Trash2 />
-                Delete
+                {t('common.delete')}
               </Button>
             </div>
           </div>
@@ -367,7 +372,7 @@ export function UsersPage() {
                 <TableRow className="hover:bg-transparent">
                   <TableHead className="w-10 pl-4">
                     <input
-                      aria-label="Select all"
+                      aria-label={t('users.selectAll')}
                       checked={allSelected}
                       onChange={() => {
                         if (allSelected) setSelectedIds([]);
@@ -376,11 +381,11 @@ export function UsersPage() {
                       type="checkbox"
                     />
                   </TableHead>
-                  <TableHead>Username</TableHead>
-                  <TableHead className="hidden sm:table-cell">Status</TableHead>
-                  <TableHead className="hidden sm:table-cell">Traffic</TableHead>
-                  <TableHead className="hidden md:table-cell">Expires</TableHead>
-                  <TableHead className="hidden lg:table-cell">Created</TableHead>
+                  <TableHead>{t('users.username')}</TableHead>
+                  <TableHead className="hidden sm:table-cell">{t('users.status')}</TableHead>
+                  <TableHead className="hidden sm:table-cell">{t('dashboard.traffic')}</TableHead>
+                  <TableHead className="hidden md:table-cell">{t('users.expires')}</TableHead>
+                  <TableHead className="hidden lg:table-cell">{t('users.created')}</TableHead>
                   <TableHead className="hidden w-20 sm:table-cell">QR</TableHead>
                   <TableHead className="w-10" />
                 </TableRow>
@@ -405,7 +410,7 @@ export function UsersPage() {
                     >
                       <TableCell className="pl-4" onClick={(e) => e.stopPropagation()}>
                         <input
-                          aria-label={`Select ${user.username}`}
+                          aria-label={t('users.selectUser', { username: user.username })}
                           checked={checked}
                           onChange={() =>
                             setSelectedIds((curr) =>
@@ -425,7 +430,7 @@ export function UsersPage() {
                             <UserStatusBadge status={user.status} />
                             <span className="min-w-0 truncate font-mono text-[11px] text-muted-foreground">
                               {formatBytes(user.traffic_used)} /{' '}
-                              {user.traffic_limit > 0 ? formatBytes(user.traffic_limit) : 'Unlimited'}
+                              {user.traffic_limit > 0 ? formatBytes(user.traffic_limit) : t('common.unlimited')}
                             </span>
                           </div>
                         </div>
@@ -444,24 +449,24 @@ export function UsersPage() {
                           <div className="flex items-center justify-between text-xs text-muted-foreground">
                             <span className="font-mono">{formatBytes(user.traffic_used)}</span>
                             <span className="font-mono">
-                              {user.traffic_limit > 0 ? formatBytes(user.traffic_limit) : 'Unlimited'}
+                              {user.traffic_limit > 0 ? formatBytes(user.traffic_limit) : t('common.unlimited')}
                             </span>
                           </div>
                         </div>
                       </TableCell>
                       <TableCell className="hidden md:table-cell">
                         {expiresInDays === null ? (
-                          <Badge variant="secondary">Never</Badge>
+                          <Badge variant="secondary">{t('common.never')}</Badge>
                         ) : expiresInDays < 0 ? (
-                          <Badge variant="warning">Expired</Badge>
+                          <Badge variant="warning">{t('common.expired')}</Badge>
                         ) : expiresInDays < 3 ? (
-                          <Badge variant="warning">{expiresInDays}d left</Badge>
+                          <Badge variant="warning">{t('users.daysLeft', { days: expiresInDays })}</Badge>
                         ) : (
-                          <Badge variant="secondary">{expiresInDays}d left</Badge>
+                          <Badge variant="secondary">{t('users.daysLeft', { days: expiresInDays })}</Badge>
                         )}
                       </TableCell>
                       <TableCell className="hidden text-xs text-muted-foreground lg:table-cell">
-                        {formatDate(user.created_at, 'MMM d')}
+                        {formatMonthDay(user.created_at, locale)}
                       </TableCell>
                       <TableCell className="hidden sm:table-cell" onClick={(e) => e.stopPropagation()}>
                         <Button
@@ -471,13 +476,13 @@ export function UsersPage() {
                           variant="secondary"
                         >
                           <QrCode />
-                          QR
+                          {t('users.qr')}
                         </Button>
                       </TableCell>
                       <TableCell onClick={(e) => e.stopPropagation()}>
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
-                            <Button aria-label="Open menu" size="icon" variant="ghost">
+                            <Button aria-label={t('users.tableMenu')} size="icon" variant="ghost">
                               <MoreHorizontal />
                             </Button>
                           </DropdownMenuTrigger>
@@ -495,11 +500,11 @@ export function UsersPage() {
                                       }),
                                       method: 'PATCH',
                                     }),
-                                  user.status === 'disabled' ? 'User enabled' : 'User disabled',
+                                  user.status === 'disabled' ? t('users.userEnabled') : t('users.userDisabled'),
                                 )
                               }
                             >
-                              {user.status === 'disabled' ? 'Enable' : 'Disable'}
+                              {user.status === 'disabled' ? t('common.enable') : t('common.disable')}
                             </DropdownMenuItem>
                             <DropdownMenuItem
                               disabled={rowBusy === 'reset-traffic'}
@@ -511,12 +516,12 @@ export function UsersPage() {
                                     apiClient.request(`/users/${user.id}/reset-traffic`, {
                                       method: 'POST',
                                     }),
-                                  'Traffic reset',
+                                  t('users.trafficReset'),
                                 )
                               }
                             >
                               <RotateCcw />
-                              Reset traffic
+                              {t('users.resetTraffic')}
                             </DropdownMenuItem>
                             <DropdownMenuItem
                               disabled={rowBusy === 'reset-sub'}
@@ -525,12 +530,12 @@ export function UsersPage() {
                                   user,
                                   'reset-sub',
                                   () => apiClient.request(`/users/${user.id}/reset-sub`, { method: 'POST' }),
-                                  'Subscription rotated',
+                                  t('users.subscriptionRotated'),
                                 )
                               }
                             >
                               <RefreshCw />
-                              Reset link
+                              {t('users.resetLink')}
                             </DropdownMenuItem>
                             <DropdownMenuSeparator />
                             <DropdownMenuItem
@@ -540,13 +545,13 @@ export function UsersPage() {
                                   user,
                                   'delete',
                                   () => apiClient.request(`/users/${user.id}`, { method: 'DELETE' }),
-                                  'User deleted',
+                                  t('users.userDeleted'),
                                 )
                               }
                               variant="destructive"
                             >
                               <Trash2 />
-                              Delete
+                              {t('common.delete')}
                             </DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>
@@ -559,11 +564,11 @@ export function UsersPage() {
           ) : (
             <CardContent className="flex min-h-64 flex-col items-center justify-center gap-3 px-6 py-12 text-center">
               <div className="space-y-1">
-                <div className="text-base font-semibold text-foreground">No users yet</div>
+                <div className="text-base font-semibold text-foreground">{t('users.noUsers')}</div>
               </div>
               <Button onClick={() => setCreateOpen(true)}>
                 <Plus />
-                Create user
+                {t('users.createUser')}
               </Button>
             </CardContent>
           )}
@@ -571,7 +576,7 @@ export function UsersPage() {
         {usersMeta.total > 0 ? (
           <div className="flex flex-col items-start justify-between gap-3 px-1 text-sm text-muted-foreground sm:flex-row sm:items-center">
             <div>
-              {firstItem}-{lastItem} of {usersMeta.total}
+              {t('users.paginationRange', { first: firstItem, last: lastItem, total: usersMeta.total })}
             </div>
             <div className="flex items-center gap-2">
               <Button
@@ -581,7 +586,7 @@ export function UsersPage() {
                 type="button"
                 variant="secondary"
               >
-                Previous
+                {t('users.previous')}
               </Button>
               <span className="min-w-16 text-center font-mono text-xs">
                 {usersMeta.page}/{totalPages}
@@ -593,7 +598,7 @@ export function UsersPage() {
                 type="button"
                 variant="secondary"
               >
-                Next
+                {t('users.next')}
               </Button>
             </div>
           </div>
@@ -609,7 +614,7 @@ export function UsersPage() {
                   <span className="min-w-0 truncate">{drawerUser.username}</span>
                   <UserStatusBadge status={drawerUser.status} />
                 </SheetTitle>
-                <SheetDescription className="break-words">{drawerUser.note || 'No note attached.'}</SheetDescription>
+                <SheetDescription className="break-words">{drawerUser.note || t('users.noNote')}</SheetDescription>
               </SheetHeader>
 
               <div className="space-y-5 px-6 pb-6">
@@ -623,24 +628,24 @@ export function UsersPage() {
                   <div className="flex items-center justify-between text-xs text-muted-foreground">
                     <span className="font-mono">{formatBytes(drawerUser.traffic_used)}</span>
                     <span className="font-mono">
-                      {drawerUser.traffic_limit > 0 ? formatBytes(drawerUser.traffic_limit) : 'Unlimited'}
+                      {drawerUser.traffic_limit > 0 ? formatBytes(drawerUser.traffic_limit) : t('common.unlimited')}
                     </span>
                   </div>
                 </div>
 
                 <div className="space-y-1">
                   <div className="flex items-center justify-between gap-3 rounded-md bg-muted/30 px-2 py-2.5 text-sm">
-                    <span className="text-muted-foreground">Created</span>
-                    <span className="text-right text-foreground">{formatDateTime(drawerUser.created_at)}</span>
+                    <span className="text-muted-foreground">{t('users.created')}</span>
+                    <span className="text-right text-foreground">{formatDateTime(drawerUser.created_at, locale)}</span>
                   </div>
                   <div className="flex items-center justify-between gap-3 rounded-md bg-muted/30 px-2 py-2.5 text-sm">
-                    <span className="text-muted-foreground">Expires</span>
+                    <span className="text-muted-foreground">{t('users.expires')}</span>
                     <span className="text-right text-foreground">
-                      {drawerUser.expires_at ? formatDateTime(drawerUser.expires_at) : 'Never'}
+                      {drawerUser.expires_at ? formatDateTime(drawerUser.expires_at, locale) : t('common.never')}
                     </span>
                   </div>
                   <div className="flex items-center justify-between gap-3 rounded-md bg-muted/30 px-2 py-2.5 text-sm">
-                    <span className="text-muted-foreground">Status</span>
+                    <span className="text-muted-foreground">{t('users.status')}</span>
                     <span className="text-right text-foreground">
                       <UserStatusBadge status={drawerUser.status} />
                     </span>
@@ -650,7 +655,7 @@ export function UsersPage() {
                 <div className="flex flex-wrap gap-2">
                   <Button onClick={() => setQrUserId(drawerUser.id)} size="sm" variant="secondary">
                     <QrCode />
-                    Show QR
+                    {t('users.showQR')}
                   </Button>
                   <Button
                     disabled={drawerBusy === 'reset-sub'}
@@ -659,12 +664,12 @@ export function UsersPage() {
                     variant="secondary"
                   >
                     <RefreshCw />
-                    Reset link
+                    {t('users.resetLink')}
                   </Button>
                 </div>
 
                 <div className="space-y-3">
-                  <div className="t-label">Connection</div>
+                  <div className="t-label">{t('users.connection')}</div>
                   {links.isLoading ? (
                     <>
                       <Skeleton className="h-11 w-full" />
@@ -673,7 +678,7 @@ export function UsersPage() {
                     </>
                   ) : links.data ? (
                     <div className="space-y-1.5">
-                      <LinkCopyRow label="Public page" value={publicLink(links.data)} />
+                      <LinkCopyRow label={t('users.publicPage')} value={publicLink(links.data)} />
                       <LinkCopyRow label="VLESS" value={links.data.vless} />
                       <LinkCopyRow label="Hys2" value={links.data.hysteria2} />
                     </div>
@@ -681,7 +686,7 @@ export function UsersPage() {
                 </div>
 
                 <div className="space-y-2">
-                  <div className="t-label">Traffic / 7 days</div>
+                  <div className="t-label">{t('users.trafficSevenDays')}</div>
                   <div className="h-32 rounded-md bg-muted/60 p-2">
                     {traffic.isLoading ? (
                       <Skeleton className="h-full w-full" />
@@ -702,8 +707,8 @@ export function UsersPage() {
                             cursor={{ fill: 'url(#userTrafficGradient)', opacity: 0.18 }}
                             content={
                               <ChartTooltipContent
-                                formatter={(v) => [formatBytes(Number(v)), 'Traffic']}
-                                labelFormatter={(v) => formatDate(String(v), 'MMM d, yyyy')}
+                                formatter={(v) => [formatBytes(Number(v)), t('dashboard.traffic')]}
+                                labelFormatter={(v) => formatDate(String(v), undefined, locale)}
                               />
                             }
                           />
@@ -712,7 +717,7 @@ export function UsersPage() {
                       </ChartContainer>
                     ) : (
                       <div className="flex h-full items-center justify-center text-xs text-muted-foreground">
-                        No traffic samples yet.
+                        {t('users.noTrafficSamples')}
                       </div>
                     )}
                   </div>
@@ -741,12 +746,12 @@ export function UsersPage() {
       <Dialog onOpenChange={setCreateOpen} open={createOpen}>
         <DialogContent className="sm:max-w-xl">
           <DialogHeader>
-            <DialogTitle>Create user</DialogTitle>
+            <DialogTitle>{t('users.createUser')}</DialogTitle>
           </DialogHeader>
 
           <div className="space-y-5">
             <div className="space-y-2">
-              <Label htmlFor="username">Username</Label>
+              <Label htmlFor="username">{t('users.username')}</Label>
               <div className="relative">
                 <Input
                   className="pr-10 font-mono"
@@ -755,7 +760,7 @@ export function UsersPage() {
                   value={username}
                 />
                 <Button
-                  aria-label="Regenerate"
+                  aria-label={t('users.regenerate')}
                   className="absolute inset-y-0 right-0 h-full w-10 rounded-l-none"
                   onClick={() => setUsername(generateUsername())}
                   size="icon"
@@ -768,7 +773,7 @@ export function UsersPage() {
             </div>
 
             <div className="space-y-2">
-              <Label>Traffic</Label>
+              <Label>{t('dashboard.traffic')}</Label>
               <div className="flex flex-wrap gap-1.5">
                 {trafficPresets.map((p) => (
                   <Button
@@ -789,13 +794,13 @@ export function UsersPage() {
                   type="button"
                   variant={trafficGb === null ? 'default' : 'secondary'}
                 >
-                  Unlimited
+                  {t('common.unlimited')}
                 </Button>
               </div>
             </div>
 
             <div className="space-y-2">
-              <Label>Expires in</Label>
+              <Label>{t('users.expiresIn')}</Label>
               <div className="flex flex-wrap gap-1.5">
                 {expiryPresets.map((p) => (
                   <Button
@@ -816,17 +821,17 @@ export function UsersPage() {
                   type="button"
                   variant={expiryDays === null ? 'default' : 'secondary'}
                 >
-                  Never
+                  {t('common.never')}
                 </Button>
               </div>
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="note">Note</Label>
+              <Label htmlFor="note">{t('users.note')}</Label>
               <Textarea
                 id="note"
                 onChange={(e) => setNote(e.target.value)}
-                placeholder="Friend from Riga..."
+                placeholder={t('users.friendPlaceholder')}
                 rows={2}
                 value={note}
               />
@@ -835,10 +840,10 @@ export function UsersPage() {
 
           <DialogFooter>
             <Button onClick={() => setCreateOpen(false)} variant="secondary">
-              Cancel
+              {t('common.cancel')}
             </Button>
             <Button disabled={createMutation.isPending} onClick={() => createMutation.mutate()}>
-              Create
+              {t('users.create')}
               <ArrowRight />
             </Button>
           </DialogFooter>
@@ -853,24 +858,26 @@ function generateUsername() {
 }
 
 function UserStatusBadge({ status }: { status: UserStatus }) {
+  const { t } = useI18n();
+
   if (status === 'active') {
     return (
       <Badge variant="success">
         <span className="size-1.5 rounded-full bg-success animate-pulse-ring" />
-        Active
+        {t('users.active')}
       </Badge>
     );
   }
 
   if (status === 'limited') {
-    return <Badge variant="destructive">Limited</Badge>;
+    return <Badge variant="destructive">{t('users.limited')}</Badge>;
   }
 
   if (status === 'expired') {
-    return <Badge variant="warning">Expired</Badge>;
+    return <Badge variant="warning">{t('common.expired')}</Badge>;
   }
 
-  return <Badge variant="secondary">Disabled</Badge>;
+  return <Badge variant="secondary">{t('common.disabled')}</Badge>;
 }
 
 function QRDialogContent({
@@ -882,22 +889,23 @@ function QRDialogContent({
   links: UserLinks | null;
   username: string;
 }) {
+  const { t } = useI18n();
   const qrItems = links
     ? [
         {
-          copyLabel: 'Copy',
-          label: 'Subscription',
-          toastLabel: 'Subscription link',
+          copyLabel: t('common.copy'),
+          label: t('users.subscription'),
+          toastLabel: t('users.subscriptionLink'),
           value: links.subscription,
         },
         {
-          copyLabel: 'Copy',
+          copyLabel: t('common.copy'),
           label: 'VLESS',
           toastLabel: 'VLESS',
           value: links.vless,
         },
         {
-          copyLabel: 'Copy',
+          copyLabel: t('common.copy'),
           label: 'Hys2',
           toastLabel: 'Hys2',
           value: links.hysteria2,
@@ -908,7 +916,7 @@ function QRDialogContent({
   return (
     <div className="min-w-0 space-y-5 overflow-y-auto p-6">
       <DialogHeader className="pr-8">
-        <DialogTitle>{username || 'User'} QR</DialogTitle>
+        <DialogTitle>{t('users.qrTitle', { username: username || t('common.user') })}</DialogTitle>
       </DialogHeader>
 
       {isLoading ? (
@@ -926,14 +934,14 @@ function QRDialogContent({
           {qrItems.map((item) => (
             <div className="space-y-3 rounded-md bg-muted/35 p-3" key={item.label}>
               <div className="t-label">{item.label}</div>
-              <QRCodePreview label={`${username || 'User'} ${item.label} QR`} value={item.value} />
+              <QRCodePreview label={`${username || t('common.user')} ${item.label} QR`} value={item.value} />
               <Button
                 className="w-full"
                 disabled={!item.value}
                 onClick={async () => {
                   if (!item.value) return;
                   await navigator.clipboard.writeText(item.value);
-                  toast.success(`${item.toastLabel} copied`);
+                  toast.success(t('common.copied', { label: item.toastLabel }));
                 }}
                 type="button"
                 variant="secondary"
@@ -946,7 +954,7 @@ function QRDialogContent({
         </div>
       ) : (
         <div className="rounded-md bg-destructive/10 px-3 py-6 text-center text-sm text-destructive">
-          Unable to load QR data.
+          {t('users.qrDataError')}
         </div>
       )}
     </div>
@@ -984,6 +992,8 @@ function QRCodePreview({ label, value }: { label: string; value: string }) {
 }
 
 function LinkCopyRow({ label, value }: { label: string; value: string }) {
+  const { t } = useI18n();
+
   return (
     <div className="flex w-full min-w-0 items-center gap-2 overflow-hidden rounded-md bg-muted/60 px-3 py-2 transition-colors hover:bg-muted">
       <div className="min-w-0 flex-1 overflow-hidden">
@@ -991,13 +1001,13 @@ function LinkCopyRow({ label, value }: { label: string; value: string }) {
         <div className="truncate font-mono text-[11px] text-muted-foreground">{value || '--'}</div>
       </div>
       <Button
-        aria-label={`Copy ${label}`}
+        aria-label={`${t('common.copy')} ${label}`}
         className="shrink-0"
         disabled={!value}
         onClick={async () => {
           if (!value) return;
           await navigator.clipboard.writeText(value);
-          toast.success(`${label} copied`);
+          toast.success(t('common.copied', { label }));
         }}
         size="icon"
         type="button"

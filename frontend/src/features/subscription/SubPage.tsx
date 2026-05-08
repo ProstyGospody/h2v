@@ -8,9 +8,12 @@ import { BrandLogo } from '@/components/brand-logo';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
+import { LanguageSwitcher } from '@/components/language-switcher';
 import { cn } from '@/lib/utils';
 import { apiClient } from '@/shared/api/client';
 import { UserLinks } from '@/shared/api/types';
+import { useI18n } from '@/shared/i18n/i18n';
+import type { TranslationKey } from '@/shared/i18n/translations';
 import { detectOS } from '@/shared/lib/detectOS';
 import { daysUntil, formatBytes, formatDate, relativeExpiry, usagePercent } from '@/shared/lib/format';
 
@@ -61,31 +64,20 @@ const clientLinks = {
 const helpSections = [
   {
     title: 'iOS',
-    steps: [
-      'Install Streisand, Karing, or Shadowrocket from the App Store.',
-      'Open the app and choose "Import from clipboard" or scan a QR code.',
-      'Paste the subscription URL or scan the QR above.',
-    ],
+    steps: ['subscription.iosStep1', 'subscription.iosStep2', 'subscription.iosStep3'],
   },
   {
     title: 'Android',
-    steps: [
-      'Install v2rayNG, Hiddify, or Karing from a trusted release.',
-      'Choose "Import from clipboard" or scan the QR.',
-      'Refresh the subscription if your link is ever rotated.',
-    ],
+    steps: ['subscription.androidStep1', 'subscription.androidStep2', 'subscription.androidStep3'],
   },
   {
     title: 'Desktop',
-    steps: [
-      'Install Hiddify on your desktop.',
-      'Import via subscription URL or scan the QR with the client camera.',
-      'Keep the subscription entry enabled for automatic updates.',
-    ],
+    steps: ['subscription.desktopStep1', 'subscription.desktopStep2', 'subscription.desktopStep3'],
   },
-] as const;
+] satisfies Array<{ steps: TranslationKey[]; title: string }>;
 
 export function SubPage() {
+  const { locale, t } = useI18n();
   const { token } = useParams({ from: '/u/$token' });
   const [theme, setTheme] = useState<'dark' | 'light'>(() => getPreferredTheme());
   const os = typeof window !== 'undefined' ? detectOS() : 'desktop';
@@ -118,16 +110,19 @@ export function SubPage() {
 
   if (subscription.isError) {
     return (
-      <div className="min-h-screen bg-app-background px-4 py-10 text-foreground" data-theme={theme}>
+      <div className="relative min-h-screen bg-app-background px-4 py-10 text-foreground" data-theme={theme}>
+        <div className="absolute right-4 top-4 z-20">
+          <LanguageSwitcher />
+        </div>
         <div className="mx-auto flex min-h-screen max-w-120 items-center justify-center">
           <Card className="w-full">
             <CardContent className="flex min-h-64 flex-col items-center justify-center gap-3 px-6 py-12 text-center">
               <div className="space-y-1">
                 <div className="text-base font-semibold text-foreground">
-                  This link is no longer valid
+                  {t('subscription.invalidTitle')}
                 </div>
                 <p className="max-w-md text-sm text-muted-foreground">
-                  This subscription link was rotated or is no longer available.
+                  {t('subscription.invalidDescription')}
                 </p>
               </div>
             </CardContent>
@@ -142,7 +137,11 @@ export function SubPage() {
       <div className="relative min-h-screen">
         <div className="relative mx-auto w-full max-w-120 space-y-6 px-4 py-10 sm:py-14">
           <header className="space-y-5 text-center">
-            <BrandLogo className="mx-auto h-16 w-32" />
+            <div className="flex items-center justify-between">
+              <div className="w-9" />
+              <BrandLogo className="h-16 w-32" />
+              <LanguageSwitcher compact />
+            </div>
           </header>
 
           <Card>
@@ -151,7 +150,7 @@ export function SubPage() {
                 <Skeleton className="aspect-square w-full max-w-65 rounded-md" />
               ) : (
                 <QRCodePreview
-                  label="Subscription QR"
+                  label={t('subscription.qr')}
                   maxWidthClassName="max-w-70"
                   value={subscriptionURL}
                 />
@@ -161,13 +160,13 @@ export function SubPage() {
                 onClick={async () => {
                   if (!subscriptionURL) return;
                   await navigator.clipboard.writeText(subscriptionURL);
-                  toast.success('Subscription link copied');
+                  toast.success(t('subscription.linkCopied'));
                 }}
                 size="lg"
                 type="button"
               >
                 <Link2 className="size-4" />
-                Copy
+                {t('subscription.copyLink')}
               </Button>
             </CardContent>
           </Card>
@@ -194,19 +193,19 @@ export function SubPage() {
                       <span className="font-mono">
                         {(usage?.traffic_limit ?? 0) > 0
                           ? formatBytes(usage?.traffic_limit ?? 0)
-                          : 'Unlimited'}
+                          : t('common.unlimited')}
                       </span>
                     </div>
                   </div>
                   <div className="grid gap-5 pt-1 sm:grid-cols-2">
                     <div className="space-y-1.5">
-                      <div className="t-label">Used</div>
+                      <div className="t-label">{t('subscription.used')}</div>
                       <div className="text-xl font-semibold text-foreground">
-                        {unlimited ? 'Unlimited' : `${Math.round(percent)}%`}
+                        {unlimited ? t('common.unlimited') : `${Math.round(percent)}%`}
                       </div>
                     </div>
                     <div className="space-y-1.5">
-                      <div className="t-label">Expires</div>
+                      <div className="t-label">{t('subscription.expires')}</div>
                       <div
                         className={cn(
                           'text-xl font-semibold text-foreground',
@@ -214,11 +213,11 @@ export function SubPage() {
                           expiringSoon && 'text-warning',
                         )}
                       >
-                        {relativeExpiry(usage?.expires_at ?? null)}
+                        {relativeExpiry(usage?.expires_at ?? null, locale)}
                       </div>
                       {usage?.expires_at ? (
                         <div className="text-xs text-muted-foreground">
-                          {formatDate(usage.expires_at)}
+                          {formatDate(usage.expires_at, undefined, locale)}
                         </div>
                       ) : null}
                     </div>
@@ -248,7 +247,7 @@ export function SubPage() {
 
           <details className="group rounded-lg bg-surface shadow-sm">
             <summary className="flex cursor-pointer list-none items-center justify-between px-5 py-4 text-sm font-medium text-foreground">
-              <span>How to connect</span>
+              <span>{t('subscription.howToConnect')}</span>
               <ChevronRight className="size-4 text-muted-foreground transition group-open:rotate-90" />
             </summary>
             <div className="space-y-3 bg-muted/20 px-5 py-5">
@@ -264,7 +263,7 @@ export function SubPage() {
                         <span className="mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full bg-surface font-mono text-[10px] text-muted-foreground">
                           {index + 1}
                         </span>
-                        <span>{step}</span>
+                        <span>{t(step)}</span>
                       </li>
                     ))}
                   </ol>
@@ -275,7 +274,7 @@ export function SubPage() {
 
           <details className="group rounded-lg bg-surface shadow-sm">
             <summary className="flex cursor-pointer list-none items-center justify-between px-5 py-4 text-sm font-medium text-foreground">
-              <span>Advanced - individual keys</span>
+              <span>{t('subscription.advanced')}</span>
               <ChevronRight className="size-4 text-muted-foreground transition group-open:rotate-90" />
             </summary>
             <div className="space-y-4 bg-muted/20 px-5 py-5">
@@ -304,13 +303,13 @@ export function SubPage() {
                           onClick={async () => {
                             if (!item.value) return;
                             await navigator.clipboard.writeText(item.value);
-                            toast.success(`${item.label} copied`);
+                            toast.success(t('common.copied', { label: item.label }));
                           }}
                           type="button"
                           variant="secondary"
                         >
                           <Copy className="size-4" />
-                          Copy
+                          {t('common.copy')}
                         </Button>
                       </div>
                     ))}

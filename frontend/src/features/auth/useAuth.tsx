@@ -2,6 +2,7 @@ import { createContext, PropsWithChildren, useContext, useEffect, useMemo, useSt
 import { toast } from 'sonner';
 import { apiClient, ApiError } from '@/shared/api/client';
 import { Admin } from '@/shared/api/types';
+import { useI18n } from '@/shared/i18n/i18n';
 
 type AuthContextValue = {
   admin: Admin | null;
@@ -13,6 +14,7 @@ type AuthContextValue = {
 const AuthContext = createContext<AuthContextValue | null>(null);
 
 export function AuthProvider({ children }: PropsWithChildren) {
+  const { t } = useI18n();
   const [admin, setAdmin] = useState<Admin | null>(null);
   const [ready, setReady] = useState(false);
 
@@ -44,7 +46,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
           apiClient.setAccessToken(data.access_token);
           setAdmin(data.admin);
         } catch (error) {
-          const message = error instanceof ApiError ? error.message : 'Unable to sign in';
+          const message = error instanceof ApiError ? error.message : t('login.unableSignIn');
           toast.error(message);
           throw error;
         }
@@ -55,7 +57,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
         setAdmin(null);
       },
     }),
-    [admin, ready],
+    [admin, ready, t],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

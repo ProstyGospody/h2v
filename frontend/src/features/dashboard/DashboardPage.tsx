@@ -20,10 +20,11 @@ import { PageHeader } from '@/components/page-header';
 import { cn } from '@/lib/utils';
 import { apiClient } from '@/shared/api/client';
 import type { OverviewStats, TrafficPoint } from '@/shared/api/types';
+import { useI18n } from '@/shared/i18n/i18n';
 import {
   formatBytes,
   formatBytesPerSecond,
-  formatDate,
+  formatMonthDay,
   formatNumber,
   formatPercent,
   formatShortDateTime,
@@ -31,13 +32,6 @@ import {
 
 const ranges = ['1', '7', '30'] as const;
 type Range = (typeof ranges)[number];
-
-const trafficChartConfig = {
-  total: {
-    label: 'Transfer',
-    color: 'var(--gradient-accent)',
-  },
-} satisfies ChartConfig;
 
 function usageTone(value: number | undefined) {
   const v = value ?? 0;
@@ -47,6 +41,7 @@ function usageTone(value: number | undefined) {
 }
 
 export function DashboardPage() {
+  const { locale, t } = useI18n();
   const [days, setDays] = useState<Range>('7');
 
   const overview = useQuery({
@@ -67,18 +62,27 @@ export function DashboardPage() {
     () => (traffic.data ?? []).map((p) => ({ recorded_at: p.recorded_at, total: p.uplink + p.downlink })),
     [traffic.data],
   );
+  const trafficChartConfig = useMemo<ChartConfig>(
+    () => ({
+      total: {
+        label: t('dashboard.chart.transfer'),
+        color: 'var(--gradient-accent)',
+      },
+    }),
+    [t],
+  );
   const hasTrafficSamples = trafficData.some((p) => p.total > 0);
 
   return (
     <div className="pb-10">
       <PageHeader
-        title="Overview"
+        title={t('dashboard.overview')}
         action={
           <Tabs onValueChange={(v) => setDays(v as Range)} value={days}>
             <TabsList>
               {ranges.map((r) => (
                 <TabsTrigger key={r} value={r}>
-                  {r}D
+                  {t('dashboard.rangeDay', { days: r })}
                 </TabsTrigger>
               ))}
             </TabsList>
@@ -95,12 +99,12 @@ export function DashboardPage() {
             />
           }
           icon={Network}
-          label="Traffic"
+          label={t('dashboard.traffic')}
           loading={overview.isLoading}
         />
         <MetricCard
           icon={ChartColumnIncreasing}
-          label="Today"
+          label={t('dashboard.today')}
           loading={overview.isLoading}
           value={formatBytes(data?.today_traffic ?? 0)}
         />
@@ -114,21 +118,21 @@ export function DashboardPage() {
         <MetricCard
           bar={{ percent: memoryPercent ?? 0, tone: usageTone(memoryPercent) }}
           icon={MemoryStick}
-          label="RAM"
+          label={t('dashboard.ram')}
           loading={overview.isLoading}
           value={formatPercent(memoryPercent)}
         />
         <MetricCard
           icon={Wifi}
-          label="Online"
+          label={t('dashboard.online')}
           loading={overview.isLoading}
-          value={formatNumber(data?.online_users?.length ?? 0)}
+          value={formatNumber(data?.online_users?.length ?? 0, locale)}
         />
         <MetricCard
           icon={UserRoundX}
-          label="Disabled"
+          label={t('dashboard.disabled')}
           loading={overview.isLoading}
-          value={formatNumber(data?.disabled_users ?? 0)}
+          value={formatNumber(data?.disabled_users ?? 0, locale)}
         />
       </div>
 
@@ -136,7 +140,7 @@ export function DashboardPage() {
         <div className="relative">
           <div className="absolute right-0 top-0 z-10 flex items-center justify-end gap-3">
             <span className="font-mono text-[11px] uppercase tracking-wider text-muted-foreground">
-              last {days}d
+              {t('dashboard.daysRange', { days })}
             </span>
           </div>
           <div className="h-80 pt-6 sm:h-96 xl:h-[420px]">
@@ -157,7 +161,7 @@ export function DashboardPage() {
                     dataKey="recorded_at"
                     minTickGap={30}
                     tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 11 }}
-                    tickFormatter={(v) => formatDate(String(v), 'MMM d')}
+                    tickFormatter={(v) => formatMonthDay(String(v), locale)}
                     tickLine={false}
                   />
                   <YAxis
@@ -171,8 +175,8 @@ export function DashboardPage() {
                     cursor={{ fill: 'url(#dashboardTrafficGradient)', opacity: 0.18 }}
                     content={
                       <ChartTooltipContent
-                        formatter={(value) => [formatBytes(Number(value)), 'Total']}
-                        labelFormatter={(v) => formatShortDateTime(String(v))}
+                        formatter={(value) => [formatBytes(Number(value)), t('dashboard.chart.total')]}
+                        labelFormatter={(v) => formatShortDateTime(String(v), locale)}
                       />
                     }
                   />
@@ -181,7 +185,7 @@ export function DashboardPage() {
               </ChartContainer>
             ) : (
               <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
-                No samples yet.
+                {t('dashboard.noSamples')}
               </div>
             )}
           </div>
@@ -192,10 +196,11 @@ export function DashboardPage() {
 }
 
 function NetworkSpeedValue({ rx, tx }: { rx: number; tx: number }) {
+  const { t } = useI18n();
   const gradientId = `network-speed-${useId().replace(/:/g, '')}`;
   const items = [
-    { icon: ArrowDown, label: 'Down', value: formatBytesPerSecond(rx) },
-    { icon: ArrowUp, label: 'Up', value: formatBytesPerSecond(tx) },
+    { icon: ArrowDown, label: t('dashboard.down'), value: formatBytesPerSecond(rx) },
+    { icon: ArrowUp, label: t('dashboard.up'), value: formatBytesPerSecond(tx) },
   ];
 
   return (

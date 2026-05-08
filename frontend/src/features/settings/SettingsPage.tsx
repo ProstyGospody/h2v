@@ -23,6 +23,8 @@ import { CoreLogo, type CoreLogoName } from '@/components/core-logo';
 import { PageHeader } from '@/components/page-header';
 import { cn } from '@/lib/utils';
 import { apiClient, ApiError } from '@/shared/api/client';
+import { useI18n, type Translate } from '@/shared/i18n/i18n';
+import type { TranslationKey } from '@/shared/i18n/translations';
 import type { Setting, TelegramProxyInfo } from '@/shared/api/types';
 
 type SettingKey =
@@ -95,6 +97,23 @@ const fallbackValues: Record<SettingKey, SettingValue> = {
   'vless.port': 8444,
 };
 
+const settingLabelKeys: Record<SettingKey, TranslationKey> = {
+  'hy2.bandwidth_down': 'setting.hy2.bandwidth_down',
+  'hy2.bandwidth_up': 'setting.hy2.bandwidth_up',
+  'hy2.domain': 'setting.hy2.domain',
+  'hy2.masquerade_url': 'setting.hy2.masquerade_url',
+  'hy2.obfs_enabled': 'setting.hy2.obfs_enabled',
+  'hy2.obfs_password': 'setting.hy2.obfs_password',
+  'hy2.port': 'setting.hy2.port',
+  'hy2.traffic_secret': 'setting.hy2.traffic_secret',
+  'reality.dest': 'setting.reality.dest',
+  'reality.private_key': 'setting.reality.private_key',
+  'reality.public_key': 'setting.reality.public_key',
+  'reality.short_ids': 'setting.reality.short_ids',
+  'reality.sni': 'setting.reality.sni',
+  'vless.port': 'setting.vless.port',
+};
+
 const realityPresets: RealityPreset[] = [
   { label: 'Cloudflare', sni: 'www.cloudflare.com', dest: 'www.cloudflare.com:443' },
   { label: 'Microsoft', sni: 'www.microsoft.com', dest: 'www.microsoft.com:443' },
@@ -142,6 +161,7 @@ type PortCheckResult = PortCheckItem & {
 };
 
 export function SettingsPage() {
+  const { t } = useI18n();
   const queryClient = useQueryClient();
   const [draft, setDraft] = useState<SettingsDraft>({});
   const [showSecrets, setShowSecrets] = useState(false);
@@ -160,7 +180,7 @@ export function SettingsPage() {
     () => createSettingsValues(settings.data ?? [], {}),
     [settings.data],
   );
-  const issues = useMemo(() => validateDraft(draft, values), [draft, values]);
+  const issues = useMemo(() => validateDraft(draft, values, t), [draft, t, values]);
   const portCheckItems = useMemo(() => createPortCheckItems(values), [values]);
   const portAvailability = useQuery({
     enabled: settings.isSuccess && portCheckItems.length > 0,
@@ -172,8 +192,8 @@ export function SettingsPage() {
     queryKey: ['settings-port-checks', portCheckItems],
   });
   const portIssues = useMemo(
-    () => createPortIssues(draft, values, originalValues, portAvailability.data ?? [], portAvailability.isError),
-    [draft, originalValues, portAvailability.data, portAvailability.isError, values],
+    () => createPortIssues(draft, values, originalValues, portAvailability.data ?? [], portAvailability.isError, t),
+    [draft, originalValues, portAvailability.data, portAvailability.isError, t, values],
   );
   const allIssues = useMemo(() => [...issues, ...portIssues], [issues, portIssues]);
   const hasDraft = Object.keys(draft).length > 0;
@@ -189,10 +209,10 @@ export function SettingsPage() {
         method: 'PATCH',
       }),
     onError: (error) => {
-      toast.error(error instanceof ApiError ? error.message : 'Unable to update settings');
+      toast.error(error instanceof ApiError ? error.message : t('settings.unableUpdateSettings'));
     },
     onSuccess: async () => {
-      toast.success('Settings updated');
+      toast.success(t('settings.settingsUpdated'));
       setDraft({});
       await queryClient.invalidateQueries({ queryKey: ['settings'] });
     },
@@ -204,23 +224,23 @@ export function SettingsPage() {
         method: 'POST',
       }),
     onError: (error) => {
-      toast.error(error instanceof ApiError ? error.message : 'Unable to generate Reality keys');
+      toast.error(error instanceof ApiError ? error.message : t('settings.unableGenerateReality'));
     },
     onSuccess: (keyPair) => {
       setValue('reality.private_key', keyPair.private_key);
       setValue('reality.public_key', keyPair.public_key);
-      toast.success('Reality key pair generated');
+      toast.success(t('settings.realityGenerated'));
     },
   });
 
   const exportBackup = useMutation({
     mutationFn: () => apiClient.request<PanelBackup>('/backup/export'),
     onError: (error) => {
-      toast.error(error instanceof ApiError ? error.message : 'Unable to export backup');
+      toast.error(error instanceof ApiError ? error.message : t('settings.unableExportBackup'));
     },
     onSuccess: (backup) => {
       downloadBackupFile(backup);
-      toast.success('Backup saved');
+      toast.success(t('settings.backupSaved'));
     },
   });
 
@@ -231,10 +251,10 @@ export function SettingsPage() {
         method: 'POST',
       }),
     onError: (error) => {
-      toast.error(error instanceof ApiError ? error.message : 'Unable to import backup');
+      toast.error(error instanceof ApiError ? error.message : t('settings.unableImportBackup'));
     },
     onSuccess: async () => {
-      toast.success('Backup restored');
+      toast.success(t('settings.backupRestored'));
       setDraft({});
       await queryClient.invalidateQueries();
     },
@@ -246,10 +266,10 @@ export function SettingsPage() {
         method: 'POST',
       }),
     onError: (error) => {
-      toast.error(error instanceof ApiError ? error.message : 'Unable to update GeoIP/Geosite data');
+      toast.error(error instanceof ApiError ? error.message : t('settings.unableUpdateGeo'));
     },
     onSuccess: () => {
-      toast.success('GeoIP/Geosite data updated');
+      toast.success(t('settings.geoUpdated'));
     },
   });
 
@@ -276,24 +296,24 @@ export function SettingsPage() {
     const file = event.currentTarget.files?.[0];
     event.currentTarget.value = '';
     if (!file) return;
-    if (!window.confirm('Restore backup and replace current settings, users, and protocol configs?')) return;
+    if (!window.confirm(t('settings.restoreConfirm'))) return;
 
     try {
       const payload = JSON.parse(await file.text()) as PanelBackup;
       importBackup.mutate(payload);
     } catch {
-      toast.error('Backup file is not valid JSON');
+      toast.error(t('settings.backupInvalidJson'));
     }
   }
 
   return (
     <div className="pb-10">
       <PageHeader
-        title="Settings"
+        title={t('settings.title')}
         action={
           <>
             <Button
-              aria-label={showSecrets ? 'Hide secrets' : 'Show secrets'}
+              aria-label={showSecrets ? t('settings.hideSecrets') : t('settings.showSecrets')}
               className="size-10"
               onClick={() => setShowSecrets((value) => !value)}
               size="icon"
@@ -310,7 +330,7 @@ export function SettingsPage() {
               variant="secondary"
             >
               <Download />
-              Save Backup
+              {t('settings.saveBackup')}
             </Button>
             <Button
               className="h-10"
@@ -321,7 +341,7 @@ export function SettingsPage() {
               variant="secondary"
             >
               <Upload />
-              Restore Backup
+              {t('settings.restoreBackup')}
             </Button>
             <input
               ref={backupInputRef}
@@ -339,7 +359,7 @@ export function SettingsPage() {
               variant="secondary"
             >
               <RefreshCw className={cn(updateGeodata.isPending && 'animate-spin')} />
-              Update Geo
+              {t('settings.updateGeo')}
             </Button>
             {hasDraft ? (
               <>
@@ -351,7 +371,7 @@ export function SettingsPage() {
                   variant="ghost"
                 >
                   <RotateCcw />
-                  Discard
+                  {t('common.discard')}
                 </Button>
                 <Button
                   className="h-10"
@@ -360,7 +380,7 @@ export function SettingsPage() {
                   size="sm"
                 >
                   <Save />
-                  Save
+                  {t('common.save')}
                 </Button>
               </>
             ) : null}
@@ -382,10 +402,10 @@ export function SettingsPage() {
                 <SettingsSection
                   kicker="VLESS"
                   logo="xray"
-                  title="Reality inbound"
+                  title={t('settings.realityInbound')}
                 >
                   <PortControl
-                    label="VLESS port"
+                    label={t('settings.vlessPort')}
                     max={65535}
                     min={1}
                     onChange={(value) => setValue('vless.port', value)}
@@ -395,11 +415,11 @@ export function SettingsPage() {
                     value={values.number('vless.port')}
                   />
                   <SelectControl
-                    label="Reality target"
+                    label={t('settings.realityTarget')}
                     onChange={(value) => setRealityPreset(value)}
                     options={[
                       ...realityPresets.map((item) => ({ label: item.label, value: item.label })),
-                      { label: 'Custom', value: 'Custom' },
+                      { label: t('common.custom'), value: 'Custom' },
                     ]}
                     value={currentRealityPreset?.label ?? 'Custom'}
                   />
@@ -410,13 +430,13 @@ export function SettingsPage() {
                     value={values.string('reality.sni')}
                   />
                   <TextControl
-                    label="Destination"
+                    label={t('settings.destination')}
                     onChange={(value) => setValue('reality.dest', value)}
                     placeholder="www.cloudflare.com:443"
                     value={values.string('reality.dest')}
                   />
                   <SecretControl
-                    label="Private key"
+                    label={t('settings.privateKey')}
                     generating={generateReality.isPending}
                     onChange={(value) => setValue('reality.private_key', value)}
                     onGenerate={() => generateReality.mutate()}
@@ -424,7 +444,7 @@ export function SettingsPage() {
                     value={values.string('reality.private_key')}
                   />
                   <SecretControl
-                    label="Public key"
+                    label={t('settings.publicKey')}
                     generating={generateReality.isPending}
                     onChange={(value) => setValue('reality.public_key', value)}
                     onGenerate={() => generateReality.mutate()}
@@ -432,7 +452,7 @@ export function SettingsPage() {
                     value={values.string('reality.public_key')}
                   />
                   <SecretControl
-                    label="Short ID"
+                    label={t('settings.shortId')}
                     onChange={(value) => setValue('reality.short_ids', [value])}
                     onGenerate={() => setValue('reality.short_ids', [randomHex(8)])}
                     reveal={showSecrets}
@@ -445,16 +465,16 @@ export function SettingsPage() {
                 <SettingsSection
                   kicker="Hysteria 2"
                   logo="hysteria"
-                  title="Transport"
+                  title={t('settings.transport')}
                 >
                   <TextControl
-                    label="Hysteria domain"
+                    label={t('settings.hysteriaDomain')}
                     onChange={(value) => setValue('hy2.domain', value)}
                     placeholder="panel.example.com"
                     value={values.string('hy2.domain')}
                   />
                   <PortControl
-                    label="Hysteria port"
+                    label={t('settings.hysteriaPort')}
                     max={65535}
                     min={1}
                     onChange={(value) => setValue('hy2.port', value)}
@@ -464,27 +484,27 @@ export function SettingsPage() {
                     value={values.number('hy2.port')}
                   />
                   <BandwidthControl
-                    label="Upload bandwidth"
+                    label={t('settings.uploadBandwidth')}
                     onChange={(value) => setValue('hy2.bandwidth_up', value)}
                     presets={bandwidthPresets}
                     value={values.string('hy2.bandwidth_up')}
                   />
                   <BandwidthControl
-                    label="Download bandwidth"
+                    label={t('settings.downloadBandwidth')}
                     onChange={(value) => setValue('hy2.bandwidth_down', value)}
                     presets={bandwidthPresets}
                     value={values.string('hy2.bandwidth_down')}
                   />
                   <ToggleControl
-                    label="Hysteria mode"
-                    offLabel="Masquerade"
+                    label={t('settings.hysteriaMode')}
+                    offLabel={t('settings.masquerade')}
                     onChange={(value) => setValue('hy2.obfs_enabled', value)}
-                    onLabel="Obfs"
+                    onLabel={t('settings.obfs')}
                     value={values.bool('hy2.obfs_enabled')}
                   />
                   {values.bool('hy2.obfs_enabled') ? (
                     <SecretControl
-                      label="Obfs password"
+                      label={t('settings.obfsPassword')}
                       onChange={(value) => setValue('hy2.obfs_password', value)}
                       onGenerate={() => setValue('hy2.obfs_password', randomSecret(24))}
                       reveal={showSecrets}
@@ -493,18 +513,18 @@ export function SettingsPage() {
                   ) : (
                     <>
                       <SelectControl
-                        label="Masquerade"
+                        label={t('settings.masquerade')}
                         onChange={(value) => {
                           if (value !== 'Custom') setValue('hy2.masquerade_url', value);
                         }}
                         options={[
                           ...masqueradePresets.map((item) => ({ label: item.label, value: item.value })),
-                          { label: 'Custom', value: 'Custom' },
+                          { label: t('common.custom'), value: 'Custom' },
                         ]}
                         value={currentMasqueradePreset?.value ?? 'Custom'}
                       />
                       <TextControl
-                        label="Masquerade URL"
+                        label={t('settings.masqueradeUrl')}
                         onChange={(value) => setValue('hy2.masquerade_url', value)}
                         placeholder="https://www.bing.com"
                         value={values.string('hy2.masquerade_url')}
@@ -512,7 +532,7 @@ export function SettingsPage() {
                     </>
                   )}
                   <SecretControl
-                    label="Traffic stats secret"
+                    label={t('settings.trafficStatsSecret')}
                     onChange={(value) => setValue('hy2.traffic_secret', value)}
                     onGenerate={() => setValue('hy2.traffic_secret', randomSecret(32))}
                     reveal={showSecrets}
@@ -533,6 +553,7 @@ export function SettingsPage() {
 }
 
 function TelegramSettingsSection({ revealSecrets }: { revealSecrets: boolean }) {
+  const { t } = useI18n();
   const queryClient = useQueryClient();
   const [form, setForm] = useState<TelegramForm>(telegramFallbackForm);
 
@@ -546,7 +567,7 @@ function TelegramSettingsSection({ revealSecrets }: { revealSecrets: boolean }) 
     setForm(telegramFormFromInfo(proxy.data));
   }, [proxy.data]);
 
-  const issues = useMemo(() => validateTelegramForm(form), [form]);
+  const issues = useMemo(() => validateTelegramForm(form, t), [form, t]);
   const isDirty = useMemo(() => {
     if (!proxy.data) return false;
     const original = telegramFormFromInfo(proxy.data);
@@ -574,10 +595,10 @@ function TelegramSettingsSection({ revealSecrets }: { revealSecrets: boolean }) 
         method: 'PATCH',
       }),
     onError: (error) => {
-      toast.error(error instanceof ApiError ? error.message : 'Unable to update Telegram proxy');
+      toast.error(error instanceof ApiError ? error.message : t('settings.unableUpdateTelegram'));
     },
     onSuccess: async () => {
-      toast.success('Telegram proxy updated');
+      toast.success(t('settings.telegramProxyUpdated'));
       await queryClient.invalidateQueries({ queryKey: ['telegram-proxy'] });
     },
   });
@@ -588,10 +609,10 @@ function TelegramSettingsSection({ revealSecrets }: { revealSecrets: boolean }) 
         method: 'POST',
       }),
     onError: (error) => {
-      toast.error(error instanceof ApiError ? error.message : 'Unable to regenerate Telegram secret');
+      toast.error(error instanceof ApiError ? error.message : t('settings.unableRegenerateTelegram'));
     },
     onSuccess: async () => {
-      toast.success('Telegram secret regenerated');
+      toast.success(t('settings.telegramSecretRegenerated'));
       await queryClient.invalidateQueries({ queryKey: ['telegram-proxy'] });
     },
   });
@@ -608,12 +629,12 @@ function TelegramSettingsSection({ revealSecrets }: { revealSecrets: boolean }) 
   async function copyTelegramLink() {
     if (!proxy.data?.link || isDirty) return;
     await navigator.clipboard.writeText(proxy.data.link);
-    toast.success('Telegram link copied');
+    toast.success(t('settings.telegramLinkCopied'));
   }
 
   if (proxy.isLoading) {
     return (
-      <SettingsSection kicker="Add-on" logo="telegram" title="Telegram proxy">
+      <SettingsSection kicker={t('settings.telegramAddOn')} logo="telegram" title={t('settings.telegramProxy')}>
         <Skeleton className="h-20 w-full" />
         <Skeleton className="h-20 w-full" />
         <Skeleton className="h-9 w-36" />
@@ -623,40 +644,40 @@ function TelegramSettingsSection({ revealSecrets }: { revealSecrets: boolean }) 
 
   if (proxy.isError) {
     return (
-      <SettingsSection kicker="Add-on" logo="telegram" title="Telegram proxy">
+      <SettingsSection kicker={t('settings.telegramAddOn')} logo="telegram" title={t('settings.telegramProxy')}>
         <div className="rounded-md border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
           <div className="flex items-center gap-2 font-medium">
             <AlertTriangle className="size-4" />
-            Unable to load Telegram proxy
+            {t('settings.unableLoadTelegram')}
           </div>
-          <p className="mt-2 text-xs">{errorMessage(proxy.error)}</p>
+          <p className="mt-2 text-xs">{errorMessage(proxy.error, t('common.requestFailed'))}</p>
         </div>
         <Button onClick={() => proxy.refetch()} size="sm" type="button" variant="secondary">
-          Retry
+          {t('common.retry')}
         </Button>
       </SettingsSection>
     );
   }
 
-  const linkState = isDirty ? 'Unsaved' : proxy.data?.link ? 'Ready' : 'Unavailable';
+  const linkState = isDirty ? t('settings.unsaved') : proxy.data?.link ? t('settings.ready') : t('common.unavailable');
 
   return (
-    <SettingsSection kicker="Add-on" logo="telegram" title="Telegram proxy">
+    <SettingsSection kicker={t('settings.telegramAddOn')} logo="telegram" title={t('settings.telegramProxy')}>
       <ToggleControl
-        label="Service"
-        offLabel="Disabled"
+        label={t('settings.service')}
+        offLabel={t('common.disabled')}
         onChange={(value) => setTelegramValue('enabled', value)}
-        onLabel="Enabled"
+        onLabel={t('common.enabled')}
         value={form.enabled}
       />
       <TextControl
-        label="Public host"
+        label={t('settings.publicHost')}
         onChange={(value) => setTelegramValue('host', value)}
         placeholder="tg.example.com"
         value={form.host}
       />
       <PortControl
-        label="Port"
+        label={t('settings.port')}
         max={65535}
         min={1}
         onChange={(value) => setTelegramValue('port', value)}
@@ -665,20 +686,20 @@ function TelegramSettingsSection({ revealSecrets }: { revealSecrets: boolean }) 
         value={form.port}
       />
       <TextControl
-        label="Mask domain"
+        label={t('settings.maskDomain')}
         onChange={(value) => setTelegramValue('mask_domain', value)}
         placeholder="www.cloudflare.com"
         value={form.mask_domain}
       />
       <TextControl
-        label="Fallback"
+        label={t('settings.fallback')}
         onChange={(value) => setTelegramValue('fallback_addr', value)}
         placeholder="www.cloudflare.com:443"
         value={form.fallback_addr}
       />
       <SecretControl
         generating={regenerate.isPending}
-        label="Secret"
+        label={t('settings.secret')}
         onChange={(value) => setTelegramValue('secret', value)}
         onGenerate={() => regenerate.mutate()}
         reveal={revealSecrets}
@@ -686,12 +707,12 @@ function TelegramSettingsSection({ revealSecrets }: { revealSecrets: boolean }) 
       />
       <div className="flex flex-wrap items-center justify-between gap-3 rounded-md bg-muted/35 px-3 py-2">
         <div>
-          <div className="t-label">Link</div>
+          <div className="t-label">{t('settings.link')}</div>
           <div className="text-sm font-medium text-foreground">{linkState}</div>
         </div>
         <Button disabled={isDirty || !proxy.data?.link} onClick={copyTelegramLink} size="sm" type="button">
           <Copy />
-          Copy
+          {t('common.copy')}
         </Button>
       </div>
       {issues.length > 0 ? <TelegramIssues issues={issues} /> : null}
@@ -699,11 +720,11 @@ function TelegramSettingsSection({ revealSecrets }: { revealSecrets: boolean }) 
         <div className="flex flex-wrap justify-end gap-2">
           <Button disabled={save.isPending} onClick={resetTelegramForm} size="sm" type="button" variant="ghost">
             <RotateCcw />
-            Discard
+            {t('common.discard')}
           </Button>
           <Button disabled={save.isPending || issues.length > 0} onClick={() => save.mutate()} size="sm" type="button">
             <Save />
-            Save
+            {t('common.save')}
           </Button>
         </div>
       ) : null}
@@ -801,6 +822,8 @@ function SecretControl({
   reveal: boolean;
   value: string;
 }) {
+  const { t } = useI18n();
+
   return (
     <div className="space-y-[13px]">
       <Label>{label}</Label>
@@ -813,7 +836,7 @@ function SecretControl({
           value={value}
         />
         <Button
-          aria-label={`Regenerate ${label}`}
+          aria-label={t('users.regenerate')}
           className="absolute inset-y-0 right-0 h-full w-10 rounded-l-none"
           disabled={generating}
           onClick={onGenerate}
@@ -847,6 +870,7 @@ function PortControl({
   unavailablePorts?: number[];
   value: number;
 }) {
+  const { t } = useI18n();
   const unavailable = new Set(unavailablePorts);
 
   return (
@@ -866,7 +890,7 @@ function PortControl({
             key={port}
             onClick={() => onChange(port)}
             size="sm"
-            title={unavailable.has(port) ? 'Port is already in use' : undefined}
+            title={unavailable.has(port) ? t('common.portInUse') : undefined}
             type="button"
             variant={value === port ? 'default' : 'secondary'}
           >
@@ -998,11 +1022,13 @@ function SelectControl({
 }
 
 function TelegramIssues({ issues }: { issues: string[] }) {
+  const { t } = useI18n();
+
   return (
     <div className="rounded-md border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
       <div className="flex items-center gap-2 font-medium">
         <AlertTriangle className="size-4" />
-        Telegram proxy needs attention
+        {t('settings.telegramNeedsAttention')}
       </div>
       <ul className="mt-2 space-y-1 text-xs">
         {issues.map((issue) => (
@@ -1014,11 +1040,13 @@ function TelegramIssues({ issues }: { issues: string[] }) {
 }
 
 function SettingsIssues({ issues }: { issues: string[] }) {
+  const { t } = useI18n();
+
   return (
     <div className="rounded-md border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
       <div className="flex items-center gap-2 font-medium">
         <AlertTriangle className="size-4" />
-        Settings need attention
+        {t('settings.settingsNeedAttention')}
       </div>
       <ul className="mt-2 space-y-1 text-xs">
         {issues.map((issue) => (
@@ -1047,14 +1075,16 @@ function SettingsSkeleton() {
 }
 
 function SettingsError({ error, onRetry }: { error: unknown; onRetry: () => void }) {
+  const { t } = useI18n();
+
   return (
     <Card className="border-0">
       <CardContent className="flex min-h-64 flex-col items-center justify-center gap-3 px-6 py-12 text-center">
         <AlertTriangle className="size-8 text-destructive" />
-        <div className="text-base font-semibold text-foreground">Unable to load settings</div>
-        <p className="max-w-xl text-sm text-muted-foreground">{errorMessage(error)}</p>
+        <div className="text-base font-semibold text-foreground">{t('settings.unableLoadSettings')}</div>
+        <p className="max-w-xl text-sm text-muted-foreground">{errorMessage(error, t('common.requestFailed'))}</p>
         <Button onClick={onRetry} size="sm" variant="secondary">
-          Retry
+          {t('common.retry')}
         </Button>
       </CardContent>
     </Card>
@@ -1131,12 +1161,13 @@ function createPortIssues(
   originalValues: ReturnType<typeof createSettingsValues>,
   results: PortCheckResult[],
   checkFailed: boolean,
+  t: Translate,
 ): string[] {
   if (!hasChangedPort(draft, values, originalValues)) {
     return [];
   }
   if (checkFailed) {
-    return ['Unable to check port availability.'];
+    return [t('settings.validation.unableCheckPorts')];
   }
 
   const issues: string[] = [];
@@ -1148,7 +1179,9 @@ function createPortIssues(
       (item) => item.key === definition.key && item.port === port && item.protocol === definition.protocol,
     );
     if (result && !result.available) {
-      issues.push(`${settingLabel(definition.key)} ${port}/${definition.protocol.toUpperCase()} is already in use.`);
+      issues.push(
+        `${settingLabel(definition.key, t)} ${port}/${definition.protocol.toUpperCase()}: ${t('common.portInUse')}.`,
+      );
     }
   }
   return issues;
@@ -1175,57 +1208,57 @@ function unavailablePresetPorts(
     .map((item) => item.port);
 }
 
-function validateDraft(draft: SettingsDraft, values: ReturnType<typeof createSettingsValues>) {
+function validateDraft(draft: SettingsDraft, values: ReturnType<typeof createSettingsValues>, t: Translate) {
   const issues: string[] = [];
   for (const key of Object.keys(draft) as SettingKey[]) {
     if (isPortSetting(key) && !validPort(values.number(key))) {
-      issues.push(`${settingLabel(key)} must be between 1 and 65535.`);
+      issues.push(t('settings.validation.portRange', { label: settingLabel(key, t) }));
     }
     if ((key.includes('domain') || key === 'reality.sni') && values.string(key).trim() === '') {
-      issues.push(`${settingLabel(key)} cannot be empty.`);
+      issues.push(t('settings.validation.domainRequired', { label: settingLabel(key, t) }));
     }
     if (key === 'hy2.masquerade_url' && !validURL(values.string(key))) {
-      issues.push(`${settingLabel(key)} must be a valid http or https URL.`);
+      issues.push(t('settings.validation.url', { label: settingLabel(key, t) }));
     }
     if (key === 'reality.dest' && !validHostPort(values.string(key))) {
-      issues.push('Reality / Dest must be a host:port value.');
+      issues.push(t('settings.validation.realityDestHostPort'));
     }
     if (key === 'reality.short_ids' && !values.stringArray(key).every(validRealityShortID)) {
-      issues.push('Reality / Short Ids must contain empty or even-length hex values up to 16 characters.');
+      issues.push(t('settings.validation.shortIds'));
     }
     if ((key === 'hy2.bandwidth_up' || key === 'hy2.bandwidth_down') && !validBandwidth(values.string(key))) {
-      issues.push(`${settingLabel(key)} must use bps, kbps, mbps, gbps, or tbps.`);
+      issues.push(t('settings.validation.bandwidth', { label: settingLabel(key, t) }));
     }
   }
   if (draft['hy2.obfs_enabled'] === true || draft['hy2.obfs_password'] !== undefined) {
     if (values.bool('hy2.obfs_enabled') && values.string('hy2.obfs_password').trim() === '') {
-      issues.push('Obfs password is required when Hysteria obfuscation is enabled.');
+      issues.push(t('settings.validation.obfsPasswordRequired'));
     }
   }
   if (draft['reality.private_key'] !== undefined || draft['reality.public_key'] !== undefined) {
     if (values.string('reality.private_key').trim() === '' || values.string('reality.public_key').trim() === '') {
-      issues.push('Reality private and public keys must be saved together.');
+      issues.push(t('settings.validation.realityKeysTogether'));
     }
   }
   return issues;
 }
 
-function validateTelegramForm(form: TelegramForm): string[] {
+function validateTelegramForm(form: TelegramForm, t: Translate): string[] {
   const issues: string[] = [];
   if (form.enabled && form.host.trim() === '') {
-    issues.push('Public host cannot be empty.');
+    issues.push(t('settings.validation.publicHostRequired'));
   }
   if (form.port < 1 || form.port > 65535 || !Number.isFinite(form.port)) {
-    issues.push('Port must be between 1 and 65535.');
+    issues.push(t('settings.validation.portRange', { label: t('settings.port') }));
   }
   if (form.enabled && !/^[0-9a-fA-F]{32}$/.test(form.secret.trim())) {
-    issues.push('Secret must be 32 hex characters.');
+    issues.push(t('settings.validation.telegramSecret'));
   }
   if (form.enabled && form.mask_domain.trim() === '') {
-    issues.push('Mask domain cannot be empty.');
+    issues.push(t('settings.validation.maskDomainRequired'));
   }
   if (form.enabled && !/^[^:]+:\d+$/.test(form.fallback_addr.trim())) {
-    issues.push('Fallback must be a host:port value.');
+    issues.push(t('settings.validation.fallbackHostPort'));
   }
   return issues;
 }
@@ -1251,12 +1284,8 @@ function normalizeDraftForSave(draft: SettingsDraft): SettingsDraft {
   return normalized;
 }
 
-function settingLabel(key: SettingKey): string {
-  return key
-    .split('.')
-    .map((part) => part.split('_').join(' '))
-    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-    .join(' / ');
+function settingLabel(key: SettingKey, t: Translate): string {
+  return t(settingLabelKeys[key]);
 }
 
 function sameSettingValue(left: SettingValue, right: SettingValue): boolean {
@@ -1342,8 +1371,8 @@ function randomSecret(bytes: number): string {
   return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 }
 
-function errorMessage(error: unknown): string {
+function errorMessage(error: unknown, fallback = 'Request failed'): string {
   if (error instanceof ApiError) return error.message;
   if (error instanceof Error) return error.message;
-  return 'Request failed';
+  return fallback;
 }
