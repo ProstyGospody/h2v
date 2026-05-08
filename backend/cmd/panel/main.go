@@ -79,7 +79,7 @@ func runServe(cfg config.Config, logger *slog.Logger) {
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer cancel()
 
-	pool, scheduler, httpServer := buildApp(ctx, cfg, logger)
+	pool, scheduler, httpServer, initialReconcile := buildApp(ctx, cfg, logger)
 	defer pool.Close()
 
 	go scheduler.Start(ctx)
@@ -91,6 +91,7 @@ func runServe(cfg config.Config, logger *slog.Logger) {
 	}()
 
 	_, _ = daemon.SdNotify(false, daemon.SdNotifyReady)
+	go initialReconcile(ctx)
 	<-ctx.Done()
 
 	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 30*time.Second)
@@ -101,7 +102,7 @@ func runServe(cfg config.Config, logger *slog.Logger) {
 	logger.Info("shutdown complete")
 }
 
-func buildApp(ctx context.Context, cfg config.Config, logger *slog.Logger) (*pgxpool.Pool, *tasks.Scheduler, *api.Server) {
+func buildApp(ctx context.Context, cfg config.Config, logger *slog.Logger) (*pgxpool.Pool, *tasks.Scheduler, *api.Server, func(context.Context)) {
 	pool, err := db.Connect(ctx, cfg.DB)
 	if err != nil {
 		fatal(logger, err)
@@ -137,16 +138,6 @@ func buildApp(ctx context.Context, cfg config.Config, logger *slog.Logger) (*pgx
 		logger.Warn("settings bootstrap failed", "err", err)
 	}
 
-	if err := serviceBundle.Configs.ReconcileXray(ctx); err != nil {
-		logger.Warn("initial xray config reconcile failed", "err", err)
-	}
-	if err := serviceBundle.Configs.ReconcileHysteria(ctx); err != nil {
-		logger.Warn("initial hysteria config reconcile failed", "err", err)
-	}
-	if err := serviceBundle.Telegram.Reconcile(ctx); err != nil {
-		logger.Warn("initial telegram proxy reconcile failed", "err", err)
-	}
-
 	reconcileXray := func(ctx context.Context) error { return serviceBundle.Configs.ReconcileXray(ctx) }
 	reconcileHysteria := func(ctx context.Context) error { return serviceBundle.Configs.ReconcileHysteria(ctx) }
 	coreReconciler := tasks.NewCoreReconciler(reconcileXray, reconcileHysteria, logger)
@@ -160,7 +151,30 @@ func buildApp(ctx context.Context, cfg config.Config, logger *slog.Logger) (*pgx
 	scheduler.Every("traffic_retention", 24*time.Hour, tasks.NewTrafficRetention(repository, cfg.Traffic.RetentionDays, logger).Run)
 
 	httpServer := api.New(cfg, serviceBundle, logger)
-	return pool, scheduler, httpServer
+	return pool, scheduler, httpServer, func(ctx context.Context) {
+		runInitialReconcile(ctx, serviceBundle, logger)
+	}
+}
+
+func runInitialReconcile(ctx context.Context, serviceBundle *services.Services, logger *slog.Logger) {
+	run := func(name string, timeout time.Duration, fn func(context.Context) error) {
+		if ctx.Err() != nil {
+			return
+		}
+		reconcileCtx, cancel := context.WithTimeout(ctx, timeout)
+		defer cancel()
+		if err := fn(reconcileCtx); err != nil {
+			logger.Warn("initial "+name+" reconcile failed", "err", err)
+		}
+	}
+
+	run("xray config", 30*time.Second, func(ctx context.Context) error {
+		return serviceBundle.Configs.ReconcileXray(ctx)
+	})
+	run("hysteria config", 30*time.Second, func(ctx context.Context) error {
+		return serviceBundle.Configs.ReconcileHysteria(ctx)
+	})
+	run("telegram proxy", 15*time.Second, serviceBundle.Telegram.Reconcile)
 }
 
 func runDB(cfg config.Config, logger *slog.Logger, args []string) {

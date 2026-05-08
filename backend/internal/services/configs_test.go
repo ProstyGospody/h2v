@@ -1,11 +1,14 @@
 package services
 
 import (
+	"context"
 	"encoding/json"
+	"errors"
 	"io"
 	"log/slog"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/prost/h2v/backend/internal/config"
 )
@@ -54,6 +57,32 @@ func TestPrepareXrayConfigForTestRewritesInboundListenPorts(t *testing.T) {
 func TestXrayInboundPortsRejectsNonIntegerPort(t *testing.T) {
 	if _, err := xrayInboundPorts([]byte(`{"inbounds":[{"port":8444.5}]}`)); err == nil {
 		t.Fatal("expected non-integer port to fail")
+	}
+}
+
+func TestRestartCoreUsesBoundedTimeout(t *testing.T) {
+	previous := coreRestartTimeout
+	coreRestartTimeout = 20 * time.Millisecond
+	defer func() {
+		coreRestartTimeout = previous
+	}()
+
+	service := NewConfigService(
+		config.Config{},
+		nil,
+		blockingSystemctl{},
+		nil,
+		nil,
+		slog.New(slog.NewTextHandler(io.Discard, nil)),
+	)
+
+	started := time.Now()
+	err := service.restartCore(context.Background(), "hysteria")
+	if !errors.Is(err, context.DeadlineExceeded) {
+		t.Fatalf("restartCore error = %v, want context deadline exceeded", err)
+	}
+	if elapsed := time.Since(started); elapsed > time.Second {
+		t.Fatalf("restartCore took %s, want a bounded timeout", elapsed)
 	}
 }
 
@@ -155,4 +184,15 @@ func renderXrayTemplateForTest(t *testing.T, runtime RuntimeSettings) []byte {
 		t.Fatal(err)
 	}
 	return content
+}
+
+type blockingSystemctl struct{}
+
+func (blockingSystemctl) Restart(ctx context.Context, _ string) error {
+	<-ctx.Done()
+	return ctx.Err()
+}
+
+func (blockingSystemctl) Stop(context.Context, string) error {
+	return nil
 }

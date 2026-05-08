@@ -41,6 +41,8 @@ type ConfigService struct {
 	reconcileMu sync.Mutex
 }
 
+var coreRestartTimeout = 15 * time.Second
+
 func NewConfigService(cfg config.Config, settings *SettingsService, systemctl SystemctlAdapter, xray XrayAdapter, hysteria HysteriaAdapter, logger *slog.Logger) *ConfigService {
 	return &ConfigService{
 		cfg:       cfg,
@@ -120,18 +122,18 @@ func (s *ConfigService) ReconcileCore(ctx context.Context, core string, override
 	if err := writeFileAtomic(path, content, 0o640); err != nil {
 		return err
 	}
-	if err := s.systemctl.Restart(ctx, core); err != nil {
-		s.rollbackCoreConfig(ctx, core, path, current, hasCurrent)
+	if err := s.restartCore(ctx, core); err != nil {
+		s.rollbackCoreConfig(core, path, current, hasCurrent)
 		return err
 	}
 	if err := s.waitHealthy(ctx, core); err != nil {
-		s.rollbackCoreConfig(ctx, core, path, current, hasCurrent)
+		s.rollbackCoreConfig(core, path, current, hasCurrent)
 		return err
 	}
 	return nil
 }
 
-func (s *ConfigService) rollbackCoreConfig(ctx context.Context, core, path string, previous []byte, ok bool) {
+func (s *ConfigService) rollbackCoreConfig(core, path string, previous []byte, ok bool) {
 	if !ok {
 		return
 	}
@@ -141,11 +143,20 @@ func (s *ConfigService) rollbackCoreConfig(ctx context.Context, core, path strin
 		}
 		return
 	}
-	if err := s.systemctl.Restart(ctx, core); err != nil {
+	if err := s.restartCore(context.Background(), core); err != nil {
 		if s.logger != nil {
 			s.logger.Error("core restart after rollback failed", "core", core, "err", err)
 		}
 	}
+}
+
+func (s *ConfigService) restartCore(ctx context.Context, core string) error {
+	if s.systemctl == nil {
+		return nil
+	}
+	deadline, cancel := context.WithTimeout(ctx, coreRestartTimeout)
+	defer cancel()
+	return s.systemctl.Restart(deadline, core)
 }
 
 func (s *ConfigService) runtime(ctx context.Context, overrides ...map[string]json.RawMessage) (RuntimeSettings, error) {
@@ -428,14 +439,14 @@ func (s *ConfigService) Apply(ctx context.Context, core string, content []byte) 
 		return err
 	}
 
-	if err := s.systemctl.Restart(ctx, core); err != nil {
+	if err := s.restartCore(ctx, core); err != nil {
 		_ = restoreFile(bak, path)
-		_ = s.systemctl.Restart(ctx, core)
+		_ = s.restartCore(context.Background(), core)
 		return err
 	}
 	if err := s.waitHealthy(ctx, core); err != nil {
 		_ = restoreFile(bak, path)
-		_ = s.systemctl.Restart(ctx, core)
+		_ = s.restartCore(context.Background(), core)
 		return err
 	}
 

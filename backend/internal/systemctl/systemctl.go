@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os/exec"
+	"strings"
 )
 
 type Controller struct {
@@ -20,7 +21,7 @@ func (c *Controller) Restart(ctx context.Context, service string) error {
 	}
 	cmd := exec.CommandContext(ctx, "sudo", "/bin/systemctl", "restart", service+".service")
 	if out, err := cmd.CombinedOutput(); err != nil {
-		return fmt.Errorf("systemctl restart %s: %s", service, string(out))
+		return commandError("restart", service, out, err)
 	}
 	return nil
 }
@@ -31,7 +32,15 @@ func (c *Controller) Stop(ctx context.Context, service string) error {
 	}
 	cmd := exec.CommandContext(ctx, "sudo", "/bin/systemctl", "stop", service+".service")
 	if out, err := cmd.CombinedOutput(); err != nil {
-		return fmt.Errorf("systemctl stop %s: %s", service, string(out))
+		return commandError("stop", service, out, err)
 	}
 	return nil
+}
+
+func commandError(action string, service string, out []byte, err error) error {
+	message := strings.TrimSpace(string(out))
+	if message == "" {
+		return fmt.Errorf("systemctl %s %s: %w", action, service, err)
+	}
+	return fmt.Errorf("systemctl %s %s: %s: %w", action, service, message, err)
 }

@@ -1,7 +1,7 @@
 [Unit]
 Description=Hysteria 2 Server
-After=network.target panel.service
-Wants=panel.service
+After=network-online.target
+Wants=network-online.target
 
 [Service]
 User=hysteria
