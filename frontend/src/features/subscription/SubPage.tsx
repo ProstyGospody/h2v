@@ -142,7 +142,7 @@ export function SubPage() {
       <div className="relative min-h-screen">
         <div className="relative mx-auto w-full max-w-120 space-y-6 px-4 py-10 sm:py-14">
           <header className="space-y-5 text-center">
-            <BrandLogo className="mx-auto size-16 rounded-lg shadow-overlay" />
+            <BrandLogo className="mx-auto h-16 w-32" />
           </header>
 
           <Card>

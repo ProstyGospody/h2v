@@ -276,7 +276,7 @@ function serviceDotTone(tone: StatusTone): string {
 function AppBrand({ compact = false }: { compact?: boolean }) {
   return (
     <div className="flex items-center">
-      <BrandLogo className={cn('rounded-md', compact ? 'size-10' : 'size-12')} />
+      <BrandLogo className={cn(compact ? 'h-10 w-20' : 'h-12 w-24')} />
     </div>
   );
 }

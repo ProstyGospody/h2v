@@ -68,7 +68,7 @@ export function LoginPage() {
       <Card className="relative z-10 w-full max-w-100 border-border/60 bg-card/90 shadow-overlay backdrop-blur-xl">
         <CardContent className="space-y-9 px-7 py-10 sm:px-9 sm:py-12">
           <div className="flex flex-col items-center gap-3 text-center">
-            <BrandLogo className="size-24 rounded-xl shadow-overlay" />
+            <BrandLogo className="h-24 w-44" />
           </div>
 
           <form

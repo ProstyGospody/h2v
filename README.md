@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="logo.svg" alt="h2v logo" width="112" height="112">
+  <img src="logo.svg" alt="h2v logo" width="180">
 </p>
 
 <h1 align="center">h2v</h1>
