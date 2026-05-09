@@ -659,7 +659,6 @@ function TelegramSettingsSection({ revealSecrets }: { revealSecrets: boolean }) 
     );
   }
 
-  const linkState = isDirty ? t('settings.unsaved') : proxy.data?.link ? t('settings.ready') : t('common.unavailable');
   const linkValue = isDirty ? t('settings.unsaved') : proxy.data?.link || t('common.unavailable');
 
   return (
@@ -706,25 +705,22 @@ function TelegramSettingsSection({ revealSecrets }: { revealSecrets: boolean }) 
         reveal={revealSecrets}
         value={form.secret}
       />
-      <div className="grid min-w-0 gap-2 sm:grid-cols-[4.5rem_minmax(0,1fr)] sm:items-center sm:gap-3">
-        <Label className="min-w-0 truncate">{t('settings.link')}</Label>
-        <div className="flex min-w-0 items-center gap-2 rounded-md bg-background/70 px-3 py-2 shadow-none">
-          <div className="min-w-0 flex-1 truncate font-mono text-xs text-foreground/85">
+      <div className="space-y-[13px]">
+        <Label>{t('settings.link')}</Label>
+        <div className="relative">
+          <div className="flex h-9 w-full min-w-0 items-center truncate rounded-md bg-background/70 px-3 pr-11 font-mono text-xs text-foreground/85 shadow-none">
             {linkValue}
           </div>
-          <Badge className="shrink-0" variant={proxy.data?.link && !isDirty ? 'success' : 'secondary'}>
-            {linkState}
-          </Badge>
           <Button
-            className="h-8 shrink-0 bg-muted/55 shadow-none hover:bg-muted"
+            aria-label={t('common.copy')}
+            className="absolute inset-y-0 right-0 h-full w-10 rounded-l-none"
             disabled={isDirty || !proxy.data?.link}
             onClick={copyTelegramLink}
-            size="sm"
+            size="icon"
             type="button"
-            variant="secondary"
+            variant="ghost"
           >
-            <Copy />
-            {t('common.copy')}
+            <Copy className="size-4" />
           </Button>
         </div>
       </div>
