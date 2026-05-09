@@ -708,8 +708,8 @@ function TelegramSettingsSection({ revealSecrets }: { revealSecrets: boolean }) 
       <div className="space-y-[13px]">
         <Label>{t('settings.link')}</Label>
         <div className="relative">
-          <div className="flex h-9 w-full min-w-0 items-center truncate rounded-md bg-background/70 px-3 pr-11 font-mono text-xs text-foreground/85 shadow-none">
-            {linkValue}
+          <div className="flex h-9 w-full min-w-0 items-center overflow-hidden rounded-md bg-background/70 px-3 pr-12 font-mono text-xs text-foreground/85 shadow-none">
+            <span className="block min-w-0 flex-1 truncate">{linkValue}</span>
           </div>
           <Button
             aria-label={t('common.copy')}
