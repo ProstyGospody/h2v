@@ -707,14 +707,14 @@ function TelegramSettingsSection({ revealSecrets }: { revealSecrets: boolean }) 
         value={form.secret}
       />
       <div className="space-y-[13px]">
-        <div className="flex items-center justify-between gap-3">
-          <Label>{t('settings.link')}</Label>
-          <Badge variant={proxy.data?.link && !isDirty ? 'success' : 'secondary'}>{linkState}</Badge>
-        </div>
+        <Label>{t('settings.link')}</Label>
         <div className="flex min-w-0 items-center gap-2 rounded-md bg-background/70 px-3 py-2 shadow-none">
           <div className="min-w-0 flex-1 truncate font-mono text-xs text-foreground/85">
             {linkValue}
           </div>
+          <Badge className="shrink-0" variant={proxy.data?.link && !isDirty ? 'success' : 'secondary'}>
+            {linkState}
+          </Badge>
           <Button
             className="h-8 shrink-0 bg-muted/55 shadow-none hover:bg-muted"
             disabled={isDirty || !proxy.data?.link}
