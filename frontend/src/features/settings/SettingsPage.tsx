@@ -706,25 +706,27 @@ function TelegramSettingsSection({ revealSecrets }: { revealSecrets: boolean }) 
         reveal={revealSecrets}
         value={form.secret}
       />
-      <div className="flex min-w-0 items-center gap-2 rounded-md bg-background/70 px-3 py-2 shadow-none">
-        <span className="t-label shrink-0">{t('settings.link')}</span>
-        <div className="min-w-0 flex-1 truncate font-mono text-xs text-foreground/85">
-          {linkValue}
+      <div className="grid min-w-0 gap-2 sm:grid-cols-[4.5rem_minmax(0,1fr)] sm:items-center sm:gap-3">
+        <Label className="min-w-0 truncate">{t('settings.link')}</Label>
+        <div className="flex min-w-0 items-center gap-2 rounded-md bg-background/70 px-3 py-2 shadow-none">
+          <div className="min-w-0 flex-1 truncate font-mono text-xs text-foreground/85">
+            {linkValue}
+          </div>
+          <Badge className="shrink-0" variant={proxy.data?.link && !isDirty ? 'success' : 'secondary'}>
+            {linkState}
+          </Badge>
+          <Button
+            className="h-8 shrink-0 bg-muted/55 shadow-none hover:bg-muted"
+            disabled={isDirty || !proxy.data?.link}
+            onClick={copyTelegramLink}
+            size="sm"
+            type="button"
+            variant="secondary"
+          >
+            <Copy />
+            {t('common.copy')}
+          </Button>
         </div>
-        <Badge className="shrink-0" variant={proxy.data?.link && !isDirty ? 'success' : 'secondary'}>
-          {linkState}
-        </Badge>
-        <Button
-          className="h-8 shrink-0 bg-muted/55 shadow-none hover:bg-muted"
-          disabled={isDirty || !proxy.data?.link}
-          onClick={copyTelegramLink}
-          size="sm"
-          type="button"
-          variant="secondary"
-        >
-          <Copy />
-          {t('common.copy')}
-        </Button>
       </div>
       {issues.length > 0 ? <TelegramIssues issues={issues} /> : null}
       {isDirty ? (
