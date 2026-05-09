@@ -54,6 +54,7 @@ import {
 } from '@/components/ui/table';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
+import { cn } from '@/lib/utils';
 import { apiClient, ApiError } from '@/shared/api/client';
 import { ListMeta, TrafficPoint, User, UserLinks, UserStatus } from '@/shared/api/types';
 import { useI18n } from '@/shared/i18n/i18n';
