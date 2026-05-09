@@ -660,6 +660,7 @@ function TelegramSettingsSection({ revealSecrets }: { revealSecrets: boolean }) 
   }
 
   const linkState = isDirty ? t('settings.unsaved') : proxy.data?.link ? t('settings.ready') : t('common.unavailable');
+  const linkValue = isDirty ? t('settings.unsaved') : proxy.data?.link || t('common.unavailable');
 
   return (
     <SettingsSection kicker={t('settings.telegramAddOn')} logo="telegram" title={t('settings.telegramProxy')}>
@@ -705,15 +706,27 @@ function TelegramSettingsSection({ revealSecrets }: { revealSecrets: boolean }) 
         reveal={revealSecrets}
         value={form.secret}
       />
-      <div className="flex flex-wrap items-center justify-between gap-3 rounded-md bg-muted/35 px-3 py-2">
-        <div>
-          <div className="t-label">{t('settings.link')}</div>
-          <div className="text-sm font-medium text-foreground">{linkState}</div>
+      <div className="space-y-[13px]">
+        <div className="flex items-center justify-between gap-3">
+          <Label>{t('settings.link')}</Label>
+          <Badge variant={proxy.data?.link && !isDirty ? 'success' : 'secondary'}>{linkState}</Badge>
         </div>
-        <Button disabled={isDirty || !proxy.data?.link} onClick={copyTelegramLink} size="sm" type="button">
-          <Copy />
-          {t('common.copy')}
-        </Button>
+        <div className="flex min-w-0 items-center gap-2 rounded-md bg-background/70 px-3 py-2 shadow-none">
+          <div className="min-w-0 flex-1 truncate font-mono text-xs text-foreground/85">
+            {linkValue}
+          </div>
+          <Button
+            className="h-8 shrink-0 bg-muted/55 shadow-none hover:bg-muted"
+            disabled={isDirty || !proxy.data?.link}
+            onClick={copyTelegramLink}
+            size="sm"
+            type="button"
+            variant="secondary"
+          >
+            <Copy />
+            {t('common.copy')}
+          </Button>
+        </div>
       </div>
       {issues.length > 0 ? <TelegramIssues issues={issues} /> : null}
       {isDirty ? (
