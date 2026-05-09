@@ -71,8 +71,8 @@ export function LoginPage() {
         <LanguageSwitcher />
       </div>
 
-      <Card className="relative z-10 w-full max-w-100 border-white/20 !bg-background/[0.18] shadow-overlay backdrop-blur-[6px] backdrop-saturate-150 ring-1 ring-white/10">
-        <CardContent className="relative z-10 space-y-9 px-7 py-10 sm:px-9 sm:py-12">
+      <Card className="login-panel relative z-10 w-full max-w-100">
+        <CardContent className="login-panel-content space-y-9 px-7 py-10 sm:px-9 sm:py-12">
           <div className="flex flex-col items-center gap-3 text-center">
             <BrandLogo className="h-24 w-44" />
           </div>
