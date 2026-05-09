@@ -778,7 +778,7 @@ export function UsersPage() {
               <div className="flex flex-wrap gap-1.5">
                 {trafficPresets.map((p) => (
                   <Button
-                    className={cn('h-7 px-3 text-xs', trafficGb !== p && 'bg-background/70 hover:bg-muted/55')}
+                    className={cn('h-7 px-3 text-xs', trafficGb !== p && 'bg-background/70 shadow-none hover:bg-muted/55')}
                     key={p}
                     onClick={() => setTrafficGb(p)}
                     size="sm"
@@ -789,7 +789,7 @@ export function UsersPage() {
                   </Button>
                 ))}
                 <Button
-                  className={cn('h-7 px-3 text-xs', trafficGb !== null && 'bg-background/70 hover:bg-muted/55')}
+                  className={cn('h-7 px-3 text-xs', trafficGb !== null && 'bg-background/70 shadow-none hover:bg-muted/55')}
                   onClick={() => setTrafficGb(null)}
                   size="sm"
                   type="button"
@@ -805,7 +805,7 @@ export function UsersPage() {
               <div className="flex flex-wrap gap-1.5">
                 {expiryPresets.map((p) => (
                   <Button
-                    className={cn('h-7 px-3 text-xs', expiryDays !== p && 'bg-background/70 hover:bg-muted/55')}
+                    className={cn('h-7 px-3 text-xs', expiryDays !== p && 'bg-background/70 shadow-none hover:bg-muted/55')}
                     key={p}
                     onClick={() => setExpiryDays(p)}
                     size="sm"
@@ -816,7 +816,7 @@ export function UsersPage() {
                   </Button>
                 ))}
                 <Button
-                  className={cn('h-7 px-3 text-xs', expiryDays !== null && 'bg-background/70 hover:bg-muted/55')}
+                  className={cn('h-7 px-3 text-xs', expiryDays !== null && 'bg-background/70 shadow-none hover:bg-muted/55')}
                   onClick={() => setExpiryDays(null)}
                   size="sm"
                   type="button"

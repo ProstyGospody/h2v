@@ -886,7 +886,7 @@ function PortControl({
       <div className="flex flex-wrap items-center gap-2.5">
         {presets.map((port) => (
           <Button
-            className={cn(value !== port && 'bg-background/70 hover:bg-muted/55')}
+            className={cn(value !== port && 'bg-background/70 shadow-none hover:bg-muted/55')}
             disabled={unavailable.has(port)}
             key={port}
             onClick={() => onChange(port)}
@@ -932,7 +932,7 @@ function BandwidthControl({
       <div className="flex flex-wrap items-center gap-2.5">
         {presets.map((preset) => (
           <Button
-            className={cn(normalizedValue !== preset && 'bg-background/70 hover:bg-muted/55')}
+            className={cn(normalizedValue !== preset && 'bg-background/70 shadow-none hover:bg-muted/55')}
             key={preset}
             onClick={() => onChange(preset)}
             size="sm"
@@ -969,9 +969,9 @@ function ToggleControl({
   return (
     <div className="space-y-[13px]">
       <Label>{label}</Label>
-      <div className="grid grid-cols-2 gap-1 rounded-md bg-muted/45 p-1">
+      <div className="grid grid-cols-2 gap-1 rounded-md">
         <Button
-          className={cn(!value && 'bg-background/70 hover:bg-muted/55')}
+          className={cn(!value && 'bg-background/70 shadow-none hover:bg-muted/55')}
           onClick={() => onChange(true)}
           size="sm"
           type="button"
@@ -980,7 +980,7 @@ function ToggleControl({
           {onLabel}
         </Button>
         <Button
-          className={cn(value && 'bg-background/70 hover:bg-muted/55')}
+          className={cn(value && 'bg-background/70 shadow-none hover:bg-muted/55')}
           onClick={() => onChange(false)}
           size="sm"
           type="button"
