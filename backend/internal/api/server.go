@@ -1080,7 +1080,7 @@ func subscriptionTokenFromURL(raw string) string {
 
 func shouldReconcileXray(values map[string]json.RawMessage) bool {
 	for key := range values {
-		if strings.HasPrefix(key, "vless.") || strings.HasPrefix(key, "reality.") {
+		if strings.HasPrefix(key, "vless.") || strings.HasPrefix(key, "reality.") || strings.HasPrefix(key, "xray.") {
 			return true
 		}
 	}
