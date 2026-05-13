@@ -66,23 +66,15 @@
     { "protocol": "blackhole", "tag": "block" }
   ],
   "routing": {
-    "domainStrategy": "IPIfNonMatch",
-    "rules": [
-      { "type": "field", "inboundTag": ["api"], "outboundTag": "api" },
-      { "type": "field", "protocol": ["bittorrent"], "outboundTag": "block" },
-      {
-        "type": "field",
-        "domain": [
-          "geosite:category-ads-all",
-          "geosite:category-ru"
-        ],
-        "outboundTag": "block"
-      },
-      {
-        "type": "field",
-        "ip": ["geoip:ru"],
-        "outboundTag": "block"
-      }
-    ]
-  }
+  "domainStrategy": "AsIs",
+  "rules": [
+    { "type": "field", "inboundTag": ["api"], "outboundTag": "api" },
+    { "type": "field", "protocol": ["bittorrent"], "outboundTag": "block" },
+    {
+      "type": "field",
+      "domain": ["geosite:category-ru"],
+      "outboundTag": "block"
+    }
+  ]
+}
 }
