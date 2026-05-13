@@ -106,6 +106,33 @@ func (s *SettingsService) Restore(ctx context.Context, values map[string]json.Ra
 	return s.repo.UpsertSettings(ctx, values)
 }
 
+func (s *SettingsService) ConfigOverride(ctx context.Context, core string) (json.RawMessage, bool, error) {
+	key, err := configOverrideSettingKey(core)
+	if err != nil {
+		return nil, false, err
+	}
+	values, err := s.GetAll(ctx)
+	if err != nil {
+		return nil, false, err
+	}
+	raw, ok := values[key]
+	if !ok || emptyJSONPatch(raw) {
+		return nil, false, nil
+	}
+	return raw, true, nil
+}
+
+func (s *SettingsService) SaveConfigOverride(ctx context.Context, core string, patch json.RawMessage) error {
+	key, err := configOverrideSettingKey(core)
+	if err != nil {
+		return err
+	}
+	if len(patch) == 0 {
+		patch = json.RawMessage(`{}`)
+	}
+	return s.Update(ctx, map[string]json.RawMessage{key: patch})
+}
+
 func (s *SettingsService) GenerateRealityKeyPair() (*RealityKeyPair, error) {
 	key, err := ecdh.X25519().GenerateKey(rand.Reader)
 	if err != nil {
@@ -346,6 +373,15 @@ func normalizeSettingsUpdate(values map[string]json.RawMessage) (map[string]json
 
 func normalizeSettingValue(key string, raw json.RawMessage) (any, error) {
 	switch key {
+	case "config.override.xray", "config.override.hysteria":
+		var value any
+		if err := json.Unmarshal(raw, &value); err != nil {
+			return nil, invalidSetting(key, "must be a valid JSON object")
+		}
+		if _, ok := value.(map[string]any); !ok {
+			return nil, invalidSetting(key, "must be a JSON object")
+		}
+		return value, nil
 	case "vless.port", "hy2.port", "telegram.port":
 		var value int
 		if err := json.Unmarshal(raw, &value); err != nil || !validRuntimePort(value) {
@@ -479,6 +515,20 @@ func validatePortAvailability(current, next RuntimeSettings, values map[string]j
 
 func invalidSetting(key, reason string) error {
 	return domain.NewError(400, "invalid_setting", fmt.Sprintf("%s %s", key, reason), nil)
+}
+
+func configOverrideSettingKey(core string) (string, error) {
+	switch core {
+	case "xray", "hysteria":
+		return "config.override." + core, nil
+	default:
+		return "", domain.NewError(400, "invalid_core", "Core must be xray or hysteria", nil)
+	}
+}
+
+func emptyJSONPatch(raw json.RawMessage) bool {
+	var patch map[string]any
+	return len(raw) == 0 || (json.Unmarshal(raw, &patch) == nil && len(patch) == 0)
 }
 
 func validRuntimePort(value int) bool {

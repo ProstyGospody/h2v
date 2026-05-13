@@ -65,6 +65,53 @@ func TestXrayInboundPortsRejectsNonIntegerPort(t *testing.T) {
 	}
 }
 
+func TestConfigOverridePatchReappliesManualBlocksToFreshManagedConfig(t *testing.T) {
+	managed := []byte(`{
+		"log":{"loglevel":"warning"},
+		"inbounds":[{"tag":"vless-reality","settings":{"clients":["old"]}}],
+		"routing":{"rules":[{"domain":["geosite:category-ru"]}]}
+	}`)
+	edited := []byte(`{
+		"log":{"loglevel":"warning"},
+		"inbounds":[{"tag":"vless-reality","settings":{"clients":["old"]}}],
+		"routing":{"rules":[{"domain":["geosite:category-ru"]},{"ip":["geoip:private"],"outboundTag":"block"}]}
+	}`)
+	patch, err := configOverridePatch(managed, edited)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	freshManaged := []byte(`{
+		"log":{"loglevel":"warning"},
+		"inbounds":[{"tag":"vless-reality","settings":{"clients":["new"]}}],
+		"routing":{"rules":[{"domain":["geosite:category-ru"]}]}
+	}`)
+	merged, err := applyConfigOverridePatch(freshManaged, patch)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var payload struct {
+		Inbounds []struct {
+			Settings struct {
+				Clients []string `json:"clients"`
+			} `json:"settings"`
+		} `json:"inbounds"`
+		Routing struct {
+			Rules []xrayRouteRuleForTest `json:"rules"`
+		} `json:"routing"`
+	}
+	if err := json.Unmarshal(merged, &payload); err != nil {
+		t.Fatal(err)
+	}
+	if got := payload.Inbounds[0].Settings.Clients[0]; got != "new" {
+		t.Fatalf("managed client = %q, want new", got)
+	}
+	if !routingHasIPRule(payload.Routing.Rules, "geoip:private") {
+		t.Fatalf("manual routing rule was not reapplied: %s", merged)
+	}
+}
+
 func TestRestartCoreUsesBoundedTimeout(t *testing.T) {
 	previous := coreRestartTimeout
 	coreRestartTimeout = 20 * time.Millisecond

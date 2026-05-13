@@ -32,6 +32,8 @@ type ValidationState = 'idle' | 'valid' | 'invalid';
 
 type ConfigResponse = {
   content: string;
+  has_override?: boolean;
+  managed_content?: string;
 };
 
 type CoreMeta = {
@@ -98,8 +100,11 @@ function ConfigPanel({ core }: { core: Core }) {
   }, [config.data?.content]);
 
   const original = normalizeConfigText(config.data?.content ?? '');
+  const generated = normalizeConfigText(config.data?.managed_content ?? '');
   const content = draft ?? original;
   const dirty = Boolean(config.data && content !== original);
+  const generatedDirty = Boolean(config.data && content !== generated);
+  const hasOverride = Boolean(config.data?.has_override);
   const jsonState = useMemo(() => inspectJson(content, t), [content, t]);
   const stats = useMemo(() => contentStats(content), [content]);
   const diffStats = useMemo(() => summarizeDiff(original, content), [original, content]);
@@ -157,6 +162,11 @@ function ConfigPanel({ core }: { core: Core }) {
     setValidation('idle');
   }
 
+  function resetToGenerated() {
+    setDraft(generated);
+    setValidation('idle');
+  }
+
   function formatDraft() {
     try {
       setDraft(JSON.stringify(JSON.parse(content), null, 2));
@@ -187,6 +197,7 @@ function ConfigPanel({ core }: { core: Core }) {
             </div>
             <ConfigStatus
               dirty={dirty}
+              hasOverride={hasOverride}
               isChecking={validate.isPending}
               isLoading={config.isLoading}
               jsonState={jsonState}
@@ -204,6 +215,10 @@ function ConfigPanel({ core }: { core: Core }) {
             <Button disabled={!dirty} onClick={resetDraft} size="sm" variant="outline">
               <RotateCcw />
               {t('common.reset')}
+            </Button>
+            <Button disabled={!generatedDirty} onClick={resetToGenerated} size="sm" variant="outline">
+              <RotateCcw />
+              {t('configs.generated')}
             </Button>
             <Button disabled={!config.data || !jsonState.valid} onClick={formatDraft} size="sm" variant="outline">
               <Wand2 />
@@ -305,12 +320,14 @@ function ConfigPanel({ core }: { core: Core }) {
 
 function ConfigStatus({
   dirty,
+  hasOverride,
   isChecking,
   isLoading,
   jsonState,
   validation,
 }: {
   dirty: boolean;
+  hasOverride: boolean;
   isChecking: boolean;
   isLoading: boolean;
   jsonState: JsonState;
@@ -335,6 +352,7 @@ function ConfigStatus({
       </Badge>
     );
   }
+  if (!dirty && hasOverride) return <Badge variant="warning">{t('configs.override')}</Badge>;
   if (!dirty) return <Badge variant="secondary">{t('configs.synced')}</Badge>;
   if (validation === 'valid') {
     return (

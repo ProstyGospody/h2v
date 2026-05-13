@@ -13,6 +13,7 @@ func TestNormalizeSettingValueAcceptsVLESSAndXrayStabilitySettings(t *testing.T)
 		"xray.sniffing_enabled":         json.RawMessage(`true`),
 		"xray.sniffing_dest_override":   json.RawMessage(`"http,tls"`),
 		"reality.fingerprint":           json.RawMessage(`"Safari"`),
+		"config.override.xray":          json.RawMessage(`{"routing":{"rules":[]}}`),
 	} {
 		if _, err := normalizeSettingValue(key, raw); err != nil {
 			t.Fatalf("normalize %s: %v", key, err)
@@ -42,6 +43,7 @@ func TestNormalizeSettingValueRejectsInvalidVLESSAndXrayStabilitySettings(t *tes
 		"xray.sniffing_enabled":       json.RawMessage(`1`),
 		"xray.sniffing_dest_override": json.RawMessage(`["http","ftp"]`),
 		"reality.fingerprint":         json.RawMessage(`"opera"`),
+		"config.override.xray":        json.RawMessage(`[]`),
 	} {
 		if _, err := normalizeSettingValue(key, raw); err == nil {
 			t.Fatalf("normalize %s should fail", key)

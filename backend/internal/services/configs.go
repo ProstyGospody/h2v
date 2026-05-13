@@ -11,6 +11,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"sync"
 	"text/template"
@@ -41,6 +42,12 @@ type ConfigService struct {
 	reconcileMu sync.Mutex
 }
 
+type ConfigSnapshot struct {
+	Content        []byte
+	ManagedContent []byte
+	HasOverride    bool
+}
+
 var coreRestartTimeout = 15 * time.Second
 
 func NewConfigService(cfg config.Config, settings *SettingsService, systemctl SystemctlAdapter, xray XrayAdapter, hysteria HysteriaAdapter, logger *slog.Logger) *ConfigService {
@@ -55,14 +62,31 @@ func NewConfigService(cfg config.Config, settings *SettingsService, systemctl Sy
 }
 
 func (s *ConfigService) Get(ctx context.Context, core string) ([]byte, error) {
+	snapshot, err := s.GetSnapshot(ctx, core)
+	if err != nil {
+		return nil, err
+	}
+	return snapshot.Content, nil
+}
+
+func (s *ConfigService) GetSnapshot(ctx context.Context, core string) (*ConfigSnapshot, error) {
 	path, err := s.pathForCore(core)
+	if err != nil {
+		return nil, err
+	}
+
+	managed, err := s.RenderManaged(ctx, core)
+	if err != nil {
+		return nil, err
+	}
+	_, hasOverride, err := s.configOverride(ctx, core)
 	if err != nil {
 		return nil, err
 	}
 
 	content, err := os.ReadFile(path)
 	if err == nil {
-		return content, nil
+		return &ConfigSnapshot{Content: content, ManagedContent: managed, HasOverride: hasOverride || !bytes.Equal(content, managed)}, nil
 	}
 	if !errors.Is(err, os.ErrNotExist) {
 		return nil, err
@@ -75,10 +99,18 @@ func (s *ConfigService) Get(ctx context.Context, core string) ([]byte, error) {
 	if err := writeFileAtomic(path, rendered, 0o640); err != nil {
 		return nil, err
 	}
-	return rendered, nil
+	return &ConfigSnapshot{Content: rendered, ManagedContent: managed, HasOverride: hasOverride}, nil
 }
 
 func (s *ConfigService) Render(ctx context.Context, core string, overrides ...map[string]json.RawMessage) ([]byte, error) {
+	managed, err := s.RenderManaged(ctx, core, overrides...)
+	if err != nil {
+		return nil, err
+	}
+	return s.applyConfigOverride(ctx, core, managed)
+}
+
+func (s *ConfigService) RenderManaged(ctx context.Context, core string, overrides ...map[string]json.RawMessage) ([]byte, error) {
 	runtime, err := s.runtime(ctx, overrides...)
 	if err != nil {
 		return nil, err
@@ -427,6 +459,18 @@ func (s *ConfigService) Apply(ctx context.Context, core string, content []byte) 
 	if err != nil {
 		return err
 	}
+	managed, err := s.RenderManaged(ctx, core)
+	if err != nil {
+		return err
+	}
+	patch, err := configOverridePatch(managed, content)
+	if err != nil {
+		return err
+	}
+	previousOverride, hadPreviousOverride, err := s.configOverride(ctx, core)
+	if err != nil {
+		return err
+	}
 
 	bak := path + ".bak"
 	if current, err := os.ReadFile(path); err == nil {
@@ -435,22 +479,181 @@ func (s *ConfigService) Apply(ctx context.Context, core string, content []byte) 
 		}
 	}
 
+	if err := s.saveConfigOverride(ctx, core, patch); err != nil {
+		return err
+	}
 	if err := writeFileAtomic(path, content, 0o640); err != nil {
+		s.restoreConfigOverride(core, previousOverride, hadPreviousOverride)
 		return err
 	}
 
 	if err := s.restartCore(ctx, core); err != nil {
+		s.restoreConfigOverride(core, previousOverride, hadPreviousOverride)
 		_ = restoreFile(bak, path)
 		_ = s.restartCore(context.Background(), core)
 		return err
 	}
 	if err := s.waitHealthy(ctx, core); err != nil {
+		s.restoreConfigOverride(core, previousOverride, hadPreviousOverride)
 		_ = restoreFile(bak, path)
 		_ = s.restartCore(context.Background(), core)
 		return err
 	}
 
 	return nil
+}
+
+func (s *ConfigService) ResetOverride(ctx context.Context, core string) error {
+	managed, err := s.RenderManaged(ctx, core)
+	if err != nil {
+		return err
+	}
+	return s.Apply(ctx, core, managed)
+}
+
+func (s *ConfigService) configOverride(ctx context.Context, core string) (json.RawMessage, bool, error) {
+	if s.settings == nil {
+		return nil, false, nil
+	}
+	return s.settings.ConfigOverride(ctx, core)
+}
+
+func (s *ConfigService) saveConfigOverride(ctx context.Context, core string, patch json.RawMessage) error {
+	if s.settings == nil {
+		return domain.NewError(500, "settings_unavailable", "Settings service is not available", nil)
+	}
+	return s.settings.SaveConfigOverride(ctx, core, patch)
+}
+
+func (s *ConfigService) restoreConfigOverride(core string, previous json.RawMessage, hadPrevious bool) {
+	if s.settings == nil {
+		return
+	}
+	if !hadPrevious {
+		previous = json.RawMessage(`{}`)
+	}
+	if err := s.settings.SaveConfigOverride(context.Background(), core, previous); err != nil && s.logger != nil {
+		s.logger.Error("config override rollback failed", "core", core, "err", err)
+	}
+}
+
+func (s *ConfigService) applyConfigOverride(ctx context.Context, core string, managed []byte) ([]byte, error) {
+	patch, ok, err := s.configOverride(ctx, core)
+	if err != nil || !ok {
+		return managed, err
+	}
+	return applyConfigOverridePatch(managed, patch)
+}
+
+func configOverridePatch(managed, content []byte) (json.RawMessage, error) {
+	var base any
+	if err := json.Unmarshal(managed, &base); err != nil {
+		return nil, domain.NewError(500, "invalid_config", "Generated configuration contains JSON errors", err)
+	}
+	var next any
+	if err := json.Unmarshal(content, &next); err != nil {
+		return nil, domain.NewError(400, "invalid_config", "Configuration contains JSON errors", err)
+	}
+	patch := createJSONMergePatch(base, next)
+	encoded, err := json.Marshal(patch)
+	if err != nil {
+		return nil, err
+	}
+	return encoded, nil
+}
+
+func applyConfigOverridePatch(managed, patch []byte) ([]byte, error) {
+	var base any
+	if err := json.Unmarshal(managed, &base); err != nil {
+		return nil, domain.NewError(500, "invalid_config", "Generated configuration contains JSON errors", err)
+	}
+	var override any
+	if err := json.Unmarshal(patch, &override); err != nil {
+		return nil, domain.NewError(400, "invalid_config", "Stored configuration override contains JSON errors", err)
+	}
+	if emptyMergePatch(override) {
+		return managed, nil
+	}
+	merged := applyJSONMergePatch(base, override)
+	encoded, err := json.MarshalIndent(merged, "", "  ")
+	if err != nil {
+		return nil, err
+	}
+	return append(encoded, '\n'), nil
+}
+
+func createJSONMergePatch(base, next any) any {
+	if reflect.DeepEqual(base, next) {
+		return map[string]any{}
+	}
+	baseObject, baseOK := base.(map[string]any)
+	nextObject, nextOK := next.(map[string]any)
+	if !baseOK || !nextOK {
+		return next
+	}
+
+	patch := map[string]any{}
+	for key := range baseObject {
+		if _, ok := nextObject[key]; !ok {
+			patch[key] = nil
+		}
+	}
+	for key, nextValue := range nextObject {
+		baseValue, ok := baseObject[key]
+		if !ok {
+			patch[key] = nextValue
+			continue
+		}
+		childPatch := createJSONMergePatch(baseValue, nextValue)
+		if !emptyMergePatch(childPatch) {
+			patch[key] = childPatch
+		}
+	}
+	return patch
+}
+
+func applyJSONMergePatch(base, patch any) any {
+	patchObject, ok := patch.(map[string]any)
+	if !ok {
+		return cloneJSONValue(patch)
+	}
+	baseObject, _ := base.(map[string]any)
+	result := map[string]any{}
+	for key, value := range baseObject {
+		result[key] = cloneJSONValue(value)
+	}
+	for key, patchValue := range patchObject {
+		if patchValue == nil {
+			delete(result, key)
+			continue
+		}
+		result[key] = applyJSONMergePatch(result[key], patchValue)
+	}
+	return result
+}
+
+func cloneJSONValue(value any) any {
+	switch typed := value.(type) {
+	case map[string]any:
+		out := make(map[string]any, len(typed))
+		for key, item := range typed {
+			out[key] = cloneJSONValue(item)
+		}
+		return out
+	case []any:
+		out := make([]any, len(typed))
+		for i, item := range typed {
+			out[i] = cloneJSONValue(item)
+		}
+		return out
+	default:
+		return typed
+	}
+}
+
+func emptyMergePatch(value any) bool {
+	object, ok := value.(map[string]any)
+	return ok && len(object) == 0
 }
 
 func (s *ConfigService) waitHealthy(ctx context.Context, core string) error {

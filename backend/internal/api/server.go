@@ -129,6 +129,7 @@ func (s *Server) routes(r chi.Router) {
 		api.Get("/configs/{core}", s.handleConfigGet)
 		api.Post("/configs/{core}/validate", s.handleConfigValidate)
 		api.Post("/configs/{core}/apply", s.handleConfigApply)
+		api.Post("/configs/{core}/reset", s.handleConfigReset)
 
 		api.Get("/settings", s.handleSettingsList)
 		api.Patch("/settings", s.handleSettingsUpdate)
@@ -435,12 +436,16 @@ func (s *Server) handleUsersLinks(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleConfigGet(w http.ResponseWriter, r *http.Request) {
-	content, err := s.services.Configs.Get(r.Context(), chi.URLParam(r, "core"))
+	snapshot, err := s.services.Configs.GetSnapshot(r.Context(), chi.URLParam(r, "core"))
 	if err != nil {
 		jsonError(w, err)
 		return
 	}
-	jsonData(w, http.StatusOK, map[string]any{"content": string(content)}, nil)
+	jsonData(w, http.StatusOK, map[string]any{
+		"content":         string(snapshot.Content),
+		"managed_content": string(snapshot.ManagedContent),
+		"has_override":    snapshot.HasOverride,
+	}, nil)
 }
 
 func (s *Server) handleConfigValidate(w http.ResponseWriter, r *http.Request) {
@@ -471,6 +476,14 @@ func (s *Server) handleConfigApply(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	jsonData(w, http.StatusOK, map[string]any{"applied": true}, nil)
+}
+
+func (s *Server) handleConfigReset(w http.ResponseWriter, r *http.Request) {
+	if err := s.services.Configs.ResetOverride(r.Context(), chi.URLParam(r, "core")); err != nil {
+		jsonError(w, err)
+		return
+	}
+	jsonData(w, http.StatusOK, map[string]any{"reset": true}, nil)
 }
 
 func (s *Server) handleSettingsList(w http.ResponseWriter, r *http.Request) {
@@ -1080,7 +1093,7 @@ func subscriptionTokenFromURL(raw string) string {
 
 func shouldReconcileXray(values map[string]json.RawMessage) bool {
 	for key := range values {
-		if strings.HasPrefix(key, "vless.") || strings.HasPrefix(key, "reality.") || strings.HasPrefix(key, "xray.") {
+		if strings.HasPrefix(key, "vless.") || strings.HasPrefix(key, "reality.") || strings.HasPrefix(key, "xray.") || key == "config.override.xray" {
 			return true
 		}
 	}
@@ -1089,7 +1102,7 @@ func shouldReconcileXray(values map[string]json.RawMessage) bool {
 
 func shouldReconcileHysteria(values map[string]json.RawMessage) bool {
 	for key := range values {
-		if strings.HasPrefix(key, "hy2.") {
+		if strings.HasPrefix(key, "hy2.") || key == "config.override.hysteria" {
 			return true
 		}
 	}
