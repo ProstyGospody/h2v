@@ -133,6 +133,7 @@ type ClientEntry struct {
 
 type RuntimeSettings struct {
 	PanelDomain        string
+	PublicServerIP     string
 	PanelPort          int
 	PanelPublicPort    int
 	SubURLPrefix       string
@@ -194,7 +195,7 @@ func buildPortalURL(prefix, token string) string {
 func buildVLESS(runtime RuntimeSettings, user *domain.User) string {
 	shortID := firstInSlice(runtime.RealityShortIDs)
 	sni := hostOnly(firstNonEmpty(runtime.RealitySNI, firstInSlice(runtime.RealityServerNames)))
-	host := hostOnly(runtime.PanelDomain)
+	host := publicEndpointHost(runtime.PublicServerIP, runtime.PanelDomain)
 
 	query := url.Values{}
 	query.Set("encryption", "none")
@@ -225,8 +226,8 @@ func buildVLESS(runtime RuntimeSettings, user *domain.User) string {
 // The password is percent-encoded by net/url. Path is "/" to keep parsers that
 // expect an explicit host/path boundary happy; clients ignore it.
 func buildHysteria2(runtime RuntimeSettings, user *domain.User) string {
-	host := hostOnly(runtime.Hy2Domain)
-	sni := host
+	host := publicEndpointHost(runtime.PublicServerIP, runtime.Hy2Domain)
+	sni := hostOnly(runtime.Hy2Domain)
 
 	query := url.Values{}
 	query.Set("sni", sni)
@@ -461,6 +462,14 @@ func hostOnly(value string) string {
 		return host
 	}
 	return strings.Trim(value, "[]")
+}
+
+func publicEndpointHost(publicIP, fallback string) string {
+	host := hostOnly(publicIP)
+	if net.ParseIP(host) != nil {
+		return host
+	}
+	return hostOnly(fallback)
 }
 
 func firstInSlice(values []string) string {

@@ -20,6 +20,9 @@ INSTALL_LOG="${H2V_INSTALL_LOG:-/tmp/h2v-install.log}"
 INSTALL_DIR="/opt/mypanel"
 ENV_FILE="${INSTALL_DIR}/.env"
 BUILD_STATE_DIR="${INSTALL_DIR}/build"
+H2V_AUTO_SWAP="${H2V_AUTO_SWAP:-1}"
+H2V_SWAP_FILE="${H2V_SWAP_FILE:-/swapfile}"
+H2V_SWAP_SIZE_MB="${H2V_SWAP_SIZE_MB:-}"
 GO_VERSION="${GO_VERSION:-1.26.2}"
 NODE_VERSION="${NODE_VERSION:-22.22.2}"
 NPM_VERSION="${NPM_VERSION:-10.9.7}"
@@ -326,10 +329,14 @@ urlencode() {
 print_summary() {
   local access_url="$1"
   local local_url="$2"
-  local telegram_host telegram_port telegram_secret telegram_mask telegram_link
+  local public_server_ip telegram_host telegram_port telegram_secret telegram_mask telegram_link
   local telegram_host_q telegram_port_q telegram_secret_q telegram_mask_hex
   progress_finish
+  public_server_ip="$(env_get PUBLIC_SERVER_IP || true)"
   telegram_host="$(runtime_setting_value "telegram.host" "TELEGRAM_PROXY_PUBLIC_HOST" "$(env_get PANEL_DOMAIN || echo panel.example.com)")"
+  if valid_ip_literal "${public_server_ip}"; then
+    telegram_host="${public_server_ip}"
+  fi
   telegram_port="$(runtime_setting_value "telegram.port" "TELEGRAM_PROXY_PORT" "9443")"
   telegram_secret="$(runtime_setting_value "telegram.secret" "TELEGRAM_PROXY_SECRET" "")"
   telegram_mask="$(runtime_setting_value "telegram.mask_domain" "TELEGRAM_PROXY_MASK_DOMAIN" "www.cloudflare.com")"
@@ -348,6 +355,9 @@ print_summary() {
   printf '\n'
   printf '  %sPanel URL%s   %s%s%s\n' "${BOLD}" "${RESET}" "${CYAN}" "${access_url}" "${RESET}"
   printf '  %sLocal URL%s   %s%s%s\n' "${BOLD}" "${RESET}" "${DIM}" "${local_url}" "${RESET}"
+  if valid_ip_literal "${public_server_ip}"; then
+    printf '  %sProtocol IP%s %s%s%s\n' "${BOLD}" "${RESET}" "${CYAN}" "${public_server_ip}" "${RESET}"
+  fi
   if [[ -n "${telegram_link}" ]]; then
     printf '  %sTelegram%s    %s%s%s\n' "${BOLD}" "${RESET}" "${CYAN}" "${telegram_link}" "${RESET}"
   fi
@@ -419,14 +429,111 @@ frontend_build_node_options() {
   printf '%s' "${options}"
 }
 
-warn_low_memory_build_host() {
+meminfo_value_kb() {
+  local key="$1"
+  [[ -r /proc/meminfo ]] || return 1
+  awk -v key="${key}:" '$1 == key {print $2; exit}' /proc/meminfo 2>/dev/null
+}
+
+recommended_swap_size_mb() {
+  local mem_kb="$1"
+  local target_kb=2097152
+  local size_mb
+  size_mb=$(( (target_kb - mem_kb + 1023) / 1024 ))
+  (( size_mb < 1024 )) && size_mb=1024
+  (( size_mb > 2048 )) && size_mb=2048
+  printf '%s' "${size_mb}"
+}
+
+auto_swap_enabled() {
+  case "$(printf '%s' "${H2V_AUTO_SWAP}" | tr '[:upper:]' '[:lower:]')" in
+    0|false|no|off) return 1 ;;
+    *) return 0 ;;
+  esac
+}
+
+ensure_build_swap() {
   [[ -r /proc/meminfo ]] || return 0
-  local mem_kb swap_kb
-  mem_kb="$(awk '/^MemTotal:/ {print $2}' /proc/meminfo 2>/dev/null || true)"
-  swap_kb="$(awk '/^SwapTotal:/ {print $2}' /proc/meminfo 2>/dev/null || true)"
-  if [[ "${mem_kb}" =~ ^[0-9]+$ && "${swap_kb}" =~ ^[0-9]+$ && "${mem_kb}" -lt 1572864 && "${swap_kb}" -eq 0 ]]; then
-    warn "low-memory host has no swap; frontend build may fail. Add swap or lower H2V_NODE_MAX_OLD_SPACE_MB."
+  local mem_kb swap_kb swap_file swap_dir swap_size_mb free_mb
+  mem_kb="$(meminfo_value_kb MemTotal || true)"
+  swap_kb="$(meminfo_value_kb SwapTotal || true)"
+  if ! [[ "${mem_kb}" =~ ^[0-9]+$ && "${swap_kb}" =~ ^[0-9]+$ ]]; then
+    return 0
   fi
+  if (( mem_kb >= 1572864 || swap_kb > 0 )); then
+    return 0
+  fi
+  if ! auto_swap_enabled; then
+    warn "low-memory host has no swap; H2V_AUTO_SWAP=0 leaves frontend build at risk"
+    return 0
+  fi
+  if (( EUID != 0 )); then
+    warn "low-memory host has no swap; run as root to let installer create swap automatically"
+    return 0
+  fi
+  if ! command_exists mkswap || ! command_exists swapon; then
+    warn "low-memory host has no swap; mkswap/swapon are unavailable"
+    return 0
+  fi
+
+  swap_file="${H2V_SWAP_FILE}"
+  if [[ "${swap_file}" != /* ]]; then
+    warn "H2V_SWAP_FILE must be an absolute path; skipping automatic swap"
+    return 0
+  fi
+  if [[ -e "${swap_file}" ]]; then
+    if swapon --show=NAME --noheadings 2>/dev/null | awk -v path="${swap_file}" '$1 == path { found = 1 } END { exit found ? 0 : 1 }'; then
+      return 0
+    fi
+    warn "${swap_file} already exists but is not active; not modifying it automatically"
+    return 0
+  fi
+
+  swap_size_mb="${H2V_SWAP_SIZE_MB:-$(recommended_swap_size_mb "${mem_kb}")}"
+  if ! [[ "${swap_size_mb}" =~ ^[0-9]+$ && "${swap_size_mb}" -gt 0 ]]; then
+    warn "H2V_SWAP_SIZE_MB must be a positive integer; skipping automatic swap"
+    return 0
+  fi
+  swap_dir="$(dirname "${swap_file}")"
+  if [[ ! -d "${swap_dir}" ]]; then
+    warn "swap directory ${swap_dir} does not exist; skipping automatic swap"
+    return 0
+  fi
+  free_mb="$(df -Pm "${swap_dir}" 2>/dev/null | awk 'NR == 2 {print $4}' || true)"
+  if [[ "${free_mb}" =~ ^[0-9]+$ && "${free_mb}" -lt $((swap_size_mb + 512)) ]]; then
+    warn "not enough free disk for ${swap_size_mb} MiB swapfile at ${swap_file}"
+    return 0
+  fi
+
+  substep "creating ${swap_size_mb} MiB swapfile at ${swap_file}"
+  if command_exists fallocate; then
+    if ! fallocate -l "${swap_size_mb}M" "${swap_file}"; then
+      rm -f -- "${swap_file}"
+      if ! dd if=/dev/zero of="${swap_file}" bs=1M count="${swap_size_mb}" status=none; then
+        rm -f -- "${swap_file}"
+        warn "automatic swapfile allocation failed; frontend build may fail on this low-memory host"
+        return 0
+      fi
+    fi
+  elif ! dd if=/dev/zero of="${swap_file}" bs=1M count="${swap_size_mb}" status=none; then
+    rm -f -- "${swap_file}"
+    warn "automatic swapfile allocation failed; frontend build may fail on this low-memory host"
+    return 0
+  fi
+  if ! chmod 600 "${swap_file}"; then
+    rm -f -- "${swap_file}"
+    warn "automatic swapfile permission setup failed; frontend build may fail on this low-memory host"
+    return 0
+  fi
+  if ! mkswap "${swap_file}" >/dev/null || ! swapon "${swap_file}"; then
+    rm -f -- "${swap_file}"
+    warn "automatic swap setup failed; frontend build may fail on this low-memory host"
+    return 0
+  fi
+  if [[ -w /etc/fstab ]] && ! awk -v path="${swap_file}" '$1 == path && $3 == "swap" { found = 1 } END { exit found ? 0 : 1 }' /etc/fstab; then
+    printf '%s none swap sw 0 0\n' "${swap_file}" >>/etc/fstab || warn "swap enabled but /etc/fstab was not updated"
+  fi
+  success "swap enabled (${swap_size_mb} MiB)"
 }
 
 normalize_version() {
@@ -1223,6 +1330,8 @@ ensure_env() {
   env_set XRAY_LOCATION_ASSET "${geodata_dir}"
   env_set_default XRAY_GEOIP_URL "${XRAY_GEOIP_URL_DEFAULT}"
   env_set_default XRAY_GEOSITE_URL "${XRAY_GEOSITE_URL_DEFAULT}"
+  ensure_public_server_ip
+  auto_tune_low_memory_runtime_defaults
 }
 
 env_get() {
@@ -1348,6 +1457,78 @@ env_set_default() {
   current="$(env_get "${key}" || true)"
   if [[ -z "${current}" ]]; then
     env_set "${key}" "${value}"
+  fi
+}
+
+valid_ipv4_literal() {
+  local value="$1"
+  local a b c d octet
+  [[ "${value}" =~ ^[0-9]+(\.[0-9]+){3}$ ]] || return 1
+  IFS=. read -r a b c d <<<"${value}"
+  for octet in "${a}" "${b}" "${c}" "${d}"; do
+    [[ "${octet}" =~ ^[0-9]+$ ]] || return 1
+    (( ${#octet} <= 3 )) || return 1
+    (( 10#${octet} <= 255 )) || return 1
+  done
+}
+
+valid_ipv6_literal() {
+  local value="$1"
+  [[ "${value}" == *:* && "${value}" =~ ^[0-9A-Fa-f:.]+$ ]]
+}
+
+valid_ip_literal() {
+  valid_ipv4_literal "$1" || valid_ipv6_literal "$1"
+}
+
+detect_public_ip() {
+  local url candidate
+  for url in \
+    "https://api.ipify.org" \
+    "https://ifconfig.me/ip" \
+    "https://checkip.amazonaws.com"
+  do
+    candidate="$(curl -fsSL --max-time 4 "${url}" 2>/dev/null | awk 'NF {print $1; exit}' || true)"
+    candidate="${candidate//$'\r'/}"
+    candidate="${candidate//$'\n'/}"
+    if valid_ip_literal "${candidate}"; then
+      printf '%s' "${candidate}"
+      return 0
+    fi
+  done
+  return 1
+}
+
+ensure_public_server_ip() {
+  local current detected
+  current="$(env_get PUBLIC_SERVER_IP || true)"
+  if [[ -n "${current}" ]]; then
+    if ! valid_ip_literal "${current}"; then
+      warn "PUBLIC_SERVER_IP=${current} is not an IP literal; protocol links will use domains"
+    fi
+    return 0
+  fi
+
+  detected="$(detect_public_ip || true)"
+  if [[ -n "${detected}" ]]; then
+    env_set PUBLIC_SERVER_IP "${detected}"
+    substep "PUBLIC_SERVER_IP detected as ${detected}"
+  else
+    warn "could not auto-detect PUBLIC_SERVER_IP; protocol links will use domains"
+  fi
+}
+
+auto_tune_low_memory_runtime_defaults() {
+  [[ -r /proc/meminfo ]] || return 0
+  local mem_kb current
+  mem_kb="$(meminfo_value_kb MemTotal || true)"
+  if ! [[ "${mem_kb}" =~ ^[0-9]+$ ]] || (( mem_kb >= 1048576 )); then
+    return 0
+  fi
+  current="$(env_get PANEL_ARGON2_MAX_PARALLEL || true)"
+  if [[ -z "${current}" || "${current}" == "2" ]]; then
+    env_set PANEL_ARGON2_MAX_PARALLEL 1
+    substep "low-memory runtime: PANEL_ARGON2_MAX_PARALLEL=1"
   fi
 }
 
@@ -1680,7 +1861,7 @@ build_artifacts() {
   if [[ -n "${node_options}" ]]; then
     substep "frontend NODE_OPTIONS=${node_options}"
   fi
-  warn_low_memory_build_host
+  ensure_build_swap
 
   if [[ ! -f "${frontend_dir}/package-lock.json" && -f "${cached_lock}" ]]; then
     cp "${cached_lock}" "${frontend_dir}/package-lock.json"
@@ -1963,6 +2144,7 @@ install_all() {
 
   step "deps" "Installing Ubuntu dependencies"
   ensure_base_packages
+  ensure_build_swap
   success "base packages ready"
 
   step "toolchain" "Installing Go ${GO_VERSION} and Node ${NODE_VERSION}"

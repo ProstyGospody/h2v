@@ -24,6 +24,7 @@ type Config struct {
 
 type PanelConfig struct {
 	Domain           string
+	PublicIP         string
 	Host             string
 	Port             int
 	PublicPort       int
@@ -117,6 +118,7 @@ func Load() Config {
 	return Config{
 		Panel: PanelConfig{
 			Domain:           getenv("PANEL_DOMAIN", "panel.example.com"),
+			PublicIP:         getenv("PUBLIC_SERVER_IP", ""),
 			Host:             getenv("PANEL_HOST", "127.0.0.1"),
 			Port:             getenvInt("PANEL_PORT", 8000),
 			PublicPort:       getenvInt("PANEL_PUBLIC_PORT", 443),

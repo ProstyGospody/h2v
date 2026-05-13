@@ -101,7 +101,8 @@ Production values to protect:
 
 Optional stability knobs:
 
-- `PANEL_ARGON2_MAX_PARALLEL`: concurrent password hashes, default `2`;
+- `PUBLIC_SERVER_IP`: direct IP endpoint used in generated protocol links; the installer auto-detects it when empty;
+- `PANEL_ARGON2_MAX_PARALLEL`: concurrent password hashes, default `2`; installer may set `1` on sub-1 GiB hosts;
 - `PANEL_COLLECTOR_INTERVAL`: traffic collector cadence, default `10s`;
 - `PANEL_ENFORCER_INTERVAL`: limit/expiry enforcement cadence, default `30s`;
 - `PANEL_CORE_RECONCILE_INTERVAL`: core config reconcile cadence, default `60s`;
@@ -116,6 +117,9 @@ Optional stability knobs:
 | `H2V_REQUIRE_SOURCE_SHA256=1` | Fail if a source checksum is not provided |
 | `TELEMT_VERSION=3.4.3` | Pin the Telemt release used by Telegram Proxy |
 | `H2V_NODE_MAX_OLD_SPACE_MB=512` | Cap Node.js heap during frontend build; set `0` to disable |
+| `H2V_AUTO_SWAP=0` | Disable automatic swapfile creation on low-memory hosts |
+| `H2V_SWAP_FILE=/swapfile` | Swapfile path used when automatic swap is needed |
+| `H2V_SWAP_SIZE_MB=2048` | Override automatic swapfile size |
 
 
 ---

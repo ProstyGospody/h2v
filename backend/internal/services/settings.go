@@ -195,6 +195,7 @@ func (s *SettingsService) Runtime(ctx context.Context) (RuntimeSettings, error) 
 func DefaultRuntime(cfg config.Config) RuntimeSettings {
 	return RuntimeSettings{
 		PanelDomain:        cfg.Panel.Domain,
+		PublicServerIP:     cfg.Panel.PublicIP,
 		PanelPort:          cfg.Panel.Port,
 		PanelPublicPort:    cfg.Panel.PublicPort,
 		SubURLPrefix:       cfg.Subscription.URLPrefix,

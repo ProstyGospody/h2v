@@ -122,7 +122,7 @@ func buildTelegramProxyLink(runtime RuntimeSettings) string {
 	if !runtime.TelegramEnabled {
 		return ""
 	}
-	host := strings.TrimSpace(runtime.TelegramHost)
+	host := telegramPublicHost(runtime)
 	maskDomain := strings.TrimSpace(runtime.TelegramMaskDomain)
 	secret := strings.TrimSpace(strings.ToLower(runtime.TelegramSecret))
 	if host == "" || maskDomain == "" || !validRuntimePort(runtime.TelegramPort) || !validTelegramSecret(secret) {
@@ -137,10 +137,17 @@ func buildTelegramProxyLink(runtime RuntimeSettings) string {
 
 func telegramServiceEnabled(runtime RuntimeSettings) bool {
 	return runtime.TelegramEnabled &&
-		strings.TrimSpace(runtime.TelegramHost) != "" &&
+		telegramPublicHost(runtime) != "" &&
 		strings.TrimSpace(runtime.TelegramMaskDomain) != "" &&
 		validRuntimePort(runtime.TelegramPort) &&
 		validTelegramSecret(strings.TrimSpace(strings.ToLower(runtime.TelegramSecret)))
+}
+
+func telegramPublicHost(runtime RuntimeSettings) string {
+	if host := publicEndpointHost(runtime.PublicServerIP, ""); host != "" {
+		return host
+	}
+	return strings.TrimSpace(runtime.TelegramHost)
 }
 
 func renderTelemtConfig(runtime RuntimeSettings, rootDir string) string {
@@ -148,7 +155,7 @@ func renderTelemtConfig(runtime RuntimeSettings, rootDir string) string {
 	if !validRuntimePort(port) {
 		port = 9443
 	}
-	host := strings.TrimSpace(runtime.TelegramHost)
+	host := telegramPublicHost(runtime)
 	if host == "" {
 		host = "panel.example.com"
 	}

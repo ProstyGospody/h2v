@@ -73,6 +73,36 @@ func TestBuildProtocolLinks(t *testing.T) {
 	}
 }
 
+func TestBuildProtocolLinksPreferPublicServerIP(t *testing.T) {
+	runtime := sampleRuntime()
+	runtime.PublicServerIP = "213.155.12.13"
+	user := sampleUser()
+
+	vless := buildVLESS(runtime, user)
+	parsedVLESS, err := url.Parse(vless)
+	if err != nil {
+		t.Fatalf("parse vless: %v", err)
+	}
+	if got := parsedVLESS.Host; got != "213.155.12.13:443" {
+		t.Fatalf("vless host = %q, want 213.155.12.13:443", got)
+	}
+	if got := parsedVLESS.Query().Get("sni"); got != "www.cloudflare.com" {
+		t.Fatalf("vless sni = %q, want www.cloudflare.com", got)
+	}
+
+	hy2 := buildHysteria2(runtime, user)
+	parsedHY2, err := url.Parse(hy2)
+	if err != nil {
+		t.Fatalf("parse hysteria2: %v", err)
+	}
+	if got := parsedHY2.Host; got != "213.155.12.13:8443" {
+		t.Fatalf("hy2 host = %q, want 213.155.12.13:8443", got)
+	}
+	if got := parsedHY2.Query().Get("sni"); got != "hy2.example.com" {
+		t.Fatalf("hy2 sni = %q, want hy2.example.com", got)
+	}
+}
+
 func TestEncodedLinks(t *testing.T) {
 	links := sampleLinks()
 	decoded, err := base64.StdEncoding.DecodeString(EncodedLinks(links))
