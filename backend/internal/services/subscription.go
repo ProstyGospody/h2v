@@ -141,9 +141,14 @@ type RuntimeSettings struct {
 	RealityDest        string
 	RealityPublicKey   string
 	RealityPrivateKey  string
+	RealityFingerprint string
 	RealityServerNames []string
 	RealityShortIDs    []string
 	VlessPort          int
+	VlessUDPEnabled    bool
+	VlessXUDPEnabled   bool
+	XraySniffingEnabled      bool
+	XraySniffingDestOverride []string
 	Hy2Domain          string
 	Hy2Port            int
 	Hy2ObfsEnabled     bool
@@ -187,7 +192,7 @@ func buildPortalURL(prefix, token string) string {
 // buildVLESS emits a VLESS + Reality URI per Xray's share-link convention:
 //
 //	vless://UUID@HOST:PORT?encryption=none&flow=xtls-rprx-vision&security=reality
-//	    &sni=SNI&fp=chrome&pbk=PUBLIC_KEY&sid=SHORT_ID&spx=%2F&type=tcp#NAME
+//	    &sni=SNI&fp=FINGERPRINT&pbk=PUBLIC_KEY&sid=SHORT_ID&spx=%2F&type=tcp#NAME
 //
 // sid is optional: when the server allows an empty shortId, clients must pass
 // no sid or an explicit empty one. We pick the first non-empty shortId so the
@@ -202,13 +207,19 @@ func buildVLESS(runtime RuntimeSettings, user *domain.User) string {
 	query.Set("flow", "xtls-rprx-vision")
 	query.Set("security", "reality")
 	query.Set("sni", sni)
-	query.Set("fp", "chrome")
+	query.Set("fp", firstNonEmpty(runtime.RealityFingerprint, "chrome"))
 	query.Set("pbk", runtime.RealityPublicKey)
 	if shortID != "" {
 		query.Set("sid", shortID)
 	}
 	query.Set("spx", "/")
 	query.Set("type", "tcp")
+	if runtime.VlessUDPEnabled {
+		query.Set("udp", "true")
+		if runtime.VlessXUDPEnabled {
+			query.Set("packet-encoding", "xudp")
+		}
+	}
 
 	return (&url.URL{
 		Scheme:   "vless",
@@ -262,6 +273,8 @@ type vlessNode struct {
 	RealitySID  string
 	SNI         string
 	Fingerprint string
+	UDPEnabled  bool
+	XUDPEnabled bool
 }
 
 type hysteria2Node struct {
@@ -316,6 +329,8 @@ func parseVLESSLink(raw string) (vlessNode, error) {
 		RealitySID:  q.Get("sid"),
 		SNI:         q.Get("sni"),
 		Fingerprint: firstNonEmpty(q.Get("fp"), "chrome"),
+		UDPEnabled:  boolQueryValue(q.Get("udp")),
+		XUDPEnabled: boolQueryValue(q.Get("udp")) && strings.EqualFold(q.Get("packet-encoding"), "xudp"),
 	}, nil
 }
 
@@ -355,10 +370,12 @@ func writeClashVLESS(out *strings.Builder, node vlessNode) {
 	out.WriteString("    type: vless\n")
 	out.WriteString("    server: " + yamlString(node.Server) + "\n")
 	out.WriteString(fmt.Sprintf("    port: %d\n", node.Port))
-	out.WriteString("    udp: true\n")
+	out.WriteString(fmt.Sprintf("    udp: %t\n", node.UDPEnabled))
 	out.WriteString("    uuid: " + yamlString(node.UUID) + "\n")
 	out.WriteString("    flow: " + yamlString(node.Flow) + "\n")
-	out.WriteString("    packet-encoding: xudp\n")
+	if node.UDPEnabled && node.XUDPEnabled {
+		out.WriteString("    packet-encoding: xudp\n")
+	}
 	out.WriteString("    tls: true\n")
 	out.WriteString("    servername: " + yamlString(node.SNI) + "\n")
 	out.WriteString("    client-fingerprint: " + yamlString(node.Fingerprint) + "\n")
@@ -396,15 +413,14 @@ func singBoxSelectorOutbound(nodes subscriptionNodes) map[string]any {
 }
 
 func singBoxVLESSOutbound(node vlessNode) map[string]any {
-	return map[string]any{
-		"type":            "vless",
-		"tag":             node.Name,
-		"server":          node.Server,
-		"server_port":     node.Port,
-		"uuid":            node.UUID,
-		"flow":            node.Flow,
-		"network":         "tcp",
-		"packet_encoding": "xudp",
+	outbound := map[string]any{
+		"type":        "vless",
+		"tag":         node.Name,
+		"server":      node.Server,
+		"server_port": node.Port,
+		"uuid":        node.UUID,
+		"flow":        node.Flow,
+		"network":     "tcp",
 		"tls": map[string]any{
 			"enabled":     true,
 			"server_name": node.SNI,
@@ -419,6 +435,10 @@ func singBoxVLESSOutbound(node vlessNode) map[string]any {
 			},
 		},
 	}
+	if node.UDPEnabled && node.XUDPEnabled {
+		outbound["packet_encoding"] = "xudp"
+	}
+	return outbound
 }
 
 func singBoxHysteria2Outbound(node hysteria2Node) map[string]any {
@@ -447,6 +467,10 @@ func singBoxHysteria2Outbound(node hysteria2Node) map[string]any {
 func yamlString(value string) string {
 	b, _ := json.Marshal(value)
 	return string(b)
+}
+
+func boolQueryValue(value string) bool {
+	return value == "1" || strings.EqualFold(value, "true") || strings.EqualFold(value, "yes")
 }
 
 func hostOnly(value string) string {

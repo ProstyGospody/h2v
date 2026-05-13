@@ -48,18 +48,23 @@ type DBConfig struct {
 }
 
 type XrayConfig struct {
-	Binary          string
-	APIAddr         string
-	ConfigPath      string
-	GeodataDir      string
-	GeoIPURL        string
-	GeositeURL      string
-	VlessPort       int
-	RealityDest     string
-	RealitySNI      string
-	RealityPrivKey  string
-	RealityPubKey   string
-	RealityShortIDs []string
+	Binary                  string
+	APIAddr                 string
+	ConfigPath              string
+	GeodataDir              string
+	GeoIPURL                string
+	GeositeURL              string
+	VlessPort               int
+	VlessUDPEnabled         bool
+	VlessXUDPEnabled        bool
+	RealityDest             string
+	RealitySNI              string
+	RealityPrivKey          string
+	RealityPubKey           string
+	RealityShortIDs         []string
+	RealityFingerprint      string
+	SniffingEnabled         bool
+	SniffingDestOverride    []string
 }
 
 type HysteriaConfig struct {
@@ -140,18 +145,23 @@ func Load() Config {
 			SSLMode:  getenv("DB_SSLMODE", "disable"),
 		},
 		Xray: XrayConfig{
-			Binary:          getenv("XRAY_BINARY", "/usr/local/bin/xray"),
-			APIAddr:         getenv("XRAY_API_ADDR", "127.0.0.1:10085"),
-			ConfigPath:      getenv("XRAY_CONFIG_PATH", filepath.Join(rootDir, "configs", "xray", "config.json")),
-			GeodataDir:      getenv("XRAY_GEODATA_DIR", filepath.Join(rootDir, "data", "geodata")),
-			GeoIPURL:        getenv("XRAY_GEOIP_URL", "https://github.com/v2fly/geoip/releases/latest/download/geoip.dat"),
-			GeositeURL:      getenv("XRAY_GEOSITE_URL", "https://github.com/v2fly/domain-list-community/releases/latest/download/dlc.dat"),
-			VlessPort:       getenvInt("VLESS_PORT", 8444),
-			RealityDest:     getenv("REALITY_DEST", "www.cloudflare.com:443"),
-			RealitySNI:      getenv("REALITY_SNI", "www.cloudflare.com"),
-			RealityPrivKey:  getenv("REALITY_PRIVATE_KEY", ""),
-			RealityPubKey:   getenv("REALITY_PUBLIC_KEY", ""),
-			RealityShortIDs: splitCSV(getenv("REALITY_SHORT_IDS", ",a1b2c3d4e5f60718")),
+			Binary:               getenv("XRAY_BINARY", "/usr/local/bin/xray"),
+			APIAddr:              getenv("XRAY_API_ADDR", "127.0.0.1:10085"),
+			ConfigPath:           getenv("XRAY_CONFIG_PATH", filepath.Join(rootDir, "configs", "xray", "config.json")),
+			GeodataDir:           getenv("XRAY_GEODATA_DIR", filepath.Join(rootDir, "data", "geodata")),
+			GeoIPURL:             getenv("XRAY_GEOIP_URL", "https://github.com/v2fly/geoip/releases/latest/download/geoip.dat"),
+			GeositeURL:           getenv("XRAY_GEOSITE_URL", "https://github.com/v2fly/domain-list-community/releases/latest/download/dlc.dat"),
+			VlessPort:            getenvInt("VLESS_PORT", 8444),
+			VlessUDPEnabled:      getenvBool("VLESS_UDP_ENABLED", false),
+			VlessXUDPEnabled:     getenvBool("VLESS_XUDP_ENABLED", false),
+			RealityDest:          getenv("REALITY_DEST", "www.cloudflare.com:443"),
+			RealitySNI:           getenv("REALITY_SNI", "www.cloudflare.com"),
+			RealityPrivKey:       getenv("REALITY_PRIVATE_KEY", ""),
+			RealityPubKey:        getenv("REALITY_PUBLIC_KEY", ""),
+			RealityShortIDs:      splitCSV(getenv("REALITY_SHORT_IDS", ",a1b2c3d4e5f60718")),
+			RealityFingerprint:   getenv("REALITY_FINGERPRINT", "chrome"),
+			SniffingEnabled:      getenvBool("XRAY_SNIFFING_ENABLED", true),
+			SniffingDestOverride: splitCSV(getenv("XRAY_SNIFFING_DEST_OVERRIDE", "http,tls")),
 		},
 		Hysteria: HysteriaConfig{
 			ConfigPath:    getenv("HY2_CONFIG_PATH", filepath.Join(rootDir, "configs", "hysteria", "config.json")),

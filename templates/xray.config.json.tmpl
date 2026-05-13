@@ -55,8 +55,8 @@
         }
       },
       "sniffing": {
-        "enabled": true,
-        "destOverride": ["http", "tls", "quic"],
+        "enabled": {{ .XraySniffingEnabled }},
+        "destOverride": [{{ range $i, $v := .XraySniffingDestOverride }}{{ if $i }}, {{ end }}{{ $v | json }}{{ end }}],
         "routeOnly": true
       }
     }
@@ -66,15 +66,20 @@
     { "protocol": "blackhole", "tag": "block" }
   ],
   "routing": {
-  "domainStrategy": "AsIs",
-  "rules": [
-    { "type": "field", "inboundTag": ["api"], "outboundTag": "api" },
-    { "type": "field", "protocol": ["bittorrent"], "outboundTag": "block" },
-    {
-      "type": "field",
-      "domain": ["geosite:category-ru"],
-      "outboundTag": "block"
-    }
-  ]
-}
+    "domainStrategy": "AsIs",
+    "rules": [
+      { "type": "field", "inboundTag": ["api"], "outboundTag": "api" },
+      { "type": "field", "protocol": ["bittorrent"], "outboundTag": "block" },
+      {
+        "type": "field",
+        "domain": ["geosite:category-ru"],
+        "outboundTag": "block"
+      },
+      {
+        "type": "field",
+        "ip": ["geoip:ru"],
+        "outboundTag": "block"
+      }
+    ]
+  }
 }

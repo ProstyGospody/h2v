@@ -1316,6 +1316,11 @@ ensure_env() {
   if [[ -n "${VLESS_PORT_INPUT}" ]]; then
     env_set VLESS_PORT "${VLESS_PORT_INPUT}"
   fi
+  env_set_default VLESS_UDP_ENABLED false
+  env_set_default VLESS_XUDP_ENABLED false
+  env_set_default REALITY_FINGERPRINT chrome
+  env_set_default XRAY_SNIFFING_ENABLED true
+  env_set_default XRAY_SNIFFING_DEST_OVERRIDE http,tls
   if [[ -n "${HY2_PORT_INPUT}" ]]; then
     env_set HY2_PORT "${HY2_PORT_INPUT}"
   fi

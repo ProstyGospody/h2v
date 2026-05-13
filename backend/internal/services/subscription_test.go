@@ -37,7 +37,7 @@ func TestBuildProtocolLinks(t *testing.T) {
 		"security":   "reality",
 		"pbk":        "reality-public-key",
 		"sni":        "www.cloudflare.com",
-		"fp":         "chrome",
+		"fp":         "firefox",
 		"flow":       "xtls-rprx-vision",
 		"sid":        "a1b2c3d4",
 		"spx":        "/",
@@ -132,7 +132,8 @@ func TestBuildClashYAMLUsesStructuredProxies(t *testing.T) {
 		"type: vless",
 		"uuid: \"11111111-1111-1111-1111-111111111111\"",
 		"flow: \"xtls-rprx-vision\"",
-		"packet-encoding: xudp",
+		"udp: false",
+		"client-fingerprint: \"firefox\"",
 		"reality-opts:",
 		"public-key: \"reality-public-key\"",
 		"encryption: \"\"",
@@ -144,6 +145,9 @@ func TestBuildClashYAMLUsesStructuredProxies(t *testing.T) {
 		if !strings.Contains(payload, want) {
 			t.Fatalf("clash payload missing %q:\n%s", want, payload)
 		}
+	}
+	if strings.Contains(payload, "packet-encoding: xudp") {
+		t.Fatalf("clash payload must not enable xudp by default:\n%s", payload)
 	}
 	if strings.Contains(payload, "url:") {
 		t.Fatalf("clash payload must not wrap proxies as url fields:\n%s", payload)
@@ -177,9 +181,16 @@ func TestBuildSingBoxJSONUsesDocumentedOutbounds(t *testing.T) {
 	if got := vless["flow"]; got != "xtls-rprx-vision" {
 		t.Fatalf("sing-box vless flow = %#v", got)
 	}
+	if _, ok := vless["packet_encoding"]; ok {
+		t.Fatalf("sing-box vless must not enable xudp by default: %#v", vless)
+	}
 	tls, ok := vless["tls"].(map[string]any)
 	if !ok {
 		t.Fatalf("sing-box vless tls = %#v", vless["tls"])
+	}
+	utls, ok := tls["utls"].(map[string]any)
+	if !ok || utls["fingerprint"] != "firefox" {
+		t.Fatalf("sing-box vless utls = %#v", tls["utls"])
 	}
 	reality, ok := tls["reality"].(map[string]any)
 	if !ok || reality["public_key"] != "reality-public-key" {
@@ -193,6 +204,75 @@ func TestBuildSingBoxJSONUsesDocumentedOutbounds(t *testing.T) {
 	obfs, ok := hy2["obfs"].(map[string]any)
 	if !ok || obfs["type"] != "salamander" || obfs["password"] != "obfs secret" {
 		t.Fatalf("sing-box hy2 obfs = %#v", hy2["obfs"])
+	}
+}
+
+func TestStructuredVLESSSubscriptionsApplyUDPSettings(t *testing.T) {
+	for _, tt := range []struct {
+		name          string
+		udpEnabled    bool
+		xudpEnabled   bool
+		wantClash     []string
+		rejectClash   []string
+		wantPacketEnc bool
+	}{
+		{
+			name:        "udp without xudp",
+			udpEnabled:  true,
+			xudpEnabled: false,
+			wantClash:   []string{"udp: true"},
+			rejectClash: []string{"packet-encoding: xudp"},
+		},
+		{
+			name:          "udp with xudp",
+			udpEnabled:    true,
+			xudpEnabled:   true,
+			wantClash:     []string{"udp: true", "packet-encoding: xudp"},
+			wantPacketEnc: true,
+		},
+		{
+			name:        "xudp ignored when udp disabled",
+			udpEnabled:  false,
+			xudpEnabled: true,
+			wantClash:   []string{"udp: false"},
+			rejectClash: []string{"packet-encoding: xudp"},
+		},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			runtime := sampleRuntime()
+			runtime.VlessUDPEnabled = tt.udpEnabled
+			runtime.VlessXUDPEnabled = tt.xudpEnabled
+			links := sampleLinksWithRuntime(runtime)
+
+			clash, err := (&SubscriptionService{}).BuildClashYAML(links)
+			if err != nil {
+				t.Fatalf("build clash: %v", err)
+			}
+			for _, want := range tt.wantClash {
+				if !strings.Contains(clash, want) {
+					t.Fatalf("clash payload missing %q:\n%s", want, clash)
+				}
+			}
+			for _, reject := range tt.rejectClash {
+				if strings.Contains(clash, reject) {
+					t.Fatalf("clash payload unexpectedly contains %q:\n%s", reject, clash)
+				}
+			}
+
+			payload, err := (&SubscriptionService{}).BuildSingBoxJSON(links)
+			if err != nil {
+				t.Fatalf("build sing-box: %v", err)
+			}
+			var config map[string]any
+			if err := json.Unmarshal(payload, &config); err != nil {
+				t.Fatalf("decode sing-box json: %v", err)
+			}
+			vless := outboundByType(t, config, "vless")
+			_, hasPacketEncoding := vless["packet_encoding"]
+			if hasPacketEncoding != tt.wantPacketEnc {
+				t.Fatalf("packet_encoding present = %t, want %t: %#v", hasPacketEncoding, tt.wantPacketEnc, vless)
+			}
+		})
 	}
 }
 
@@ -213,8 +293,11 @@ func outboundByType(t *testing.T, config map[string]any, proxyType string) map[s
 }
 
 func sampleLinks() *domain.SubscriptionLinks {
+	return sampleLinksWithRuntime(sampleRuntime())
+}
+
+func sampleLinksWithRuntime(runtime RuntimeSettings) *domain.SubscriptionLinks {
 	user := sampleUser()
-	runtime := sampleRuntime()
 	return &domain.SubscriptionLinks{
 		Subscription: "https://panel.example.com/sub/token",
 		VLESS:        buildVLESS(runtime, user),
@@ -225,15 +308,16 @@ func sampleLinks() *domain.SubscriptionLinks {
 
 func sampleRuntime() RuntimeSettings {
 	return RuntimeSettings{
-		PanelDomain:      "vpn.example.com",
-		RealitySNI:       "www.cloudflare.com",
-		RealityPublicKey: "reality-public-key",
-		RealityShortIDs:  []string{"", "a1b2c3d4"},
-		VlessPort:        443,
-		Hy2Domain:        "hy2.example.com",
-		Hy2Port:          8443,
-		Hy2ObfsEnabled:   true,
-		Hy2ObfsPassword:  "obfs secret",
+		PanelDomain:        "vpn.example.com",
+		RealitySNI:         "www.cloudflare.com",
+		RealityPublicKey:   "reality-public-key",
+		RealityFingerprint: "firefox",
+		RealityShortIDs:    []string{"", "a1b2c3d4"},
+		VlessPort:          443,
+		Hy2Domain:          "hy2.example.com",
+		Hy2Port:            8443,
+		Hy2ObfsEnabled:     true,
+		Hy2ObfsPassword:    "obfs secret",
 	}
 }
 

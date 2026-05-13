@@ -41,6 +41,23 @@ type TelegramSecret struct {
 var (
 	bandwidthPattern = regexp.MustCompile(`(?i)^\d+(?:\.\d+)?\s*(bps|kbps|mbps|gbps|tbps|k|m|g|t)$`)
 	shortIDPattern   = regexp.MustCompile(`^[0-9a-fA-F]{0,16}$`)
+
+	defaultXraySniffingDestOverride = []string{"http", "tls"}
+	allowedXraySniffingDestOverride = map[string]struct{}{
+		"http": {},
+		"tls":  {},
+		"quic": {},
+	}
+	allowedRealityFingerprints = map[string]struct{}{
+		"chrome":     {},
+		"firefox":    {},
+		"safari":     {},
+		"ios":        {},
+		"android":    {},
+		"edge":       {},
+		"random":     {},
+		"randomized": {},
+	}
 )
 
 func NewSettingsService(cfg config.Config, repository *repo.Repository, logger *slog.Logger) *SettingsService {
@@ -173,6 +190,8 @@ func (s *SettingsService) Runtime(ctx context.Context) (RuntimeSettings, error) 
 
 	runtime.RealityServerNames = dedupeNonEmpty(append([]string{runtime.RealitySNI}, runtime.RealityServerNames...))
 	runtime.RealityShortIDs = normalizeShortIDs(runtime.RealityShortIDs)
+	runtime.RealityFingerprint = normalizeRealityFingerprintOrDefault(runtime.RealityFingerprint)
+	runtime.XraySniffingDestOverride = normalizeSniffingDestOverrideOrDefault(runtime.XraySniffingDestOverride)
 
 	if s.repo != nil {
 		users, err := s.repo.ListActiveUsers(ctx)
@@ -194,37 +213,42 @@ func (s *SettingsService) Runtime(ctx context.Context) (RuntimeSettings, error) 
 
 func DefaultRuntime(cfg config.Config) RuntimeSettings {
 	return RuntimeSettings{
-		PanelDomain:        cfg.Panel.Domain,
-		PublicServerIP:     cfg.Panel.PublicIP,
-		PanelPort:          cfg.Panel.Port,
-		PanelPublicPort:    cfg.Panel.PublicPort,
-		SubURLPrefix:       cfg.Subscription.URLPrefix,
-		RealitySNI:         cfg.Xray.RealitySNI,
-		RealityDest:        cfg.Xray.RealityDest,
-		RealityPublicKey:   cfg.Xray.RealityPubKey,
-		RealityPrivateKey:  cfg.Xray.RealityPrivKey,
-		RealityServerNames: []string{cfg.Xray.RealitySNI},
-		RealityShortIDs:    normalizeShortIDs(cfg.Xray.RealityShortIDs),
-		VlessPort:          cfg.Xray.VlessPort,
-		Hy2Domain:          cfg.Hysteria.Domain,
-		Hy2Port:            cfg.Hysteria.Port,
-		Hy2ObfsEnabled:     cfg.Hysteria.ObfsEnabled,
-		Hy2ObfsPassword:    cfg.Hysteria.ObfsPassword,
-		Hy2BandwidthUp:     cfg.Hysteria.BandwidthUp,
-		Hy2BandwidthDown:   cfg.Hysteria.BandwidthDown,
-		Hy2MasqueradeURL:   cfg.Hysteria.MasqueradeURL,
-		Hy2TrafficSecret:   cfg.Hysteria.TrafficSecret,
-		Hy2CertPath:        cfg.Hysteria.CertPath,
-		Hy2KeyPath:         cfg.Hysteria.KeyPath,
-		TelegramEnabled:    cfg.Telegram.Enabled,
-		TelegramHost:       cfg.Telegram.Host,
-		TelegramPort:       cfg.Telegram.Port,
-		TelegramSecret:     cfg.Telegram.Secret,
-		TelegramMaskDomain: cfg.Telegram.MaskDomain,
-		TelegramFallback:   cfg.Telegram.FallbackAddr,
-		GeoIPPath:          filepath.Join(cfg.Xray.GeodataDir, "geoip.dat"),
-		GeositePath:        filepath.Join(cfg.Xray.GeodataDir, "geosite.dat"),
-		Clients:            nil,
+		PanelDomain:               cfg.Panel.Domain,
+		PublicServerIP:            cfg.Panel.PublicIP,
+		PanelPort:                 cfg.Panel.Port,
+		PanelPublicPort:           cfg.Panel.PublicPort,
+		SubURLPrefix:              cfg.Subscription.URLPrefix,
+		RealitySNI:                cfg.Xray.RealitySNI,
+		RealityDest:               cfg.Xray.RealityDest,
+		RealityPublicKey:          cfg.Xray.RealityPubKey,
+		RealityPrivateKey:         cfg.Xray.RealityPrivKey,
+		RealityFingerprint:        normalizeRealityFingerprintOrDefault(cfg.Xray.RealityFingerprint),
+		RealityServerNames:        []string{cfg.Xray.RealitySNI},
+		RealityShortIDs:           normalizeShortIDs(cfg.Xray.RealityShortIDs),
+		VlessPort:                 cfg.Xray.VlessPort,
+		VlessUDPEnabled:           cfg.Xray.VlessUDPEnabled,
+		VlessXUDPEnabled:          cfg.Xray.VlessXUDPEnabled,
+		XraySniffingEnabled:       cfg.Xray.SniffingEnabled,
+		XraySniffingDestOverride:  normalizeSniffingDestOverrideOrDefault(cfg.Xray.SniffingDestOverride),
+		Hy2Domain:                 cfg.Hysteria.Domain,
+		Hy2Port:                   cfg.Hysteria.Port,
+		Hy2ObfsEnabled:            cfg.Hysteria.ObfsEnabled,
+		Hy2ObfsPassword:           cfg.Hysteria.ObfsPassword,
+		Hy2BandwidthUp:            cfg.Hysteria.BandwidthUp,
+		Hy2BandwidthDown:          cfg.Hysteria.BandwidthDown,
+		Hy2MasqueradeURL:          cfg.Hysteria.MasqueradeURL,
+		Hy2TrafficSecret:          cfg.Hysteria.TrafficSecret,
+		Hy2CertPath:               cfg.Hysteria.CertPath,
+		Hy2KeyPath:                cfg.Hysteria.KeyPath,
+		TelegramEnabled:           cfg.Telegram.Enabled,
+		TelegramHost:              cfg.Telegram.Host,
+		TelegramPort:              cfg.Telegram.Port,
+		TelegramSecret:            cfg.Telegram.Secret,
+		TelegramMaskDomain:        cfg.Telegram.MaskDomain,
+		TelegramFallback:          cfg.Telegram.FallbackAddr,
+		GeoIPPath:                 filepath.Join(cfg.Xray.GeodataDir, "geoip.dat"),
+		GeositePath:               filepath.Join(cfg.Xray.GeodataDir, "geosite.dat"),
+		Clients:                   nil,
 		FallbackClient: ClientEntry{
 			UUID:  inactiveXrayClientUUID(cfg),
 			Email: "__h2v_no_active_users__",
@@ -249,8 +273,13 @@ func applyRuntimeValues(runtime *RuntimeSettings, values map[string]json.RawMess
 	runtime.RealityDest = stringOr(values, "reality.dest", runtime.RealityDest)
 	runtime.RealityPrivateKey = stringOr(values, "reality.private_key", runtime.RealityPrivateKey)
 	runtime.RealityPublicKey = stringOr(values, "reality.public_key", runtime.RealityPublicKey)
+	runtime.RealityFingerprint = stringOr(values, "reality.fingerprint", runtime.RealityFingerprint)
 	runtime.RealityShortIDs = stringsOr(values, "reality.short_ids", runtime.RealityShortIDs)
 	runtime.VlessPort = intOr(values, "vless.port", runtime.VlessPort)
+	runtime.VlessUDPEnabled = boolOr(values, "vless.udp_enabled", runtime.VlessUDPEnabled)
+	runtime.VlessXUDPEnabled = boolOr(values, "vless.xudp_enabled", runtime.VlessXUDPEnabled)
+	runtime.XraySniffingEnabled = boolOr(values, "xray.sniffing_enabled", runtime.XraySniffingEnabled)
+	runtime.XraySniffingDestOverride = stringListOr(values, "xray.sniffing_dest_override", runtime.XraySniffingDestOverride)
 	runtime.Hy2Domain = stringOr(values, "hy2.domain", runtime.Hy2Domain)
 	runtime.Hy2Port = intOr(values, "hy2.port", runtime.Hy2Port)
 	runtime.Hy2ObfsEnabled = boolOr(values, "hy2.obfs_enabled", runtime.Hy2ObfsEnabled)
@@ -265,6 +294,8 @@ func applyRuntimeValues(runtime *RuntimeSettings, values map[string]json.RawMess
 	runtime.TelegramSecret = stringOr(values, "telegram.secret", runtime.TelegramSecret)
 	runtime.TelegramMaskDomain = stringOr(values, "telegram.mask_domain", runtime.TelegramMaskDomain)
 	runtime.TelegramFallback = stringOr(values, "telegram.fallback", runtime.TelegramFallback)
+	runtime.RealityFingerprint = normalizeRealityFingerprintOrDefault(runtime.RealityFingerprint)
+	runtime.XraySniffingDestOverride = normalizeSniffingDestOverrideOrDefault(runtime.XraySniffingDestOverride)
 }
 
 func applyStoredRuntimeValues(runtime *RuntimeSettings, values map[string]json.RawMessage) {
@@ -321,7 +352,7 @@ func normalizeSettingValue(key string, raw json.RawMessage) (any, error) {
 			return nil, invalidSetting(key, "must be an integer between 1 and 65535")
 		}
 		return value, nil
-	case "hy2.obfs_enabled", "telegram.enabled":
+	case "hy2.obfs_enabled", "telegram.enabled", "vless.udp_enabled", "vless.xudp_enabled", "xray.sniffing_enabled":
 		var value bool
 		if err := json.Unmarshal(raw, &value); err != nil {
 			return nil, invalidSetting(key, "must be a boolean")
@@ -339,8 +370,18 @@ func normalizeSettingValue(key string, raw json.RawMessage) (any, error) {
 			}
 		}
 		return values, nil
+	case "xray.sniffing_dest_override":
+		values, err := decodeStringList(raw)
+		if err != nil {
+			return nil, invalidSetting(key, "must be a string array or comma-separated string")
+		}
+		values, err = normalizeSniffingDestOverride(values)
+		if err != nil {
+			return nil, invalidSetting(key, err.Error())
+		}
+		return values, nil
 	case "hy2.domain", "telegram.host", "telegram.mask_domain", "reality.sni", "reality.dest", "reality.private_key", "reality.public_key",
-		"hy2.obfs_password", "hy2.bandwidth_up", "hy2.bandwidth_down",
+		"reality.fingerprint", "hy2.obfs_password", "hy2.bandwidth_up", "hy2.bandwidth_down",
 		"hy2.masquerade_url", "hy2.traffic_secret", "telegram.secret", "telegram.fallback":
 		var value string
 		if err := json.Unmarshal(raw, &value); err != nil {
@@ -385,6 +426,12 @@ func normalizeStringSetting(key, value string) (string, error) {
 		if value == "" {
 			return "", invalidSetting(key, "cannot be empty")
 		}
+	case "reality.fingerprint":
+		fingerprint, ok := normalizeRealityFingerprint(value)
+		if !ok {
+			return "", invalidSetting(key, "must be one of chrome, firefox, safari, ios, android, edge, random, randomized")
+		}
+		value = fingerprint
 	case "telegram.secret":
 		value = strings.ToLower(value)
 		if value == "" {
@@ -557,6 +604,31 @@ func stringsOr(values map[string]json.RawMessage, key string, fallback []string)
 	return result
 }
 
+func stringListOr(values map[string]json.RawMessage, key string, fallback []string) []string {
+	raw, ok := values[key]
+	if !ok {
+		return fallback
+	}
+	result, err := decodeStringList(raw)
+	if err != nil || len(result) == 0 {
+		return fallback
+	}
+	return result
+}
+
+func decodeStringList(raw json.RawMessage) ([]string, error) {
+	var values []string
+	if err := json.Unmarshal(raw, &values); err == nil {
+		return values, nil
+	}
+
+	var value string
+	if err := json.Unmarshal(raw, &value); err != nil {
+		return nil, err
+	}
+	return strings.Split(value, ","), nil
+}
+
 func dedupeNonEmpty(values []string) []string {
 	seen := make(map[string]struct{}, len(values))
 	out := make([]string, 0, len(values))
@@ -571,6 +643,55 @@ func dedupeNonEmpty(values []string) []string {
 		out = append(out, v)
 	}
 	return out
+}
+
+func normalizeRealityFingerprint(value string) (string, bool) {
+	value = strings.ToLower(strings.TrimSpace(value))
+	if value == "" {
+		return "", false
+	}
+	_, ok := allowedRealityFingerprints[value]
+	return value, ok
+}
+
+func normalizeRealityFingerprintOrDefault(value string) string {
+	if fingerprint, ok := normalizeRealityFingerprint(value); ok {
+		return fingerprint
+	}
+	return "chrome"
+}
+
+func normalizeSniffingDestOverride(values []string) ([]string, error) {
+	seen := make(map[string]struct{}, len(values))
+	out := make([]string, 0, len(values))
+	for _, raw := range values {
+		for _, part := range strings.Split(raw, ",") {
+			value := strings.ToLower(strings.TrimSpace(part))
+			if value == "" {
+				continue
+			}
+			if _, ok := allowedXraySniffingDestOverride[value]; !ok {
+				return nil, fmt.Errorf("must contain only http, tls, or quic")
+			}
+			if _, ok := seen[value]; ok {
+				continue
+			}
+			seen[value] = struct{}{}
+			out = append(out, value)
+		}
+	}
+	if len(out) == 0 {
+		return nil, fmt.Errorf("must contain at least one of http, tls, or quic")
+	}
+	return out, nil
+}
+
+func normalizeSniffingDestOverrideOrDefault(values []string) []string {
+	normalized, err := normalizeSniffingDestOverride(values)
+	if err != nil {
+		return append([]string(nil), defaultXraySniffingDestOverride...)
+	}
+	return normalized
 }
 
 // normalizeShortIDs keeps Reality shortIds valid per Xray docs: empty string

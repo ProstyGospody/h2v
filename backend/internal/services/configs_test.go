@@ -13,6 +13,11 @@ import (
 	"github.com/prost/h2v/backend/internal/config"
 )
 
+type xrayRouteRuleForTest struct {
+	Domain []string `json:"domain"`
+	IP     []string `json:"ip"`
+}
+
 func TestNormalizeHostnameOnlyStripsSchemeAndPort(t *testing.T) {
 	host, ok := normalizeHostnameOnly("https://VPN.Example.COM:8443/settings")
 	if !ok {
@@ -87,15 +92,10 @@ func TestRestartCoreUsesBoundedTimeout(t *testing.T) {
 }
 
 func TestRenderXrayConfigWithoutClientsKeepsVLESSInboundWithFallbackClient(t *testing.T) {
-	content := renderXrayTemplateForTest(t, RuntimeSettings{
-		RealityDest:        "www.cloudflare.com:443",
-		RealityPrivateKey:  "private",
-		RealityServerNames: []string{"www.cloudflare.com"},
-		RealityShortIDs:    []string{"", "a1b2c3d4"},
-		VlessPort:          8444,
-		Clients:            nil,
-		FallbackClient:     ClientEntry{UUID: "22222222-2222-2222-2222-222222222222", Email: "__h2v_no_active_users__"},
-	})
+	runtime := baseXrayRuntimeForTest()
+	runtime.Clients = nil
+	runtime.FallbackClient = ClientEntry{UUID: "22222222-2222-2222-2222-222222222222", Email: "__h2v_no_active_users__"}
+	content := renderXrayTemplateForTest(t, runtime)
 
 	var payload struct {
 		Inbounds []struct {
@@ -129,16 +129,11 @@ func TestRenderXrayConfigWithoutClientsKeepsVLESSInboundWithFallbackClient(t *te
 }
 
 func TestRenderXrayConfigWithClientsIncludesVLESSInbound(t *testing.T) {
-	content := renderXrayTemplateForTest(t, RuntimeSettings{
-		RealityDest:        "www.cloudflare.com:443",
-		RealityPrivateKey:  "private",
-		RealityServerNames: []string{"www.cloudflare.com"},
-		RealityShortIDs:    []string{"", "a1b2c3d4"},
-		VlessPort:          8444,
-		Clients: []ClientEntry{
-			{UUID: "11111111-1111-1111-1111-111111111111", Email: "alice"},
-		},
-	})
+	runtime := baseXrayRuntimeForTest()
+	runtime.Clients = []ClientEntry{
+		{UUID: "11111111-1111-1111-1111-111111111111", Email: "alice"},
+	}
+	content := renderXrayTemplateForTest(t, runtime)
 
 	var payload struct {
 		Inbounds []struct {
@@ -168,6 +163,103 @@ func TestRenderXrayConfigWithClientsIncludesVLESSInbound(t *testing.T) {
 		return
 	}
 	t.Fatal("vless-reality inbound not found")
+}
+
+func TestRenderXrayConfigUsesStabilityRoutingAndSniffingDefaults(t *testing.T) {
+	content := renderXrayTemplateForTest(t, baseXrayRuntimeForTest())
+
+	var payload struct {
+		Inbounds []struct {
+			Tag      string `json:"tag"`
+			Sniffing struct {
+				Enabled      bool     `json:"enabled"`
+				DestOverride []string `json:"destOverride"`
+				RouteOnly    bool     `json:"routeOnly"`
+			} `json:"sniffing"`
+		} `json:"inbounds"`
+		Routing struct {
+			DomainStrategy string `json:"domainStrategy"`
+			Rules          []xrayRouteRuleForTest `json:"rules"`
+		} `json:"routing"`
+	}
+	if err := json.Unmarshal(content, &payload); err != nil {
+		t.Fatal(err)
+	}
+
+	var sniffing struct {
+		Enabled      bool
+		DestOverride []string
+		RouteOnly    bool
+	}
+	for _, inbound := range payload.Inbounds {
+		if inbound.Tag == "vless-reality" {
+			sniffing.Enabled = inbound.Sniffing.Enabled
+			sniffing.DestOverride = inbound.Sniffing.DestOverride
+			sniffing.RouteOnly = inbound.Sniffing.RouteOnly
+			break
+		}
+	}
+	if !sniffing.Enabled || !sniffing.RouteOnly {
+		t.Fatalf("sniffing = %#v, want enabled routeOnly", sniffing)
+	}
+	if got, want := sniffing.DestOverride, []string{"http", "tls"}; !stringSlicesEqual(got, want) {
+		t.Fatalf("destOverride = %#v, want %#v", got, want)
+	}
+	if payload.Routing.DomainStrategy != "AsIs" {
+		t.Fatalf("domainStrategy = %q, want AsIs", payload.Routing.DomainStrategy)
+	}
+	if !routingHasDomainRule(payload.Routing.Rules, "geosite:category-ru") {
+		t.Fatalf("routing missing geosite:category-ru rule: %#v", payload.Routing.Rules)
+	}
+	if !routingHasIPRule(payload.Routing.Rules, "geoip:ru") {
+		t.Fatalf("routing missing geoip:ru rule: %#v", payload.Routing.Rules)
+	}
+}
+
+func baseXrayRuntimeForTest() RuntimeSettings {
+	return RuntimeSettings{
+		RealityDest:               "www.cloudflare.com:443",
+		RealityPrivateKey:         "private",
+		RealityServerNames:        []string{"www.cloudflare.com"},
+		RealityShortIDs:           []string{"", "a1b2c3d4"},
+		VlessPort:                 8444,
+		XraySniffingEnabled:       true,
+		XraySniffingDestOverride:  []string{"http", "tls"},
+	}
+}
+
+func routingHasDomainRule(rules []xrayRouteRuleForTest, value string) bool {
+	for _, rule := range rules {
+		for _, domain := range rule.Domain {
+			if domain == value {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func routingHasIPRule(rules []xrayRouteRuleForTest, value string) bool {
+	for _, rule := range rules {
+		for _, ip := range rule.IP {
+			if ip == value {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func stringSlicesEqual(left, right []string) bool {
+	if len(left) != len(right) {
+		return false
+	}
+	for i := range left {
+		if left[i] != right[i] {
+			return false
+		}
+	}
+	return true
 }
 
 func renderXrayTemplateForTest(t *testing.T, runtime RuntimeSettings) []byte {
