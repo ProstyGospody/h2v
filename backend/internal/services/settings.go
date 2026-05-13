@@ -215,10 +215,7 @@ func (s *SettingsService) Runtime(ctx context.Context) (RuntimeSettings, error) 
 		applyStoredRuntimeValues(&runtime, values)
 	}
 
-	runtime.RealityServerNames = dedupeNonEmpty(append([]string{runtime.RealitySNI}, runtime.RealityServerNames...))
-	runtime.RealityShortIDs = normalizeShortIDs(runtime.RealityShortIDs)
-	runtime.RealityFingerprint = normalizeRealityFingerprintOrDefault(runtime.RealityFingerprint)
-	runtime.XraySniffingDestOverride = normalizeSniffingDestOverrideOrDefault(runtime.XraySniffingDestOverride)
+	normalizeRuntimeDerivedValues(&runtime)
 
 	if s.repo != nil {
 		users, err := s.repo.ListActiveUsers(ctx)
@@ -281,6 +278,13 @@ func DefaultRuntime(cfg config.Config) RuntimeSettings {
 			Email: "__h2v_no_active_users__",
 		},
 	}
+}
+
+func normalizeRuntimeDerivedValues(runtime *RuntimeSettings) {
+	runtime.RealityServerNames = currentRealityServerNames(runtime.RealitySNI)
+	runtime.RealityShortIDs = normalizeShortIDs(runtime.RealityShortIDs)
+	runtime.RealityFingerprint = normalizeRealityFingerprintOrDefault(runtime.RealityFingerprint)
+	runtime.XraySniffingDestOverride = normalizeSniffingDestOverrideOrDefault(runtime.XraySniffingDestOverride)
 }
 
 func inactiveXrayClientUUID(cfg config.Config) string {
@@ -679,22 +683,6 @@ func decodeStringList(raw json.RawMessage) ([]string, error) {
 	return strings.Split(value, ","), nil
 }
 
-func dedupeNonEmpty(values []string) []string {
-	seen := make(map[string]struct{}, len(values))
-	out := make([]string, 0, len(values))
-	for _, v := range values {
-		if v == "" {
-			continue
-		}
-		if _, ok := seen[v]; ok {
-			continue
-		}
-		seen[v] = struct{}{}
-		out = append(out, v)
-	}
-	return out
-}
-
 func normalizeRealityFingerprint(value string) (string, bool) {
 	value = strings.ToLower(strings.TrimSpace(value))
 	if value == "" {
@@ -742,6 +730,14 @@ func normalizeSniffingDestOverrideOrDefault(values []string) []string {
 		return append([]string(nil), defaultXraySniffingDestOverride...)
 	}
 	return normalized
+}
+
+func currentRealityServerNames(sni string) []string {
+	sni = strings.TrimSpace(sni)
+	if sni == "" {
+		return nil
+	}
+	return []string{sni}
 }
 
 // normalizeShortIDs keeps Reality shortIds valid per Xray docs: empty string

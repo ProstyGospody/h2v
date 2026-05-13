@@ -209,8 +209,7 @@ func (s *ConfigService) runtime(ctx context.Context, overrides ...map[string]jso
 		}
 		applyRuntimeValues(&runtime, normalized)
 	}
-	runtime.RealityServerNames = dedupeNonEmpty(append([]string{runtime.RealitySNI}, runtime.RealityServerNames...))
-	runtime.RealityShortIDs = normalizeShortIDs(runtime.RealityShortIDs)
+	normalizeRuntimeDerivedValues(&runtime)
 	return runtime, nil
 }
 

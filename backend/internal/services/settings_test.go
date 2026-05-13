@@ -50,3 +50,17 @@ func TestNormalizeSettingValueRejectsInvalidVLESSAndXrayStabilitySettings(t *tes
 		}
 	}
 }
+
+func TestNormalizeRuntimeDerivedValuesUsesOnlyCurrentRealitySNI(t *testing.T) {
+	runtime := RuntimeSettings{
+		RealitySNI:         "www.google.com",
+		RealityServerNames: []string{"www.cloudflare.com"},
+		RealityShortIDs:    []string{"", "a1b2c3d4"},
+	}
+
+	normalizeRuntimeDerivedValues(&runtime)
+
+	if got, want := runtime.RealityServerNames, []string{"www.google.com"}; !reflect.DeepEqual(got, want) {
+		t.Fatalf("server names = %#v, want %#v", got, want)
+	}
+}
