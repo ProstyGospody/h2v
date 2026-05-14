@@ -341,11 +341,12 @@
 }
 
 [data-slot="sidebar"] {
+  overflow: hidden;
   width: var(--sidebar-width);
 }
 
 [data-slot="sidebar-wrapper"] {
-  --sidebar-transition-duration: 180ms;
+  --sidebar-transition-duration: 220ms;
   --sidebar-transition-easing: cubic-bezier(0.22, 1, 0.36, 1);
 }
 
@@ -588,5 +589,10 @@
     animation: login-code-run var(--login-code-duration) linear infinite !important;
     animation-duration: var(--login-code-duration) !important;
     animation-iteration-count: infinite !important;
+  }
+
+  [data-slot="sidebar"],
+  [data-slot="sidebar-inset"] {
+    transition-duration: var(--sidebar-transition-duration) !important;
   }
 }

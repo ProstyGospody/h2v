@@ -136,8 +136,8 @@ function SidebarBody({
   showToggle?: boolean;
 }) {
   const { locale, t } = useI18n();
-  const { open } = useSidebar();
-  const collapsed = !open;
+  const { contentOpen } = useSidebar();
+  const collapsed = !contentOpen;
   const overview = useQuery({
     queryKey: ['stats', 'overview'],
     queryFn: () => apiClient.request<OverviewStats>('/stats/overview'),
@@ -349,7 +349,7 @@ function SidebarLink({
   onClick?: () => void;
   to: LinkTo;
 }) {
-  const { open } = useSidebar();
+  const { contentOpen } = useSidebar();
   const pathname = useRouterState({ select: (state) => state.location.pathname });
   const isActive = pathname === to;
 
@@ -363,7 +363,7 @@ function SidebarLink({
           <span className="flex size-9 shrink-0 items-center justify-center rounded-md transition-colors group-hover:bg-background/20">
             <Icon className="size-5 shrink-0" />
           </span>
-          {open ? <span className="min-w-0 truncate">{label}</span> : null}
+          {contentOpen ? <span className="min-w-0 truncate">{label}</span> : null}
         </Link>
       </SidebarMenuButton>
     </SidebarMenuItem>
