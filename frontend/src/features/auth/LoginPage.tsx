@@ -7,7 +7,7 @@ import { Eye, EyeOff } from 'lucide-react';
 import { BrandLogo } from '@/components/brand-logo';
 import { LanguageSwitcher } from '@/components/language-switcher';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Field, FieldGroup, FieldLabel } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
 import { useAuth } from '@/features/auth/useAuth';
@@ -76,12 +76,8 @@ export function LoginPage() {
       </div>
 
       <Card aria-label={t('login.signIn')} className="login-modal relative z-10 w-full max-w-[360px]">
-        <CardHeader className="items-center gap-4 border-b border-border/45 px-6 pb-5 pt-6 text-center">
+        <CardHeader className="items-center border-b border-border/45 px-6 pb-5 pt-6 text-center">
           <BrandLogo className="h-14 w-28" />
-          <div className="flex flex-col gap-1">
-            <CardTitle className="text-sm font-semibold leading-5">{t('login.signIn')}</CardTitle>
-            <CardDescription className="font-mono text-[11px] uppercase tracking-wider">h2v panel</CardDescription>
-          </div>
         </CardHeader>
 
         <CardContent className="px-6 pb-6 pt-5">
