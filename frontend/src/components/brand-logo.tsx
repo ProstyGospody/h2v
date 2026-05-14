@@ -1,9 +1,9 @@
 import { cn } from '@/lib/utils';
+import { useTheme } from '@/shared/theme/theme';
 
 export function BrandLogo({ className, alt = 'h2v' }: { className?: string; alt?: string }) {
-  return (
-    <span data-brand-logo className={cn('relative inline-block shrink-0', className)}>
-      <img alt={alt} className="block size-full object-contain" draggable={false} src="/logo.svg" />
-    </span>
-  );
+  const { theme } = useTheme();
+  const src = theme === 'light' ? '/logo-light.svg' : '/logo.svg';
+
+  return <img alt={alt} className={cn('block shrink-0 object-contain', className)} draggable={false} src={src} />;
 }
