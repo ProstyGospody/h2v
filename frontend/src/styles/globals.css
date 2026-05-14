@@ -75,8 +75,6 @@
     --radius: 0.625rem;
     --shadow-app-pop: 0 8px 24px -8px rgb(0 0 0 / 0.55), 0 2px 6px -2px rgb(0 0 0 / 0.35);
     --shadow-app-overlay: 0 24px 80px -12px rgb(0 0 0 / 0.6);
-    --core-logo-background: 228 18% 5%;
-    --core-logo-background-alpha: 0.34;
     --icon-gradient-start: #fff7b8;
     --icon-gradient-mid: #e9fff7;
     --icon-gradient-end: #f08a24;
@@ -142,8 +140,6 @@
     color-scheme: light;
     --shadow-app-pop: 0 10px 30px -18px rgb(15 23 42 / 0.28), 0 1px 4px -2px rgb(15 23 42 / 0.16);
     --shadow-app-overlay: 0 24px 80px -32px rgb(15 23 42 / 0.38);
-    --core-logo-background: 228 28% 13%;
-    --core-logo-background-alpha: 1;
     --icon-gradient-start: #6f63f2;
     --icon-gradient-mid: #167c9b;
     --icon-gradient-end: #d5680c;
@@ -364,9 +360,33 @@
 
 [data-core-logo] {
   box-sizing: border-box;
-  border-radius: 0.375rem;
-  background: hsl(var(--core-logo-background) / var(--core-logo-background-alpha));
-  box-shadow: inset 0 0 0 1px hsl(var(--border) / 0.32);
+  filter: drop-shadow(0 1px 4px rgb(0 0 0 / 0.24));
+}
+
+[data-theme="light"] [data-core-logo] {
+  filter: drop-shadow(0 1px 2px rgb(15 23 42 / 0.12));
+}
+
+[data-brand-logo]::after {
+  content: "";
+  position: absolute;
+  display: none;
+  pointer-events: none;
+  right: 0.5%;
+  top: 13.5%;
+  width: 41%;
+  height: 73%;
+  border-color: hsl(var(--foreground));
+  border-style: solid;
+  border-width: 3px 3px 3px 0;
+  border-radius: 0 0.25rem 0.35rem 0;
+  opacity: 0.9;
+  transform: skewX(-28deg);
+  transform-origin: center;
+}
+
+[data-theme="light"] [data-brand-logo]::after {
+  display: block;
 }
 
 @media (min-width: 1024px) {
@@ -480,8 +500,19 @@
   }
 
   [data-slot="sidebar-service-icon"][data-logo] {
-    background: hsl(var(--core-logo-background) / var(--core-logo-background-alpha));
-    box-shadow: inset 0 0 0 1px hsl(var(--border) / 0.32);
+    position: relative;
+    isolation: isolate;
+  }
+
+  [data-slot="sidebar-service-icon"][data-logo]::before {
+    content: "";
+    position: absolute;
+    inset: 0.35rem;
+    z-index: -1;
+    border-radius: 999px;
+    background: var(--gradient-accent-soft);
+    filter: blur(7px);
+    opacity: 0.7;
   }
 
   [data-slot="sidebar"][data-state="collapsed"] [data-slot="sidebar-service-list"] {

@@ -277,7 +277,7 @@ function ServiceStatusPanel({
                 className="flex size-9 shrink-0 items-center justify-center rounded-md"
               >
                 {item.logo ? (
-                  <CoreLogo className="size-7" core={item.logo} />
+                  <CoreLogo className={cn(item.logo === 'hysteria' ? 'h-7 w-9' : 'size-7')} core={item.logo} />
                 ) : Icon ? (
                   <Icon className="size-5" stroke={`url(#${gradientId})`} strokeWidth={2.25} />
                 ) : null}
