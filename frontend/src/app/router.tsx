@@ -1,9 +1,7 @@
 import { useId, useState, type ComponentType } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Link, Outlet, createRootRoute, createRoute, createRouter } from '@tanstack/react-router';
+import { Link, Outlet, createRootRoute, createRoute, createRouter, useRouterState } from '@tanstack/react-router';
 import {
-  ChevronLeft,
-  ChevronRight,
   FileCode2,
   LayoutDashboard,
   LogOut,
@@ -18,6 +16,21 @@ import { BrandLogo } from '@/components/brand-logo';
 import { CoreLogo, type CoreLogoName } from '@/components/core-logo';
 import { LanguageSwitcher } from '@/components/language-switcher';
 import { Button } from '@/components/ui/button';
+import {
+  Sidebar,
+  SidebarContent,
+  SidebarFooter,
+  SidebarGroup,
+  SidebarGroupLabel,
+  SidebarHeader,
+  SidebarInset,
+  SidebarMenu,
+  SidebarMenuButton,
+  SidebarMenuItem,
+  SidebarProvider,
+  SidebarTrigger,
+  useSidebar,
+} from '@/components/ui/sidebar';
 import { Sheet, SheetContent } from '@/components/ui/sheet';
 import { LoginPage } from '@/features/auth/LoginPage';
 import { useAuth } from '@/features/auth/useAuth';
@@ -60,7 +73,6 @@ function ProtectedShell() {
   const { admin, logout, ready } = useAuth();
   const { t } = useI18n();
   const [navOpen, setNavOpen] = useState(false);
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   if (!ready) {
     return (
@@ -72,67 +84,56 @@ function ProtectedShell() {
   if (!admin) return <LoginPage />;
 
   return (
-    <div className="min-h-screen min-w-0 overflow-x-hidden bg-app-background text-foreground">
-      <aside
-        className={cn(
-          'fixed inset-y-0 left-0 z-40 hidden border-r border-border/55 bg-sidebar-panel transition-[width] duration-200 lg:block',
-          sidebarCollapsed ? 'w-[84px]' : 'w-[280px]',
-        )}
-      >
-        <SidebarBody
-          admin={admin}
-          collapsed={sidebarCollapsed}
-          logout={logout}
-          onToggleCollapsed={() => setSidebarCollapsed((value) => !value)}
-        />
-      </aside>
+    <SidebarProvider defaultOpen>
+      <div className="min-h-screen min-w-0 overflow-x-hidden bg-app-background text-foreground">
+        <Sidebar>
+          <SidebarBody admin={admin} logout={logout} showToggle />
+        </Sidebar>
 
-      <main
-        className={cn(
-          'flex min-w-0 flex-col overflow-x-hidden bg-transparent transition-[padding] duration-200',
-          sidebarCollapsed ? 'lg:pl-[84px]' : 'lg:pl-[280px]',
-        )}
-      >
-        <header className="sticky top-0 z-30 flex h-14 items-center gap-3 bg-background/90 px-4 shadow-sm backdrop-blur supports-backdrop-filter:bg-background/70 lg:hidden">
-          <Button
-            aria-label={t('shell.openNavigation')}
-            className="size-9"
-            onClick={() => setNavOpen(true)}
-            size="icon"
-            variant="ghost"
-          >
-            <Menu className="size-5" />
-          </Button>
-          <AppBrand compact />
-          <LanguageSwitcher className="ml-auto" compact />
-        </header>
+        <SidebarInset>
+          <header className="sticky top-0 z-30 flex h-14 items-center gap-3 bg-background/90 px-4 shadow-sm backdrop-blur supports-backdrop-filter:bg-background/70 lg:hidden">
+            <Button
+              aria-label={t('shell.openNavigation')}
+              className="size-9"
+              onClick={() => setNavOpen(true)}
+              size="icon"
+              variant="ghost"
+            >
+              <Menu className="size-5" />
+            </Button>
+            <AppBrand compact />
+            <LanguageSwitcher className="ml-auto" compact />
+          </header>
 
-        <Outlet />
-      </main>
+          <Outlet />
+        </SidebarInset>
 
-      <Sheet onOpenChange={setNavOpen} open={navOpen}>
-        <SheetContent className="w-70 bg-sidebar-panel p-0" side="left">
-          <SidebarBody admin={admin} collapsed={false} logout={logout} onNavigate={() => setNavOpen(false)} />
-        </SheetContent>
-      </Sheet>
-    </div>
+        <Sheet onOpenChange={setNavOpen} open={navOpen}>
+          <SheetContent className="w-70 bg-sidebar-panel p-0" side="left">
+            <SidebarProvider open>
+              <SidebarBody admin={admin} logout={logout} onNavigate={() => setNavOpen(false)} />
+            </SidebarProvider>
+          </SheetContent>
+        </Sheet>
+      </div>
+    </SidebarProvider>
   );
 }
 
 function SidebarBody({
   admin,
-  collapsed = false,
   logout,
   onNavigate,
-  onToggleCollapsed,
+  showToggle = false,
 }: {
   admin: { username: string };
-  collapsed?: boolean;
   logout: () => Promise<void> | void;
   onNavigate?: () => void;
-  onToggleCollapsed?: () => void;
+  showToggle?: boolean;
 }) {
   const { locale, t } = useI18n();
+  const { open } = useSidebar();
+  const collapsed = !open;
   const overview = useQuery({
     queryKey: ['stats', 'overview'],
     queryFn: () => apiClient.request<OverviewStats>('/stats/overview'),
@@ -166,50 +167,39 @@ function SidebarBody({
 
   return (
     <div className="flex h-dvh flex-col">
-      <div
+      <SidebarHeader
         className={cn(
           'relative flex h-[72px] items-center border-b border-border/45',
           collapsed ? 'flex-col justify-center gap-1 px-2' : 'justify-between px-5',
         )}
       >
         <AppBrand compact={collapsed} iconOnly={collapsed} />
-        {onToggleCollapsed ? (
-          <Button
-            aria-label={collapsed ? 'Expand navigation' : 'Collapse navigation'}
-            className={cn('hidden shrink-0 text-muted-foreground lg:inline-flex', collapsed && 'size-7')}
-            onClick={onToggleCollapsed}
-            size="icon-sm"
-            title={collapsed ? 'Expand navigation' : 'Collapse navigation'}
-            type="button"
-            variant="ghost"
-          >
-            {collapsed ? <ChevronRight className="size-4" /> : <ChevronLeft className="size-4" />}
-          </Button>
-        ) : null}
-      </div>
+        {showToggle ? <SidebarTrigger /> : null}
+      </SidebarHeader>
 
-      <div className={cn('flex-1 overflow-y-auto', collapsed ? 'px-3 py-4' : 'px-4 py-5')}>
-        {!collapsed ? <div className="px-2 pb-3 t-label">{t('nav.workspace')}</div> : null}
-        <nav className="flex flex-col gap-2">
-          {primaryLinks.map((link) => (
-            <SidebarLink
-              collapsed={collapsed}
-              icon={link.icon}
-              key={link.to}
-              label={t(link.labelKey)}
-              onClick={onNavigate}
-              to={link.to}
-            />
-          ))}
-        </nav>
+      <SidebarContent className={cn(collapsed ? 'px-3 py-4' : 'px-4 py-5')}>
+        <SidebarGroup>
+          {!collapsed ? <SidebarGroupLabel>{t('nav.workspace')}</SidebarGroupLabel> : null}
+          <SidebarMenu>
+            {primaryLinks.map((link) => (
+              <SidebarLink
+                icon={link.icon}
+                key={link.to}
+                label={t(link.labelKey)}
+                onClick={onNavigate}
+                to={link.to}
+              />
+            ))}
+          </SidebarMenu>
+        </SidebarGroup>
 
-        <div className={cn(collapsed ? 'mt-5' : 'mt-7')}>
-          {!collapsed ? <div className="px-2 pb-3 t-label">{t('nav.services')}</div> : null}
+        <SidebarGroup className={cn(collapsed ? 'mt-5' : 'mt-7')}>
+          {!collapsed ? <SidebarGroupLabel>{t('nav.services')}</SidebarGroupLabel> : null}
           <ServiceStatusPanel collapsed={collapsed} items={serviceStatuses} />
-        </div>
-      </div>
+        </SidebarGroup>
+      </SidebarContent>
 
-      <div className={cn('border-t border-border/55', collapsed ? 'px-3 py-3' : 'px-5 py-4')}>
+      <SidebarFooter className={cn('border-t border-border/55', collapsed ? 'px-3 py-3' : 'px-5 py-4')}>
         <div className={cn('flex', collapsed ? 'flex-col items-center gap-2' : 'items-center gap-2.5')}>
           <div className="flex size-9 shrink-0 items-center justify-center rounded-lg border border-border/55 bg-muted/45 font-mono text-xs font-semibold text-foreground">
             {admin.username.slice(0, 1).toUpperCase()}
@@ -234,7 +224,7 @@ function SidebarBody({
             <LogOut className="size-4" />
           </Button>
         </div>
-      </div>
+      </SidebarFooter>
     </div>
   );
 }
@@ -344,41 +334,34 @@ function AppBrand({ compact = false, iconOnly = false }: { compact?: boolean; ic
 }
 
 function SidebarLink({
-  collapsed = false,
   icon: Icon,
   label,
   onClick,
   to,
 }: {
-  collapsed?: boolean;
   icon: ComponentType<{ className?: string }>;
   label: string;
   onClick?: () => void;
   to: LinkTo;
 }) {
-  const base = cn(
-    'group relative flex h-12 items-center rounded-lg text-sm font-semibold text-muted-foreground transition hover:bg-[image:var(--gradient-accent-soft)] hover:text-foreground',
-    collapsed ? 'justify-center px-0' : 'gap-3 px-3',
-  );
-  const active = cn(
-    'group relative flex h-12 items-center rounded-lg bg-accent-gradient-soft text-sm font-semibold text-foreground shadow-sm before:absolute before:inset-y-2 before:left-0 before:w-0.5 before:rounded-r-full before:bg-accent-gradient-vertical',
-    collapsed ? 'justify-center px-0' : 'gap-3 px-3',
-  );
+  const { open } = useSidebar();
+  const pathname = useRouterState({ select: (state) => state.location.pathname });
+  const isActive = pathname === to;
 
   return (
-    <Link
-      activeOptions={{ exact: true }}
-      activeProps={{ className: active }}
-      className={base}
-      onClick={onClick}
-      title={collapsed ? label : undefined}
-      to={to}
-    >
-      <span className="flex size-9 shrink-0 items-center justify-center rounded-md transition-colors group-hover:bg-background/20">
-        <Icon className="size-5 shrink-0" />
-      </span>
-      {!collapsed ? <span className="min-w-0 truncate">{label}</span> : null}
-    </Link>
+    <SidebarMenuItem>
+      <SidebarMenuButton asChild isActive={isActive} tooltip={label}>
+        <Link
+          onClick={onClick}
+          to={to}
+        >
+          <span className="flex size-9 shrink-0 items-center justify-center rounded-md transition-colors group-hover:bg-background/20">
+            <Icon className="size-5 shrink-0" />
+          </span>
+          {open ? <span className="min-w-0 truncate">{label}</span> : null}
+        </Link>
+      </SidebarMenuButton>
+    </SidebarMenuItem>
   );
 }
 

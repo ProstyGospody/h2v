@@ -1,0 +1,200 @@
+import * as React from 'react';
+import { Slot } from '@radix-ui/react-slot';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
+
+type SidebarContextValue = {
+  open: boolean;
+  setOpen: (open: boolean) => void;
+  toggleSidebar: () => void;
+};
+
+const SidebarContext = React.createContext<SidebarContextValue | null>(null);
+
+function useSidebar() {
+  const context = React.useContext(SidebarContext);
+
+  if (!context) {
+    throw new Error('useSidebar must be used within a SidebarProvider.');
+  }
+
+  return context;
+}
+
+function SidebarProvider({
+  children,
+  className,
+  defaultOpen = true,
+  onOpenChange,
+  open: openProp,
+  style,
+  ...props
+}: React.ComponentProps<'div'> & {
+  defaultOpen?: boolean;
+  onOpenChange?: (open: boolean) => void;
+  open?: boolean;
+}) {
+  const [uncontrolledOpen, setUncontrolledOpen] = React.useState(defaultOpen);
+  const open = openProp ?? uncontrolledOpen;
+
+  const setOpen = React.useCallback(
+    (value: boolean) => {
+      onOpenChange?.(value);
+      if (openProp === undefined) setUncontrolledOpen(value);
+    },
+    [onOpenChange, openProp],
+  );
+
+  const value = React.useMemo<SidebarContextValue>(
+    () => ({
+      open,
+      setOpen,
+      toggleSidebar: () => setOpen(!open),
+    }),
+    [open, setOpen],
+  );
+
+  return (
+    <SidebarContext.Provider value={value}>
+      <div
+        data-slot="sidebar-wrapper"
+        style={{
+          '--sidebar-width': '17.5rem',
+          '--sidebar-width-icon': '5.25rem',
+          ...style,
+        } as React.CSSProperties}
+        className={cn('group/sidebar-wrapper min-h-screen min-w-0', className)}
+        {...props}
+      >
+        {children}
+      </div>
+    </SidebarContext.Provider>
+  );
+}
+
+function Sidebar({ className, ...props }: React.ComponentProps<'aside'>) {
+  const { open } = useSidebar();
+
+  return (
+    <aside
+      data-slot="sidebar"
+      data-state={open ? 'expanded' : 'collapsed'}
+      className={cn(
+        'fixed inset-y-0 left-0 z-40 hidden w-[var(--sidebar-width)] flex-col border-r border-border/55 bg-sidebar-panel transition-[width] duration-300 ease-in-out data-[state=collapsed]:w-[var(--sidebar-width-icon)] lg:flex',
+        className,
+      )}
+      {...props}
+    />
+  );
+}
+
+function SidebarInset({ className, ...props }: React.ComponentProps<'main'>) {
+  const { open } = useSidebar();
+
+  return (
+    <main
+      data-slot="sidebar-inset"
+      data-state={open ? 'expanded' : 'collapsed'}
+      className={cn(
+        'flex min-w-0 flex-col overflow-x-hidden bg-transparent transition-[padding] duration-300 ease-in-out',
+        open ? 'lg:pl-[var(--sidebar-width)]' : 'lg:pl-[var(--sidebar-width-icon)]',
+        className,
+      )}
+      {...props}
+    />
+  );
+}
+
+function SidebarHeader({ className, ...props }: React.ComponentProps<'div'>) {
+  return <div data-slot="sidebar-header" className={cn('flex shrink-0 items-center', className)} {...props} />;
+}
+
+function SidebarContent({ className, ...props }: React.ComponentProps<'div'>) {
+  return <div data-slot="sidebar-content" className={cn('flex min-h-0 flex-1 flex-col overflow-y-auto', className)} {...props} />;
+}
+
+function SidebarFooter({ className, ...props }: React.ComponentProps<'div'>) {
+  return <div data-slot="sidebar-footer" className={cn('flex shrink-0 flex-col', className)} {...props} />;
+}
+
+function SidebarGroup({ className, ...props }: React.ComponentProps<'div'>) {
+  return <div data-slot="sidebar-group" className={cn('flex flex-col', className)} {...props} />;
+}
+
+function SidebarGroupLabel({ className, ...props }: React.ComponentProps<'div'>) {
+  return <div data-slot="sidebar-group-label" className={cn('px-2 pb-3 t-label', className)} {...props} />;
+}
+
+function SidebarMenu({ className, ...props }: React.ComponentProps<'nav'>) {
+  return <nav data-slot="sidebar-menu" className={cn('flex flex-col gap-2', className)} {...props} />;
+}
+
+function SidebarMenuItem({ className, ...props }: React.ComponentProps<'div'>) {
+  return <div data-slot="sidebar-menu-item" className={cn('min-w-0', className)} {...props} />;
+}
+
+function SidebarMenuButton({
+  asChild = false,
+  className,
+  isActive = false,
+  tooltip,
+  ...props
+}: React.ComponentProps<'a'> & {
+  asChild?: boolean;
+  isActive?: boolean;
+  tooltip?: string;
+}) {
+  const { open } = useSidebar();
+  const Comp = asChild ? Slot : 'a';
+
+  return (
+    <Comp
+      data-active={isActive}
+      data-slot="sidebar-menu-button"
+      title={!open ? tooltip : undefined}
+      className={cn(
+        'group relative flex h-12 min-w-0 items-center rounded-lg text-sm font-semibold text-muted-foreground transition-colors duration-200 hover:bg-[image:var(--gradient-accent-soft)] hover:text-foreground data-[active=true]:bg-accent-gradient-soft data-[active=true]:text-foreground data-[active=true]:shadow-sm data-[active=true]:before:absolute data-[active=true]:before:inset-y-2 data-[active=true]:before:left-0 data-[active=true]:before:w-0.5 data-[active=true]:before:rounded-r-full data-[active=true]:before:bg-accent-gradient-vertical',
+        open ? 'gap-3 px-3' : 'justify-center px-0',
+        className,
+      )}
+      {...props}
+    />
+  );
+}
+
+function SidebarTrigger({ className, ...props }: React.ComponentProps<typeof Button>) {
+  const { open, toggleSidebar } = useSidebar();
+  const Icon = open ? ChevronLeft : ChevronRight;
+
+  return (
+    <Button
+      aria-label={open ? 'Collapse navigation' : 'Expand navigation'}
+      className={cn('hidden shrink-0 text-muted-foreground lg:inline-flex', !open && 'size-7', className)}
+      onClick={toggleSidebar}
+      size="icon-sm"
+      title={open ? 'Collapse navigation' : 'Expand navigation'}
+      type="button"
+      variant="ghost"
+      {...props}
+    >
+      <Icon className="size-4" />
+    </Button>
+  );
+}
+
+export {
+  Sidebar,
+  SidebarContent,
+  SidebarFooter,
+  SidebarGroup,
+  SidebarGroupLabel,
+  SidebarHeader,
+  SidebarInset,
+  SidebarMenu,
+  SidebarMenuButton,
+  SidebarMenuItem,
+  SidebarProvider,
+  SidebarTrigger,
+  useSidebar,
+};
