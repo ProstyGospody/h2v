@@ -1,20 +1,17 @@
-import { useEffect, useState, type ComponentType } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useNavigate } from '@tanstack/react-router';
-import { Eye, EyeOff, FileCode2, LayoutDashboard, Settings2, ShieldCheck, Users } from 'lucide-react';
+import { Eye, EyeOff } from 'lucide-react';
 import { BrandLogo } from '@/components/brand-logo';
-import { CoreLogo, type CoreLogoName } from '@/components/core-logo';
 import { LanguageSwitcher } from '@/components/language-switcher';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Field, FieldGroup, FieldLabel } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
 import { useAuth } from '@/features/auth/useAuth';
-import { cn } from '@/lib/utils';
 import { useI18n } from '@/shared/i18n/i18n';
-import type { TranslationKey } from '@/shared/i18n/translations';
 
 const schema = z.object({
   username: z.string().min(1),
@@ -23,24 +20,35 @@ const schema = z.object({
 
 type FormValues = z.infer<typeof schema>;
 
-const loginNavItems: Array<{
-  icon: ComponentType<{ className?: string }>;
-  labelKey: TranslationKey;
-  active?: boolean;
-}> = [
-  { active: true, icon: LayoutDashboard, labelKey: 'nav.dashboard' },
-  { icon: Users, labelKey: 'nav.users' },
-  { icon: FileCode2, labelKey: 'nav.configs' },
-  { icon: Settings2, labelKey: 'nav.settings' },
-];
-
-const loginServices: Array<{
-  label: string;
-  logo: CoreLogoName;
-  tone: 'ok' | 'idle';
-}> = [
-  { label: 'Xray', logo: 'xray', tone: 'idle' },
-  { label: 'Hysteria 2', logo: 'hysteria', tone: 'idle' },
+const panelCodeFragments = [
+  '2026-05-03T00:42:11Z auth.login username=admin status=200 access_token=rotated refresh_cookie=set',
+  'const admin = await repo.getAdminByUsername(ctx, input.username);',
+  'if (!verifyPassword(admin.passwordHash, input.password)) throw unauthorized("invalid_credentials");',
+  'apiClient.setUnauthorizedHandler(() => setAdmin(null));',
+  'POST /api/auth/refresh -> 200 { access_token, admin: { username, role: "admin" } }',
+  'GET /api/stats/overview -> { uptime_seconds, xray_status, hysteria_status, online_users }',
+  'GET /api/settings -> [{ key: "vless.port", value: 8444, updated_at }]',
+  'PATCH /api/settings -> 200 { updated: true }',
+  'POST /api/settings/reality-keypair -> { private_key, public_key }',
+  'GET /api/configs/xray -> { content: ".../configs/xray/config.json" }',
+  'POST /api/configs/hysteria/apply -> 200 { applied: true }',
+  'panel config render --core xray -> /opt/mypanel/configs/xray/config.json',
+  'panel geodata update -> /opt/mypanel/data/geodata/{geoip.dat,geosite.dat}',
+  'systemctl restart xray.service hysteria.service h2v-telegram.service',
+  'backup.export filename=h2v-backup.json type=h2v.panel.backup',
+  'GET /sub/{token}?format=json -> { subscription, vless, hysteria2, usage }',
+  'subscription.link user=client-014 protocols=[vless,hysteria2] portal=/u/{token}',
+  'traffic.collect core=xray users_matched=128 reset_stats=true',
+  'rate_limit bucket=login key=127.0.0.1 remaining=4 reset=60s',
+  'repository.upsertUser username=client-014 traffic_limit=107374182400 status=active',
+  'logger.info("core stats collected", "xray", xStats.length, "hysteria", hStats.length);',
+  'PATCH /api/users/7f8c... -> rotate subscription token, preserve traffic counters',
+  'settings.validate hy2.obfs_enabled=true hy2.obfs_password=present result=ok',
+  'telegram.reconcile config=/opt/mypanel/configs/telegram/telemt.toml service=h2v-telegram',
+  'hy2.auth local-only password=*** -> { ok: true, id: username }',
+  'scheduler.every collector=10s enforcer=30s traffic_retention=24h',
+  'health.check panel=ok postgres=ok xray=ok hysteria=ok geodata=fresh',
+  '/opt/mypanel/install.sh reset-admin admin ********',
 ];
 
 export function LoginPage() {
@@ -61,143 +69,101 @@ export function LoginPage() {
   const passwordInvalid = Boolean(form.formState.errors.password);
 
   return (
-    <div className="relative min-h-screen overflow-hidden bg-app-background text-foreground">
-      <div aria-hidden="true" className="login-page-backdrop" />
+    <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-app-background px-4 py-10 text-foreground">
+      <CodeRainBackground />
+      <div className="absolute right-4 top-4 z-20">
+        <LanguageSwitcher />
+      </div>
 
-      <main className="relative flex min-h-screen items-center justify-center px-4 py-6 sm:px-6 lg:px-8">
-        <section className="login-shell grid w-full max-w-[860px] overflow-hidden rounded-lg border border-border/55 bg-card lg:grid-cols-[minmax(0,1fr)_380px]">
-          <aside className="login-rail hidden min-h-[460px] border-r border-border/55 bg-sidebar-panel p-5 lg:flex lg:flex-col">
-            <div className="flex h-14 items-center">
-              <BrandLogo className="h-12 w-24" />
-            </div>
+      <Card aria-label={t('login.signIn')} className="login-modal relative z-10 w-full max-w-[392px]">
+        <CardHeader className="items-center gap-5 px-7 pb-5 pt-9 text-center sm:px-8 sm:pt-10">
+          <BrandLogo className="h-20 w-40 sm:h-24 sm:w-48" />
+          <div className="flex flex-col gap-1">
+            <CardTitle className="text-base font-semibold leading-6">{t('login.signIn')}</CardTitle>
+            <CardDescription className="font-mono text-xs uppercase tracking-wider">h2v panel</CardDescription>
+          </div>
+        </CardHeader>
 
-            <div className="mt-5 flex flex-1 flex-col gap-7">
-              <div>
-                <div className="px-2 pb-2 t-label">{t('nav.workspace')}</div>
-                <nav className="flex flex-col gap-1">
-                  {loginNavItems.map((item) => {
-                    const Icon = item.icon;
+        <CardContent className="px-7 pb-8 sm:px-8 sm:pb-9">
+          <form
+            className="flex flex-col gap-5"
+            noValidate
+            onSubmit={form.handleSubmit(async (values) => {
+              await login(values);
+              navigate({ to: '/' });
+            })}
+          >
+            <FieldGroup className="gap-4">
+              <Field data-invalid={usernameInvalid || undefined}>
+                <FieldLabel htmlFor="username">{t('login.username')}</FieldLabel>
+                <Input
+                  aria-invalid={usernameInvalid}
+                  autoComplete="username"
+                  className="login-modal-input h-11 px-4"
+                  id="username"
+                  placeholder={t('login.username')}
+                  {...form.register('username')}
+                />
+              </Field>
 
-                    return (
-                      <div
-                        className={cn(
-                          'flex items-center gap-3 rounded-md px-3 py-2 text-sm text-muted-foreground',
-                          item.active && 'bg-accent-gradient-soft font-medium text-foreground',
-                        )}
-                        key={item.labelKey}
-                      >
-                        <Icon className="size-4 shrink-0" />
-                        <span>{t(item.labelKey)}</span>
-                      </div>
-                    );
-                  })}
-                </nav>
-              </div>
-
-              <div>
-                <div className="px-2 pb-2 t-label">{t('nav.services')}</div>
-                <div className="flex flex-col gap-1 px-1">
-                  {loginServices.map((service) => (
-                    <div
-                      className="flex items-center gap-2.5 rounded-md px-1 py-1.5 text-sm text-foreground"
-                      key={service.label}
-                    >
-                      <span className="flex size-7 shrink-0 items-center justify-center">
-                        <CoreLogo className="size-6" core={service.logo} />
-                      </span>
-                      <span className="min-w-0 flex-1 truncate font-display text-sm font-semibold leading-5 text-white">
-                        {service.label}
-                      </span>
-                      <span
-                        className={cn(
-                          'size-2 shrink-0 rounded-full ring-2',
-                          service.tone === 'ok'
-                            ? 'bg-success ring-success/15'
-                            : 'bg-muted-foreground ring-muted-foreground/10',
-                        )}
-                      />
-                    </div>
-                  ))}
+              <Field data-invalid={passwordInvalid || undefined}>
+                <FieldLabel htmlFor="password">{t('login.password')}</FieldLabel>
+                <div className="relative">
+                  <Input
+                    aria-invalid={passwordInvalid}
+                    autoComplete="current-password"
+                    className="login-modal-input h-11 px-4 pr-12"
+                    id="password"
+                    placeholder={t('login.password')}
+                    type={showPassword ? 'text' : 'password'}
+                    {...form.register('password')}
+                  />
+                  <Button
+                    aria-label={showPassword ? t('login.hidePassword') : t('login.showPassword')}
+                    className="absolute right-1 top-1/2 size-9 -translate-y-1/2 text-muted-foreground hover:bg-transparent hover:text-foreground"
+                    onClick={() => setShowPassword((value) => !value)}
+                    size="icon"
+                    type="button"
+                    variant="ghost"
+                  >
+                    {showPassword ? <EyeOff data-icon="inline-start" /> : <Eye data-icon="inline-start" />}
+                  </Button>
                 </div>
-              </div>
-            </div>
+              </Field>
+            </FieldGroup>
 
-            <div className="mt-6 rounded-md border border-border/45 bg-background/35 p-3">
-              <div className="flex items-center gap-2">
-                <ShieldCheck className="size-4 text-muted-foreground" />
-                <span className="font-mono text-[11px] uppercase tracking-wider text-muted-foreground">
-                  h2v panel
-                </span>
-              </div>
-            </div>
-          </aside>
+            <Button className="h-11 w-full" disabled={form.formState.isSubmitting} size="lg" type="submit">
+              {form.formState.isSubmitting ? t('login.signingIn') : t('login.signIn')}
+            </Button>
+          </form>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
 
-          <Card aria-label={t('login.signIn')} className="login-card border-0 bg-transparent shadow-none">
-            <CardHeader className="flex-row items-start justify-between gap-4 border-b border-border/45 px-5 py-4 sm:px-6">
-              <div className="min-w-0">
-                <BrandLogo className="mb-5 h-12 w-24 lg:hidden" />
-                <CardTitle className="text-base font-semibold leading-6">{t('login.signIn')}</CardTitle>
-                <CardDescription className="font-mono text-xs uppercase tracking-wider">h2v panel</CardDescription>
-              </div>
-              <LanguageSwitcher className="shrink-0" compact />
-            </CardHeader>
+function CodeRainBackground() {
+  const codeCanvas = useMemo(() => {
+    const rows = Array.from({ length: 6 }, (_, index) =>
+      panelCodeFragments
+        .map((line, lineIndex) => {
+          const marker = `${String(index + 1).padStart(2, '0')}:${String(lineIndex + 1).padStart(2, '0')}`;
+          const trail = [7, 13, 19, 24].map((offset) => panelCodeFragments[(lineIndex + offset) % panelCodeFragments.length]);
 
-            <CardContent className="px-5 py-6 sm:px-6 sm:py-7">
-              <form
-                className="flex flex-col gap-5"
-                noValidate
-                onSubmit={form.handleSubmit(async (values) => {
-                  await login(values);
-                  navigate({ to: '/' });
-                })}
-              >
-                <FieldGroup className="gap-4">
-                  <Field data-invalid={usernameInvalid || undefined}>
-                    <FieldLabel htmlFor="username">{t('login.username')}</FieldLabel>
-                    <Input
-                      aria-invalid={usernameInvalid}
-                      autoComplete="username"
-                      className="login-input h-10 px-3.5"
-                      id="username"
-                      placeholder={t('login.username')}
-                      {...form.register('username')}
-                    />
-                  </Field>
+          return `${marker}  ${[line, ...trail].join('      ')}`;
+        })
+        .join('\n'),
+    );
 
-                  <Field data-invalid={passwordInvalid || undefined}>
-                    <FieldLabel htmlFor="password">{t('login.password')}</FieldLabel>
-                    <div className="relative">
-                      <Input
-                        aria-invalid={passwordInvalid}
-                        autoComplete="current-password"
-                        className="login-input h-10 px-3.5 pr-11"
-                        id="password"
-                        placeholder={t('login.password')}
-                        type={showPassword ? 'text' : 'password'}
-                        {...form.register('password')}
-                      />
-                      <Button
-                        aria-label={showPassword ? t('login.hidePassword') : t('login.showPassword')}
-                        className="absolute right-1 top-1/2 size-8 -translate-y-1/2 text-muted-foreground hover:bg-transparent hover:text-foreground"
-                        onClick={() => setShowPassword((value) => !value)}
-                        size="icon-sm"
-                        type="button"
-                        variant="ghost"
-                      >
-                        {showPassword ? <EyeOff data-icon="inline-start" /> : <Eye data-icon="inline-start" />}
-                      </Button>
-                    </div>
-                  </Field>
-                </FieldGroup>
+    return rows.join('\n');
+  }, []);
 
-                <Button className="h-10 w-full" disabled={form.formState.isSubmitting} type="submit">
-                  {form.formState.isSubmitting ? t('login.signingIn') : t('login.signIn')}
-                </Button>
-              </form>
-            </CardContent>
-          </Card>
-        </section>
-      </main>
+  return (
+    <div aria-hidden="true" className="login-code-background">
+      <div className="login-code-sheet">
+        <pre>{codeCanvas}</pre>
+        <pre>{codeCanvas}</pre>
+      </div>
     </div>
   );
 }
