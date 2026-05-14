@@ -354,27 +354,26 @@
   content: "";
   position: absolute;
   inset: 0 auto 0 0;
-  width: 36px;
-  border-right: 1px solid hsl(var(--border) / 0.55);
-  background:
-    linear-gradient(180deg, hsl(var(--sidebar)) 0%, hsl(var(--background) / 0.94) 100%);
+  width: 1px;
+  background: hsl(var(--border-strong) / 0.72);
 }
 
 .login-modal::after {
   content: "";
   position: absolute;
   left: 0;
-  top: 18px;
-  width: 3px;
-  height: 64px;
+  top: 0;
+  width: 2px;
+  height: 100%;
   border-radius: 0 999px 999px 0;
-  background: var(--gradient-accent-vertical);
-}
-
-.login-modal > [data-slot] {
-  position: relative;
-  z-index: 1;
-  margin-left: 36px;
+  background: linear-gradient(
+    180deg,
+    transparent 0%,
+    var(--accent-primary) 18%,
+    var(--accent-secondary) 52%,
+    transparent 100%
+  );
+  opacity: 0.8;
 }
 
 .login-code-background {
