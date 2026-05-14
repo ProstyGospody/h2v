@@ -75,18 +75,18 @@ export function LoginPage() {
         <LanguageSwitcher />
       </div>
 
-      <Card aria-label={t('login.signIn')} className="login-modal relative z-10 w-full max-w-[392px]">
-        <CardHeader className="items-center gap-5 px-7 pb-5 pt-9 text-center sm:px-8 sm:pt-10">
-          <BrandLogo className="h-20 w-40 sm:h-24 sm:w-48" />
+      <Card aria-label={t('login.signIn')} className="login-modal relative z-10 w-full max-w-[360px]">
+        <CardHeader className="items-center gap-4 border-b border-border/45 px-6 pb-5 pt-6 text-center">
+          <BrandLogo className="h-14 w-28" />
           <div className="flex flex-col gap-1">
-            <CardTitle className="text-base font-semibold leading-6">{t('login.signIn')}</CardTitle>
-            <CardDescription className="font-mono text-xs uppercase tracking-wider">h2v panel</CardDescription>
+            <CardTitle className="text-sm font-semibold leading-5">{t('login.signIn')}</CardTitle>
+            <CardDescription className="font-mono text-[11px] uppercase tracking-wider">h2v panel</CardDescription>
           </div>
         </CardHeader>
 
-        <CardContent className="px-7 pb-8 sm:px-8 sm:pb-9">
+        <CardContent className="px-6 pb-6 pt-5">
           <form
-            className="flex flex-col gap-5"
+            className="flex flex-col gap-4"
             noValidate
             onSubmit={form.handleSubmit(async (values) => {
               await login(values);
@@ -99,7 +99,7 @@ export function LoginPage() {
                 <Input
                   aria-invalid={usernameInvalid}
                   autoComplete="username"
-                  className="login-modal-input h-11 px-4"
+                  className="h-10 px-3.5"
                   id="username"
                   placeholder={t('login.username')}
                   {...form.register('username')}
@@ -112,7 +112,7 @@ export function LoginPage() {
                   <Input
                     aria-invalid={passwordInvalid}
                     autoComplete="current-password"
-                    className="login-modal-input h-11 px-4 pr-12"
+                    className="h-10 px-3.5 pr-11"
                     id="password"
                     placeholder={t('login.password')}
                     type={showPassword ? 'text' : 'password'}
@@ -120,9 +120,9 @@ export function LoginPage() {
                   />
                   <Button
                     aria-label={showPassword ? t('login.hidePassword') : t('login.showPassword')}
-                    className="absolute right-1 top-1/2 size-9 -translate-y-1/2 text-muted-foreground hover:bg-transparent hover:text-foreground"
+                    className="absolute right-1 top-1/2 size-8 -translate-y-1/2 text-muted-foreground hover:bg-transparent hover:text-foreground"
                     onClick={() => setShowPassword((value) => !value)}
-                    size="icon"
+                    size="icon-sm"
                     type="button"
                     variant="ghost"
                   >
@@ -132,7 +132,7 @@ export function LoginPage() {
               </Field>
             </FieldGroup>
 
-            <Button className="h-11 w-full" disabled={form.formState.isSubmitting} size="lg" type="submit">
+            <Button className="h-10 w-full" disabled={form.formState.isSubmitting} type="submit">
               {form.formState.isSubmitting ? t('login.signingIn') : t('login.signIn')}
             </Button>
           </form>
