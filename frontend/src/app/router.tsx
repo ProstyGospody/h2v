@@ -2,6 +2,8 @@ import { useId, useState, type ComponentType } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Link, Outlet, createRootRoute, createRoute, createRouter } from '@tanstack/react-router';
 import {
+  ChevronLeft,
+  ChevronRight,
   FileCode2,
   LayoutDashboard,
   LogOut,
@@ -58,6 +60,7 @@ function ProtectedShell() {
   const { admin, logout, ready } = useAuth();
   const { t } = useI18n();
   const [navOpen, setNavOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   if (!ready) {
     return (
@@ -70,11 +73,26 @@ function ProtectedShell() {
 
   return (
     <div className="min-h-screen min-w-0 overflow-x-hidden bg-app-background text-foreground">
-      <aside className="fixed inset-y-0 left-0 z-40 hidden w-[260px] border-r border-border/55 bg-sidebar-panel lg:block">
-        <SidebarBody admin={admin} logout={logout} />
+      <aside
+        className={cn(
+          'fixed inset-y-0 left-0 z-40 hidden border-r border-border/55 bg-sidebar-panel transition-[width] duration-200 lg:block',
+          sidebarCollapsed ? 'w-[84px]' : 'w-[280px]',
+        )}
+      >
+        <SidebarBody
+          admin={admin}
+          collapsed={sidebarCollapsed}
+          logout={logout}
+          onToggleCollapsed={() => setSidebarCollapsed((value) => !value)}
+        />
       </aside>
 
-      <main className="flex min-w-0 flex-col overflow-x-hidden bg-transparent lg:pl-[260px]">
+      <main
+        className={cn(
+          'flex min-w-0 flex-col overflow-x-hidden bg-transparent transition-[padding] duration-200',
+          sidebarCollapsed ? 'lg:pl-[84px]' : 'lg:pl-[280px]',
+        )}
+      >
         <header className="sticky top-0 z-30 flex h-14 items-center gap-3 bg-background/90 px-4 shadow-sm backdrop-blur supports-backdrop-filter:bg-background/70 lg:hidden">
           <Button
             aria-label={t('shell.openNavigation')}
@@ -94,7 +112,7 @@ function ProtectedShell() {
 
       <Sheet onOpenChange={setNavOpen} open={navOpen}>
         <SheetContent className="w-70 bg-sidebar-panel p-0" side="left">
-          <SidebarBody admin={admin} logout={logout} onNavigate={() => setNavOpen(false)} />
+          <SidebarBody admin={admin} collapsed={false} logout={logout} onNavigate={() => setNavOpen(false)} />
         </SheetContent>
       </Sheet>
     </div>
@@ -103,12 +121,16 @@ function ProtectedShell() {
 
 function SidebarBody({
   admin,
+  collapsed = false,
   logout,
   onNavigate,
+  onToggleCollapsed,
 }: {
   admin: { username: string };
+  collapsed?: boolean;
   logout: () => Promise<void> | void;
   onNavigate?: () => void;
+  onToggleCollapsed?: () => void;
 }) {
   const { locale, t } = useI18n();
   const overview = useQuery({
@@ -144,15 +166,34 @@ function SidebarBody({
 
   return (
     <div className="flex h-dvh flex-col">
-      <div className="flex h-16 items-center px-5">
-        <AppBrand />
+      <div
+        className={cn(
+          'relative flex h-[72px] items-center border-b border-border/45',
+          collapsed ? 'flex-col justify-center gap-1 px-2' : 'justify-between px-5',
+        )}
+      >
+        <AppBrand compact={collapsed} iconOnly={collapsed} />
+        {onToggleCollapsed ? (
+          <Button
+            aria-label={collapsed ? 'Expand navigation' : 'Collapse navigation'}
+            className={cn('hidden shrink-0 text-muted-foreground lg:inline-flex', collapsed && 'size-7')}
+            onClick={onToggleCollapsed}
+            size="icon-sm"
+            title={collapsed ? 'Expand navigation' : 'Collapse navigation'}
+            type="button"
+            variant="ghost"
+          >
+            {collapsed ? <ChevronRight className="size-4" /> : <ChevronLeft className="size-4" />}
+          </Button>
+        ) : null}
       </div>
 
-      <div className="flex-1 overflow-y-auto px-3 py-4">
-        <div className="px-2 pb-2 t-label">{t('nav.workspace')}</div>
-        <nav className="space-y-0.5">
+      <div className={cn('flex-1 overflow-y-auto', collapsed ? 'px-3 py-4' : 'px-4 py-5')}>
+        {!collapsed ? <div className="px-2 pb-3 t-label">{t('nav.workspace')}</div> : null}
+        <nav className="flex flex-col gap-2">
           {primaryLinks.map((link) => (
             <SidebarLink
+              collapsed={collapsed}
               icon={link.icon}
               key={link.to}
               label={t(link.labelKey)}
@@ -162,20 +203,22 @@ function SidebarBody({
           ))}
         </nav>
 
-        <div className="mt-6">
-          <div className="px-2 pb-2 t-label">{t('nav.services')}</div>
-          <ServiceStatusPanel items={serviceStatuses} />
+        <div className={cn(collapsed ? 'mt-5' : 'mt-7')}>
+          {!collapsed ? <div className="px-2 pb-3 t-label">{t('nav.services')}</div> : null}
+          <ServiceStatusPanel collapsed={collapsed} items={serviceStatuses} />
         </div>
       </div>
 
-      <div className="border-t border-border/55 px-5 py-4">
-        <div className="flex items-center gap-2.5">
-          <div className="flex size-7 shrink-0 items-center justify-center rounded-md border border-border/55 bg-muted/45 font-mono text-[11px] font-semibold text-foreground">
+      <div className={cn('border-t border-border/55', collapsed ? 'px-3 py-3' : 'px-5 py-4')}>
+        <div className={cn('flex', collapsed ? 'flex-col items-center gap-2' : 'items-center gap-2.5')}>
+          <div className="flex size-9 shrink-0 items-center justify-center rounded-lg border border-border/55 bg-muted/45 font-mono text-xs font-semibold text-foreground">
             {admin.username.slice(0, 1).toUpperCase()}
           </div>
-          <div className="min-w-0 flex-1">
-            <div className="truncate text-sm font-medium leading-5 text-foreground">{admin.username}</div>
-          </div>
+          {!collapsed ? (
+            <div className="min-w-0 flex-1">
+              <div className="truncate text-sm font-medium leading-5 text-foreground">{admin.username}</div>
+            </div>
+          ) : null}
           <LanguageSwitcher className="shrink-0 text-muted-foreground" compact />
           <Button
             aria-label={t('nav.signOut')}
@@ -197,8 +240,10 @@ function SidebarBody({
 }
 
 function ServiceStatusPanel({
+  collapsed = false,
   items,
 }: {
+  collapsed?: boolean;
   items: Array<{
     icon?: LucideIcon;
     label: string;
@@ -212,7 +257,7 @@ function ServiceStatusPanel({
   const gradientId = `service-icon-${useId().replace(/:/g, '')}`;
 
   return (
-    <div className="space-y-1 px-1">
+    <div className={cn(collapsed ? 'flex flex-col gap-2' : 'flex flex-col gap-1 px-1')}>
       <svg aria-hidden="true" className="pointer-events-none absolute size-0 overflow-hidden">
         <defs>
           <linearGradient id={gradientId} x1="4" x2="20" y1="4" y2="20" gradientUnits="userSpaceOnUse">
@@ -227,30 +272,40 @@ function ServiceStatusPanel({
 
         return (
           <div
-            className="flex items-center gap-2.5 rounded-md px-1 py-1.5 transition-colors hover:bg-muted/25"
+            className={cn(
+              'relative flex items-center rounded-lg transition-colors hover:bg-muted/25',
+              collapsed ? 'h-11 justify-center px-0' : 'gap-2.5 px-1 py-1.5',
+            )}
             key={item.label}
+            title={collapsed ? `${item.label}: ${item.value}` : undefined}
           >
             {item.logo || Icon ? (
-              <span className="flex size-7 shrink-0 items-center justify-center">
+              <span className={cn('flex shrink-0 items-center justify-center', collapsed ? 'size-9' : 'size-7')}>
                 {item.logo ? (
-                  <CoreLogo className="size-6" core={item.logo} />
+                  <CoreLogo className={collapsed ? 'size-7' : 'size-6'} core={item.logo} />
                 ) : Icon ? (
                   <Icon className="size-5" stroke={`url(#${gradientId})`} strokeWidth={2.25} />
                 ) : null}
               </span>
             ) : null}
-            <span className="min-w-0 flex-1">
-              <span className="block truncate font-display text-sm font-semibold leading-5 text-white">
-                {item.label}
+            {!collapsed ? (
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-sm font-semibold leading-5 text-white">
+                  {item.label}
+                </span>
               </span>
-            </span>
-            {item.showValue ? (
+            ) : null}
+            {item.showValue && !collapsed ? (
               <span className="shrink-0 font-mono text-[11px] text-muted-foreground">{item.value}</span>
             ) : null}
             {item.showIndicator ? (
               <span
                 aria-label={item.value}
-                className={cn('size-2 shrink-0 rounded-full ring-2', serviceDotTone(item.tone ?? 'idle'))}
+                className={cn(
+                  'size-2 shrink-0 rounded-full ring-2',
+                  collapsed && 'absolute right-2 top-2',
+                  serviceDotTone(item.tone ?? 'idle'),
+                )}
                 title={item.value}
               />
             ) : null}
@@ -280,29 +335,35 @@ function serviceDotTone(tone: StatusTone): string {
   return 'bg-muted-foreground ring-muted-foreground/10';
 }
 
-function AppBrand({ compact = false }: { compact?: boolean }) {
+function AppBrand({ compact = false, iconOnly = false }: { compact?: boolean; iconOnly?: boolean }) {
   return (
-    <div className="flex items-center">
-      <BrandLogo className={cn(compact ? 'h-10 w-20' : 'h-12 w-24')} />
+    <div className={cn('flex min-w-0 items-center', iconOnly && 'justify-center')}>
+      <BrandLogo className={cn(iconOnly ? 'h-10 w-10' : compact ? 'h-10 w-20' : 'h-12 w-24')} />
     </div>
   );
 }
 
 function SidebarLink({
+  collapsed = false,
   icon: Icon,
   label,
   onClick,
   to,
 }: {
+  collapsed?: boolean;
   icon: ComponentType<{ className?: string }>;
   label: string;
   onClick?: () => void;
   to: LinkTo;
 }) {
-  const base =
-    'group relative flex items-center gap-3 rounded-md px-3 py-2 text-sm text-muted-foreground transition hover:bg-[image:var(--gradient-accent-soft)] hover:text-foreground';
-  const active =
-    'group relative flex items-center gap-3 rounded-md bg-accent-gradient-soft px-3 py-2 text-sm font-medium text-foreground before:absolute before:inset-y-1.5 before:left-0 before:w-0.5 before:rounded-r-full before:bg-accent-gradient-vertical';
+  const base = cn(
+    'group relative flex h-12 items-center rounded-lg text-sm font-semibold text-muted-foreground transition hover:bg-[image:var(--gradient-accent-soft)] hover:text-foreground',
+    collapsed ? 'justify-center px-0' : 'gap-3 px-3',
+  );
+  const active = cn(
+    'group relative flex h-12 items-center rounded-lg bg-accent-gradient-soft text-sm font-semibold text-foreground shadow-sm before:absolute before:inset-y-2 before:left-0 before:w-0.5 before:rounded-r-full before:bg-accent-gradient-vertical',
+    collapsed ? 'justify-center px-0' : 'gap-3 px-3',
+  );
 
   return (
     <Link
@@ -310,10 +371,13 @@ function SidebarLink({
       activeProps={{ className: active }}
       className={base}
       onClick={onClick}
+      title={collapsed ? label : undefined}
       to={to}
     >
-      <Icon className="size-4 shrink-0" />
-      <span>{label}</span>
+      <span className="flex size-9 shrink-0 items-center justify-center rounded-md transition-colors group-hover:bg-background/20">
+        <Icon className="size-5 shrink-0" />
+      </span>
+      {!collapsed ? <span className="min-w-0 truncate">{label}</span> : null}
     </Link>
   );
 }

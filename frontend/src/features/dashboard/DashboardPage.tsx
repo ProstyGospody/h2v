@@ -242,7 +242,7 @@ function MetricCard({
   const gradientId = `metric-icon-${useId().replace(/:/g, '')}`;
 
   return (
-    <Card className="h-full min-h-[90px] border-0 transition-colors hover:bg-[hsl(var(--surface-elevated))]">
+    <Card className="metric-card h-full min-h-[90px] border-0 transition-colors hover:bg-[hsl(var(--surface-elevated))]">
       <CardContent className="flex h-full min-w-0 flex-col gap-1.5 p-2.5">
         <div className="flex min-w-0 items-start justify-between gap-2">
           <span className="t-label">{label}</span>

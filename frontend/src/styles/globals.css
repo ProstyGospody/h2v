@@ -1,3 +1,4 @@
+@import url("https://fonts.googleapis.com/css2?family=Montserrat+Alternates:wght@400;500;600;700&display=swap");
 @import "tailwindcss";
 @import "tw-animate-css";
 
@@ -51,7 +52,7 @@
   :root {
     color-scheme: dark;
 
-    --font-app-sans: "IBM Plex Sans", "Segoe UI Variable", "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    --font-app-sans: "Montserrat Alternates", "IBM Plex Sans", "Segoe UI Variable", "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
     --font-app-display: "Cormorant Garamond", "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
     --font-app-mono: "JetBrains Mono", "Cascadia Mono", "SFMono-Regular", Consolas, monospace;
 
@@ -374,6 +375,42 @@
     transparent 100%
   );
   opacity: 0.8;
+}
+
+.metric-card {
+  position: relative;
+  overflow: hidden;
+}
+
+.metric-card::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 1px;
+  background: hsl(var(--border-strong) / 0.72);
+}
+
+.metric-card::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 2px;
+  height: 100%;
+  border-radius: 0 999px 999px 0;
+  background: linear-gradient(
+    180deg,
+    transparent 0%,
+    var(--accent-primary) 18%,
+    var(--accent-secondary) 52%,
+    transparent 100%
+  );
+  opacity: 0.8;
+}
+
+.metric-card > [data-slot] {
+  position: relative;
+  z-index: 1;
 }
 
 .login-code-background {
