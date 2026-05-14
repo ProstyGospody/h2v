@@ -9,6 +9,23 @@
   --font-serif: var(--font-app-display);
   --font-mono: var(--font-app-mono);
 
+  --text-xs: 0.6875rem;
+  --text-xs--line-height: calc(1 / 0.6875);
+  --text-sm: 0.8125rem;
+  --text-sm--line-height: calc(1.2 / 0.8125);
+  --text-base: 0.9375rem;
+  --text-base--line-height: calc(1.4 / 0.9375);
+  --text-lg: 1.0625rem;
+  --text-lg--line-height: calc(1.6 / 1.0625);
+  --text-xl: 1.1875rem;
+  --text-xl--line-height: calc(1.65 / 1.1875);
+  --text-2xl: 1.375rem;
+  --text-2xl--line-height: calc(1.85 / 1.375);
+  --text-3xl: 1.75rem;
+  --text-3xl--line-height: calc(2.15 / 1.75);
+  --text-4xl: 2rem;
+  --text-4xl--line-height: calc(2.35 / 2);
+
   --color-background: hsl(var(--background));
   --color-foreground: hsl(var(--foreground));
   --color-surface: hsl(var(--surface));
@@ -164,7 +181,7 @@
     background: hsl(var(--background));
     color: hsl(var(--foreground));
     font-family: var(--font-app-sans);
-    font-size: 14px;
+    font-size: 13px;
     font-weight: 600;
     line-height: 1.5;
     -webkit-font-smoothing: antialiased;
@@ -223,7 +240,7 @@
 
 @layer utilities {
   .t-label {
-    font-size: 11px;
+    font-size: 10px;
     font-weight: 500;
     line-height: 1.4;
     letter-spacing: 0.06em;
@@ -498,7 +515,7 @@
   white-space: pre-wrap;
   overflow-wrap: anywhere;
   font-family: var(--font-app-mono);
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 600;
   line-height: 1.85;
   letter-spacing: 0;
