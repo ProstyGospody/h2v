@@ -75,7 +75,7 @@ export function LoginPage() {
         <LanguageSwitcher />
       </div>
 
-      <Card aria-label={t('login.signIn')} className="login-modal relative z-10 w-full max-w-[360px]">
+      <Card aria-label={t('login.signIn')} className="login-modal relative z-10 w-full max-w-[380px]">
         <CardHeader className="items-center border-b border-border/45 px-6 pb-5 pt-6 text-center">
           <BrandLogo className="h-14 w-28" />
         </CardHeader>
