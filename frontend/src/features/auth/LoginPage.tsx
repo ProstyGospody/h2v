@@ -7,7 +7,8 @@ import { Eye, EyeOff } from 'lucide-react';
 import { BrandLogo } from '@/components/brand-logo';
 import { LanguageSwitcher } from '@/components/language-switcher';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Field, FieldGroup, FieldLabel } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
 import { useAuth } from '@/features/auth/useAuth';
 import { useI18n } from '@/shared/i18n/i18n';
@@ -64,6 +65,9 @@ export function LoginPage() {
     if (admin) navigate({ to: '/' });
   }, [admin, navigate]);
 
+  const usernameInvalid = Boolean(form.formState.errors.username);
+  const passwordInvalid = Boolean(form.formState.errors.password);
+
   return (
     <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-app-background px-4 py-10 text-foreground">
       <CodeRainBackground />
@@ -71,49 +75,70 @@ export function LoginPage() {
         <LanguageSwitcher />
       </div>
 
-      <Card className="login-panel relative z-10 w-full max-w-100">
-        <CardContent className="login-panel-content space-y-9 px-7 py-10 sm:px-9 sm:py-12">
-          <div className="flex flex-col items-center gap-3 text-center">
-            <BrandLogo className="h-24 w-44" />
-          </div>
+      <Card aria-label={t('login.signIn')} className="login-panel relative z-10 w-full max-w-100">
+        <CardHeader className="login-panel-header items-center px-7 pb-7 pt-10 text-center sm:px-9 sm:pb-8 sm:pt-12">
+          <CardTitle className="sr-only">{t('login.signIn')}</CardTitle>
+          <BrandLogo className="h-24 w-44 sm:h-28 sm:w-52" />
+        </CardHeader>
 
+        <CardContent className="login-panel-content px-7 pb-10 sm:px-9 sm:pb-12">
           <form
-            className="grid gap-4"
+            className="flex flex-col gap-4"
+            noValidate
             onSubmit={form.handleSubmit(async (values) => {
               await login(values);
               navigate({ to: '/' });
             })}
           >
-            <Input
-              aria-label={t('login.username')}
-              autoComplete="username"
-              className="h-11 px-4"
-              id="username"
-              placeholder={t('login.username')}
-              {...form.register('username')}
-            />
+            <FieldGroup className="gap-4">
+              <Field data-invalid={usernameInvalid || undefined}>
+                <FieldLabel className="sr-only" htmlFor="username">
+                  {t('login.username')}
+                </FieldLabel>
+                <Input
+                  aria-invalid={usernameInvalid}
+                  autoComplete="username"
+                  className="login-input h-11 rounded-lg px-4"
+                  id="username"
+                  placeholder={t('login.username')}
+                  {...form.register('username')}
+                />
+              </Field>
 
-            <div className="relative">
-              <Input
-                aria-label={t('login.password')}
-                autoComplete="current-password"
-                className="h-11 px-4 pr-11"
-                id="password"
-                placeholder={t('login.password')}
-                type={showPassword ? 'text' : 'password'}
-                {...form.register('password')}
-              />
-              <button
-                aria-label={showPassword ? t('login.hidePassword') : t('login.showPassword')}
-                className="absolute inset-y-0 right-0 flex w-10 items-center justify-center text-muted-foreground transition hover:text-foreground"
-                onClick={() => setShowPassword((value) => !value)}
-                type="button"
-              >
-                {showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
-              </button>
-            </div>
+              <Field data-invalid={passwordInvalid || undefined}>
+                <FieldLabel className="sr-only" htmlFor="password">
+                  {t('login.password')}
+                </FieldLabel>
+                <div className="relative">
+                  <Input
+                    aria-invalid={passwordInvalid}
+                    autoComplete="current-password"
+                    className="login-input login-input-password h-11 rounded-lg px-4 pr-12"
+                    id="password"
+                    placeholder={t('login.password')}
+                    type={showPassword ? 'text' : 'password'}
+                    {...form.register('password')}
+                  />
+                  <Button
+                    aria-label={showPassword ? t('login.hidePassword') : t('login.showPassword')}
+                    className="absolute right-1 top-1/2 size-9 -translate-y-1/2 text-muted-foreground hover:bg-transparent hover:text-foreground"
+                    onClick={() => setShowPassword((value) => !value)}
+                    size="icon"
+                    type="button"
+                    variant="ghost"
+                  >
+                    {showPassword ? <EyeOff data-icon="inline-start" /> : <Eye data-icon="inline-start" />}
+                  </Button>
+                </div>
+              </Field>
+            </FieldGroup>
 
-            <Button className="button-shine h-11 w-full" disabled={form.formState.isSubmitting} size="lg" type="submit">
+            <Button
+              className="button-shine h-11 w-full rounded-lg text-sm font-semibold"
+              disabled={form.formState.isSubmitting}
+              size="lg"
+              type="submit"
+            >
               {form.formState.isSubmitting ? t('login.signingIn') : t('login.signIn')}
             </Button>
           </form>
