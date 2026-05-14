@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useParams } from '@tanstack/react-router';
 import { QRCodeSVG } from 'qrcode.react';
@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { LanguageSwitcher } from '@/components/language-switcher';
+import { ThemeToggle } from '@/components/theme-toggle';
 import { cn } from '@/lib/utils';
 import { apiClient } from '@/shared/api/client';
 import { UserLinks } from '@/shared/api/types';
@@ -79,16 +80,7 @@ const helpSections = [
 export function SubPage() {
   const { locale, t } = useI18n();
   const { token } = useParams({ from: '/u/$token' });
-  const [theme, setTheme] = useState<'dark' | 'light'>(() => getPreferredTheme());
   const os = typeof window !== 'undefined' ? detectOS() : 'desktop';
-
-  useEffect(() => {
-    const media = window.matchMedia('(prefers-color-scheme: light)');
-    const handler = () => setTheme(media.matches ? 'light' : 'dark');
-    handler();
-    media.addEventListener('change', handler);
-    return () => media.removeEventListener('change', handler);
-  }, []);
 
   const subscription = useQuery({
     queryKey: ['public-sub', token],
@@ -110,8 +102,9 @@ export function SubPage() {
 
   if (subscription.isError) {
     return (
-      <div className="relative min-h-screen bg-app-background px-4 py-10 text-foreground" data-theme={theme}>
-        <div className="absolute right-4 top-4 z-20">
+      <div className="relative min-h-screen bg-app-background px-4 py-10 text-foreground">
+        <div className="absolute right-4 top-4 z-20 flex items-center gap-2">
+          <ThemeToggle compact />
           <LanguageSwitcher />
         </div>
         <div className="mx-auto flex min-h-screen max-w-120 items-center justify-center">
@@ -133,14 +126,17 @@ export function SubPage() {
   }
 
   return (
-    <div className="min-h-screen bg-app-background text-foreground" data-theme={theme}>
+    <div className="min-h-screen bg-app-background text-foreground">
       <div className="relative min-h-screen">
         <div className="relative mx-auto w-full max-w-120 space-y-6 px-4 py-10 sm:py-14">
           <header className="space-y-5 text-center">
             <div className="flex items-center justify-between">
               <div className="w-9" />
               <BrandLogo className="h-16 w-32" />
-              <LanguageSwitcher compact />
+              <div className="flex items-center gap-1">
+                <ThemeToggle compact />
+                <LanguageSwitcher compact />
+              </div>
             </div>
           </header>
 
@@ -322,13 +318,6 @@ export function SubPage() {
       </div>
     </div>
   );
-}
-
-function getPreferredTheme(): 'dark' | 'light' {
-  if (typeof window === 'undefined') {
-    return 'dark';
-  }
-  return window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
 }
 
 function subscriptionURLForCurrentOrigin(token: string, fallback: string): string {

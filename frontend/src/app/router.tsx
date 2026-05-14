@@ -15,6 +15,7 @@ import { AppProviders } from '@/app/providers';
 import { BrandLogo } from '@/components/brand-logo';
 import { CoreLogo, type CoreLogoName } from '@/components/core-logo';
 import { LanguageSwitcher } from '@/components/language-switcher';
+import { ThemeToggle } from '@/components/theme-toggle';
 import { Button } from '@/components/ui/button';
 import {
   Sidebar,
@@ -102,7 +103,10 @@ function ProtectedShell() {
               <Menu className="size-5" />
             </Button>
             <AppBrand compact />
-            <LanguageSwitcher className="ml-auto" compact />
+            <div className="ml-auto flex items-center gap-1">
+              <ThemeToggle compact />
+              <LanguageSwitcher compact />
+            </div>
           </header>
 
           <Outlet />
@@ -209,6 +213,7 @@ function SidebarBody({
               <div className="truncate text-sm font-medium leading-5 text-foreground">{admin.username}</div>
             </div>
           ) : null}
+          <ThemeToggle className="shrink-0 text-muted-foreground" compact />
           <LanguageSwitcher className="shrink-0 text-muted-foreground" compact />
           <Button
             aria-label={t('nav.signOut')}
@@ -280,7 +285,7 @@ function ServiceStatusPanel({
             ) : null}
             {!collapsed ? (
               <span className="min-w-0 flex-1">
-                <span className="block truncate text-sm font-semibold leading-5 text-white">
+                <span className="block truncate text-sm font-semibold leading-5 text-foreground">
                   {item.label}
                 </span>
               </span>

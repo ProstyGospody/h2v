@@ -18,7 +18,7 @@ export function NotFoundPage() {
 
             <div className="space-y-2">
               <div className="font-mono text-xs text-faint">404</div>
-              <h1 className="font-display text-3xl font-semibold leading-tight text-white sm:text-4xl">
+              <h1 className="font-display text-3xl font-semibold leading-tight text-foreground sm:text-4xl">
                 {t('notFound.title')}
               </h1>
             </div>

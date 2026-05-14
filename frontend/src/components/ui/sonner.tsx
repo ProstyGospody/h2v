@@ -1,5 +1,6 @@
 import type { CSSProperties } from 'react';
 import { Toaster as Sonner, type ToasterProps } from 'sonner';
+import { useTheme } from '@/shared/theme/theme';
 
 const toastThemeVars = {
   '--normal-bg': 'hsl(var(--card))',
@@ -17,9 +18,11 @@ const toastThemeVars = {
 } as CSSProperties;
 
 function Toaster({ style, ...props }: ToasterProps) {
+  const { theme } = useTheme();
+
   return (
     <Sonner
-      theme="dark"
+      theme={theme}
       className="toaster group"
       position="bottom-right"
       offset={16}

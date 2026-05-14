@@ -7,6 +7,7 @@ import { EditorView, highlightActiveLine, highlightActiveLineGutter, lineNumbers
 import { tags } from '@lezer/highlight';
 import { minimalSetup } from 'codemirror';
 import { cn } from '@/lib/utils';
+import { useTheme } from '@/shared/theme/theme';
 
 type ConfigEditorProps = {
   className?: string;
@@ -17,16 +18,16 @@ type ConfigEditorProps = {
 };
 
 const configHighlightStyle = HighlightStyle.define([
-  { tag: tags.propertyName, color: '#f0d28a', fontWeight: '500' },
-  { tag: tags.string, color: '#9ad6b5' },
-  { tag: [tags.number, tags.integer, tags.float], color: '#f4a88a' },
-  { tag: [tags.bool, tags.null, tags.atom], color: '#c7b8ff' },
-  { tag: tags.keyword, color: '#9fc7ff' },
-  { tag: tags.operator, color: '#9fb0c4' },
-  { tag: [tags.punctuation, tags.separator], color: '#7f8a9a' },
-  { tag: tags.bracket, color: '#d5ddea' },
-  { tag: tags.comment, color: '#758197', fontStyle: 'italic' },
-  { tag: tags.invalid, color: '#ff8b8b', textDecoration: 'none' },
+  { tag: tags.propertyName, color: 'hsl(var(--syntax-property))', fontWeight: '500' },
+  { tag: tags.string, color: 'hsl(var(--syntax-string))' },
+  { tag: [tags.number, tags.integer, tags.float], color: 'hsl(var(--syntax-number))' },
+  { tag: [tags.bool, tags.null, tags.atom], color: 'hsl(var(--syntax-atom))' },
+  { tag: tags.keyword, color: 'hsl(var(--syntax-keyword))' },
+  { tag: tags.operator, color: 'hsl(var(--syntax-operator))' },
+  { tag: [tags.punctuation, tags.separator], color: 'hsl(var(--syntax-punctuation))' },
+  { tag: tags.bracket, color: 'hsl(var(--syntax-bracket))' },
+  { tag: tags.comment, color: 'hsl(var(--syntax-comment))', fontStyle: 'italic' },
+  { tag: tags.invalid, color: 'hsl(var(--syntax-invalid))', textDecoration: 'none' },
 ]);
 
 const configEditorSetup: Extension = [
@@ -37,114 +38,116 @@ const configEditorSetup: Extension = [
   highlightActiveLine(),
 ];
 
-const configEditorTheme = EditorView.theme(
-  {
-    '&': {
-      backgroundColor: 'hsl(var(--card))',
-      color: '#d7deea',
-      fontSize: '12px',
-      height: '100%',
+function createConfigEditorTheme(dark: boolean): Extension {
+  return EditorView.theme(
+    {
+      '&': {
+        backgroundColor: 'hsl(var(--card))',
+        color: 'hsl(var(--foreground))',
+        fontSize: '12px',
+        height: '100%',
+      },
+      '&.cm-focused': {
+        outline: 'none',
+      },
+      '.cm-scroller': {
+        fontFamily: 'var(--font-app-mono)',
+        lineHeight: '1.62',
+        padding: '18px 0',
+      },
+      '.cm-content': {
+        caretColor: 'hsl(var(--ring))',
+        minHeight: '100%',
+        padding: '0',
+      },
+      '.cm-line': {
+        padding: '0 20px',
+      },
+      '.cm-gutters': {
+        backgroundColor: 'hsl(var(--card))',
+        borderRight: '1px solid hsl(var(--border) / 0.55)',
+        color: 'hsl(var(--muted-foreground))',
+      },
+      '.cm-gutterElement': {
+        lineHeight: '1.62',
+      },
+      '.cm-lineNumbers .cm-gutterElement': {
+        minWidth: '44px',
+        padding: '0 12px 0 16px',
+      },
+      '.cm-activeLine, .cm-activeLineGutter': {
+        backgroundColor: 'hsl(var(--ring) / 0.08)',
+      },
+      '.cm-activeLineGutter': {
+        color: 'hsl(var(--foreground))',
+      },
+      '.cm-selectionBackground, &.cm-focused .cm-selectionBackground, .cm-content ::selection': {
+        backgroundColor: 'hsl(var(--ring) / 0.28) !important',
+      },
+      '.cm-selectionMatch': {
+        backgroundColor: 'hsl(var(--ring) / 0.16)',
+      },
+      '.cm-cursor': {
+        borderLeftColor: 'hsl(var(--ring))',
+      },
+      '.cm-matchingBracket': {
+        backgroundColor: 'hsl(var(--success) / 0.14)',
+        outline: '1px solid hsl(var(--success) / 0.34)',
+      },
+      '.cm-nonmatchingBracket': {
+        backgroundColor: 'hsl(var(--destructive) / 0.14)',
+        outline: '1px solid hsl(var(--destructive) / 0.34)',
+      },
+      '.cm-searchMatch': {
+        backgroundColor: 'hsl(var(--warning) / 0.22)',
+        outline: '1px solid hsl(var(--warning) / 0.28)',
+      },
+      '.cm-searchMatch.cm-searchMatch-selected': {
+        backgroundColor: 'hsl(var(--ring) / 0.26)',
+      },
+      '.cm-panels': {
+        backgroundColor: 'hsl(var(--popover))',
+        borderColor: 'hsl(var(--border) / 0.85)',
+        color: 'hsl(var(--popover-foreground))',
+      },
+      '.cm-textfield': {
+        backgroundColor: 'hsl(var(--input))',
+        border: '1px solid hsl(var(--border) / 0.85)',
+        borderRadius: '6px',
+        color: 'hsl(var(--foreground))',
+        fontFamily: 'var(--font-app-mono)',
+        padding: '2px 7px',
+      },
+      '.cm-button': {
+        backgroundColor: 'hsl(var(--secondary))',
+        backgroundImage: 'none',
+        border: '1px solid hsl(var(--border) / 0.85)',
+        borderRadius: '6px',
+        color: 'hsl(var(--secondary-foreground))',
+        fontFamily: 'var(--font-app-sans)',
+        padding: '2px 8px',
+      },
+      '.cm-tooltip': {
+        backgroundColor: 'hsl(var(--popover))',
+        border: '1px solid hsl(var(--border) / 0.85)',
+        borderRadius: '8px',
+        color: 'hsl(var(--popover-foreground))',
+      },
+      '.cm-tooltip-autocomplete > ul > li[aria-selected]': {
+        backgroundColor: 'hsl(var(--ring) / 0.18)',
+        color: 'hsl(var(--foreground))',
+      },
+      '.cm-diagnostic': {
+        fontFamily: 'var(--font-app-sans)',
+        fontSize: '12px',
+      },
+      '.cm-lintRange-error': {
+        backgroundImage: 'linear-gradient(45deg, transparent 65%, hsl(var(--destructive)) 80%, transparent 90%)',
+      },
     },
-    '&.cm-focused': {
-      outline: 'none',
-    },
-    '.cm-scroller': {
-      fontFamily: 'var(--font-app-mono)',
-      lineHeight: '1.62',
-      padding: '18px 0',
-    },
-    '.cm-content': {
-      caretColor: '#8dc5f3',
-      minHeight: '100%',
-      padding: '0',
-    },
-    '.cm-line': {
-      padding: '0 20px',
-    },
-    '.cm-gutters': {
-      backgroundColor: 'hsl(var(--card))',
-      borderRight: '1px solid hsl(var(--border) / 0.55)',
-      color: '#697589',
-    },
-    '.cm-gutterElement': {
-      lineHeight: '1.62',
-    },
-    '.cm-lineNumbers .cm-gutterElement': {
-      minWidth: '44px',
-      padding: '0 12px 0 16px',
-    },
-    '.cm-activeLine, .cm-activeLineGutter': {
-      backgroundColor: 'rgb(141 197 243 / 0.08)',
-    },
-    '.cm-activeLineGutter': {
-      color: '#c7d4e5',
-    },
-    '.cm-selectionBackground, &.cm-focused .cm-selectionBackground, .cm-content ::selection': {
-      backgroundColor: 'rgb(119 180 216 / 0.34) !important',
-    },
-    '.cm-selectionMatch': {
-      backgroundColor: 'rgb(119 180 216 / 0.18)',
-    },
-    '.cm-cursor': {
-      borderLeftColor: '#8dc5f3',
-    },
-    '.cm-matchingBracket': {
-      backgroundColor: 'rgb(154 214 181 / 0.14)',
-      outline: '1px solid rgb(154 214 181 / 0.34)',
-    },
-    '.cm-nonmatchingBracket': {
-      backgroundColor: 'rgb(255 139 139 / 0.14)',
-      outline: '1px solid rgb(255 139 139 / 0.34)',
-    },
-    '.cm-searchMatch': {
-      backgroundColor: 'rgb(240 210 138 / 0.22)',
-      outline: '1px solid rgb(240 210 138 / 0.28)',
-    },
-    '.cm-searchMatch.cm-searchMatch-selected': {
-      backgroundColor: 'rgb(141 197 243 / 0.28)',
-    },
-    '.cm-panels': {
-      backgroundColor: '#101722',
-      borderColor: 'rgb(63 74 89 / 0.78)',
-      color: '#d7deea',
-    },
-    '.cm-textfield': {
-      backgroundColor: '#080c11',
-      border: '1px solid rgb(63 74 89 / 0.85)',
-      borderRadius: '6px',
-      color: '#d7deea',
-      fontFamily: 'var(--font-app-mono)',
-      padding: '2px 7px',
-    },
-    '.cm-button': {
-      backgroundColor: '#151e2b',
-      backgroundImage: 'none',
-      border: '1px solid rgb(63 74 89 / 0.85)',
-      borderRadius: '6px',
-      color: '#d7deea',
-      fontFamily: 'var(--font-app-sans)',
-      padding: '2px 8px',
-    },
-    '.cm-tooltip': {
-      backgroundColor: '#101722',
-      border: '1px solid rgb(63 74 89 / 0.85)',
-      borderRadius: '8px',
-      color: '#d7deea',
-    },
-    '.cm-tooltip-autocomplete > ul > li[aria-selected]': {
-      backgroundColor: 'rgb(141 197 243 / 0.18)',
-      color: '#f4f7fb',
-    },
-    '.cm-diagnostic': {
-      fontFamily: 'var(--font-app-sans)',
-      fontSize: '12px',
-    },
-    '.cm-lintRange-error': {
-      backgroundImage: 'linear-gradient(45deg, transparent 65%, #ff8b8b 80%, transparent 90%)',
-    },
-  },
-  { dark: true },
-);
+    { dark },
+  );
+}
 
 export function ConfigEditor({
   className,
@@ -153,6 +156,7 @@ export function ConfigEditor({
   readOnly = false,
   value,
 }: ConfigEditorProps) {
+  const { theme } = useTheme();
   const hostRef = useRef<HTMLDivElement | null>(null);
   const viewRef = useRef<EditorView | null>(null);
   const onChangeRef = useRef(onChange);
@@ -170,7 +174,7 @@ export function ConfigEditor({
       lintGutter(),
       linter(jsonParseLinter(), { delay: 250 }),
       EditorView.lineWrapping,
-      configEditorTheme,
+      createConfigEditorTheme(theme === 'dark'),
       EditorState.readOnly.of(readOnly),
       EditorView.editable.of(!readOnly),
       EditorView.updateListener.of((update) => {
@@ -179,7 +183,7 @@ export function ConfigEditor({
         }
       }),
     ],
-    [readOnly],
+    [readOnly, theme],
   );
 
   useEffect(() => {
