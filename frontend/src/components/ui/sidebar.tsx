@@ -81,7 +81,7 @@ function Sidebar({ className, ...props }: React.ComponentProps<'aside'>) {
       data-slot="sidebar"
       data-state={open ? 'expanded' : 'collapsed'}
       className={cn(
-        'fixed inset-y-0 left-0 z-40 hidden w-[var(--sidebar-width)] flex-col border-r border-border/55 bg-sidebar-panel transition-[width] duration-300 ease-in-out data-[state=collapsed]:w-[var(--sidebar-width-icon)] lg:flex',
+        'fixed inset-y-0 left-0 z-40 hidden flex-col border-r border-border/55 bg-sidebar-panel lg:flex',
         className,
       )}
       {...props}
@@ -97,8 +97,7 @@ function SidebarInset({ className, ...props }: React.ComponentProps<'main'>) {
       data-slot="sidebar-inset"
       data-state={open ? 'expanded' : 'collapsed'}
       className={cn(
-        'flex min-w-0 flex-col overflow-x-hidden bg-transparent transition-[padding] duration-300 ease-in-out',
-        open ? 'lg:pl-[var(--sidebar-width)]' : 'lg:pl-[var(--sidebar-width-icon)]',
+        'flex min-w-0 flex-col overflow-x-hidden bg-transparent',
         className,
       )}
       {...props}

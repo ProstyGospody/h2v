@@ -51,8 +51,8 @@
   :root {
     color-scheme: dark;
 
-    --font-app-sans: "Montserrat Alternates", "IBM Plex Sans", "Segoe UI Variable", "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-    --font-app-display: "Cormorant Garamond", "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
+    --font-app-sans: "Montserrat Alternates", "Segoe UI Variable", "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    --font-app-display: "Montserrat Alternates", "Segoe UI Variable", "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
     --font-app-mono: "JetBrains Mono", "Cascadia Mono", "SFMono-Regular", Consolas, monospace;
 
     --radius: 0.625rem;
@@ -293,6 +293,35 @@
       padding-left: 2rem;
       padding-right: 2rem;
     }
+  }
+}
+
+[data-slot="sidebar"] {
+  width: var(--sidebar-width);
+}
+
+[data-slot="sidebar-inset"] {
+  padding-left: 0;
+}
+
+@media (min-width: 1024px) {
+  [data-slot="sidebar"] {
+    transition: width 300ms ease-in-out;
+    will-change: width;
+  }
+
+  [data-slot="sidebar"][data-state="collapsed"] {
+    width: var(--sidebar-width-icon);
+  }
+
+  [data-slot="sidebar-inset"] {
+    padding-left: var(--sidebar-width);
+    transition: padding-left 300ms ease-in-out;
+    will-change: padding-left;
+  }
+
+  [data-slot="sidebar-inset"][data-state="collapsed"] {
+    padding-left: var(--sidebar-width-icon);
   }
 }
 

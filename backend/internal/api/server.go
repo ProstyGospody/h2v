@@ -45,6 +45,13 @@ const refreshCookieName = "panel_refresh_token"
 const maxJSONBodyBytes int64 = 8 << 20
 const limiterTTL = 10 * time.Minute
 const limiterSweepInterval = time.Minute
+const contentSecurityPolicy = "default-src 'self'; " +
+	"script-src 'self'; " +
+	"style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; " +
+	"font-src 'self' https://fonts.gstatic.com data:; " +
+	"img-src 'self' data:; " +
+	"connect-src 'self'; " +
+	"frame-ancestors 'none';"
 
 var (
 	httpRequestsTotal = promauto.NewCounterVec(prometheus.CounterOpts{
@@ -824,7 +831,7 @@ func (s *Server) securityHeaders(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Referrer-Policy", "no-referrer")
 		w.Header().Set("X-Robots-Tag", "noindex")
-		w.Header().Set("Content-Security-Policy", "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none';")
+		w.Header().Set("Content-Security-Policy", contentSecurityPolicy)
 		next.ServeHTTP(w, r)
 	})
 }
