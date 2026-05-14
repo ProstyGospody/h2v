@@ -85,41 +85,39 @@ function ProtectedShell() {
   if (!admin) return <LoginPage />;
 
   return (
-    <SidebarProvider defaultOpen>
-      <div className="min-h-screen min-w-0 overflow-x-hidden bg-app-background text-foreground">
-        <Sidebar>
-          <SidebarBody admin={admin} logout={logout} showToggle />
-        </Sidebar>
+    <SidebarProvider defaultOpen className="min-h-screen min-w-0 overflow-x-hidden bg-app-background text-foreground">
+      <Sidebar>
+        <SidebarBody admin={admin} logout={logout} showToggle />
+      </Sidebar>
 
-        <SidebarInset>
-          <header className="sticky top-0 z-30 flex h-14 items-center gap-3 bg-background/90 px-4 shadow-sm backdrop-blur supports-backdrop-filter:bg-background/70 lg:hidden">
-            <Button
-              aria-label={t('shell.openNavigation')}
-              className="size-9"
-              onClick={() => setNavOpen(true)}
-              size="icon"
-              variant="ghost"
-            >
-              <Menu className="size-5" />
-            </Button>
-            <AppBrand compact />
-            <div className="ml-auto flex items-center gap-1">
-              <ThemeToggle compact />
-              <LanguageSwitcher compact />
-            </div>
-          </header>
+      <SidebarInset>
+        <header className="sticky top-0 z-30 flex h-14 items-center gap-3 bg-background/90 px-4 shadow-sm backdrop-blur supports-backdrop-filter:bg-background/70 lg:hidden">
+          <Button
+            aria-label={t('shell.openNavigation')}
+            className="size-9"
+            onClick={() => setNavOpen(true)}
+            size="icon"
+            variant="ghost"
+          >
+            <Menu className="size-5" />
+          </Button>
+          <AppBrand compact />
+          <div className="ml-auto flex items-center gap-1">
+            <ThemeToggle compact />
+            <LanguageSwitcher compact />
+          </div>
+        </header>
 
-          <Outlet />
-        </SidebarInset>
+        <Outlet />
+      </SidebarInset>
 
-        <Sheet onOpenChange={setNavOpen} open={navOpen}>
-          <SheetContent className="w-70 bg-sidebar-panel p-0" side="left">
-            <SidebarProvider open>
-              <SidebarBody admin={admin} logout={logout} onNavigate={() => setNavOpen(false)} />
-            </SidebarProvider>
-          </SheetContent>
-        </Sheet>
-      </div>
+      <Sheet onOpenChange={setNavOpen} open={navOpen}>
+        <SheetContent className="w-70 bg-sidebar-panel p-0" side="left">
+          <SidebarProvider open>
+            <SidebarBody admin={admin} logout={logout} onNavigate={() => setNavOpen(false)} />
+          </SidebarProvider>
+        </SheetContent>
+      </Sheet>
     </SidebarProvider>
   );
 }
@@ -136,8 +134,8 @@ function SidebarBody({
   showToggle?: boolean;
 }) {
   const { locale, t } = useI18n();
-  const { contentOpen } = useSidebar();
-  const collapsed = !contentOpen;
+  const { state } = useSidebar();
+  const collapsed = state === 'collapsed';
   const overview = useQuery({
     queryKey: ['stats', 'overview'],
     queryFn: () => apiClient.request<OverviewStats>('/stats/overview'),
@@ -181,9 +179,9 @@ function SidebarBody({
         {showToggle ? <SidebarTrigger /> : null}
       </SidebarHeader>
 
-      <SidebarContent className={cn(collapsed ? 'px-3 py-4' : 'px-4 py-5')}>
+      <SidebarContent className="px-4 py-5">
         <SidebarGroup>
-          {!collapsed ? <SidebarGroupLabel>{t('nav.workspace')}</SidebarGroupLabel> : null}
+          <SidebarGroupLabel>{t('nav.workspace')}</SidebarGroupLabel>
           <SidebarMenu>
             {primaryLinks.map((link) => (
               <SidebarLink
@@ -197,8 +195,8 @@ function SidebarBody({
           </SidebarMenu>
         </SidebarGroup>
 
-        <SidebarGroup className={cn(collapsed ? 'mt-5' : 'mt-7')}>
-          {!collapsed ? <SidebarGroupLabel>{t('nav.services')}</SidebarGroupLabel> : null}
+        <SidebarGroup className="mt-7">
+          <SidebarGroupLabel>{t('nav.services')}</SidebarGroupLabel>
           <ServiceStatusPanel collapsed={collapsed} items={serviceStatuses} />
         </SidebarGroup>
       </SidebarContent>
@@ -252,13 +250,13 @@ function ServiceStatusPanel({
   const gradientId = `service-icon-${useId().replace(/:/g, '')}`;
 
   return (
-    <div className={cn(collapsed ? 'flex flex-col gap-2' : 'flex flex-col gap-1 px-1')}>
+    <div data-slot="sidebar-service-list" className="flex flex-col gap-1 px-1">
       <svg aria-hidden="true" className="pointer-events-none absolute size-0 overflow-hidden">
         <defs>
           <linearGradient id={gradientId} x1="4" x2="20" y1="4" y2="20" gradientUnits="userSpaceOnUse">
-            <stop offset="0" stopColor="#fff7b8" />
-            <stop offset="0.45" stopColor="#e9fff7" />
-            <stop offset="1" stopColor="#f08a24" />
+            <stop offset="0" stopColor="var(--icon-gradient-start)" />
+            <stop offset="0.45" stopColor="var(--icon-gradient-mid)" />
+            <stop offset="1" stopColor="var(--icon-gradient-end)" />
           </linearGradient>
         </defs>
       </svg>
@@ -267,38 +265,40 @@ function ServiceStatusPanel({
 
         return (
           <div
-            className={cn(
-              'relative flex items-center rounded-lg transition-colors hover:bg-muted/25',
-              collapsed ? 'h-11 justify-center px-0' : 'gap-2.5 px-1 py-1.5',
-            )}
+            data-slot="sidebar-service-item"
+            className="relative flex h-11 items-center gap-2.5 rounded-lg px-1 py-1.5 transition-colors hover:bg-muted/25"
             key={item.label}
             title={collapsed ? `${item.label}: ${item.value}` : undefined}
           >
             {item.logo || Icon ? (
-              <span className={cn('flex shrink-0 items-center justify-center', collapsed ? 'size-9' : 'size-7')}>
+              <span
+                data-logo={item.logo ? item.logo : undefined}
+                data-slot="sidebar-service-icon"
+                className="flex size-9 shrink-0 items-center justify-center rounded-md"
+              >
                 {item.logo ? (
-                  <CoreLogo className={collapsed ? 'size-7' : 'size-6'} core={item.logo} />
+                  <CoreLogo className="size-7" core={item.logo} />
                 ) : Icon ? (
                   <Icon className="size-5" stroke={`url(#${gradientId})`} strokeWidth={2.25} />
                 ) : null}
               </span>
             ) : null}
-            {!collapsed ? (
-              <span className="min-w-0 flex-1">
-                <span className="block truncate text-sm font-semibold leading-5 text-foreground">
-                  {item.label}
-                </span>
+            <span data-slot="sidebar-service-label" className="min-w-0 flex-1">
+              <span className="block truncate text-sm font-semibold leading-5 text-foreground">
+                {item.label}
               </span>
-            ) : null}
-            {item.showValue && !collapsed ? (
-              <span className="shrink-0 font-mono text-[11px] text-muted-foreground">{item.value}</span>
+            </span>
+            {item.showValue ? (
+              <span data-slot="sidebar-service-value" className="shrink-0 font-mono text-[11px] text-muted-foreground">
+                {item.value}
+              </span>
             ) : null}
             {item.showIndicator ? (
               <span
+                data-slot="sidebar-service-dot"
                 aria-label={item.value}
                 className={cn(
                   'size-2 shrink-0 rounded-full ring-2',
-                  collapsed && 'absolute right-2 top-2',
                   serviceDotTone(item.tone ?? 'idle'),
                 )}
                 title={item.value}
@@ -349,7 +349,6 @@ function SidebarLink({
   onClick?: () => void;
   to: LinkTo;
 }) {
-  const { contentOpen } = useSidebar();
   const pathname = useRouterState({ select: (state) => state.location.pathname });
   const isActive = pathname === to;
 
@@ -363,7 +362,7 @@ function SidebarLink({
           <span className="flex size-9 shrink-0 items-center justify-center rounded-md transition-colors group-hover:bg-background/20">
             <Icon className="size-5 shrink-0" />
           </span>
-          {contentOpen ? <span className="min-w-0 truncate">{label}</span> : null}
+          <span data-slot="sidebar-menu-label" className="min-w-0 truncate">{label}</span>
         </Link>
       </SidebarMenuButton>
     </SidebarMenuItem>

@@ -5,9 +5,9 @@ import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
 type SidebarContextValue = {
-  contentOpen: boolean;
   open: boolean;
   setOpen: (open: boolean) => void;
+  state: 'collapsed' | 'expanded';
   toggleSidebar: () => void;
 };
 
@@ -40,7 +40,7 @@ function SidebarProvider({
 }) {
   const [uncontrolledOpen, setUncontrolledOpen] = React.useState(defaultOpen);
   const open = openProp ?? uncontrolledOpen;
-  const [contentOpen, setContentOpen] = React.useState(open);
+  const state = open ? 'expanded' : 'collapsed';
 
   const setOpen = React.useCallback(
     (value: boolean) => {
@@ -52,29 +52,19 @@ function SidebarProvider({
 
   const value = React.useMemo<SidebarContextValue>(
     () => ({
-      contentOpen,
       open,
       setOpen,
+      state,
       toggleSidebar: () => setOpen(!open),
     }),
-    [contentOpen, open, setOpen],
+    [open, setOpen, state],
   );
-
-  React.useEffect(() => {
-    if (open) {
-      setContentOpen(true);
-      return undefined;
-    }
-
-    const timeoutId = window.setTimeout(() => setContentOpen(false), SIDEBAR_TRANSITION_MS);
-    return () => window.clearTimeout(timeoutId);
-  }, [open]);
 
   return (
     <SidebarContext.Provider value={value}>
       <div
         data-slot="sidebar-wrapper"
-        data-state={open ? 'expanded' : 'collapsed'}
+        data-state={state}
         style={{
           '--sidebar-width': '17.5rem',
           '--sidebar-width-icon': '5.25rem',
@@ -90,31 +80,40 @@ function SidebarProvider({
   );
 }
 
-function Sidebar({ className, ...props }: React.ComponentProps<'aside'>) {
-  const { open } = useSidebar();
+function Sidebar({ className, children, ...props }: React.ComponentProps<'aside'>) {
+  const { state } = useSidebar();
 
   return (
-    <aside
-      data-slot="sidebar"
-      data-state={open ? 'expanded' : 'collapsed'}
-      className={cn(
-        'fixed inset-y-0 left-0 z-40 hidden overflow-hidden flex-col border-r border-border/55 bg-sidebar-panel lg:flex',
-        className,
-      )}
-      {...props}
-    />
+    <div
+      data-collapsible={state === 'collapsed' ? 'icon' : ''}
+      data-slot="sidebar-shell"
+      data-state={state}
+      className="hidden shrink-0 lg:block"
+    >
+      <aside
+        data-slot="sidebar"
+        data-state={state}
+        className={cn(
+          'fixed inset-y-0 left-0 z-40 hidden overflow-hidden flex-col border-r border-border/55 bg-sidebar-panel lg:flex',
+          className,
+        )}
+        {...props}
+      >
+        {children}
+      </aside>
+    </div>
   );
 }
 
 function SidebarInset({ className, ...props }: React.ComponentProps<'main'>) {
-  const { open } = useSidebar();
+  const { state } = useSidebar();
 
   return (
     <main
       data-slot="sidebar-inset"
-      data-state={open ? 'expanded' : 'collapsed'}
+      data-state={state}
       className={cn(
-        'flex min-w-0 flex-col overflow-x-hidden bg-transparent',
+        'flex min-w-0 flex-1 flex-col overflow-x-hidden bg-transparent',
         className,
       )}
       {...props}
@@ -161,17 +160,18 @@ function SidebarMenuButton({
   isActive?: boolean;
   tooltip?: string;
 }) {
-  const { contentOpen } = useSidebar();
+  const { state } = useSidebar();
+  const collapsed = state === 'collapsed';
   const Comp = asChild ? Slot : 'a';
 
   return (
     <Comp
       data-active={isActive}
       data-slot="sidebar-menu-button"
-      title={!contentOpen ? tooltip : undefined}
+      title={collapsed ? tooltip : undefined}
       className={cn(
         'group relative flex h-12 min-w-0 items-center rounded-lg text-sm font-semibold text-muted-foreground transition-colors duration-200 hover:bg-[image:var(--gradient-accent-soft)] hover:text-foreground data-[active=true]:bg-accent-gradient-soft data-[active=true]:text-foreground data-[active=true]:shadow-sm data-[active=true]:before:absolute data-[active=true]:before:inset-y-2 data-[active=true]:before:left-0 data-[active=true]:before:w-0.5 data-[active=true]:before:rounded-r-full data-[active=true]:before:bg-accent-gradient-vertical',
-        contentOpen ? 'gap-3 px-3' : 'justify-center px-0',
+        'gap-3 px-3',
         className,
       )}
       {...props}

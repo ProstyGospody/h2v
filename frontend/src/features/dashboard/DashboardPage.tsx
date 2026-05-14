@@ -208,9 +208,9 @@ function NetworkSpeedValue({ rx, tx }: { rx: number; tx: number }) {
       <svg aria-hidden="true" className="pointer-events-none absolute size-0 overflow-hidden">
         <defs>
           <linearGradient id={gradientId} x1="4" x2="20" y1="4" y2="20" gradientUnits="userSpaceOnUse">
-            <stop offset="0" stopColor="#fff7b8" />
-            <stop offset="0.45" stopColor="#e9fff7" />
-            <stop offset="1" stopColor="#f08a24" />
+            <stop offset="0" stopColor="var(--icon-gradient-start)" />
+            <stop offset="0.45" stopColor="var(--icon-gradient-mid)" />
+            <stop offset="1" stopColor="var(--icon-gradient-end)" />
           </linearGradient>
         </defs>
       </svg>
@@ -250,9 +250,9 @@ function MetricCard({
             <svg aria-hidden="true" className="pointer-events-none absolute size-0 overflow-hidden">
               <defs>
                 <linearGradient id={gradientId} x1="4" x2="20" y1="4" y2="20" gradientUnits="userSpaceOnUse">
-                  <stop offset="0" stopColor="#fff7b8" />
-                  <stop offset="0.45" stopColor="#e9fff7" />
-                  <stop offset="1" stopColor="#f08a24" />
+                  <stop offset="0" stopColor="var(--icon-gradient-start)" />
+                  <stop offset="0.45" stopColor="var(--icon-gradient-mid)" />
+                  <stop offset="1" stopColor="var(--icon-gradient-end)" />
                 </linearGradient>
               </defs>
             </svg>

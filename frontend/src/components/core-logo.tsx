@@ -24,6 +24,7 @@ export function CoreLogo({
   return (
     <img
       alt={coreLogoAlt[core]}
+      data-core-logo={core}
       className={cn('block object-contain', className)}
       draggable={false}
       src={coreLogoSrc[core]}
