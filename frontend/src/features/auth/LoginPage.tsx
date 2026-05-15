@@ -8,7 +8,7 @@ import { BrandLogo } from '@/components/brand-logo';
 import { LanguageSwitcher } from '@/components/language-switcher';
 import { ThemeToggle } from '@/components/theme-toggle';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Field, FieldGroup, FieldLabel } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
 import { useAuth } from '@/features/auth/useAuth';
@@ -77,14 +77,23 @@ export function LoginPage() {
         <LanguageSwitcher />
       </div>
 
-      <Card aria-label={t('login.signIn')} className="login-modal relative z-10 w-full max-w-[440px]">
-        <CardHeader className="items-center px-8 pb-7 pt-9 text-center sm:px-10 sm:pt-10">
-          <BrandLogo className="h-16 w-32" />
-        </CardHeader>
+      <Card aria-label={t('login.signIn')} className="login-modal login-modal-access relative z-10 w-full max-w-[760px]">
+        <div className="login-modal-brand" aria-hidden="true">
+          <BrandLogo alt="" className="h-20 w-40" />
+          <div className="login-modal-brand-grid">
+            <span />
+            <span />
+            <span />
+          </div>
+        </div>
 
-        <CardContent className="px-8 pb-8 pt-0 sm:px-10 sm:pb-10">
+        <CardContent className="login-modal-form px-6 py-7 sm:px-9 sm:py-9">
+          <div className="flex justify-center md:hidden">
+            <BrandLogo className="h-16 w-32" />
+          </div>
+
           <form
-            className="flex flex-col gap-5"
+            className="flex w-full flex-col gap-5"
             noValidate
             onSubmit={form.handleSubmit(async (values) => {
               await login(values);

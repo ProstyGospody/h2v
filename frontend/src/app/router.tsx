@@ -359,7 +359,7 @@ function SidebarLink({
           onClick={onClick}
           to={to}
         >
-          <span className="flex size-9 shrink-0 items-center justify-center rounded-md transition-colors group-hover:bg-background/20">
+          <span className="flex size-9 shrink-0 items-center justify-center rounded-md">
             <Icon className="size-5 shrink-0" />
           </span>
           <span data-slot="sidebar-menu-label" className="min-w-0 truncate">{label}</span>
