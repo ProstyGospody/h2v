@@ -355,8 +355,8 @@
   width: var(--sidebar-width);
 }
 
-[data-slot="sidebar-menu-button"]:hover {
-  background-color: hsl(var(--sidebar-nav-hover));
+[data-slot="sidebar-menu-button"]:not([data-active="true"]):hover {
+  background: var(--gradient-accent-soft);
   color: hsl(var(--foreground));
 }
 
