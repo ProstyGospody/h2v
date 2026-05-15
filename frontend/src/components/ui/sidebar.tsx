@@ -170,7 +170,7 @@ function SidebarMenuButton({
       data-slot="sidebar-menu-button"
       title={collapsed ? tooltip : undefined}
       className={cn(
-        'group relative flex h-12 min-w-0 items-center rounded-lg text-sm font-semibold text-muted-foreground transition-colors duration-200 hover:bg-sidebar-nav-hover hover:text-foreground data-[active=true]:bg-sidebar-nav-active data-[active=true]:text-foreground data-[active=true]:shadow-sm data-[active=true]:before:absolute data-[active=true]:before:inset-y-2 data-[active=true]:before:left-0 data-[active=true]:before:w-0.5 data-[active=true]:before:rounded-r-full data-[active=true]:before:bg-accent-gradient-vertical',
+        'group relative flex h-12 min-w-0 items-center rounded-lg text-sm font-semibold text-muted-foreground transition-colors duration-200 data-[active=true]:shadow-sm data-[active=true]:before:absolute data-[active=true]:before:inset-y-2 data-[active=true]:before:left-0 data-[active=true]:before:w-0.5 data-[active=true]:before:rounded-r-full data-[active=true]:before:bg-accent-gradient-vertical',
         'gap-3 px-3',
         className,
       )}

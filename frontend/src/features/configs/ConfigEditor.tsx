@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef } from 'react';
 import { json, jsonParseLinter } from '@codemirror/lang-json';
 import { bracketMatching, HighlightStyle, syntaxHighlighting } from '@codemirror/language';
 import { linter, lintGutter } from '@codemirror/lint';
-import { EditorState, type Extension } from '@codemirror/state';
+import { Compartment, EditorState, type Extension } from '@codemirror/state';
 import { EditorView, highlightActiveLine, highlightActiveLineGutter, lineNumbers } from '@codemirror/view';
 import { tags } from '@lezer/highlight';
 import { minimalSetup } from 'codemirror';
@@ -161,6 +161,16 @@ export function ConfigEditor({
   const viewRef = useRef<EditorView | null>(null);
   const onChangeRef = useRef(onChange);
   const syncingRef = useRef(false);
+  const initialReadOnlyRef = useRef(readOnly);
+  const initialThemeRef = useRef(theme);
+  const themeCompartmentRef = useRef<Compartment | null>(null);
+  const readOnlyCompartmentRef = useRef<Compartment | null>(null);
+  const editableCompartmentRef = useRef<Compartment | null>(null);
+  const initialValueRef = useRef(value);
+
+  if (!themeCompartmentRef.current) themeCompartmentRef.current = new Compartment();
+  if (!readOnlyCompartmentRef.current) readOnlyCompartmentRef.current = new Compartment();
+  if (!editableCompartmentRef.current) editableCompartmentRef.current = new Compartment();
 
   useEffect(() => {
     onChangeRef.current = onChange;
@@ -174,16 +184,16 @@ export function ConfigEditor({
       lintGutter(),
       linter(jsonParseLinter(), { delay: 250 }),
       EditorView.lineWrapping,
-      createConfigEditorTheme(theme === 'dark'),
-      EditorState.readOnly.of(readOnly),
-      EditorView.editable.of(!readOnly),
+      themeCompartmentRef.current!.of(createConfigEditorTheme(initialThemeRef.current === 'dark')),
+      readOnlyCompartmentRef.current!.of(EditorState.readOnly.of(initialReadOnlyRef.current)),
+      editableCompartmentRef.current!.of(EditorView.editable.of(!initialReadOnlyRef.current)),
       EditorView.updateListener.of((update) => {
         if (update.docChanged && !syncingRef.current) {
           onChangeRef.current(update.state.doc.toString());
         }
       }),
     ],
-    [readOnly, theme],
+    [],
   );
 
   useEffect(() => {
@@ -193,7 +203,7 @@ export function ConfigEditor({
     const view = new EditorView({
       parent: host,
       state: EditorState.create({
-        doc: normalizeEditorValue(value),
+        doc: normalizeEditorValue(initialValueRef.current),
         extensions,
       }),
     });
@@ -206,6 +216,27 @@ export function ConfigEditor({
       }
     };
   }, [extensions]);
+
+  useEffect(() => {
+    const view = viewRef.current;
+    if (!view) return;
+
+    view.dispatch({
+      effects: themeCompartmentRef.current!.reconfigure(createConfigEditorTheme(theme === 'dark')),
+    });
+  }, [theme]);
+
+  useEffect(() => {
+    const view = viewRef.current;
+    if (!view) return;
+
+    view.dispatch({
+      effects: [
+        readOnlyCompartmentRef.current!.reconfigure(EditorState.readOnly.of(readOnly)),
+        editableCompartmentRef.current!.reconfigure(EditorView.editable.of(!readOnly)),
+      ],
+    });
+  }, [readOnly]);
 
   useEffect(() => {
     const view = viewRef.current;
