@@ -67,7 +67,6 @@ export type OverviewStats = {
 export type ServerProtocol = {
   id: string;
   label: string;
-  detail: string;
   transport: string;
   port: number;
   logo: 'xray' | 'hysteria' | 'telegram';

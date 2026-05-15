@@ -132,7 +132,6 @@ type ServerInfo struct {
 type ServerProtocol struct {
 	ID        string `json:"id"`
 	Label     string `json:"label"`
-	Detail    string `json:"detail"`
 	Transport string `json:"transport"`
 	Port      int    `json:"port"`
 	Logo      string `json:"logo"`

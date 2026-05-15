@@ -57,8 +57,8 @@ const panelCodeFragments = [
 ];
 
 const fallbackLoginProtocols: ServerProtocol[] = [
-  { detail: 'Reality', enabled: true, id: 'vless', label: 'VLESS', logo: 'xray', port: 0, transport: 'TCP' },
-  { detail: 'Hysteria 2', enabled: true, id: 'hysteria2', label: 'Hysteria 2', logo: 'hysteria', port: 0, transport: 'UDP' },
+  { enabled: true, id: 'vless', label: 'VLESS', logo: 'xray', port: 0, transport: 'TCP' },
+  { enabled: true, id: 'hysteria2', label: 'Hysteria 2', logo: 'hysteria', port: 0, transport: 'UDP' },
 ];
 
 export function LoginPage() {
@@ -114,33 +114,32 @@ export function LoginPage() {
           </div>
 
           <form
-            className="flex w-full flex-col gap-5"
+            className="flex w-full flex-col gap-4"
             noValidate
             onSubmit={form.handleSubmit(async (values) => {
               await login(values);
               navigate({ to: '/' });
             })}
           >
-            <FieldGroup className="gap-5">
-              <Field className="gap-2.5" data-invalid={usernameInvalid || undefined}>
+            <FieldGroup className="gap-4">
+              <Field className="gap-2" data-invalid={usernameInvalid || undefined}>
                 <FieldLabel htmlFor="username">{t('login.username')}</FieldLabel>
                 <Input
                   aria-invalid={usernameInvalid}
                   autoComplete="username"
-                  className="h-12 px-4 text-sm"
                   id="username"
                   placeholder={t('login.username')}
                   {...form.register('username')}
                 />
               </Field>
 
-              <Field className="gap-2.5" data-invalid={passwordInvalid || undefined}>
+              <Field className="gap-2" data-invalid={passwordInvalid || undefined}>
                 <FieldLabel htmlFor="password">{t('login.password')}</FieldLabel>
                 <div className="relative">
                   <Input
                     aria-invalid={passwordInvalid}
                     autoComplete="current-password"
-                    className="h-12 px-4 pr-12 text-sm"
+                    className="pr-11"
                     id="password"
                     placeholder={t('login.password')}
                     type={showPassword ? 'text' : 'password'}
@@ -160,7 +159,7 @@ export function LoginPage() {
               </Field>
             </FieldGroup>
 
-            <Button className="h-12 w-full" disabled={form.formState.isSubmitting} type="submit">
+            <Button className="w-full" disabled={form.formState.isSubmitting} type="submit">
               {form.formState.isSubmitting ? t('login.signingIn') : t('login.signIn')}
             </Button>
           </form>
@@ -190,7 +189,6 @@ function LoginServerLocation({ info, loading }: { info?: ServerInfo; loading: bo
         )}
       </div>
       <div className="min-w-0">
-        <div className="t-label">{t('login.serverLocation')}</div>
         <div className="truncate text-sm font-semibold leading-5 text-foreground">
           {loading ? t('login.detectingLocation') : location || t('login.locationUnavailable')}
         </div>
@@ -207,23 +205,13 @@ function LoginProtocolStack({ protocols }: { protocols: ServerProtocol[] }) {
       {visibleProtocols.map((protocol) => (
         <div className="login-modal-protocol" key={protocol.id}>
           <span className="login-modal-protocol-logo">
-            <CoreLogo className={protocol.logo === 'hysteria' ? 'h-7 w-9' : 'size-7'} core={protocol.logo} />
+            <CoreLogo className={protocol.logo === 'hysteria' ? 'h-6 w-8' : 'size-6'} core={protocol.logo} />
           </span>
-          <span className="min-w-0 flex-1">
-            <span className="block truncate text-sm font-semibold leading-5 text-foreground">{protocol.label}</span>
-            <span className="block truncate text-[11px] leading-4 text-muted-foreground">{protocol.detail}</span>
-          </span>
-          <span className="login-modal-protocol-chip">{protocolTransport(protocol)}</span>
+          <span className="login-modal-protocol-label">{protocol.label}</span>
         </div>
       ))}
     </div>
   );
-}
-
-function protocolTransport(protocol: ServerProtocol): string {
-  const transport = protocol.transport.toUpperCase();
-  if (!protocol.port) return transport;
-  return `${transport}:${protocol.port}`;
 }
 
 function countryFlagURL(countryCode: string): string {

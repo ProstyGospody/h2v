@@ -201,7 +201,6 @@ func publicServerProtocols(runtime RuntimeSettings) []domain.ServerProtocol {
 		{
 			ID:        "vless",
 			Label:     "VLESS",
-			Detail:    "Reality",
 			Transport: "TCP",
 			Port:      runtime.VlessPort,
 			Logo:      "xray",
@@ -210,7 +209,6 @@ func publicServerProtocols(runtime RuntimeSettings) []domain.ServerProtocol {
 		{
 			ID:        "hysteria2",
 			Label:     "Hysteria 2",
-			Detail:    hysteriaProtocolDetail(runtime),
 			Transport: "UDP",
 			Port:      runtime.Hy2Port,
 			Logo:      "hysteria",
@@ -218,13 +216,6 @@ func publicServerProtocols(runtime RuntimeSettings) []domain.ServerProtocol {
 		},
 	}
 	return protocols
-}
-
-func hysteriaProtocolDetail(runtime RuntimeSettings) string {
-	if runtime.Hy2ObfsEnabled {
-		return "Obfs"
-	}
-	return "UDP"
 }
 
 func publicHostFromURL(raw string) string {
