@@ -339,7 +339,7 @@ print_summary() {
   fi
   telegram_port="$(runtime_setting_value "telegram.port" "TELEGRAM_PROXY_PORT" "9443")"
   telegram_secret="$(runtime_setting_value "telegram.secret" "TELEGRAM_PROXY_SECRET" "")"
-  telegram_mask="$(runtime_setting_value "telegram.mask_domain" "TELEGRAM_PROXY_MASK_DOMAIN" "www.cloudflare.com")"
+  telegram_mask="$(runtime_setting_value "telegram.mask_domain" "TELEGRAM_PROXY_MASK_DOMAIN" "www.google.com")"
   telegram_link=""
   if telegram_proxy_enabled && [[ -n "${telegram_secret}" && -n "${telegram_mask}" ]]; then
     telegram_host_q="$(urlencode "${telegram_host}")"
@@ -1318,12 +1318,16 @@ ensure_env() {
   fi
   env_set_default VLESS_UDP_ENABLED false
   env_set_default VLESS_XUDP_ENABLED false
+  env_set_default REALITY_DEST "www.google.com:443"
+  env_set_default REALITY_SNI "www.google.com"
+  env_set_default REALITY_SHORT_IDS "a1b2c3d4e5f60718"
   env_set_default REALITY_FINGERPRINT chrome
   env_set_default XRAY_SNIFFING_ENABLED true
   env_set_default XRAY_SNIFFING_DEST_OVERRIDE http,tls
   if [[ -n "${HY2_PORT_INPUT}" ]]; then
     env_set HY2_PORT "${HY2_PORT_INPUT}"
   fi
+  env_set_default HY2_MASQUERADE_URL "https://www.google.com"
 
   local geodata_dir
   geodata_dir="$(env_get XRAY_GEODATA_DIR || true)"
@@ -1720,8 +1724,8 @@ ensure_runtime_secrets() {
   env_set_default TELEGRAM_PROXY_CONFIG_PATH "${INSTALL_DIR}/configs/telegram/telemt.toml"
   env_set_default TELEGRAM_PROXY_ENABLED "true"
   env_set_default TELEGRAM_PROXY_PORT "9443"
-  env_set_default TELEGRAM_PROXY_MASK_DOMAIN "www.cloudflare.com"
-  env_set_default TELEGRAM_PROXY_FALLBACK_ADDR "www.cloudflare.com:443"
+  env_set_default TELEGRAM_PROXY_MASK_DOMAIN "www.google.com"
+  env_set_default TELEGRAM_PROXY_FALLBACK_ADDR "www.google.com:443"
   ensure_secret_value TELEGRAM_PROXY_SECRET
 }
 

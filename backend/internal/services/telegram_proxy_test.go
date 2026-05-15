@@ -11,10 +11,10 @@ func TestBuildTelegramProxyLinkUsesFakeTLSSecret(t *testing.T) {
 		TelegramHost:       "tg.example.com",
 		TelegramPort:       9443,
 		TelegramSecret:     "00112233445566778899aabbccddeeff",
-		TelegramMaskDomain: "www.cloudflare.com",
+		TelegramMaskDomain: "www.google.com",
 	})
 
-	want := "tg://proxy?port=9443&secret=ee00112233445566778899aabbccddeeff7777772e636c6f7564666c6172652e636f6d&server=tg.example.com"
+	want := "tg://proxy?port=9443&secret=ee00112233445566778899aabbccddeeff7777772e676f6f676c652e636f6d&server=tg.example.com"
 	if link != want {
 		t.Fatalf("link = %q, want %q", link, want)
 	}
@@ -27,10 +27,10 @@ func TestBuildTelegramProxyLinkPrefersPublicServerIP(t *testing.T) {
 		TelegramHost:       "tg.example.com",
 		TelegramPort:       9443,
 		TelegramSecret:     "00112233445566778899aabbccddeeff",
-		TelegramMaskDomain: "www.cloudflare.com",
+		TelegramMaskDomain: "www.google.com",
 	})
 
-	want := "tg://proxy?port=9443&secret=ee00112233445566778899aabbccddeeff7777772e636c6f7564666c6172652e636f6d&server=213.155.12.13"
+	want := "tg://proxy?port=9443&secret=ee00112233445566778899aabbccddeeff7777772e676f6f676c652e636f6d&server=213.155.12.13"
 	if link != want {
 		t.Fatalf("link = %q, want %q", link, want)
 	}
@@ -41,14 +41,14 @@ func TestRenderTelemtConfigUsesConfiguredSecretAndMask(t *testing.T) {
 		TelegramHost:       "tg.example.com",
 		TelegramPort:       9443,
 		TelegramSecret:     "00112233445566778899aabbccddeeff",
-		TelegramMaskDomain: "www.cloudflare.com",
+		TelegramMaskDomain: "www.google.com",
 		TelegramFallback:   "example.com:443",
 	}, "/opt/mypanel")
 
 	for _, want := range []string{
 		"public_host = \"tg.example.com\"",
 		"port = 9443",
-		"tls_domain = \"www.cloudflare.com\"",
+		"tls_domain = \"www.google.com\"",
 		"mask_host = \"example.com\"",
 		"h2v = \"00112233445566778899aabbccddeeff\"",
 	} {
@@ -64,7 +64,7 @@ func TestRenderTelemtConfigPrefersPublicServerIPForLinks(t *testing.T) {
 		TelegramHost:       "tg.example.com",
 		TelegramPort:       9443,
 		TelegramSecret:     "00112233445566778899aabbccddeeff",
-		TelegramMaskDomain: "www.cloudflare.com",
+		TelegramMaskDomain: "www.google.com",
 		TelegramFallback:   "example.com:443",
 	}, "/opt/mypanel")
 

@@ -44,7 +44,7 @@
         "security": "reality",
         "realitySettings": {
           "show": false,
-          "dest": {{ .RealityDest | json }},
+          "target": {{ .RealityDest | json }},
           "xver": 0,
           "serverNames": [{{ range $i, $s := .RealityServerNames }}{{ if $i }}, {{ end }}{{ $s | json }}{{ end }}],
           "privateKey": {{ .RealityPrivateKey | json }},

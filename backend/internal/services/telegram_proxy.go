@@ -161,7 +161,7 @@ func renderTelemtConfig(runtime RuntimeSettings, rootDir string) string {
 	}
 	maskDomain := strings.TrimSpace(runtime.TelegramMaskDomain)
 	if maskDomain == "" {
-		maskDomain = "www.cloudflare.com"
+		maskDomain = "www.google.com"
 	}
 	secret := strings.TrimSpace(strings.ToLower(runtime.TelegramSecret))
 	if !validTelegramSecret(secret) {

@@ -19,8 +19,19 @@
     "down": {{ .Hy2BandwidthDown | json }}
   },
   "ignoreClientBandwidth": false,
+  "congestion": {
+    "type": "bbr",
+    "bbrProfile": "conservative"
+  },
   "disableUDP": false,
   "udpIdleTimeout": "60s",
+  "sniff": {
+    "enable": true,
+    "timeout": "2s",
+    "rewriteDomain": false,
+    "tcpPorts": "80,443",
+    "udpPorts": "443"
+  },
   "auth": {
     "type": "http",
     "http": {

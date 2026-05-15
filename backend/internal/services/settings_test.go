@@ -54,7 +54,7 @@ func TestNormalizeSettingValueRejectsInvalidVLESSAndXrayStabilitySettings(t *tes
 func TestNormalizeRuntimeDerivedValuesUsesOnlyCurrentRealitySNI(t *testing.T) {
 	runtime := RuntimeSettings{
 		RealitySNI:         "www.google.com",
-		RealityServerNames: []string{"www.cloudflare.com"},
+		RealityServerNames: []string{"www.microsoft.com"},
 		RealityShortIDs:    []string{"", "a1b2c3d4"},
 	}
 

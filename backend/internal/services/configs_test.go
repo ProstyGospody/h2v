@@ -218,6 +218,11 @@ func TestRenderXrayConfigUsesStabilityRoutingAndSniffingDefaults(t *testing.T) {
 	var payload struct {
 		Inbounds []struct {
 			Tag      string `json:"tag"`
+			StreamSettings struct {
+				RealitySettings struct {
+					Target string `json:"target"`
+				} `json:"realitySettings"`
+			} `json:"streamSettings"`
 			Sniffing struct {
 				Enabled      bool     `json:"enabled"`
 				DestOverride []string `json:"destOverride"`
@@ -238,8 +243,10 @@ func TestRenderXrayConfigUsesStabilityRoutingAndSniffingDefaults(t *testing.T) {
 		DestOverride []string
 		RouteOnly    bool
 	}
+	var realityTarget string
 	for _, inbound := range payload.Inbounds {
 		if inbound.Tag == "vless-reality" {
+			realityTarget = inbound.StreamSettings.RealitySettings.Target
 			sniffing.Enabled = inbound.Sniffing.Enabled
 			sniffing.DestOverride = inbound.Sniffing.DestOverride
 			sniffing.RouteOnly = inbound.Sniffing.RouteOnly
@@ -252,6 +259,9 @@ func TestRenderXrayConfigUsesStabilityRoutingAndSniffingDefaults(t *testing.T) {
 	if got, want := sniffing.DestOverride, []string{"http", "tls"}; !stringSlicesEqual(got, want) {
 		t.Fatalf("destOverride = %#v, want %#v", got, want)
 	}
+	if got, want := realityTarget, "www.google.com:443"; got != want {
+		t.Fatalf("reality target = %q, want %q", got, want)
+	}
 	if payload.Routing.DomainStrategy != "AsIs" {
 		t.Fatalf("domainStrategy = %q, want AsIs", payload.Routing.DomainStrategy)
 	}
@@ -263,12 +273,56 @@ func TestRenderXrayConfigUsesStabilityRoutingAndSniffingDefaults(t *testing.T) {
 	}
 }
 
+func TestRenderHysteriaConfigUsesRegionalStabilityDefaults(t *testing.T) {
+	runtime := RuntimeSettings{
+		PanelPort:        8000,
+		Hy2Port:          8443,
+		Hy2Domain:        "vpn.example.com",
+		Hy2CertPath:      "/etc/letsencrypt/live/vpn.example.com/fullchain.pem",
+		Hy2KeyPath:       "/etc/letsencrypt/live/vpn.example.com/privkey.pem",
+		Hy2BandwidthUp:   "1 gbps",
+		Hy2BandwidthDown: "1 gbps",
+		Hy2TrafficSecret: "traffic-secret",
+		Hy2ObfsEnabled:   true,
+		Hy2ObfsPassword:  "obfs-secret",
+		GeoIPPath:        "/opt/mypanel/data/geodata/geoip.dat",
+		GeositePath:      "/opt/mypanel/data/geodata/geosite.dat",
+	}
+	content := renderHysteriaTemplateForTest(t, runtime)
+
+	var payload struct {
+		Congestion struct {
+			Type       string `json:"type"`
+			BBRProfile string `json:"bbrProfile"`
+		} `json:"congestion"`
+		Sniff struct {
+			Enable        bool   `json:"enable"`
+			Timeout       string `json:"timeout"`
+			RewriteDomain bool   `json:"rewriteDomain"`
+			TCPPorts      string `json:"tcpPorts"`
+			UDPPorts      string `json:"udpPorts"`
+		} `json:"sniff"`
+	}
+	if err := json.Unmarshal(content, &payload); err != nil {
+		t.Fatal(err)
+	}
+	if payload.Congestion.Type != "bbr" || payload.Congestion.BBRProfile != "conservative" {
+		t.Fatalf("congestion = %#v, want bbr/conservative", payload.Congestion)
+	}
+	if !payload.Sniff.Enable || payload.Sniff.Timeout != "2s" || payload.Sniff.RewriteDomain {
+		t.Fatalf("sniff = %#v, want enabled 2s without rewrite", payload.Sniff)
+	}
+	if payload.Sniff.TCPPorts != "80,443" || payload.Sniff.UDPPorts != "443" {
+		t.Fatalf("sniff ports = %#v, want tcp 80,443 and udp 443", payload.Sniff)
+	}
+}
+
 func baseXrayRuntimeForTest() RuntimeSettings {
 	return RuntimeSettings{
-		RealityDest:               "www.cloudflare.com:443",
+		RealityDest:               "www.google.com:443",
 		RealityPrivateKey:         "private",
-		RealityServerNames:        []string{"www.cloudflare.com"},
-		RealityShortIDs:           []string{"", "a1b2c3d4"},
+		RealityServerNames:        []string{"www.google.com"},
+		RealityShortIDs:           []string{"a1b2c3d4"},
 		VlessPort:                 8444,
 		XraySniffingEnabled:       true,
 		XraySniffingDestOverride:  []string{"http", "tls"},
@@ -319,6 +373,22 @@ func renderXrayTemplateForTest(t *testing.T, runtime RuntimeSettings) []byte {
 	}
 	service := NewConfigService(cfg, nil, nil, nil, nil, slog.New(slog.NewTextHandler(io.Discard, nil)))
 	content, err := service.RenderWithRuntime("xray", runtime)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return content
+}
+
+func renderHysteriaTemplateForTest(t *testing.T, runtime RuntimeSettings) []byte {
+	t.Helper()
+
+	cfg := config.Config{
+		Panel: config.PanelConfig{
+			TemplatesDir: filepath.Join("..", "..", "..", "templates"),
+		},
+	}
+	service := NewConfigService(cfg, nil, nil, nil, nil, slog.New(slog.NewTextHandler(io.Discard, nil)))
+	content, err := service.RenderWithRuntime("hysteria", runtime)
 	if err != nil {
 		t.Fatal(err)
 	}

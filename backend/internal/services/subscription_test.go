@@ -36,7 +36,7 @@ func TestBuildProtocolLinks(t *testing.T) {
 		"type":       "tcp",
 		"security":   "reality",
 		"pbk":        "reality-public-key",
-		"sni":        "www.cloudflare.com",
+		"sni":        "www.google.com",
 		"fp":         "firefox",
 		"flow":       "xtls-rprx-vision",
 		"sid":        "a1b2c3d4",
@@ -86,8 +86,8 @@ func TestBuildProtocolLinksPreferPublicServerIP(t *testing.T) {
 	if got := parsedVLESS.Host; got != "213.155.12.13:443" {
 		t.Fatalf("vless host = %q, want 213.155.12.13:443", got)
 	}
-	if got := parsedVLESS.Query().Get("sni"); got != "www.cloudflare.com" {
-		t.Fatalf("vless sni = %q, want www.cloudflare.com", got)
+	if got := parsedVLESS.Query().Get("sni"); got != "www.google.com" {
+		t.Fatalf("vless sni = %q, want www.google.com", got)
 	}
 
 	hy2 := buildHysteria2(runtime, user)
@@ -309,7 +309,7 @@ func sampleLinksWithRuntime(runtime RuntimeSettings) *domain.SubscriptionLinks {
 func sampleRuntime() RuntimeSettings {
 	return RuntimeSettings{
 		PanelDomain:        "vpn.example.com",
-		RealitySNI:         "www.cloudflare.com",
+		RealitySNI:         "www.google.com",
 		RealityPublicKey:   "reality-public-key",
 		RealityFingerprint: "firefox",
 		RealityShortIDs:    []string{"", "a1b2c3d4"},

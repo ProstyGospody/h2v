@@ -84,16 +84,16 @@ const fallbackValues: Record<SettingKey, SettingValue> = {
   'hy2.bandwidth_down': '1 gbps',
   'hy2.bandwidth_up': '1 gbps',
   'hy2.domain': 'panel.example.com',
-  'hy2.masquerade_url': 'https://www.bing.com',
+  'hy2.masquerade_url': 'https://www.google.com',
   'hy2.obfs_enabled': true,
   'hy2.obfs_password': '',
   'hy2.port': 8443,
   'hy2.traffic_secret': '',
-  'reality.dest': 'www.cloudflare.com:443',
+  'reality.dest': 'www.google.com:443',
   'reality.private_key': '',
   'reality.public_key': '',
-  'reality.short_ids': [''],
-  'reality.sni': 'www.cloudflare.com',
+  'reality.short_ids': ['a1b2c3d4e5f60718'],
+  'reality.sni': 'www.google.com',
   'vless.port': 8444,
 };
 
@@ -115,15 +115,14 @@ const settingLabelKeys: Record<SettingKey, TranslationKey> = {
 };
 
 const realityPresets: RealityPreset[] = [
-  { label: 'Cloudflare', sni: 'www.cloudflare.com', dest: 'www.cloudflare.com:443' },
+  { label: 'Google', sni: 'www.google.com', dest: 'www.google.com:443' },
   { label: 'Microsoft', sni: 'www.microsoft.com', dest: 'www.microsoft.com:443' },
   { label: 'Apple', sni: 'www.apple.com', dest: 'www.apple.com:443' },
-  { label: 'Google', sni: 'www.google.com', dest: 'www.google.com:443' },
 ];
 
 const masqueradePresets: URLPreset[] = [
+  { label: 'Google', value: 'https://www.google.com' },
   { label: 'Bing', value: 'https://www.bing.com' },
-  { label: 'Cloudflare', value: 'https://www.cloudflare.com' },
   { label: 'Wikipedia', value: 'https://www.wikipedia.org' },
 ];
 
@@ -138,9 +137,9 @@ const portDefinitions: Array<{ key: PortKey; presets: number[]; protocol: 'tcp' 
 
 const telegramFallbackForm: TelegramForm = {
   enabled: true,
-  fallback_addr: 'www.cloudflare.com:443',
+  fallback_addr: 'www.google.com:443',
   host: 'panel.example.com',
-  mask_domain: 'www.cloudflare.com',
+  mask_domain: 'www.google.com',
   port: 9443,
   secret: '',
 };
@@ -426,13 +425,13 @@ export function SettingsPage() {
                   <TextControl
                     label="SNI"
                     onChange={(value) => setValue('reality.sni', value)}
-                    placeholder="www.cloudflare.com"
+                    placeholder="www.google.com"
                     value={values.string('reality.sni')}
                   />
                   <TextControl
                     label={t('settings.destination')}
                     onChange={(value) => setValue('reality.dest', value)}
-                    placeholder="www.cloudflare.com:443"
+                    placeholder="www.google.com:443"
                     value={values.string('reality.dest')}
                   />
                   <SecretControl
@@ -526,7 +525,7 @@ export function SettingsPage() {
                       <TextControl
                         label={t('settings.masqueradeUrl')}
                         onChange={(value) => setValue('hy2.masquerade_url', value)}
-                        placeholder="https://www.bing.com"
+                        placeholder="https://www.google.com"
                         value={values.string('hy2.masquerade_url')}
                       />
                     </>
@@ -688,13 +687,13 @@ function TelegramSettingsSection({ revealSecrets }: { revealSecrets: boolean }) 
       <TextControl
         label={t('settings.maskDomain')}
         onChange={(value) => setTelegramValue('mask_domain', value)}
-        placeholder="www.cloudflare.com"
+        placeholder="www.google.com"
         value={form.mask_domain}
       />
       <TextControl
         label={t('settings.fallback')}
         onChange={(value) => setTelegramValue('fallback_addr', value)}
-        placeholder="www.cloudflare.com:443"
+        placeholder="www.google.com:443"
         value={form.fallback_addr}
       />
       <SecretControl
