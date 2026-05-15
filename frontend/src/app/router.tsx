@@ -29,7 +29,6 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarProvider,
-  SidebarTrigger,
   useSidebar,
 } from '@/components/ui/sidebar';
 import { Sheet, SheetContent } from '@/components/ui/sheet';
@@ -87,7 +86,7 @@ function ProtectedShell() {
   return (
     <SidebarProvider defaultOpen className="min-h-screen min-w-0 overflow-x-hidden bg-app-background text-foreground">
       <Sidebar>
-        <SidebarBody admin={admin} logout={logout} showToggle />
+        <SidebarBody admin={admin} logout={logout} />
       </Sidebar>
 
       <SidebarInset>
@@ -126,12 +125,10 @@ function SidebarBody({
   admin,
   logout,
   onNavigate,
-  showToggle = false,
 }: {
   admin: { username: string };
   logout: () => Promise<void> | void;
   onNavigate?: () => void;
-  showToggle?: boolean;
 }) {
   const { locale, t } = useI18n();
   const { state } = useSidebar();
@@ -176,7 +173,6 @@ function SidebarBody({
         )}
       >
         <AppBrand compact={collapsed} iconOnly={collapsed} />
-        {showToggle ? <SidebarTrigger /> : null}
       </SidebarHeader>
 
       <SidebarContent className="px-4 py-5">
