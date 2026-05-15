@@ -1,10 +1,12 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useForm } from 'react-hook-form';
+import { useQuery } from '@tanstack/react-query';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useNavigate } from '@tanstack/react-router';
-import { Eye, EyeOff } from 'lucide-react';
+import { Eye, EyeOff, MapPin } from 'lucide-react';
 import { BrandLogo } from '@/components/brand-logo';
+import { CoreLogo } from '@/components/core-logo';
 import { LanguageSwitcher } from '@/components/language-switcher';
 import { ThemeToggle } from '@/components/theme-toggle';
 import { Button } from '@/components/ui/button';
@@ -12,6 +14,8 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Field, FieldGroup, FieldLabel } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
 import { useAuth } from '@/features/auth/useAuth';
+import { apiClient } from '@/shared/api/client';
+import type { ServerInfo, ServerProtocol } from '@/shared/api/types';
 import { useI18n } from '@/shared/i18n/i18n';
 
 const schema = z.object({
@@ -52,6 +56,11 @@ const panelCodeFragments = [
   '/opt/mypanel/install.sh reset-admin admin ********',
 ];
 
+const fallbackLoginProtocols: ServerProtocol[] = [
+  { detail: 'Reality', enabled: true, id: 'vless', label: 'VLESS', logo: 'xray', port: 0, transport: 'TCP' },
+  { detail: 'Hysteria 2', enabled: true, id: 'hysteria2', label: 'Hysteria 2', logo: 'hysteria', port: 0, transport: 'UDP' },
+];
+
 export function LoginPage() {
   const { admin, login } = useAuth();
   const { t } = useI18n();
@@ -61,6 +70,12 @@ export function LoginPage() {
     resolver: zodResolver(schema),
     defaultValues: { username: 'admin', password: '' },
   });
+  const serverInfo = useQuery({
+    queryKey: ['public', 'server-info'],
+    queryFn: () => apiClient.request<ServerInfo>('/public/server-info'),
+    staleTime: 6 * 60 * 60 * 1000,
+  });
+  const protocols = serverInfo.data?.protocols?.length ? serverInfo.data.protocols : fallbackLoginProtocols;
 
   useEffect(() => {
     if (admin) navigate({ to: '/' });
@@ -78,8 +93,14 @@ export function LoginPage() {
       </div>
 
       <Card aria-label={t('login.signIn')} className="login-modal login-modal-access relative z-10 w-full max-w-[920px]">
-        <div className="login-modal-brand" aria-hidden="true">
-          <BrandLogo alt="" className="h-20 w-40" />
+        <div className="login-modal-brand">
+          <div className="login-modal-brand-main">
+            <BrandLogo alt="" className="h-20 w-40" />
+            <div className="login-modal-brand-meta">
+              <LoginServerLocation info={serverInfo.data} loading={serverInfo.isLoading} />
+              <LoginProtocolStack protocols={protocols} />
+            </div>
+          </div>
           <div className="login-modal-brand-grid">
             <span />
             <span />
@@ -147,6 +168,53 @@ export function LoginPage() {
       </Card>
     </div>
   );
+}
+
+function LoginServerLocation({ info, loading }: { info?: ServerInfo; loading: boolean }) {
+  const { t } = useI18n();
+  const location = [info?.city, info?.country].filter(Boolean).join(', ');
+
+  return (
+    <div className="login-modal-location">
+      <div className="login-modal-location-mark">
+        {info?.flag ? <span className="text-xl leading-none">{info.flag}</span> : <MapPin className="size-4" />}
+      </div>
+      <div className="min-w-0">
+        <div className="t-label">{t('login.serverLocation')}</div>
+        <div className="truncate text-sm font-semibold leading-5 text-foreground">
+          {loading ? t('login.detectingLocation') : location || t('login.locationUnavailable')}
+        </div>
+        {info?.ip ? <div className="truncate font-mono text-[11px] leading-4 text-muted-foreground">{info.ip}</div> : null}
+      </div>
+    </div>
+  );
+}
+
+function LoginProtocolStack({ protocols }: { protocols: ServerProtocol[] }) {
+  const visibleProtocols = protocols.filter((protocol) => protocol.enabled).slice(0, 3);
+
+  return (
+    <div className="login-modal-protocols">
+      {visibleProtocols.map((protocol) => (
+        <div className="login-modal-protocol" key={protocol.id}>
+          <span className="login-modal-protocol-logo">
+            <CoreLogo className={protocol.logo === 'hysteria' ? 'h-7 w-9' : 'size-7'} core={protocol.logo} />
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="block truncate text-sm font-semibold leading-5 text-foreground">{protocol.label}</span>
+            <span className="block truncate text-[11px] leading-4 text-muted-foreground">{protocol.detail}</span>
+          </span>
+          <span className="login-modal-protocol-chip">{protocolTransport(protocol)}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function protocolTransport(protocol: ServerProtocol): string {
+  const transport = protocol.transport.toUpperCase();
+  if (!protocol.port) return transport;
+  return `${transport}:${protocol.port}`;
 }
 
 function CodeRainBackground() {

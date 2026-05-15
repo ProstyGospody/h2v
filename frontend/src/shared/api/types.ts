@@ -64,6 +64,25 @@ export type OverviewStats = {
   online_users: Array<{ username: string; recorded_at: string; bytes: number }>;
 };
 
+export type ServerProtocol = {
+  id: string;
+  label: string;
+  detail: string;
+  transport: string;
+  port: number;
+  logo: 'xray' | 'hysteria' | 'telegram';
+  enabled: boolean;
+};
+
+export type ServerInfo = {
+  ip?: string;
+  city?: string;
+  country?: string;
+  country_code?: string;
+  flag?: string;
+  protocols: ServerProtocol[];
+};
+
 export type Setting = {
   key: string;
   value: unknown;

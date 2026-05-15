@@ -114,6 +114,7 @@ func (s *Server) routes(r chi.Router) {
 	r.Post("/api/auth/login", s.rateLimit("login", 5)(http.HandlerFunc(s.handleLogin)).ServeHTTP)
 	r.Post("/api/auth/refresh", s.handleRefresh)
 	r.Post("/api/auth/logout", s.handleLogout)
+	r.Get("/api/public/server-info", s.handlePublicServerInfo)
 
 	r.With(s.rateLimit("sub", 60)).Get("/sub/{token}", s.handleSubscription)
 	r.Post("/hy2/auth", s.handleHY2Auth)
@@ -237,6 +238,15 @@ func (s *Server) handleLogout(w http.ResponseWriter, _ *http.Request) {
 		Expires:  time.Unix(0, 0),
 	})
 	jsonData(w, http.StatusOK, map[string]any{"ok": true}, nil)
+}
+
+func (s *Server) handlePublicServerInfo(w http.ResponseWriter, r *http.Request) {
+	info, err := s.services.ServerInfo.Info(r.Context(), requestPublicHost(r))
+	if err != nil {
+		jsonError(w, err)
+		return
+	}
+	jsonData(w, http.StatusOK, info, nil)
 }
 
 func (s *Server) handleUsersList(w http.ResponseWriter, r *http.Request) {
@@ -1021,6 +1031,20 @@ func requestOrigin(r *http.Request) string {
 		proto = "https"
 	}
 	return proto + "://" + host
+}
+
+func requestPublicHost(r *http.Request) string {
+	host := ""
+	if trustsForwardedHeaders(r) {
+		host = cleanRequestHost(firstForwardedValue(r.Header.Get("X-Forwarded-Host")))
+	}
+	if host == "" {
+		host = cleanRequestHost(r.Host)
+	}
+	if parsedHost, _, err := net.SplitHostPort(host); err == nil {
+		return strings.Trim(parsedHost, "[]")
+	}
+	return strings.Trim(host, "[]")
 }
 
 func cleanRequestHost(value string) string {

@@ -690,6 +690,7 @@
   overflow: hidden;
   border-right: 1px solid hsl(var(--border) / 0.58);
   background: hsl(var(--surface) / 0.56);
+  padding: 2rem 1.25rem 3.75rem;
 }
 
 .login-modal-brand::before {
@@ -700,10 +701,83 @@
   background: var(--gradient-accent-vertical);
 }
 
-.login-modal-brand img {
+.login-modal-brand-main {
   position: relative;
   z-index: 1;
-  margin: auto;
+  display: flex;
+  min-height: 100%;
+  width: 100%;
+  flex-direction: column;
+  justify-content: center;
+  gap: 1.75rem;
+}
+
+.login-modal-brand-main > img {
+  align-self: center;
+}
+
+.login-modal-brand-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+
+.login-modal-location,
+.login-modal-protocol {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 0.7rem;
+  border: 1px solid hsl(var(--border) / 0.48);
+  border-radius: 6px;
+  background: hsl(var(--background) / 0.24);
+}
+
+.login-modal-location {
+  padding: 0.75rem;
+}
+
+.login-modal-location-mark,
+.login-modal-protocol-logo {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+}
+
+.login-modal-location-mark {
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 6px;
+  background: hsl(var(--muted) / 0.42);
+  color: hsl(var(--muted-foreground));
+}
+
+.login-modal-protocols {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.login-modal-protocol {
+  min-height: 3.15rem;
+  padding: 0.45rem 0.65rem;
+}
+
+.login-modal-protocol-logo {
+  width: 2.35rem;
+  height: 2.35rem;
+}
+
+.login-modal-protocol-chip {
+  flex-shrink: 0;
+  border-radius: 5px;
+  background: hsl(var(--muted) / 0.45);
+  padding: 0.25rem 0.45rem;
+  font-family: var(--font-app-mono);
+  font-size: 0.62rem;
+  font-weight: 700;
+  line-height: 1;
+  color: hsl(var(--muted-foreground));
 }
 
 .login-modal-brand-grid {

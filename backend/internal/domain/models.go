@@ -122,6 +122,25 @@ type HealthReport struct {
 	UptimeSeconds int64             `json:"uptime_seconds"`
 }
 
+type ServerInfo struct {
+	IP          string           `json:"ip,omitempty"`
+	City        string           `json:"city,omitempty"`
+	Country     string           `json:"country,omitempty"`
+	CountryCode string           `json:"country_code,omitempty"`
+	Flag        string           `json:"flag,omitempty"`
+	Protocols   []ServerProtocol `json:"protocols"`
+}
+
+type ServerProtocol struct {
+	ID        string `json:"id"`
+	Label     string `json:"label"`
+	Detail    string `json:"detail"`
+	Transport string `json:"transport"`
+	Port      int    `json:"port"`
+	Logo      string `json:"logo"`
+	Enabled   bool   `json:"enabled"`
+}
+
 type UserFilters struct {
 	Page            int
 	PerPage         int

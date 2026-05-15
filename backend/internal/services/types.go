@@ -40,6 +40,7 @@ type Services struct {
 	Geodata      *GeodataService
 	Backup       *BackupService
 	Stats        *StatsService
+	ServerInfo   *ServerInfoService
 }
 
 type CreateUserRequest struct {
@@ -95,5 +96,6 @@ func New(deps ServiceDeps) *Services {
 		Geodata:      NewGeodataService(deps.Config.Xray, deps.Logger, deps.Systemctl),
 		Backup:       NewBackupService(deps.Repo, settings, configs, deps.Cache),
 		Stats:        NewStatsService(deps.Repo, deps.Xray, deps.Hysteria, deps.Cache, deps.Version, deps.StartedAt),
+		ServerInfo:   NewServerInfoService(deps.Config, settings, deps.Logger),
 	}
 }
