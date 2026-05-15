@@ -381,6 +381,99 @@
   filter: drop-shadow(0 1px 2px rgb(15 23 42 / 0.12));
 }
 
+.config-editor {
+  position: relative;
+}
+
+.config-editor.ace_editor,
+.config-editor .ace_editor {
+  width: 100% !important;
+  height: 100% !important;
+  background: hsl(var(--card)) !important;
+  color: hsl(var(--foreground)) !important;
+  font-family: var(--font-app-mono) !important;
+  font-size: 12px !important;
+  line-height: 1.62 !important;
+}
+
+.config-editor .ace_scroller,
+.config-editor .ace_content {
+  background: transparent !important;
+}
+
+.config-editor .ace_gutter {
+  background: hsl(var(--card)) !important;
+  border-right: 1px solid hsl(var(--border) / 0.55);
+  color: hsl(var(--muted-foreground)) !important;
+}
+
+.config-editor .ace_gutter-cell {
+  padding-left: 16px;
+  padding-right: 12px;
+}
+
+.config-editor .ace_active-line,
+.config-editor .ace_gutter-active-line {
+  background: hsl(var(--ring) / 0.08) !important;
+}
+
+.config-editor .ace_cursor {
+  color: hsl(var(--ring)) !important;
+}
+
+.config-editor .ace_selection {
+  background: hsl(var(--ring) / 0.28) !important;
+}
+
+.config-editor .ace_marker-layer .ace_bracket {
+  border-color: hsl(var(--success) / 0.42) !important;
+  background: hsl(var(--success) / 0.1) !important;
+}
+
+.config-editor .ace_search {
+  border-color: hsl(var(--border) / 0.85) !important;
+  background: hsl(var(--popover)) !important;
+  color: hsl(var(--popover-foreground)) !important;
+  font-family: var(--font-app-sans);
+}
+
+.config-editor .ace_search_field,
+.config-editor .ace_button {
+  border-color: hsl(var(--border) / 0.85) !important;
+  background: hsl(var(--input)) !important;
+  color: hsl(var(--foreground)) !important;
+}
+
+.config-editor .ace_variable,
+.config-editor .ace_variable.ace_language {
+  color: hsl(var(--syntax-property)) !important;
+}
+
+.config-editor .ace_string {
+  color: hsl(var(--syntax-string)) !important;
+}
+
+.config-editor .ace_constant.ace_numeric {
+  color: hsl(var(--syntax-number)) !important;
+}
+
+.config-editor .ace_constant.ace_language,
+.config-editor .ace_support.ace_constant {
+  color: hsl(var(--syntax-atom)) !important;
+}
+
+.config-editor .ace_keyword {
+  color: hsl(var(--syntax-keyword)) !important;
+}
+
+.config-editor .ace_punctuation,
+.config-editor .ace_paren,
+.config-editor .ace_bracket,
+.config-editor .ace_lparen,
+.config-editor .ace_rparen {
+  color: hsl(var(--syntax-punctuation)) !important;
+}
+
 @media (min-width: 1024px) {
   [data-slot="sidebar-shell"] {
     position: relative;
