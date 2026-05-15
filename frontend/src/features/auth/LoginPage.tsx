@@ -177,14 +177,23 @@ function LoginServerLocation({ info, loading }: { info?: ServerInfo; loading: bo
   return (
     <div className="login-modal-location">
       <div className="login-modal-location-mark">
-        {info?.flag ? <span className="text-xl leading-none">{info.flag}</span> : <MapPin className="size-4" />}
+        {info?.country_code ? (
+          <img
+            alt=""
+            aria-hidden="true"
+            className="login-modal-location-flag"
+            draggable={false}
+            src={countryFlagURL(info.country_code)}
+          />
+        ) : (
+          <MapPin className="size-4" />
+        )}
       </div>
       <div className="min-w-0">
         <div className="t-label">{t('login.serverLocation')}</div>
         <div className="truncate text-sm font-semibold leading-5 text-foreground">
           {loading ? t('login.detectingLocation') : location || t('login.locationUnavailable')}
         </div>
-        {info?.ip ? <div className="truncate font-mono text-[11px] leading-4 text-muted-foreground">{info.ip}</div> : null}
       </div>
     </div>
   );
@@ -215,6 +224,10 @@ function protocolTransport(protocol: ServerProtocol): string {
   const transport = protocol.transport.toUpperCase();
   if (!protocol.port) return transport;
   return `${transport}:${protocol.port}`;
+}
+
+function countryFlagURL(countryCode: string): string {
+  return `https://flagcdn.com/24x18/${countryCode.trim().toLowerCase()}.png`;
 }
 
 function CodeRainBackground() {

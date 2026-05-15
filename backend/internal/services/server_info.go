@@ -69,11 +69,9 @@ func (s *ServerInfoService) Info(ctx context.Context, hostHint string) (*domain.
 
 	countryCode := strings.ToUpper(strings.TrimSpace(geo.CountryCode))
 	return &domain.ServerInfo{
-		IP:          geo.IP,
 		City:        geo.City,
 		Country:     geo.Country,
 		CountryCode: countryCode,
-		Flag:        countryFlagEmoji(countryCode),
 		Protocols:   publicServerProtocols(runtime),
 	}, nil
 }
@@ -219,25 +217,14 @@ func publicServerProtocols(runtime RuntimeSettings) []domain.ServerProtocol {
 			Enabled:   true,
 		},
 	}
-	if telegramServiceEnabled(runtime) {
-		protocols = append(protocols, domain.ServerProtocol{
-			ID:        "mtproto",
-			Label:     "MTProto",
-			Detail:    "Telegram Proxy",
-			Transport: "TCP",
-			Port:      runtime.TelegramPort,
-			Logo:      "telegram",
-			Enabled:   true,
-		})
-	}
 	return protocols
 }
 
 func hysteriaProtocolDetail(runtime RuntimeSettings) string {
 	if runtime.Hy2ObfsEnabled {
-		return "Hysteria 2 + Obfs"
+		return "Obfs"
 	}
-	return "Hysteria 2"
+	return "UDP"
 }
 
 func publicHostFromURL(raw string) string {
@@ -305,17 +292,4 @@ func normalizeServerGeo(geo serverGeo) serverGeo {
 	geo.Country = strings.TrimSpace(geo.Country)
 	geo.CountryCode = strings.ToUpper(strings.TrimSpace(geo.CountryCode))
 	return geo
-}
-
-func countryFlagEmoji(countryCode string) string {
-	countryCode = strings.ToUpper(strings.TrimSpace(countryCode))
-	if len(countryCode) != 2 {
-		return ""
-	}
-	first := countryCode[0]
-	second := countryCode[1]
-	if first < 'A' || first > 'Z' || second < 'A' || second > 'Z' {
-		return ""
-	}
-	return string([]rune{rune(first-'A') + 0x1F1E6, rune(second-'A') + 0x1F1E6})
 }

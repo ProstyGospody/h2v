@@ -75,11 +75,9 @@ export type ServerProtocol = {
 };
 
 export type ServerInfo = {
-  ip?: string;
   city?: string;
   country?: string;
   country_code?: string;
-  flag?: string;
   protocols: ServerProtocol[];
 };
 

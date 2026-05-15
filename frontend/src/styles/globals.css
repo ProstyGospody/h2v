@@ -753,6 +753,14 @@
   color: hsl(var(--muted-foreground));
 }
 
+.login-modal-location-flag {
+  width: 1.5rem;
+  height: 1.125rem;
+  border-radius: 2px;
+  object-fit: cover;
+  box-shadow: 0 0 0 1px hsl(var(--border) / 0.7);
+}
+
 .login-modal-protocols {
   display: grid;
   gap: 0.5rem;

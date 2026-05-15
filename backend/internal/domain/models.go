@@ -123,11 +123,9 @@ type HealthReport struct {
 }
 
 type ServerInfo struct {
-	IP          string           `json:"ip,omitempty"`
 	City        string           `json:"city,omitempty"`
 	Country     string           `json:"country,omitempty"`
 	CountryCode string           `json:"country_code,omitempty"`
-	Flag        string           `json:"flag,omitempty"`
 	Protocols   []ServerProtocol `json:"protocols"`
 }
 
