@@ -569,13 +569,15 @@
 .login-modal {
   position: relative;
   overflow: hidden;
-  border-radius: 8px;
-  border-color: hsl(var(--border) / 0.55) !important;
-  background: hsl(var(--card) / 0.96) !important;
+  border-radius: 6px;
+  border-color: hsl(var(--border) / 0.62) !important;
+  background:
+    linear-gradient(180deg, hsl(var(--surface-elevated) / 0.7) 0%, transparent 36%),
+    hsl(var(--card) / 0.97) !important;
   box-shadow:
-    0 18px 56px -30px rgb(0 0 0 / 0.86),
-    0 0 0 1px hsl(var(--border) / 0.14);
-  backdrop-filter: blur(14px);
+    0 24px 70px -36px rgb(0 0 0 / 0.9),
+    0 0 0 1px hsl(var(--border) / 0.16);
+  backdrop-filter: blur(16px);
 }
 
 .login-modal::before {

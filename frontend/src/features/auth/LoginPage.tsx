@@ -77,40 +77,40 @@ export function LoginPage() {
         <LanguageSwitcher />
       </div>
 
-      <Card aria-label={t('login.signIn')} className="login-modal relative z-10 w-full max-w-[360px]">
-        <CardHeader className="items-center border-b border-border/45 px-6 pb-5 pt-6 text-center">
-          <BrandLogo className="h-14 w-28" />
+      <Card aria-label={t('login.signIn')} className="login-modal relative z-10 w-full max-w-[440px]">
+        <CardHeader className="items-center px-8 pb-7 pt-9 text-center sm:px-10 sm:pt-10">
+          <BrandLogo className="h-16 w-32" />
         </CardHeader>
 
-        <CardContent className="px-6 pb-6 pt-5">
+        <CardContent className="px-8 pb-8 pt-0 sm:px-10 sm:pb-10">
           <form
-            className="flex flex-col gap-4"
+            className="flex flex-col gap-5"
             noValidate
             onSubmit={form.handleSubmit(async (values) => {
               await login(values);
               navigate({ to: '/' });
             })}
           >
-            <FieldGroup className="gap-4">
-              <Field data-invalid={usernameInvalid || undefined}>
+            <FieldGroup className="gap-5">
+              <Field className="gap-2.5" data-invalid={usernameInvalid || undefined}>
                 <FieldLabel htmlFor="username">{t('login.username')}</FieldLabel>
                 <Input
                   aria-invalid={usernameInvalid}
                   autoComplete="username"
-                  className="h-10 px-3.5"
+                  className="h-12 px-4 text-sm"
                   id="username"
                   placeholder={t('login.username')}
                   {...form.register('username')}
                 />
               </Field>
 
-              <Field data-invalid={passwordInvalid || undefined}>
+              <Field className="gap-2.5" data-invalid={passwordInvalid || undefined}>
                 <FieldLabel htmlFor="password">{t('login.password')}</FieldLabel>
                 <div className="relative">
                   <Input
                     aria-invalid={passwordInvalid}
                     autoComplete="current-password"
-                    className="h-10 px-3.5 pr-11"
+                    className="h-12 px-4 pr-12 text-sm"
                     id="password"
                     placeholder={t('login.password')}
                     type={showPassword ? 'text' : 'password'}
@@ -118,7 +118,7 @@ export function LoginPage() {
                   />
                   <Button
                     aria-label={showPassword ? t('login.hidePassword') : t('login.showPassword')}
-                    className="absolute right-1 top-1/2 size-8 -translate-y-1/2 text-muted-foreground hover:bg-transparent hover:text-foreground"
+                    className="absolute right-2 top-1/2 size-8 -translate-y-1/2 text-muted-foreground hover:bg-transparent hover:text-foreground"
                     onClick={() => setShowPassword((value) => !value)}
                     size="icon-sm"
                     type="button"
@@ -130,7 +130,7 @@ export function LoginPage() {
               </Field>
             </FieldGroup>
 
-            <Button className="h-10 w-full" disabled={form.formState.isSubmitting} type="submit">
+            <Button className="h-12 w-full" disabled={form.formState.isSubmitting} type="submit">
               {form.formState.isSubmitting ? t('login.signingIn') : t('login.signIn')}
             </Button>
           </form>
