@@ -4,6 +4,7 @@ declare module 'ace-builds/src-noconflict/ace' {
     destroy(): void;
     getValue(): string;
     on(event: 'change', callback: () => void): void;
+    resize(force?: boolean): void;
     renderer: {
       setPadding(padding: number): void;
       setScrollMargin(top: number, bottom: number, left: number, right: number): void;

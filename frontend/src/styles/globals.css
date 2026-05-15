@@ -393,7 +393,6 @@
   color: hsl(var(--foreground)) !important;
   font-family: var(--font-app-mono) !important;
   font-size: 12px !important;
-  line-height: 1.62 !important;
 }
 
 .config-editor .ace_scroller,

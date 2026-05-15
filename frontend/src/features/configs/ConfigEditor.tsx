@@ -59,11 +59,14 @@ export function ConfigEditor({
     editor.session.setMode('ace/mode/json');
     editor.session.setUseWrapMode(true);
     editor.renderer.setPadding(0);
-    editor.renderer.setScrollMargin(18, 18, 0, 0);
+    editor.renderer.setScrollMargin(18, 28, 0, 0);
     editor.setOption('scrollPastEnd', 0.3);
     editor.setOption('showFoldWidgets', false);
     editor.setOption('displayIndentGuides', false);
     editor.setOption('fadeFoldWidgets', true);
+    editor.resize(true);
+    const resizeObserver = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(() => editor.resize());
+    resizeObserver?.observe(host);
     editor.on('change', () => {
       if (!syncingRef.current) {
         onChangeRef.current(editor.getValue());
@@ -72,6 +75,7 @@ export function ConfigEditor({
     editorRef.current = editor;
 
     return () => {
+      resizeObserver?.disconnect();
       editor.destroy();
       host.textContent = '';
       if (editorRef.current === editor) {
