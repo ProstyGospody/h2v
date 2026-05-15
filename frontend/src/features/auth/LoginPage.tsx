@@ -4,7 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useNavigate } from '@tanstack/react-router';
-import { Eye, EyeOff, MapPin } from 'lucide-react';
+import { Eye, EyeOff, Github, MapPin } from 'lucide-react';
 import { BrandLogo } from '@/components/brand-logo';
 import { CoreLogo } from '@/components/core-logo';
 import { LanguageSwitcher } from '@/components/language-switcher';
@@ -92,27 +92,8 @@ export function LoginPage() {
         <LanguageSwitcher />
       </div>
 
-      <Card aria-label={t('login.signIn')} className="login-modal login-modal-access relative z-10 w-full max-w-[920px]">
-        <div className="login-modal-brand">
-          <div className="login-modal-brand-main">
-            <BrandLogo alt="" className="h-20 w-40" />
-            <div className="login-modal-brand-meta">
-              <LoginServerLocation info={serverInfo.data} loading={serverInfo.isLoading} />
-              <LoginProtocolStack protocols={protocols} />
-            </div>
-          </div>
-          <div className="login-modal-brand-grid">
-            <span />
-            <span />
-            <span />
-          </div>
-        </div>
-
-        <CardContent className="login-modal-form px-6 py-8 sm:px-10 sm:py-11">
-          <div className="flex justify-center md:hidden">
-            <BrandLogo className="h-16 w-32" />
-          </div>
-
+      <Card aria-label={t('login.signIn')} className="login-modal login-modal-access relative z-10 w-full max-w-[480px]">
+        <CardContent className="login-modal-form px-6 py-7 sm:px-9 sm:py-9">
           <form
             className="flex w-full flex-col gap-4"
             noValidate
@@ -121,6 +102,14 @@ export function LoginPage() {
               navigate({ to: '/' });
             })}
           >
+            <div className="login-modal-inline-brand">
+              <BrandLogo className="h-16 w-32" />
+              <div className="login-modal-brand-meta">
+                <LoginServerLocation info={serverInfo.data} loading={serverInfo.isLoading} />
+                <LoginProtocolStack protocols={protocols} />
+              </div>
+            </div>
+
             <FieldGroup className="gap-4">
               <Field className="gap-2" data-invalid={usernameInvalid || undefined}>
                 <FieldLabel htmlFor="username">{t('login.username')}</FieldLabel>
@@ -162,6 +151,17 @@ export function LoginPage() {
             <Button className="w-full" disabled={form.formState.isSubmitting} type="submit">
               {form.formState.isSubmitting ? t('login.signingIn') : t('login.signIn')}
             </Button>
+
+            <a
+              aria-label="GitHub"
+              className="login-modal-github"
+              href="https://github.com/ProstyGospody/h2v"
+              rel="noreferrer"
+              target="_blank"
+            >
+              <Github className="size-4" />
+              <span>GitHub</span>
+            </a>
           </form>
         </CardContent>
       </Card>
