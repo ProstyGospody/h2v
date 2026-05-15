@@ -77,7 +77,7 @@ export function LoginPage() {
         <LanguageSwitcher />
       </div>
 
-      <Card aria-label={t('login.signIn')} className="login-modal login-modal-access relative z-10 w-full max-w-[760px]">
+      <Card aria-label={t('login.signIn')} className="login-modal login-modal-access relative z-10 w-full max-w-[920px]">
         <div className="login-modal-brand" aria-hidden="true">
           <BrandLogo alt="" className="h-20 w-40" />
           <div className="login-modal-brand-grid">
@@ -87,7 +87,7 @@ export function LoginPage() {
           </div>
         </div>
 
-        <CardContent className="login-modal-form px-6 py-7 sm:px-9 sm:py-9">
+        <CardContent className="login-modal-form px-6 py-8 sm:px-10 sm:py-11">
           <div className="flex justify-center md:hidden">
             <BrandLogo className="h-16 w-32" />
           </div>

@@ -664,9 +664,7 @@
   overflow: hidden;
   border-radius: 6px;
   border-color: hsl(var(--border) / 0.62) !important;
-  background:
-    linear-gradient(180deg, hsl(var(--surface-elevated) / 0.7) 0%, transparent 36%),
-    hsl(var(--card) / 0.97) !important;
+  background: hsl(var(--card) / 0.97) !important;
   box-shadow:
     0 24px 70px -36px rgb(0 0 0 / 0.9),
     0 0 0 1px hsl(var(--border) / 0.16);
@@ -674,35 +672,11 @@
 }
 
 .login-modal::before {
-  content: "";
-  position: absolute;
-  inset: 0 0 auto;
-  height: 1px;
-  background: linear-gradient(
-    90deg,
-    transparent 0%,
-    hsl(var(--border-strong) / 0.72) 18%,
-    hsl(var(--border-strong) / 0.38) 82%,
-    transparent 100%
-  );
+  content: none;
 }
 
 .login-modal::after {
-  content: "";
-  position: absolute;
-  left: 0;
-  top: 0;
-  width: 100%;
-  height: 2px;
-  border-radius: 0;
-  background: linear-gradient(
-    90deg,
-    transparent 0%,
-    var(--accent-primary) 18%,
-    var(--accent-secondary) 52%,
-    transparent 100%
-  );
-  opacity: 0.8;
+  content: none;
 }
 
 .login-modal-access {
@@ -715,9 +689,7 @@
   min-height: 100%;
   overflow: hidden;
   border-right: 1px solid hsl(var(--border) / 0.58);
-  background:
-    radial-gradient(circle at 28% 22%, rgb(157 144 255 / 0.16), transparent 34%),
-    linear-gradient(180deg, hsl(var(--surface-elevated) / 0.62), hsl(var(--surface) / 0.48));
+  background: hsl(var(--surface) / 0.56);
 }
 
 .login-modal-brand::before {
@@ -762,14 +734,14 @@
 }
 
 .login-modal-form form {
-  max-width: 23rem;
+  max-width: 28rem;
   margin-inline: auto;
 }
 
 @media (min-width: 768px) {
   .login-modal-access {
-    grid-template-columns: minmax(15.5rem, 0.42fr) minmax(0, 1fr);
-    min-height: 27rem;
+    grid-template-columns: minmax(18.5rem, 0.46fr) minmax(0, 1fr);
+    min-height: 31rem;
   }
 
   .login-modal-brand {
