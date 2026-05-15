@@ -93,6 +93,8 @@
     --foreground: 222 12% 95%;
 
     --sidebar: 228 17% 6.3%;
+    --sidebar-nav-hover: 216 31% 20%;
+    --sidebar-nav-active: 215 30% 22%;
     --surface: 230 16% 7.7%;
     --surface-elevated: 230 14% 10.5%;
 
@@ -156,6 +158,8 @@
     --background: 222 44% 97.5%;
     --foreground: 224 26% 12%;
     --sidebar: 222 36% 96%;
+    --sidebar-nav-hover: 217 32% 88%;
+    --sidebar-nav-active: 217 34% 84%;
     --surface: 222 44% 98.2%;
     --surface-elevated: 0 0% 100%;
     --card: 0 0% 100%;
@@ -326,6 +330,14 @@
 
   .bg-sidebar-panel {
     background: hsl(var(--sidebar));
+  }
+
+  .bg-sidebar-nav-hover {
+    background-color: hsl(var(--sidebar-nav-hover));
+  }
+
+  .bg-sidebar-nav-active {
+    background-color: hsl(var(--sidebar-nav-active));
   }
 
   .px-page {
