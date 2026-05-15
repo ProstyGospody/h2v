@@ -355,13 +355,13 @@
   width: var(--sidebar-width);
 }
 
-[data-slot="sidebar-menu-button"]:not([data-active="true"]):hover {
-  background: var(--gradient-accent-soft);
+[data-slot="sidebar-menu-button"][data-active="true"] {
+  background-color: hsl(var(--sidebar-nav-active));
   color: hsl(var(--foreground));
 }
 
-[data-slot="sidebar-menu-button"][data-active="true"] {
-  background-color: hsl(var(--sidebar-nav-active));
+[data-slot="sidebar-menu-button"]:hover {
+  background: var(--gradient-accent-soft);
   color: hsl(var(--foreground));
 }
 
