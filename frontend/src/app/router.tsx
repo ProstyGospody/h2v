@@ -358,7 +358,7 @@ function SidebarLink({
         >
           <span
             data-slot="sidebar-menu-icon"
-            className="flex size-8 shrink-0 items-center justify-center rounded-md text-current transition-colors group-data-[active=true]/menu-button:bg-sidebar-primary/10 group-data-[active=true]/menu-button:text-sidebar-primary"
+            className="flex size-8 shrink-0 items-center justify-center rounded-md text-current transition-colors group-data-[active=true]/menu-button:bg-primary-foreground/15 group-data-[active=true]/menu-button:text-primary-foreground"
           >
             <Icon aria-hidden="true" />
           </span>

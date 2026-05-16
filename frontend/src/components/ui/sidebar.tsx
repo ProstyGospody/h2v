@@ -20,8 +20,8 @@ const sidebarMenuButtonVariants = cva(
   [
     'group/menu-button peer/menu-button relative flex w-full min-w-0 items-center overflow-hidden rounded-md text-left outline-none ring-sidebar-ring transition-[background-color,color,box-shadow] duration-150',
     'text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:ring-2 focus-visible:ring-sidebar-ring/35',
-    'data-[active=true]:bg-sidebar-accent data-[active=true]:font-semibold data-[active=true]:text-sidebar-accent-foreground data-[active=true]:ring-1 data-[active=true]:ring-sidebar-ring/25',
-    'before:pointer-events-none before:absolute before:inset-y-2 before:left-0 before:w-0.5 before:rounded-r-full before:bg-transparent data-[active=true]:before:bg-sidebar-ring',
+    'data-[active=true]:[background-image:var(--gradient-accent)] data-[active=true]:font-semibold data-[active=true]:text-primary-foreground data-[active=true]:shadow-sm data-[active=true]:ring-1 data-[active=true]:ring-sidebar-ring/35',
+    'before:pointer-events-none before:absolute before:inset-y-2 before:left-0 before:w-0.5 before:rounded-r-full before:bg-transparent data-[active=true]:before:bg-primary-foreground/75',
     "disabled:pointer-events-none disabled:opacity-50 [&_svg:not([class*='size-'])]:size-4 [&_svg]:shrink-0",
   ],
   {
