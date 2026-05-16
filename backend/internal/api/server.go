@@ -41,7 +41,7 @@ type Server struct {
 type contextKey string
 
 const claimsContextKey contextKey = "claims"
-const refreshCookieName = "panel_refresh_token"
+const refreshCookieName = "h2v_refresh_token"
 const maxJSONBodyBytes int64 = 8 << 20
 const limiterTTL = 10 * time.Minute
 const limiterSweepInterval = time.Minute
@@ -76,7 +76,7 @@ func New(cfg config.Config, services *services.Services, logger *slog.Logger) *S
 		services: services,
 		logger:   logger,
 		http: &http.Server{
-			Addr:         config.Address(cfg.Panel.Host, cfg.Panel.Port),
+			Addr:         config.Address(cfg.H2V.Host, cfg.H2V.Port),
 			Handler:      router,
 			ReadTimeout:  15 * time.Second,
 			WriteTimeout: 30 * time.Second,
@@ -100,7 +100,7 @@ func (s *Server) routes(r chi.Router) {
 	r.Use(chimw.RequestID)
 	r.Use(s.metricsMiddleware)
 	r.Use(cors.Handler(cors.Options{
-		AllowedOrigins:   []string{"https://" + s.cfg.Panel.Domain, "http://localhost:5173", "http://127.0.0.1:5173"},
+		AllowedOrigins:   []string{"https://" + s.cfg.H2V.Domain, "http://localhost:5173", "http://127.0.0.1:5173"},
 		AllowedMethods:   []string{"GET", "POST", "PATCH", "DELETE", "OPTIONS"},
 		AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type"},
 		AllowCredentials: true,
@@ -143,9 +143,6 @@ func (s *Server) routes(r chi.Router) {
 		api.Patch("/settings", s.handleSettingsUpdate)
 		api.Post("/settings/ports/check", s.handleSettingsPortsCheck)
 		api.Post("/settings/reality-keypair", s.handleSettingsRealityKeyPair)
-		api.Get("/telegram-proxy", s.handleTelegramProxyGet)
-		api.Patch("/telegram-proxy", s.handleTelegramProxyUpdate)
-		api.Post("/telegram-proxy/secret", s.handleTelegramProxySecret)
 		api.Post("/geodata/update", s.handleGeodataUpdate)
 		api.Get("/backup/export", s.handleBackupExport)
 		api.Post("/backup/import", s.handleBackupImport)
@@ -158,18 +155,18 @@ func (s *Server) routes(r chi.Router) {
 }
 
 func (s *Server) mountFrontend(r chi.Router) {
-	indexPath := filepath.Join(s.cfg.Panel.FrontendDir, "index.html")
+	indexPath := filepath.Join(s.cfg.H2V.FrontendDir, "index.html")
 	if _, err := os.Stat(indexPath); err != nil {
 		return
 	}
 
-	fileServer := http.FileServer(http.Dir(s.cfg.Panel.FrontendDir))
+	fileServer := http.FileServer(http.Dir(s.cfg.H2V.FrontendDir))
 	r.NotFound(func(w http.ResponseWriter, r *http.Request) {
 		if strings.HasPrefix(r.URL.Path, "/api/") || strings.HasPrefix(r.URL.Path, "/sub/") || r.URL.Path == "/hy2/auth" || r.URL.Path == "/metrics" {
 			jsonError(w, domain.NewError(http.StatusNotFound, "not_found", "Not found", nil))
 			return
 		}
-		path := filepath.Join(s.cfg.Panel.FrontendDir, strings.TrimPrefix(filepath.Clean(r.URL.Path), string(filepath.Separator)))
+		path := filepath.Join(s.cfg.H2V.FrontendDir, strings.TrimPrefix(filepath.Clean(r.URL.Path), string(filepath.Separator)))
 		if info, err := os.Stat(path); err == nil && !info.IsDir() {
 			fileServer.ServeHTTP(w, r)
 			return
@@ -573,7 +570,7 @@ func (s *Server) handleSettingsPortsCheck(w http.ResponseWriter, r *http.Request
 	}
 	results := make([]portResult, 0, len(req.Ports))
 	for _, item := range req.Ports {
-		if item.Key != "vless.port" && item.Key != "hy2.port" && item.Key != "telegram.port" {
+		if item.Key != "vless.port" && item.Key != "hy2.port" {
 			jsonError(w, domain.NewError(400, "invalid_request", "Unknown port key", nil))
 			return
 		}
@@ -602,38 +599,6 @@ func (s *Server) handleSettingsRealityKeyPair(w http.ResponseWriter, _ *http.Req
 	jsonData(w, http.StatusOK, keyPair, nil)
 }
 
-func (s *Server) handleTelegramProxyGet(w http.ResponseWriter, r *http.Request) {
-	info, err := s.services.Telegram.Info(r.Context())
-	if err != nil {
-		jsonError(w, err)
-		return
-	}
-	jsonData(w, http.StatusOK, info, nil)
-}
-
-func (s *Server) handleTelegramProxyUpdate(w http.ResponseWriter, r *http.Request) {
-	values := map[string]json.RawMessage{}
-	if err := decodeJSON(r, &values); err != nil {
-		jsonError(w, err)
-		return
-	}
-	info, err := s.services.Telegram.Update(r.Context(), values)
-	if err != nil {
-		jsonError(w, err)
-		return
-	}
-	jsonData(w, http.StatusOK, info, nil)
-}
-
-func (s *Server) handleTelegramProxySecret(w http.ResponseWriter, r *http.Request) {
-	info, err := s.services.Telegram.RegenerateSecret(r.Context())
-	if err != nil {
-		jsonError(w, err)
-		return
-	}
-	jsonData(w, http.StatusOK, info, nil)
-}
-
 func (s *Server) handleGeodataUpdate(w http.ResponseWriter, r *http.Request) {
 	if err := s.services.Geodata.UpdateAndRestart(r.Context()); err != nil {
 		s.logger.Error("geodata update failed", "err", err)
@@ -654,7 +619,7 @@ func (s *Server) handleBackupExport(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleBackupImport(w http.ResponseWriter, r *http.Request) {
-	var backup services.PanelBackup
+	var backup services.H2VBackup
 	if err := decodeJSON(r, &backup); err != nil {
 		jsonError(w, err)
 		return
@@ -969,7 +934,7 @@ func setRefreshCookie(w http.ResponseWriter, cfg config.Config, value string) {
 		HttpOnly: true,
 		Secure:   strings.HasPrefix(cfg.Subscription.URLPrefix, "https://"),
 		SameSite: http.SameSiteStrictMode,
-		MaxAge:   int(cfg.Panel.JWTRefreshTTL.Seconds()),
+		MaxAge:   int(cfg.H2V.JWTRefreshTTL.Seconds()),
 	})
 }
 

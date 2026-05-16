@@ -275,7 +275,7 @@ func TestRenderXrayConfigUsesStabilityRoutingAndSniffingDefaults(t *testing.T) {
 
 func TestRenderHysteriaConfigUsesRegionalStabilityDefaults(t *testing.T) {
 	runtime := RuntimeSettings{
-		PanelPort:        8000,
+		H2VPort:        8000,
 		Hy2Port:          8443,
 		Hy2Domain:        "vpn.example.com",
 		Hy2CertPath:      "/etc/letsencrypt/live/vpn.example.com/fullchain.pem",
@@ -285,8 +285,8 @@ func TestRenderHysteriaConfigUsesRegionalStabilityDefaults(t *testing.T) {
 		Hy2TrafficSecret: "traffic-secret",
 		Hy2ObfsEnabled:   true,
 		Hy2ObfsPassword:  "obfs-secret",
-		GeoIPPath:        "/opt/mypanel/data/geodata/geoip.dat",
-		GeositePath:      "/opt/mypanel/data/geodata/geosite.dat",
+		GeoIPPath:        "/opt/h2v/data/geodata/geoip.dat",
+		GeositePath:      "/opt/h2v/data/geodata/geosite.dat",
 	}
 	content := renderHysteriaTemplateForTest(t, runtime)
 
@@ -367,7 +367,7 @@ func renderXrayTemplateForTest(t *testing.T, runtime RuntimeSettings) []byte {
 	t.Helper()
 
 	cfg := config.Config{
-		Panel: config.PanelConfig{
+		H2V: config.H2VConfig{
 			TemplatesDir: filepath.Join("..", "..", "..", "templates"),
 		},
 	}
@@ -383,7 +383,7 @@ func renderHysteriaTemplateForTest(t *testing.T, runtime RuntimeSettings) []byte
 	t.Helper()
 
 	cfg := config.Config{
-		Panel: config.PanelConfig{
+		H2V: config.H2VConfig{
 			TemplatesDir: filepath.Join("..", "..", "..", "templates"),
 		},
 	}

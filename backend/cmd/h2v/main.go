@@ -84,7 +84,7 @@ func runServe(cfg config.Config, logger *slog.Logger) {
 
 	go scheduler.Start(ctx)
 	go func() {
-		logger.Info("http server starting", "addr", config.Address(cfg.Panel.Host, cfg.Panel.Port))
+		logger.Info("http server starting", "addr", config.Address(cfg.H2V.Host, cfg.H2V.Port))
 		if err := httpServer.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			fatal(logger, err)
 		}
@@ -127,7 +127,7 @@ func buildApp(ctx context.Context, cfg config.Config, logger *slog.Logger) (*pgx
 		Repo:      repository,
 		Xray:      xrayClient,
 		Hysteria:  hysteriaClient,
-		Systemctl: systemctl.New(cfg.Panel.DisableSystemctl),
+		Systemctl: systemctl.New(cfg.H2V.DisableSystemctl),
 		Cache:     userCache,
 		Logger:    logger,
 		Version:   versionString(),
@@ -174,12 +174,11 @@ func runInitialReconcile(ctx context.Context, serviceBundle *services.Services, 
 	run("hysteria config", 30*time.Second, func(ctx context.Context) error {
 		return serviceBundle.Configs.ReconcileHysteria(ctx)
 	})
-	run("telegram proxy", 15*time.Second, serviceBundle.Telegram.Reconcile)
 }
 
 func runDB(cfg config.Config, logger *slog.Logger, args []string) {
 	if len(args) == 0 || args[0] != "init" {
-		fatal(logger, errors.New("usage: panel db init"))
+		fatal(logger, errors.New("usage: h2v db init"))
 	}
 
 	ctx := context.Background()
@@ -201,7 +200,7 @@ func runDB(cfg config.Config, logger *slog.Logger, args []string) {
 
 func loadSchema(cfg config.Config) ([]byte, string, error) {
 	candidates := []string{
-		filepath.Join(cfg.Panel.RootDir, "schema.sql"),
+		filepath.Join(cfg.H2V.RootDir, "schema.sql"),
 		"schema.sql",
 		filepath.Join("backend", "schema.sql"),
 	}
@@ -219,7 +218,7 @@ func loadSchema(cfg config.Config) ([]byte, string, error) {
 
 func runAdmin(cfg config.Config, logger *slog.Logger, args []string) {
 	if len(args) == 0 {
-		fatal(logger, errors.New("usage: panel admin <create|set-password> --username <name> --password <password>"))
+		fatal(logger, errors.New("usage: h2v admin <create|set-password> --username <name> --password <password>"))
 	}
 	switch args[0] {
 	case "create":
@@ -296,7 +295,7 @@ func runAdminSetPassword(cfg config.Config, logger *slog.Logger, args []string) 
 
 func runConfig(cfg config.Config, logger *slog.Logger, args []string) {
 	if len(args) == 0 || args[0] != "render" {
-		fatal(logger, errors.New("usage: panel config render --core <xray|hysteria>"))
+		fatal(logger, errors.New("usage: h2v config render --core <xray|hysteria>"))
 	}
 	cmd := flag.NewFlagSet("config render", flag.ExitOnError)
 	core := cmd.String("core", "xray", "")
@@ -333,7 +332,7 @@ func runConfig(cfg config.Config, logger *slog.Logger, args []string) {
 
 func runGeodata(cfg config.Config, logger *slog.Logger, args []string) {
 	if len(args) == 0 || args[0] != "update" {
-		fatal(logger, errors.New("usage: panel geodata update"))
+		fatal(logger, errors.New("usage: h2v geodata update"))
 	}
 	ctx := context.Background()
 	if err := services.NewGeodataService(cfg.Xray, logger).Update(ctx); err != nil {

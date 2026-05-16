@@ -19,7 +19,6 @@ function getInitialTheme(): Theme {
     const saved = window.localStorage.getItem(THEME_STORAGE_KEY);
     if (saved === 'dark' || saved === 'light') return saved;
   } catch {
-    // localStorage may be unavailable in restricted browser modes.
   }
 
   return window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
@@ -49,7 +48,6 @@ function ThemeProvider({ children }: PropsWithChildren) {
     try {
       window.localStorage.setItem(THEME_STORAGE_KEY, theme);
     } catch {
-      // localStorage may be unavailable in restricted browser modes.
     }
   }, [theme]);
 

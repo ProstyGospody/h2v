@@ -132,10 +132,10 @@ type ClientEntry struct {
 }
 
 type RuntimeSettings struct {
-	PanelDomain        string
+	H2VDomain        string
 	PublicServerIP     string
-	PanelPort          int
-	PanelPublicPort    int
+	H2VPort          int
+	H2VPublicPort    int
 	SubURLPrefix       string
 	RealitySNI         string
 	RealityDest        string
@@ -159,12 +159,6 @@ type RuntimeSettings struct {
 	Hy2TrafficSecret   string
 	Hy2CertPath        string
 	Hy2KeyPath         string
-	TelegramEnabled    bool
-	TelegramHost       string
-	TelegramPort       int
-	TelegramSecret     string
-	TelegramMaskDomain string
-	TelegramFallback   string
 	GeoIPPath          string
 	GeositePath        string
 	Clients            []ClientEntry
@@ -189,18 +183,10 @@ func buildPortalURL(prefix, token string) string {
 	return strings.TrimSuffix(prefix, "/") + "/u/" + url.PathEscape(token)
 }
 
-// buildVLESS emits a VLESS + Reality URI per Xray's share-link convention:
-//
-//	vless://UUID@HOST:PORT?encryption=none&flow=xtls-rprx-vision&security=reality
-//	    &sni=SNI&fp=FINGERPRINT&pbk=PUBLIC_KEY&sid=SHORT_ID&spx=%2F&type=tcp#NAME
-//
-// sid is optional: when the server allows an empty shortId, clients must pass
-// no sid or an explicit empty one. We pick the first non-empty shortId so the
-// client has a concrete value that matches the server list.
 func buildVLESS(runtime RuntimeSettings, user *domain.User) string {
 	shortID := firstInSlice(runtime.RealityShortIDs)
 	sni := hostOnly(firstNonEmpty(runtime.RealitySNI, firstInSlice(runtime.RealityServerNames)))
-	host := publicEndpointHost(runtime.PublicServerIP, runtime.PanelDomain)
+	host := publicEndpointHost(runtime.PublicServerIP, runtime.H2VDomain)
 
 	query := url.Values{}
 	query.Set("encryption", "none")
@@ -230,12 +216,6 @@ func buildVLESS(runtime RuntimeSettings, user *domain.User) string {
 	}).String()
 }
 
-// buildHysteria2 emits a Hysteria 2 URI per the official scheme:
-//
-//	hysteria2://AUTH@HOST:PORT/?sni=SNI&insecure=0&obfs=salamander&obfs-password=PWD#NAME
-//
-// The password is percent-encoded by net/url. Path is "/" to keep parsers that
-// expect an explicit host/path boundary happy; clients ignore it.
 func buildHysteria2(runtime RuntimeSettings, user *domain.User) string {
 	host := publicEndpointHost(runtime.PublicServerIP, runtime.Hy2Domain)
 	sni := hostOnly(runtime.Hy2Domain)

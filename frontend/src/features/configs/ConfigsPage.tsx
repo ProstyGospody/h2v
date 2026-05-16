@@ -72,14 +72,14 @@ export function ConfigsPage() {
 
       <div className="grid gap-4 px-page pt-6 xl:grid-cols-2">
         {cores.map((core) => (
-          <ConfigPanel core={core} key={core} />
+          <ConfigSection core={core} key={core} />
         ))}
       </div>
     </div>
   );
 }
 
-function ConfigPanel({ core }: { core: Core }) {
+function ConfigSection({ core }: { core: Core }) {
   const { t } = useI18n();
   const queryClient = useQueryClient();
   const meta = coreMeta[core];
@@ -295,8 +295,8 @@ function ConfigPanel({ core }: { core: Core }) {
           </div>
 
           <div className="grid min-h-0 gap-3 overflow-auto bg-card p-3 md:grid-cols-2">
-            <DiffPanel label={t('configs.current')} value={original} />
-            <DiffPanel label={t('configs.new')} value={content} />
+            <DiffView label={t('configs.current')} value={original} />
+            <DiffView label={t('configs.new')} value={content} />
           </div>
 
           <DialogFooter className="items-stretch border-t border-border/55 bg-card/35 px-4 py-3 sm:items-center">
@@ -382,7 +382,7 @@ function DiffMetric({ label, value }: { label: string; value: string }) {
   );
 }
 
-function DiffPanel({ label, value }: { label: string; value: string }) {
+function DiffView({ label, value }: { label: string; value: string }) {
   const { t } = useI18n();
   const stats = contentStats(value);
 

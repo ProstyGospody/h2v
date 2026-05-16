@@ -18,8 +18,6 @@ import (
 	"github.com/prost/h2v/backend/internal/domain"
 )
 
-// Client keeps the transport boundary isolated. The live gRPC wire-up can be
-// swapped in here without changing the service layer.
 type Client struct {
 	cfg    config.XrayConfig
 	logger *slog.Logger

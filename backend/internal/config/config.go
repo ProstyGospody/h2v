@@ -11,18 +11,17 @@ import (
 )
 
 type Config struct {
-	Panel        PanelConfig
+	H2V          H2VConfig
 	DB           DBConfig
 	Xray         XrayConfig
 	Hysteria     HysteriaConfig
-	Telegram     TelegramProxyConfig
 	Subscription SubscriptionConfig
 	Backup       BackupConfig
 	Traffic      TrafficConfig
 	Tasks        TaskConfig
 }
 
-type PanelConfig struct {
+type H2VConfig struct {
 	Domain           string
 	PublicIP         string
 	Host             string
@@ -82,16 +81,6 @@ type HysteriaConfig struct {
 	KeyPath        string
 }
 
-type TelegramProxyConfig struct {
-	ConfigPath   string
-	Enabled      bool
-	Host         string
-	Port         int
-	Secret       string
-	MaskDomain   string
-	FallbackAddr string
-}
-
 type SubscriptionConfig struct {
 	URLPrefix           string
 	UpdateIntervalHours int
@@ -116,31 +105,31 @@ type TaskConfig struct {
 func Load() Config {
 	loadEnvFile(EnvFilePath())
 
-	rootDir := getenv("PANEL_ROOT_DIR", ".")
-	templatesDir := getenv("PANEL_TEMPLATES_DIR", filepath.Join(rootDir, "templates"))
-	frontendDir := getenv("PANEL_FRONTEND_DIR", filepath.Join(rootDir, "frontend"))
+	rootDir := getenv("H2V_ROOT_DIR", ".")
+	templatesDir := getenv("H2V_TEMPLATES_DIR", filepath.Join(rootDir, "templates"))
+	frontendDir := getenv("H2V_FRONTEND_DIR", filepath.Join(rootDir, "frontend"))
 
 	return Config{
-		Panel: PanelConfig{
-			Domain:           getenv("PANEL_DOMAIN", "panel.example.com"),
+		H2V: H2VConfig{
+			Domain:           getenv("H2V_DOMAIN", "h2v.example.com"),
 			PublicIP:         getenv("PUBLIC_SERVER_IP", ""),
-			Host:             getenv("PANEL_HOST", "127.0.0.1"),
-			Port:             getenvInt("PANEL_PORT", 8000),
-			PublicPort:       getenvInt("PANEL_PUBLIC_PORT", 443),
-			JWTSecret:        getenv("PANEL_JWT_SECRET", "dev-secret-change-me"),
-			JWTAccessTTL:     getenvDuration("PANEL_JWT_ACCESS_TTL", 15*time.Minute),
-			JWTRefreshTTL:    getenvDuration("PANEL_JWT_REFRESH_TTL", 720*time.Hour),
+			Host:             getenv("H2V_HOST", "127.0.0.1"),
+			Port:             getenvInt("H2V_PORT", 8000),
+			PublicPort:       getenvInt("H2V_PUBLIC_PORT", 443),
+			JWTSecret:        getenv("H2V_JWT_SECRET", "dev-secret-change-me"),
+			JWTAccessTTL:     getenvDuration("H2V_JWT_ACCESS_TTL", 15*time.Minute),
+			JWTRefreshTTL:    getenvDuration("H2V_JWT_REFRESH_TTL", 720*time.Hour),
 			RootDir:          rootDir,
 			FrontendDir:      frontendDir,
 			TemplatesDir:     templatesDir,
-			DisableSystemctl: getenvBool("PANEL_DISABLE_SYSTEMCTL", false),
-			AllowInsecure:    getenvBool("PANEL_ALLOW_INSECURE_DEFAULTS", false),
+			DisableSystemctl: getenvBool("H2V_DISABLE_SYSTEMCTL", false),
+			AllowInsecure:    getenvBool("H2V_ALLOW_INSECURE_DEFAULTS", false),
 		},
 		DB: DBConfig{
 			Host:     getenv("DB_HOST", "127.0.0.1"),
 			Port:     getenvInt("DB_PORT", 5432),
-			Name:     getenv("DB_NAME", "mypanel"),
-			User:     getenv("DB_USER", "panel"),
+			Name:     getenv("DB_NAME", "h2v"),
+			User:     getenv("DB_USER", "h2v"),
 			Password: getenv("DB_PASSWORD", ""),
 			SSLMode:  getenv("DB_SSLMODE", "disable"),
 		},
@@ -167,7 +156,7 @@ func Load() Config {
 			ConfigPath:    getenv("HY2_CONFIG_PATH", filepath.Join(rootDir, "configs", "hysteria", "config.json")),
 			TrafficURL:    getenv("HY2_TRAFFIC_URL", "http://127.0.0.1:7653"),
 			TrafficSecret: getenv("HY2_TRAFFIC_SECRET", ""),
-			Domain:        getenv("HY2_DOMAIN", getenv("PANEL_DOMAIN", "panel.example.com")),
+			Domain:        getenv("HY2_DOMAIN", getenv("H2V_DOMAIN", "h2v.example.com")),
 			Port:          getenvInt("HY2_PORT", 8443),
 			ObfsEnabled:   getenvBool("HY2_OBFS_ENABLED", true),
 			ObfsPassword:  getenv("HY2_OBFS_PASSWORD", ""),
@@ -177,17 +166,8 @@ func Load() Config {
 			CertPath:      getenv("HY2_CERT_PATH", ""),
 			KeyPath:       getenv("HY2_KEY_PATH", ""),
 		},
-		Telegram: TelegramProxyConfig{
-			ConfigPath:   getenv("TELEGRAM_PROXY_CONFIG_PATH", filepath.Join(rootDir, "configs", "telegram", "telemt.toml")),
-			Enabled:      getenvBool("TELEGRAM_PROXY_ENABLED", true),
-			Host:         getenv("TELEGRAM_PROXY_PUBLIC_HOST", getenv("PANEL_DOMAIN", "panel.example.com")),
-			Port:         getenvInt("TELEGRAM_PROXY_PORT", 9443),
-			Secret:       getenv("TELEGRAM_PROXY_SECRET", ""),
-			MaskDomain:   getenv("TELEGRAM_PROXY_MASK_DOMAIN", "www.google.com"),
-			FallbackAddr: getenv("TELEGRAM_PROXY_FALLBACK_ADDR", "www.google.com:443"),
-		},
 		Subscription: SubscriptionConfig{
-			URLPrefix:           getenv("SUB_URL_PREFIX", "https://panel.example.com"),
+			URLPrefix:           getenv("SUB_URL_PREFIX", "https://h2v.example.com"),
 			UpdateIntervalHours: getenvInt("SUB_UPDATE_INTERVAL_HOURS", 24),
 		},
 		Backup: BackupConfig{
@@ -198,22 +178,22 @@ func Load() Config {
 			RetentionDays: getenvInt("TRAFFIC_RETENTION_DAYS", 180),
 		},
 		Tasks: TaskConfig{
-			CollectorInterval:     getenvPositiveDuration("PANEL_COLLECTOR_INTERVAL", 10*time.Second),
-			EnforcerInterval:      getenvPositiveDuration("PANEL_ENFORCER_INTERVAL", 30*time.Second),
-			CoreReconcileInterval: getenvPositiveDuration("PANEL_CORE_RECONCILE_INTERVAL", 60*time.Second),
-			CacheRefreshInterval:  getenvPositiveDuration("PANEL_CACHE_REFRESH_INTERVAL", 5*time.Minute),
+			CollectorInterval:     getenvPositiveDuration("H2V_COLLECTOR_INTERVAL", 10*time.Second),
+			EnforcerInterval:      getenvPositiveDuration("H2V_ENFORCER_INTERVAL", 30*time.Second),
+			CoreReconcileInterval: getenvPositiveDuration("H2V_CORE_RECONCILE_INTERVAL", 60*time.Second),
+			CacheRefreshInterval:  getenvPositiveDuration("H2V_CACHE_REFRESH_INTERVAL", 5*time.Minute),
 		},
 	}
 }
 
 func (c Config) ValidateServe() error {
-	if c.Panel.AllowInsecure {
+	if c.H2V.AllowInsecure {
 		return nil
 	}
 
 	var issues []string
-	if c.Panel.JWTSecret == "" || c.Panel.JWTSecret == "dev-secret-change-me" || len(c.Panel.JWTSecret) < 32 {
-		issues = append(issues, "PANEL_JWT_SECRET must be a random value at least 32 characters long")
+	if c.H2V.JWTSecret == "" || c.H2V.JWTSecret == "dev-secret-change-me" || len(c.H2V.JWTSecret) < 32 {
+		issues = append(issues, "H2V_JWT_SECRET must be a random value at least 32 characters long")
 	}
 	if c.DB.Password == "" {
 		issues = append(issues, "DB_PASSWORD must not be empty")
@@ -234,7 +214,7 @@ func (c Config) ValidateServe() error {
 }
 
 func EnvFilePath() string {
-	return firstNonEmpty(os.Getenv("PANEL_ENV_FILE"), filepath.Join("/opt/mypanel", ".env"), ".env")
+	return firstNonEmpty(os.Getenv("H2V_ENV_FILE"), filepath.Join("/opt/h2v", ".env"), ".env")
 }
 
 func Address(host string, port int) string {

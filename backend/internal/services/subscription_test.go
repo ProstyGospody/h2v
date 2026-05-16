@@ -116,8 +116,8 @@ func TestEncodedLinks(t *testing.T) {
 }
 
 func TestBuildSubscriptionURLUsesTokenSegment(t *testing.T) {
-	got := buildSubscriptionURL("https://panel.example.com/", "user-token")
-	want := "https://panel.example.com/sub/user-token"
+	got := buildSubscriptionURL("https://h2v.example.com/", "user-token")
+	want := "https://h2v.example.com/sub/user-token"
 	if got != want {
 		t.Fatalf("subscription url = %q, want %q", got, want)
 	}
@@ -299,7 +299,7 @@ func sampleLinks() *domain.SubscriptionLinks {
 func sampleLinksWithRuntime(runtime RuntimeSettings) *domain.SubscriptionLinks {
 	user := sampleUser()
 	return &domain.SubscriptionLinks{
-		Subscription: "https://panel.example.com/sub/token",
+		Subscription: "https://h2v.example.com/sub/token",
 		VLESS:        buildVLESS(runtime, user),
 		Hysteria2:    buildHysteria2(runtime, user),
 		Username:     user.Username,
@@ -308,7 +308,7 @@ func sampleLinksWithRuntime(runtime RuntimeSettings) *domain.SubscriptionLinks {
 
 func sampleRuntime() RuntimeSettings {
 	return RuntimeSettings{
-		PanelDomain:        "vpn.example.com",
+		H2VDomain:        "vpn.example.com",
 		RealitySNI:         "www.google.com",
 		RealityPublicKey:   "reality-public-key",
 		RealityFingerprint: "firefox",

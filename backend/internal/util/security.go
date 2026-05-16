@@ -81,7 +81,7 @@ func acquireArgonSlot() func() {
 }
 
 func configuredArgonMaxParallel() int {
-	raw := strings.TrimSpace(os.Getenv("PANEL_ARGON2_MAX_PARALLEL"))
+	raw := strings.TrimSpace(os.Getenv("H2V_ARGON2_MAX_PARALLEL"))
 	if raw == "" {
 		return defaultArgonMaxParallel
 	}

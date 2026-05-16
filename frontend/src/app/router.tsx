@@ -193,7 +193,7 @@ function SidebarBody({
 
         <SidebarGroup className="mt-7">
           <SidebarGroupLabel>{t('nav.services')}</SidebarGroupLabel>
-          <ServiceStatusPanel collapsed={collapsed} items={serviceStatuses} />
+          <ServiceStatusList collapsed={collapsed} items={serviceStatuses} />
         </SidebarGroup>
       </SidebarContent>
 
@@ -228,7 +228,7 @@ function SidebarBody({
   );
 }
 
-function ServiceStatusPanel({
+function ServiceStatusList({
   collapsed = false,
   items,
 }: {

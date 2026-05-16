@@ -30,17 +30,6 @@ func (r *Repository) Ping(ctx context.Context) error {
 }
 
 func (r *Repository) BootstrapSettings(ctx context.Context, cfg config.Config) error {
-	if err := r.deleteSettings(
-		ctx,
-		"panel.domain",
-		"panel.port",
-		"panel.public_port",
-		"subscription.url_prefix",
-		"telegram.username",
-		"telegram.password",
-	); err != nil {
-		return err
-	}
 	settings := map[string]json.RawMessage{
 		"reality.sni":                 rawJSONString(cfg.Xray.RealitySNI),
 		"reality.dest":                rawJSONString(cfg.Xray.RealityDest),
@@ -61,18 +50,9 @@ func (r *Repository) BootstrapSettings(ctx context.Context, cfg config.Config) e
 		"hy2.bandwidth_down":          rawJSONString(cfg.Hysteria.BandwidthDown),
 		"hy2.masquerade_url":          rawJSONString(cfg.Hysteria.MasqueradeURL),
 		"hy2.traffic_secret":          rawJSONString(cfg.Hysteria.TrafficSecret),
-		"telegram.enabled":     rawJSONBool(cfg.Telegram.Enabled),
-		"telegram.host":        rawJSONString(cfg.Telegram.Host),
-		"telegram.port":        rawJSONInt(cfg.Telegram.Port),
-		"telegram.secret":      rawJSONString(cfg.Telegram.Secret),
-		"telegram.mask_domain": rawJSONString(cfg.Telegram.MaskDomain),
-		"telegram.fallback":    rawJSONString(cfg.Telegram.FallbackAddr),
 	}
 	if err := r.InsertMissingSettings(ctx, settings); err != nil {
 		return err
-	}
-	if cfg.Telegram.Host != "" && cfg.Telegram.Host != "panel.example.com" {
-		return r.updateSettingIfCurrent(ctx, "telegram.host", rawJSONString("panel.example.com"), rawJSONString(cfg.Telegram.Host))
 	}
 	return nil
 }
@@ -736,31 +716,6 @@ func (r *Repository) UpsertSettings(ctx context.Context, values map[string]json.
 		}
 	}
 	return tx.Commit(ctx)
-}
-
-func (r *Repository) deleteSettings(ctx context.Context, keys ...string) error {
-	if len(keys) == 0 {
-		return nil
-	}
-	placeholders := make([]string, 0, len(keys))
-	args := make([]any, 0, len(keys))
-	for index, key := range keys {
-		placeholders = append(placeholders, fmt.Sprintf("$%d", index+1))
-		args = append(args, key)
-	}
-	_, err := r.pool.Exec(ctx, `DELETE FROM settings WHERE key IN (`+strings.Join(placeholders, ",")+`)`, args...)
-	return err
-}
-
-func (r *Repository) updateSettingIfCurrent(ctx context.Context, key string, current, next json.RawMessage) error {
-	_, err := r.pool.Exec(ctx, `
-		UPDATE settings
-		SET value = $3::jsonb,
-		    updated_at = now()
-		WHERE key = $1
-		  AND value = $2::jsonb
-	`, key, string(current), string(next))
-	return err
 }
 
 func (r *Repository) InsertMissingSettings(ctx context.Context, values map[string]json.RawMessage) error {

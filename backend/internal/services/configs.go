@@ -118,9 +118,6 @@ func (s *ConfigService) RenderManaged(ctx context.Context, core string, override
 	return s.RenderWithRuntime(core, runtime)
 }
 
-// ReconcileXray regenerates the Xray config from the current runtime (which
-// includes the active client list from the database), validates it, and
-// restarts the kernel so the new client UUIDs take effect.
 func (s *ConfigService) ReconcileXray(ctx context.Context, overrides ...map[string]json.RawMessage) error {
 	return s.ReconcileCore(ctx, "xray", overrides...)
 }
@@ -229,7 +226,7 @@ func (s *ConfigService) RenderWithRuntime(core string, runtime RuntimeSettings) 
 	if err != nil {
 		return nil, err
 	}
-	templatePath := filepath.Join(s.cfg.Panel.TemplatesDir, name)
+	templatePath := filepath.Join(s.cfg.H2V.TemplatesDir, name)
 	tmpl, err := template.New(filepath.Base(templatePath)).Funcs(templateFuncs).ParseFiles(templatePath)
 	if err != nil {
 		return nil, err

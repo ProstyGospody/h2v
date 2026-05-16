@@ -1,8 +1,7 @@
-import { useEffect, useMemo, useRef, useState, type ChangeEvent, type ComponentType, type ReactNode } from 'react';
+import { useMemo, useRef, useState, type ChangeEvent, type ComponentType, type ReactNode } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   AlertTriangle,
-  Copy,
   Download,
   Eye,
   EyeOff,
@@ -25,7 +24,7 @@ import { cn } from '@/lib/utils';
 import { apiClient, ApiError } from '@/shared/api/client';
 import { useI18n, type Translate } from '@/shared/i18n/i18n';
 import type { TranslationKey } from '@/shared/i18n/translations';
-import type { Setting, TelegramProxyInfo } from '@/shared/api/types';
+import type { Setting } from '@/shared/api/types';
 
 type SettingKey =
   | 'hy2.bandwidth_down'
@@ -47,15 +46,6 @@ type SettingValue = boolean | number | string | string[];
 type SettingsDraft = Partial<Record<SettingKey, SettingValue>>;
 type PortKey = 'hy2.port' | 'vless.port';
 
-type TelegramForm = {
-  enabled: boolean;
-  fallback_addr: string;
-  host: string;
-  mask_domain: string;
-  port: number;
-  secret: string;
-};
-
 type RealityPreset = {
   dest: string;
   label: string;
@@ -72,7 +62,7 @@ type RealityKeyPair = {
   public_key: string;
 };
 
-type PanelBackup = Record<string, unknown>;
+type H2VBackup = Record<string, unknown>;
 
 type BackupImportSummary = {
   settings: number;
@@ -83,7 +73,7 @@ type BackupImportSummary = {
 const fallbackValues: Record<SettingKey, SettingValue> = {
   'hy2.bandwidth_down': '1 gbps',
   'hy2.bandwidth_up': '1 gbps',
-  'hy2.domain': 'panel.example.com',
+  'hy2.domain': 'h2v.example.com',
   'hy2.masquerade_url': 'https://www.google.com',
   'hy2.obfs_enabled': true,
   'hy2.obfs_password': '',
@@ -128,21 +118,11 @@ const masqueradePresets: URLPreset[] = [
 
 const vlessPortPresets = [443, 8443, 8444, 2053, 2083];
 const hy2PortPresets = [443, 8443, 8444, 2083, 9443];
-const telegramPortPresets = [443, 8443, 9443, 2053, 2083];
 const bandwidthPresets = ['100 mbps', '500 mbps', '1 gbps', '10 gbps'];
 const portDefinitions: Array<{ key: PortKey; presets: number[]; protocol: 'tcp' | 'udp' }> = [
   { key: 'vless.port', presets: vlessPortPresets, protocol: 'tcp' },
   { key: 'hy2.port', presets: hy2PortPresets, protocol: 'udp' },
 ];
-
-const telegramFallbackForm: TelegramForm = {
-  enabled: true,
-  fallback_addr: 'www.google.com:443',
-  host: 'panel.example.com',
-  mask_domain: 'www.google.com',
-  port: 9443,
-  secret: '',
-};
 
 type SettingsUpdateResult = {
   updated: boolean;
@@ -233,7 +213,7 @@ export function SettingsPage() {
   });
 
   const exportBackup = useMutation({
-    mutationFn: () => apiClient.request<PanelBackup>('/backup/export'),
+    mutationFn: () => apiClient.request<H2VBackup>('/backup/export'),
     onError: (error) => {
       toast.error(error instanceof ApiError ? error.message : t('settings.unableExportBackup'));
     },
@@ -244,7 +224,7 @@ export function SettingsPage() {
   });
 
   const importBackup = useMutation({
-    mutationFn: (backup: PanelBackup) =>
+    mutationFn: (backup: H2VBackup) =>
       apiClient.request<BackupImportSummary>('/backup/import', {
         body: JSON.stringify(backup),
         method: 'POST',
@@ -298,7 +278,7 @@ export function SettingsPage() {
     if (!window.confirm(t('settings.restoreConfirm'))) return;
 
     try {
-      const payload = JSON.parse(await file.text()) as PanelBackup;
+      const payload = JSON.parse(await file.text()) as H2VBackup;
       importBackup.mutate(payload);
     } catch {
       toast.error(t('settings.backupInvalidJson'));
@@ -396,7 +376,7 @@ export function SettingsPage() {
           <>
             {hasIssues ? <SettingsIssues issues={allIssues} /> : null}
 
-            <section className="grid gap-5 xl:grid-cols-3">
+            <section className="grid gap-5 xl:grid-cols-2">
               <div className="space-y-5">
                 <SettingsSection
                   kicker="VLESS"
@@ -469,7 +449,7 @@ export function SettingsPage() {
                   <TextControl
                     label={t('settings.hysteriaDomain')}
                     onChange={(value) => setValue('hy2.domain', value)}
-                    placeholder="panel.example.com"
+                    placeholder="h2v.example.com"
                     value={values.string('hy2.domain')}
                   />
                   <PortControl
@@ -539,10 +519,6 @@ export function SettingsPage() {
                   />
                 </SettingsSection>
               </div>
-
-              <div className="space-y-5">
-                <TelegramSettingsSection revealSecrets={showSecrets} />
-              </div>
             </section>
           </>
         )}
@@ -551,196 +527,7 @@ export function SettingsPage() {
   );
 }
 
-function TelegramSettingsSection({ revealSecrets }: { revealSecrets: boolean }) {
-  const { t } = useI18n();
-  const queryClient = useQueryClient();
-  const [form, setForm] = useState<TelegramForm>(telegramFallbackForm);
-
-  const proxy = useQuery({
-    queryKey: ['telegram-proxy'],
-    queryFn: () => apiClient.request<TelegramProxyInfo>('/telegram-proxy'),
-  });
-
-  useEffect(() => {
-    if (!proxy.data) return;
-    setForm(telegramFormFromInfo(proxy.data));
-  }, [proxy.data]);
-
-  const issues = useMemo(() => validateTelegramForm(form, t), [form, t]);
-  const isDirty = useMemo(() => {
-    if (!proxy.data) return false;
-    const original = telegramFormFromInfo(proxy.data);
-    return (
-      form.enabled !== original.enabled ||
-      form.fallback_addr !== original.fallback_addr ||
-      form.host !== original.host ||
-      form.mask_domain !== original.mask_domain ||
-      form.port !== original.port ||
-      form.secret !== original.secret
-    );
-  }, [form, proxy.data]);
-
-  const save = useMutation({
-    mutationFn: () =>
-      apiClient.request<TelegramProxyInfo>('/telegram-proxy', {
-        body: JSON.stringify({
-          'telegram.enabled': form.enabled,
-          'telegram.fallback': form.fallback_addr.trim(),
-          'telegram.host': form.host.trim(),
-          'telegram.mask_domain': form.mask_domain.trim(),
-          'telegram.port': form.port,
-          'telegram.secret': form.secret.trim(),
-        }),
-        method: 'PATCH',
-      }),
-    onError: (error) => {
-      toast.error(error instanceof ApiError ? error.message : t('settings.unableUpdateTelegram'));
-    },
-    onSuccess: async () => {
-      toast.success(t('settings.telegramProxyUpdated'));
-      await queryClient.invalidateQueries({ queryKey: ['telegram-proxy'] });
-    },
-  });
-
-  const regenerate = useMutation({
-    mutationFn: () =>
-      apiClient.request<TelegramProxyInfo>('/telegram-proxy/secret', {
-        method: 'POST',
-      }),
-    onError: (error) => {
-      toast.error(error instanceof ApiError ? error.message : t('settings.unableRegenerateTelegram'));
-    },
-    onSuccess: async () => {
-      toast.success(t('settings.telegramSecretRegenerated'));
-      await queryClient.invalidateQueries({ queryKey: ['telegram-proxy'] });
-    },
-  });
-
-  function setTelegramValue<K extends keyof TelegramForm>(key: K, value: TelegramForm[K]) {
-    setForm((current) => ({ ...current, [key]: value }));
-  }
-
-  function resetTelegramForm() {
-    if (!proxy.data) return;
-    setForm(telegramFormFromInfo(proxy.data));
-  }
-
-  async function copyTelegramLink() {
-    if (!proxy.data?.link || isDirty) return;
-    await navigator.clipboard.writeText(proxy.data.link);
-    toast.success(t('settings.telegramLinkCopied'));
-  }
-
-  if (proxy.isLoading) {
-    return (
-      <SettingsSection kicker={t('settings.telegramAddOn')} logo="telegram" title={t('settings.telegramProxy')}>
-        <Skeleton className="h-20 w-full" />
-        <Skeleton className="h-20 w-full" />
-        <Skeleton className="h-9 w-36" />
-      </SettingsSection>
-    );
-  }
-
-  if (proxy.isError) {
-    return (
-      <SettingsSection kicker={t('settings.telegramAddOn')} logo="telegram" title={t('settings.telegramProxy')}>
-        <div className="rounded-md border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
-          <div className="flex items-center gap-2 font-medium">
-            <AlertTriangle className="size-4" />
-            {t('settings.unableLoadTelegram')}
-          </div>
-          <p className="mt-2 text-xs">{errorMessage(proxy.error, t('common.requestFailed'))}</p>
-        </div>
-        <Button onClick={() => proxy.refetch()} size="sm" type="button" variant="secondary">
-          {t('common.retry')}
-        </Button>
-      </SettingsSection>
-    );
-  }
-
-  const linkValue = isDirty ? t('settings.unsaved') : proxy.data?.link || t('common.unavailable');
-
-  return (
-    <SettingsSection kicker={t('settings.telegramAddOn')} logo="telegram" title={t('settings.telegramProxy')}>
-      <ToggleControl
-        label={t('settings.service')}
-        offLabel={t('common.disabled')}
-        onChange={(value) => setTelegramValue('enabled', value)}
-        onLabel={t('common.enabled')}
-        value={form.enabled}
-      />
-      <TextControl
-        label={t('settings.publicHost')}
-        onChange={(value) => setTelegramValue('host', value)}
-        placeholder="tg.example.com"
-        value={form.host}
-      />
-      <PortControl
-        label={t('settings.port')}
-        max={65535}
-        min={1}
-        onChange={(value) => setTelegramValue('port', value)}
-        presets={telegramPortPresets}
-        protocol="tcp"
-        value={form.port}
-      />
-      <TextControl
-        label={t('settings.maskDomain')}
-        onChange={(value) => setTelegramValue('mask_domain', value)}
-        placeholder="www.google.com"
-        value={form.mask_domain}
-      />
-      <TextControl
-        label={t('settings.fallback')}
-        onChange={(value) => setTelegramValue('fallback_addr', value)}
-        placeholder="www.google.com:443"
-        value={form.fallback_addr}
-      />
-      <SecretControl
-        generating={regenerate.isPending}
-        label={t('settings.secret')}
-        onChange={(value) => setTelegramValue('secret', value)}
-        onGenerate={() => regenerate.mutate()}
-        reveal={revealSecrets}
-        value={form.secret}
-      />
-      <div className="space-y-[13px]">
-        <Label>{t('settings.link')}</Label>
-        <div className="relative">
-          <div className="flex h-9 w-full min-w-0 items-center overflow-hidden rounded-md bg-background/70 px-3 pr-12 font-mono text-xs text-foreground/85 shadow-none">
-            <span className="block min-w-0 flex-1 truncate">{linkValue}</span>
-          </div>
-          <Button
-            aria-label={t('common.copy')}
-            className="absolute inset-y-0 right-0 h-full w-10 rounded-l-none"
-            disabled={isDirty || !proxy.data?.link}
-            onClick={copyTelegramLink}
-            size="icon"
-            type="button"
-            variant="ghost"
-          >
-            <Copy className="size-4" />
-          </Button>
-        </div>
-      </div>
-      {issues.length > 0 ? <TelegramIssues issues={issues} /> : null}
-      {isDirty ? (
-        <div className="flex flex-wrap justify-end gap-2">
-          <Button disabled={save.isPending} onClick={resetTelegramForm} size="sm" type="button" variant="ghost">
-            <RotateCcw />
-            {t('common.discard')}
-          </Button>
-          <Button disabled={save.isPending || issues.length > 0} onClick={() => save.mutate()} size="sm" type="button">
-            <Save />
-            {t('common.save')}
-          </Button>
-        </div>
-      ) : null}
-    </SettingsSection>
-  );
-}
-
-function downloadBackupFile(backup: PanelBackup) {
+function downloadBackupFile(backup: H2VBackup) {
   const json = JSON.stringify(backup, null, 2);
   const blob = new Blob([json], { type: 'application/json' });
   const url = URL.createObjectURL(blob);
@@ -774,12 +561,12 @@ function SettingsSection({
             <span
               className={cn(
                 'flex shrink-0 items-center justify-center',
-                logo === 'telegram' ? 'size-10' : 'size-9',
+                'size-9',
                 !logo && 'rounded-md bg-accent-gradient-soft',
               )}
             >
               {logo ? (
-                <CoreLogo className={logo === 'telegram' ? 'size-9' : 'size-8'} core={logo} />
+                <CoreLogo className="size-8" core={logo} />
               ) : Icon ? (
                 <Icon className="size-4" />
               ) : null}
@@ -1033,24 +820,6 @@ function SelectControl({
   );
 }
 
-function TelegramIssues({ issues }: { issues: string[] }) {
-  const { t } = useI18n();
-
-  return (
-    <div className="rounded-md border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
-      <div className="flex items-center gap-2 font-medium">
-        <AlertTriangle className="size-4" />
-        {t('settings.telegramNeedsAttention')}
-      </div>
-      <ul className="mt-2 space-y-1 text-xs">
-        {issues.map((issue) => (
-          <li key={issue}>{issue}</li>
-        ))}
-      </ul>
-    </div>
-  );
-}
-
 function SettingsIssues({ issues }: { issues: string[] }) {
   const { t } = useI18n();
 
@@ -1072,7 +841,7 @@ function SettingsIssues({ issues }: { issues: string[] }) {
 function SettingsSkeleton() {
   return (
     <section className="grid gap-4 xl:grid-cols-2">
-      {Array.from({ length: 3 }).map((_, index) => (
+      {Array.from({ length: 2 }).map((_, index) => (
         <Card className="border-0" key={index}>
           <CardContent className="space-y-5 p-5">
             <Skeleton className="h-10 w-52" />
@@ -1128,17 +897,6 @@ function createSettingsValues(items: Setting[], draft: SettingsDraft) {
       return Array.isArray(raw) ? raw.map(String) : asStringArray(fallbackValues[key]);
     },
     value,
-  };
-}
-
-function telegramFormFromInfo(info: TelegramProxyInfo): TelegramForm {
-  return {
-    enabled: info.enabled,
-    fallback_addr: info.fallback_addr,
-    host: info.host,
-    mask_domain: info.mask_domain,
-    port: info.port,
-    secret: info.secret,
   };
 }
 
@@ -1251,26 +1009,6 @@ function validateDraft(draft: SettingsDraft, values: ReturnType<typeof createSet
     if (values.string('reality.private_key').trim() === '' || values.string('reality.public_key').trim() === '') {
       issues.push(t('settings.validation.realityKeysTogether'));
     }
-  }
-  return issues;
-}
-
-function validateTelegramForm(form: TelegramForm, t: Translate): string[] {
-  const issues: string[] = [];
-  if (form.enabled && form.host.trim() === '') {
-    issues.push(t('settings.validation.publicHostRequired'));
-  }
-  if (form.port < 1 || form.port > 65535 || !Number.isFinite(form.port)) {
-    issues.push(t('settings.validation.portRange', { label: t('settings.port') }));
-  }
-  if (form.enabled && !/^[0-9a-fA-F]{32}$/.test(form.secret.trim())) {
-    issues.push(t('settings.validation.telegramSecret'));
-  }
-  if (form.enabled && form.mask_domain.trim() === '') {
-    issues.push(t('settings.validation.maskDomainRequired'));
-  }
-  if (form.enabled && !/^[^:]+:\d+$/.test(form.fallback_addr.trim())) {
-    issues.push(t('settings.validation.fallbackHostPort'));
   }
   return issues;
 }

@@ -6,7 +6,6 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/base64"
-	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"log/slog"
@@ -32,10 +31,6 @@ type SettingsService struct {
 type RealityKeyPair struct {
 	PrivateKey string `json:"private_key"`
 	PublicKey  string `json:"public_key"`
-}
-
-type TelegramSecret struct {
-	Secret string `json:"secret"`
 }
 
 var (
@@ -144,14 +139,6 @@ func (s *SettingsService) GenerateRealityKeyPair() (*RealityKeyPair, error) {
 	}, nil
 }
 
-func (s *SettingsService) GenerateTelegramSecret() (*TelegramSecret, error) {
-	raw := make([]byte, 16)
-	if _, err := rand.Read(raw); err != nil {
-		return nil, domain.NewError(500, "secret_generation_failed", "Unable to generate Telegram proxy secret", err)
-	}
-	return &TelegramSecret{Secret: hex.EncodeToString(raw)}, nil
-}
-
 func (s *SettingsService) validateUpdate(ctx context.Context, values map[string]json.RawMessage) error {
 	runtime := DefaultRuntime(s.cfg)
 	current, err := s.GetAll(ctx)
@@ -162,32 +149,21 @@ func (s *SettingsService) validateUpdate(ctx context.Context, values map[string]
 	currentRuntime := runtime
 	applyRuntimeValues(&runtime, values)
 
-	if runtime.PanelPort < 1024 {
-		return domain.NewError(400, "port_conflict", "Panel internal port must be 1024 or higher", nil)
+	if runtime.H2VPort < 1024 {
+		return domain.NewError(400, "port_conflict", "h2v internal port must be 1024 or higher", nil)
 	}
-	if runtime.PanelPublicPort == 80 || (runtime.PanelPublicPort < 1024 && runtime.PanelPublicPort != 443) {
-		return domain.NewError(400, "port_conflict", "Panel public port must be 443 or 1024 or higher", nil)
+	if runtime.H2VPublicPort == 80 || (runtime.H2VPublicPort < 1024 && runtime.H2VPublicPort != 443) {
+		return domain.NewError(400, "port_conflict", "h2v public port must be 443 or 1024 or higher", nil)
 	}
-	if runtime.PanelPort == runtime.VlessPort {
-		return domain.NewError(400, "port_conflict", "Panel internal port conflicts with VLESS port; use different TCP ports", nil)
+	if runtime.H2VPort == runtime.VlessPort {
+		return domain.NewError(400, "port_conflict", "h2v internal port conflicts with VLESS port; use different TCP ports", nil)
 	}
-	if runtime.PanelDomain != "" && runtime.PanelDomain != "panel.example.com" {
-		if runtime.PanelPublicPort == runtime.PanelPort {
-			return domain.NewError(400, "port_conflict", "Panel public port conflicts with the internal panel listener; use different TCP ports", nil)
+	if runtime.H2VDomain != "" && runtime.H2VDomain != "h2v.example.com" {
+		if runtime.H2VPublicPort == runtime.H2VPort {
+			return domain.NewError(400, "port_conflict", "h2v public port conflicts with the internal h2v listener; use different TCP ports", nil)
 		}
-		if runtime.PanelPublicPort == runtime.VlessPort {
-			return domain.NewError(400, "port_conflict", "Panel public port conflicts with VLESS port; use different TCP ports", nil)
-		}
-	}
-	if runtime.TelegramEnabled {
-		if runtime.PanelPort == runtime.TelegramPort {
-			return domain.NewError(400, "port_conflict", "Panel internal port conflicts with Telegram proxy port; use different TCP ports", nil)
-		}
-		if runtime.VlessPort == runtime.TelegramPort {
-			return domain.NewError(400, "port_conflict", "VLESS port conflicts with Telegram proxy port; use different TCP ports", nil)
-		}
-		if runtime.PanelDomain != "" && runtime.PanelDomain != "panel.example.com" && runtime.PanelPublicPort == runtime.TelegramPort {
-			return domain.NewError(400, "port_conflict", "Panel public port conflicts with Telegram proxy port; use different TCP ports", nil)
+		if runtime.H2VPublicPort == runtime.VlessPort {
+			return domain.NewError(400, "port_conflict", "h2v public port conflicts with VLESS port; use different TCP ports", nil)
 		}
 	}
 	if err := validatePortAvailability(currentRuntime, runtime, values); err != nil {
@@ -198,9 +174,6 @@ func (s *SettingsService) validateUpdate(ctx context.Context, values map[string]
 	}
 	if touchesAny(values, "reality.private_key", "reality.public_key") && (runtime.RealityPrivateKey == "" || runtime.RealityPublicKey == "") {
 		return domain.NewError(400, "invalid_setting", "Reality private and public keys must be saved together", nil)
-	}
-	if runtime.TelegramEnabled && runtime.TelegramSecret == "" {
-		return domain.NewError(400, "invalid_setting", "Telegram proxy secret is required when the proxy is enabled", nil)
 	}
 	return nil
 }
@@ -237,10 +210,10 @@ func (s *SettingsService) Runtime(ctx context.Context) (RuntimeSettings, error) 
 
 func DefaultRuntime(cfg config.Config) RuntimeSettings {
 	return RuntimeSettings{
-		PanelDomain:               cfg.Panel.Domain,
-		PublicServerIP:            cfg.Panel.PublicIP,
-		PanelPort:                 cfg.Panel.Port,
-		PanelPublicPort:           cfg.Panel.PublicPort,
+		H2VDomain:               cfg.H2V.Domain,
+		PublicServerIP:            cfg.H2V.PublicIP,
+		H2VPort:                 cfg.H2V.Port,
+		H2VPublicPort:           cfg.H2V.PublicPort,
 		SubURLPrefix:              cfg.Subscription.URLPrefix,
 		RealitySNI:                cfg.Xray.RealitySNI,
 		RealityDest:               cfg.Xray.RealityDest,
@@ -264,12 +237,6 @@ func DefaultRuntime(cfg config.Config) RuntimeSettings {
 		Hy2TrafficSecret:          cfg.Hysteria.TrafficSecret,
 		Hy2CertPath:               cfg.Hysteria.CertPath,
 		Hy2KeyPath:                cfg.Hysteria.KeyPath,
-		TelegramEnabled:           cfg.Telegram.Enabled,
-		TelegramHost:              cfg.Telegram.Host,
-		TelegramPort:              cfg.Telegram.Port,
-		TelegramSecret:            cfg.Telegram.Secret,
-		TelegramMaskDomain:        cfg.Telegram.MaskDomain,
-		TelegramFallback:          cfg.Telegram.FallbackAddr,
 		GeoIPPath:                 filepath.Join(cfg.Xray.GeodataDir, "geoip.dat"),
 		GeositePath:               filepath.Join(cfg.Xray.GeodataDir, "geosite.dat"),
 		Clients:                   nil,
@@ -288,7 +255,7 @@ func normalizeRuntimeDerivedValues(runtime *RuntimeSettings) {
 }
 
 func inactiveXrayClientUUID(cfg config.Config) string {
-	seed := cfg.Panel.JWTSecret + "\x00" + cfg.Xray.RealityPrivKey + "\x00" + cfg.Xray.RealityPubKey
+	seed := cfg.H2V.JWTSecret + "\x00" + cfg.Xray.RealityPrivKey + "\x00" + cfg.Xray.RealityPubKey
 	sum := sha256.Sum256([]byte("h2v inactive xray client\x00" + seed))
 	id, err := uuid.FromBytes(sum[:16])
 	if err != nil {
@@ -319,12 +286,6 @@ func applyRuntimeValues(runtime *RuntimeSettings, values map[string]json.RawMess
 	runtime.Hy2BandwidthDown = stringOr(values, "hy2.bandwidth_down", runtime.Hy2BandwidthDown)
 	runtime.Hy2MasqueradeURL = stringOr(values, "hy2.masquerade_url", runtime.Hy2MasqueradeURL)
 	runtime.Hy2TrafficSecret = stringOr(values, "hy2.traffic_secret", runtime.Hy2TrafficSecret)
-	runtime.TelegramEnabled = boolOr(values, "telegram.enabled", runtime.TelegramEnabled)
-	runtime.TelegramHost = stringOr(values, "telegram.host", runtime.TelegramHost)
-	runtime.TelegramPort = intOr(values, "telegram.port", runtime.TelegramPort)
-	runtime.TelegramSecret = stringOr(values, "telegram.secret", runtime.TelegramSecret)
-	runtime.TelegramMaskDomain = stringOr(values, "telegram.mask_domain", runtime.TelegramMaskDomain)
-	runtime.TelegramFallback = stringOr(values, "telegram.fallback", runtime.TelegramFallback)
 	runtime.RealityFingerprint = normalizeRealityFingerprintOrDefault(runtime.RealityFingerprint)
 	runtime.XraySniffingDestOverride = normalizeSniffingDestOverrideOrDefault(runtime.XraySniffingDestOverride)
 }
@@ -352,7 +313,7 @@ func withoutInstallerManagedSettings(items []domain.Setting) []domain.Setting {
 
 func installerManagedSetting(key string) bool {
 	switch key {
-	case "panel.domain", "panel.port", "panel.public_port", "subscription.url_prefix":
+	case "h2v.domain", "h2v.port", "h2v.public_port", "subscription.url_prefix":
 		return true
 	default:
 		return false
@@ -386,13 +347,13 @@ func normalizeSettingValue(key string, raw json.RawMessage) (any, error) {
 			return nil, invalidSetting(key, "must be a JSON object")
 		}
 		return value, nil
-	case "vless.port", "hy2.port", "telegram.port":
+	case "vless.port", "hy2.port":
 		var value int
 		if err := json.Unmarshal(raw, &value); err != nil || !validRuntimePort(value) {
 			return nil, invalidSetting(key, "must be an integer between 1 and 65535")
 		}
 		return value, nil
-	case "hy2.obfs_enabled", "telegram.enabled", "vless.udp_enabled", "vless.xudp_enabled", "xray.sniffing_enabled":
+	case "hy2.obfs_enabled", "vless.udp_enabled", "vless.xudp_enabled", "xray.sniffing_enabled":
 		var value bool
 		if err := json.Unmarshal(raw, &value); err != nil {
 			return nil, invalidSetting(key, "must be a boolean")
@@ -420,9 +381,9 @@ func normalizeSettingValue(key string, raw json.RawMessage) (any, error) {
 			return nil, invalidSetting(key, err.Error())
 		}
 		return values, nil
-	case "hy2.domain", "telegram.host", "telegram.mask_domain", "reality.sni", "reality.dest", "reality.private_key", "reality.public_key",
+	case "hy2.domain", "reality.sni", "reality.dest", "reality.private_key", "reality.public_key",
 		"reality.fingerprint", "hy2.obfs_password", "hy2.bandwidth_up", "hy2.bandwidth_down",
-		"hy2.masquerade_url", "hy2.traffic_secret", "telegram.secret", "telegram.fallback":
+		"hy2.masquerade_url", "hy2.traffic_secret":
 		var value string
 		if err := json.Unmarshal(raw, &value); err != nil {
 			return nil, invalidSetting(key, "must be a string")
@@ -436,7 +397,7 @@ func normalizeSettingValue(key string, raw json.RawMessage) (any, error) {
 func normalizeStringSetting(key, value string) (string, error) {
 	value = strings.TrimSpace(value)
 	switch key {
-	case "hy2.domain", "telegram.host", "telegram.mask_domain", "reality.sni":
+	case "hy2.domain", "reality.sni":
 		if value == "" {
 			return "", invalidSetting(key, "cannot be empty")
 		}
@@ -446,10 +407,6 @@ func normalizeStringSetting(key, value string) (string, error) {
 		}
 		value = hostname
 	case "reality.dest":
-		if !validHostPort(value) {
-			return "", invalidSetting(key, "must be a host:port value")
-		}
-	case "telegram.fallback":
 		if !validHostPort(value) {
 			return "", invalidSetting(key, "must be a host:port value")
 		}
@@ -472,14 +429,6 @@ func normalizeStringSetting(key, value string) (string, error) {
 			return "", invalidSetting(key, "must be one of chrome, firefox, safari, ios, android, edge, random, randomized")
 		}
 		value = fingerprint
-	case "telegram.secret":
-		value = strings.ToLower(value)
-		if value == "" {
-			return "", nil
-		}
-		if !validTelegramSecret(value) {
-			return "", invalidSetting(key, "must be 32 lowercase or uppercase hex characters")
-		}
 	}
 	return value, nil
 }
@@ -494,13 +443,9 @@ func validatePortAvailability(current, next RuntimeSettings, values map[string]j
 	}{
 		{current: current.VlessPort, key: "vless.port", label: "VLESS port", next: next.VlessPort, protocol: "tcp"},
 		{current: current.Hy2Port, key: "hy2.port", label: "Hysteria port", next: next.Hy2Port, protocol: "udp"},
-		{current: current.TelegramPort, key: "telegram.port", label: "Telegram proxy port", next: next.TelegramPort, protocol: "tcp"},
 	}
 
 	for _, check := range checks {
-		if check.key == "telegram.port" && !next.TelegramEnabled {
-			continue
-		}
 		if _, ok := values[check.key]; !ok || check.current == check.next {
 			continue
 		}
@@ -537,14 +482,6 @@ func emptyJSONPatch(raw json.RawMessage) bool {
 
 func validRuntimePort(value int) bool {
 	return value >= 1 && value <= 65535
-}
-
-func validTelegramSecret(value string) bool {
-	if len(value) != 32 {
-		return false
-	}
-	_, err := hex.DecodeString(value)
-	return err == nil
 }
 
 func validHTTPURL(value string) bool {
@@ -740,10 +677,6 @@ func currentRealityServerNames(sni string) []string {
 	return []string{sni}
 }
 
-// normalizeShortIDs keeps Reality shortIds valid per Xray docs: empty string
-// (to allow clients with no shortId) plus hex strings 2..16 chars (even length).
-// Duplicates are dropped and order is preserved; "" is always present exactly
-// once when any empty value is supplied.
 func normalizeShortIDs(values []string) []string {
 	seen := make(map[string]struct{}, len(values))
 	out := make([]string, 0, len(values))

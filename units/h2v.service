@@ -1,15 +1,15 @@
 [Unit]
-Description=VPN Panel
+Description=h2v
 After=network.target postgresql.service
 Wants=postgresql.service
 
 [Service]
 Type=notify
-User=panel
-Group=panel
-WorkingDirectory=/opt/mypanel
-EnvironmentFile=/opt/mypanel/.env
-ExecStart=/opt/mypanel/bin/panel serve
+User=h2v
+Group=h2v
+WorkingDirectory=/opt/h2v
+EnvironmentFile=/opt/h2v/.env
+ExecStart=/opt/h2v/bin/h2v serve
 Restart=always
 RestartSec=5
 StartLimitInterval=60
@@ -20,7 +20,7 @@ TasksMax=4096
 NoNewPrivileges=false
 ProtectSystem=strict
 ProtectHome=true
-ReadWritePaths=/opt/mypanel/data /opt/mypanel/configs /opt/mypanel/logs
+ReadWritePaths=/opt/h2v/data /opt/h2v/configs /opt/h2v/logs
 PrivateTmp=true
 ProtectKernelTunables=true
 ProtectKernelModules=true

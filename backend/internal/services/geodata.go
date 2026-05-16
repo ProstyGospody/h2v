@@ -88,7 +88,7 @@ func (s *GeodataService) download(ctx context.Context, sourceURL, target string)
 	if err != nil {
 		return fmt.Errorf("create geodata request: %w", err)
 	}
-	req.Header.Set("User-Agent", "h2v-panel geodata updater")
+	req.Header.Set("User-Agent", "h2v geodata updater")
 
 	resp, err := s.client.Do(req)
 	if err != nil {

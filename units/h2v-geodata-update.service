@@ -5,7 +5,7 @@ After=network-online.target
 
 [Service]
 Type=oneshot
-Environment=PANEL_ENV_FILE=/opt/mypanel/.env
-ExecStart=/opt/mypanel/bin/panel geodata update
+Environment=H2V_ENV_FILE=/opt/h2v/.env
+ExecStart=/opt/h2v/bin/h2v geodata update
 ExecStartPost=/bin/systemctl try-restart xray.service
 ExecStartPost=/bin/systemctl try-restart hysteria.service

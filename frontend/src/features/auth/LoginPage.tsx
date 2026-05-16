@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { useQuery } from '@tanstack/react-query';
 import { z } from 'zod';
@@ -24,37 +24,6 @@ const schema = z.object({
 });
 
 type FormValues = z.infer<typeof schema>;
-
-const panelCodeFragments = [
-  '2026-05-03T00:42:11Z auth.login username=admin status=200 access_token=rotated refresh_cookie=set',
-  'const admin = await repo.getAdminByUsername(ctx, input.username);',
-  'if (!verifyPassword(admin.passwordHash, input.password)) throw unauthorized("invalid_credentials");',
-  'apiClient.setUnauthorizedHandler(() => setAdmin(null));',
-  'POST /api/auth/refresh -> 200 { access_token, admin: { username, role: "admin" } }',
-  'GET /api/stats/overview -> { uptime_seconds, xray_status, hysteria_status, online_users }',
-  'GET /api/settings -> [{ key: "vless.port", value: 8444, updated_at }]',
-  'PATCH /api/settings -> 200 { updated: true }',
-  'POST /api/settings/reality-keypair -> { private_key, public_key }',
-  'GET /api/configs/xray -> { content: ".../configs/xray/config.json" }',
-  'POST /api/configs/hysteria/apply -> 200 { applied: true }',
-  'panel config render --core xray -> /opt/mypanel/configs/xray/config.json',
-  'panel geodata update -> /opt/mypanel/data/geodata/{geoip.dat,geosite.dat}',
-  'systemctl restart xray.service hysteria.service h2v-telegram.service',
-  'backup.export filename=h2v-backup.json type=h2v.panel.backup',
-  'GET /sub/{token}?format=json -> { subscription, vless, hysteria2, usage }',
-  'subscription.link user=client-014 protocols=[vless,hysteria2] portal=/u/{token}',
-  'traffic.collect core=xray users_matched=128 reset_stats=true',
-  'rate_limit bucket=login key=127.0.0.1 remaining=4 reset=60s',
-  'repository.upsertUser username=client-014 traffic_limit=107374182400 status=active',
-  'logger.info("core stats collected", "xray", xStats.length, "hysteria", hStats.length);',
-  'PATCH /api/users/7f8c... -> rotate subscription token, preserve traffic counters',
-  'settings.validate hy2.obfs_enabled=true hy2.obfs_password=present result=ok',
-  'telegram.reconcile config=/opt/mypanel/configs/telegram/telemt.toml service=h2v-telegram',
-  'hy2.auth local-only password=*** -> { ok: true, id: username }',
-  'scheduler.every collector=10s enforcer=30s traffic_retention=24h',
-  'health.check panel=ok postgres=ok xray=ok hysteria=ok geodata=fresh',
-  '/opt/mypanel/install.sh reset-admin admin ********',
-];
 
 const fallbackLoginProtocols: ServerProtocol[] = [
   { enabled: true, id: 'vless', label: 'VLESS', logo: 'xray', port: 0, transport: 'TCP' },
@@ -86,7 +55,6 @@ export function LoginPage() {
 
   return (
     <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-app-background px-4 py-10 text-foreground">
-      <CodeRainBackground />
       <div className="absolute right-4 top-4 z-20 flex items-center gap-2">
         <ThemeToggle compact />
         <LanguageSwitcher />
@@ -216,30 +184,4 @@ function LoginProtocolStack({ protocols }: { protocols: ServerProtocol[] }) {
 
 function countryFlagURL(countryCode: string): string {
   return `https://flagcdn.com/24x18/${countryCode.trim().toLowerCase()}.png`;
-}
-
-function CodeRainBackground() {
-  const codeCanvas = useMemo(() => {
-    const rows = Array.from({ length: 6 }, (_, index) =>
-      panelCodeFragments
-        .map((line, lineIndex) => {
-          const marker = `${String(index + 1).padStart(2, '0')}:${String(lineIndex + 1).padStart(2, '0')}`;
-          const trail = [7, 13, 19, 24].map((offset) => panelCodeFragments[(lineIndex + offset) % panelCodeFragments.length]);
-
-          return `${marker}  ${[line, ...trail].join('      ')}`;
-        })
-        .join('\n'),
-    );
-
-    return rows.join('\n');
-  }, []);
-
-  return (
-    <div aria-hidden="true" className="login-code-background">
-      <div className="login-code-sheet">
-        <pre>{codeCanvas}</pre>
-        <pre>{codeCanvas}</pre>
-      </div>
-    </div>
-  );
 }

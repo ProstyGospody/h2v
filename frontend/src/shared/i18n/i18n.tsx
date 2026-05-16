@@ -37,7 +37,6 @@ export function I18nProvider({ children }: PropsWithChildren) {
     try {
       window.localStorage.setItem(LOCALE_STORAGE_KEY, locale);
     } catch {
-      // localStorage may be unavailable in restricted browser modes.
     }
   }, [locale]);
 
@@ -78,7 +77,6 @@ function initialLocale(): Locale {
       return saved;
     }
   } catch {
-    // Ignore storage access failures and fall back to browser preferences.
   }
 
   const browserLocales = window.navigator.languages?.length

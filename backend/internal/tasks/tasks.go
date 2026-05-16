@@ -234,7 +234,7 @@ func (b *Backup) Run(ctx context.Context) error {
 	if err := os.MkdirAll(b.cfg.Backup.Dir, 0o750); err != nil {
 		return err
 	}
-	filename := fmt.Sprintf("panel-%s.sql.gz", time.Now().UTC().Format("2006-01-02-150405"))
+	filename := fmt.Sprintf("h2v-%s.sql.gz", time.Now().UTC().Format("2006-01-02-150405"))
 	path := filepath.Join(b.cfg.Backup.Dir, filename)
 	tmpPath := path + ".tmp"
 	if err := dumpPostgresBackup(ctx, b.cfg.DB, tmpPath); err != nil {

@@ -69,7 +69,7 @@ export type ServerProtocol = {
   label: string;
   transport: string;
   port: number;
-  logo: 'xray' | 'hysteria' | 'telegram';
+  logo: 'xray' | 'hysteria';
   enabled: boolean;
 };
 
@@ -84,16 +84,6 @@ export type Setting = {
   key: string;
   value: unknown;
   updated_at: string;
-};
-
-export type TelegramProxyInfo = {
-  enabled: boolean;
-  host: string;
-  port: number;
-  secret: string;
-  mask_domain: string;
-  fallback_addr: string;
-  link: string;
 };
 
 export type Admin = {

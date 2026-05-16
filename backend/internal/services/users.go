@@ -344,9 +344,6 @@ func validUserStatus(status domain.UserStatus) bool {
 	}
 }
 
-// reconcileXray regenerates xray/config.json from the current DB state and
-// restarts the kernel. Failures are logged but do not fail the user operation
-// — the DB is the source of truth and a later scheduled reconcile will retry.
 func (s *UserService) reconcileXray(_ context.Context, op, username string) {
 	if s.configs == nil {
 		return

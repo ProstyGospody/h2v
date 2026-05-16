@@ -76,18 +76,18 @@ func (s *AuthService) ParseAccess(token string) (*domain.Claims, error) {
 }
 
 func (s *AuthService) issueTokens(admin domain.Admin) (*AuthTokens, error) {
-	accessToken, err := s.sign(admin, "access", s.cfg.Panel.JWTAccessTTL)
+	accessToken, err := s.sign(admin, "access", s.cfg.H2V.JWTAccessTTL)
 	if err != nil {
 		return nil, err
 	}
-	refreshToken, err := s.sign(admin, "refresh", s.cfg.Panel.JWTRefreshTTL)
+	refreshToken, err := s.sign(admin, "refresh", s.cfg.H2V.JWTRefreshTTL)
 	if err != nil {
 		return nil, err
 	}
 	return &AuthTokens{
 		AccessToken:  accessToken,
 		RefreshToken: refreshToken,
-		ExpiresIn:    s.cfg.Panel.JWTAccessTTL,
+		ExpiresIn:    s.cfg.H2V.JWTAccessTTL,
 		Admin:        admin,
 	}, nil
 }
@@ -108,12 +108,12 @@ func (s *AuthService) sign(admin domain.Admin, kind string, ttl time.Duration) (
 		},
 	}
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	return token.SignedString([]byte(s.cfg.Panel.JWTSecret))
+	return token.SignedString([]byte(s.cfg.H2V.JWTSecret))
 }
 
 func (s *AuthService) parse(tokenString, expectedKind string) (*tokenClaims, error) {
 	token, err := jwt.ParseWithClaims(tokenString, &tokenClaims{}, func(token *jwt.Token) (any, error) {
-		return []byte(s.cfg.Panel.JWTSecret), nil
+		return []byte(s.cfg.H2V.JWTSecret), nil
 	})
 	if err != nil {
 		return nil, domain.NewError(401, "invalid_token", "Invalid token", err)

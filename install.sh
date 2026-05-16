@@ -5,19 +5,14 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SOURCE_DIR="${ROOT_DIR}"
 REPO_OWNER="ProstyGospody"
 REPO_NAME="h2v"
-# Use latest commit from main by default. Override H2V_REF only when you need
-# to install a specific branch, tag, or commit.
 REPO_REF="${H2V_REF:-main}"
-# Version embedded into the panel binary. Defaults to the selected ref for main/dev installs.
 H2V_VERSION="${H2V_VERSION:-${REPO_REF}}"
-# main is a moving ref, so allow floating refs by default. Set to 0 only when
-# you intentionally require a pinned tag/commit.
 H2V_ALLOW_FLOATING_REF="${H2V_ALLOW_FLOATING_REF:-1}"
 ARCHIVE_URL="https://codeload.github.com/${REPO_OWNER}/${REPO_NAME}/tar.gz/${REPO_REF}"
 H2V_SOURCE_SHA256="${H2V_SOURCE_SHA256:-}"
 TMP_SOURCE_DIR=""
 INSTALL_LOG="${H2V_INSTALL_LOG:-/tmp/h2v-install.log}"
-INSTALL_DIR="/opt/mypanel"
+INSTALL_DIR="/opt/h2v"
 ENV_FILE="${INSTALL_DIR}/.env"
 BUILD_STATE_DIR="${INSTALL_DIR}/build"
 H2V_AUTO_SWAP="${H2V_AUTO_SWAP:-1}"
@@ -33,16 +28,14 @@ XRAY_SHA256_ARM64_V8A="${XRAY_SHA256_ARM64_V8A:-4d30283ae614e3057f730f67cd088a42
 HYSTERIA_VERSION="${HYSTERIA_VERSION:-app/v2.8.2}"
 HYSTERIA_SHA256_AMD64="${HYSTERIA_SHA256_AMD64:-b11bf0fb5f84a3f5c6baff3696e899539e68af4cee868c9203cfb896784ad3b0}"
 HYSTERIA_SHA256_ARM64="${HYSTERIA_SHA256_ARM64:-802d77ae3ca37bdc235ec848edfaaa7cb9109007d9044f50b0746239269cb8cf}"
-TELEMT_REPO="${TELEMT_REPO:-telemt/telemt}"
-TELEMT_VERSION="${TELEMT_VERSION:-latest}"
 XRAY_GEODATA_DIR_DEFAULT="${INSTALL_DIR}/data/geodata"
 XRAY_GEOIP_URL_DEFAULT="https://github.com/v2fly/geoip/releases/latest/download/geoip.dat"
 XRAY_GEOSITE_URL_DEFAULT="https://github.com/v2fly/domain-list-community/releases/latest/download/dlc.dat"
 
 FIRST_INSTALL=false
 RECONFIGURE_RUNTIME=false
-PANEL_DOMAIN_INPUT=""
-PANEL_PUBLIC_PORT_INPUT=""
+H2V_DOMAIN_INPUT=""
+H2V_PUBLIC_PORT_INPUT=""
 VLESS_PORT_INPUT=""
 HY2_PORT_INPUT=""
 ADMIN_USERNAME_INPUT=""
@@ -301,8 +294,6 @@ step() {
 banner() {
   local title="$1"
   local sub="${2:-}"
-  # printf's width counts bytes, not columns — multi-byte UTF-8 inside the
-  # title throws alignment off. Count characters with wc -m and pad manually.
   local title_pad sub_pad
   title_pad=$((60 - $(printf '%s' "${title}" | wc -m)))
   sub_pad=$((60 - $(printf '%s' "${sub}" | wc -m)))
@@ -317,49 +308,21 @@ banner() {
   printf '%s╚══════════════════════════════════════════════════════════════╝%s\n' "${CYAN}" "${RESET}"
 }
 
-urlencode() {
-  local value="$1"
-  if command_exists jq; then
-    jq -rn --arg value "${value}" '$value|@uri'
-  else
-    printf '%s' "${value}"
-  fi
-}
-
 print_summary() {
   local access_url="$1"
   local local_url="$2"
-  local public_server_ip telegram_host telegram_port telegram_secret telegram_mask telegram_link
-  local telegram_host_q telegram_port_q telegram_secret_q telegram_mask_hex
+  local public_server_ip
   progress_finish
   public_server_ip="$(env_get PUBLIC_SERVER_IP || true)"
-  telegram_host="$(runtime_setting_value "telegram.host" "TELEGRAM_PROXY_PUBLIC_HOST" "$(env_get PANEL_DOMAIN || echo panel.example.com)")"
-  if valid_ip_literal "${public_server_ip}"; then
-    telegram_host="${public_server_ip}"
-  fi
-  telegram_port="$(runtime_setting_value "telegram.port" "TELEGRAM_PROXY_PORT" "9443")"
-  telegram_secret="$(runtime_setting_value "telegram.secret" "TELEGRAM_PROXY_SECRET" "")"
-  telegram_mask="$(runtime_setting_value "telegram.mask_domain" "TELEGRAM_PROXY_MASK_DOMAIN" "www.google.com")"
-  telegram_link=""
-  if telegram_proxy_enabled && [[ -n "${telegram_secret}" && -n "${telegram_mask}" ]]; then
-    telegram_host_q="$(urlencode "${telegram_host}")"
-    telegram_port_q="$(urlencode "${telegram_port}")"
-    telegram_mask_hex="$(printf '%s' "${telegram_mask}" | od -An -tx1 | tr -d ' \n')"
-    telegram_secret_q="$(urlencode "ee${telegram_secret}${telegram_mask_hex}")"
-    telegram_link="tg://proxy?server=${telegram_host_q}&port=${telegram_port_q}&secret=${telegram_secret_q}"
-  fi
   printf '\n'
   printf '%s╔══════════════════════════════════════════════════════════════╗%s\n' "${GREEN}" "${RESET}"
-  printf '%s║%s %s✓ h2v panel ready%s%44s%s║%s\n' "${GREEN}" "${RESET}" "${BOLD}${GREEN}" "${RESET}" "" "${GREEN}" "${RESET}"
+  printf '%s║%s %s✓ h2v ready%s%44s%s║%s\n' "${GREEN}" "${RESET}" "${BOLD}${GREEN}" "${RESET}" "" "${GREEN}" "${RESET}"
   printf '%s╚══════════════════════════════════════════════════════════════╝%s\n' "${GREEN}" "${RESET}"
   printf '\n'
-  printf '  %sPanel URL%s   %s%s%s\n' "${BOLD}" "${RESET}" "${CYAN}" "${access_url}" "${RESET}"
+  printf '  %sh2v URL%s   %s%s%s\n' "${BOLD}" "${RESET}" "${CYAN}" "${access_url}" "${RESET}"
   printf '  %sLocal URL%s   %s%s%s\n' "${BOLD}" "${RESET}" "${DIM}" "${local_url}" "${RESET}"
   if valid_ip_literal "${public_server_ip}"; then
     printf '  %sProtocol IP%s %s%s%s\n' "${BOLD}" "${RESET}" "${CYAN}" "${public_server_ip}" "${RESET}"
-  fi
-  if [[ -n "${telegram_link}" ]]; then
-    printf '  %sTelegram%s    %s%s%s\n' "${BOLD}" "${RESET}" "${CYAN}" "${telegram_link}" "${RESET}"
   fi
   if ${FIRST_INSTALL}; then
     printf '\n'
@@ -377,20 +340,20 @@ print_summary() {
   printf '  %sToolchain%s    Go %s · Node %s · npm %s\n' "${DIM}" "${RESET}" "$(go version | awk '{print $3}')" "$(node -v)" "$(npm -v)"
   printf '\n'
   printf '  %sUseful commands%s\n' "${BOLD}" "${RESET}"
-  printf '    %s/opt/mypanel/install.sh update%s\n' "${CYAN}" "${RESET}"
-  printf '    %s/opt/mypanel/install.sh geodata%s\n' "${CYAN}" "${RESET}"
-  printf '    %s/opt/mypanel/install.sh reset-admin%s\n' "${CYAN}" "${RESET}"
-  printf '    %s/opt/mypanel/install.sh backup%s\n' "${CYAN}" "${RESET}"
+  printf '    %s/opt/h2v/install.sh update%s\n' "${CYAN}" "${RESET}"
+  printf '    %s/opt/h2v/install.sh geodata%s\n' "${CYAN}" "${RESET}"
+  printf '    %s/opt/h2v/install.sh reset-admin%s\n' "${CYAN}" "${RESET}"
+  printf '    %s/opt/h2v/install.sh backup%s\n' "${CYAN}" "${RESET}"
   printf '\n'
 }
 
-cleanup() {
+remove_tmp_source() {
   if [[ -n "${TMP_SOURCE_DIR}" && -d "${TMP_SOURCE_DIR}" ]]; then
     rm -rf "${TMP_SOURCE_DIR}"
   fi
 }
 
-trap cleanup EXIT
+trap remove_tmp_source EXIT
 
 require_root() {
   if [[ "${EUID}" -ne 0 ]]; then
@@ -571,7 +534,6 @@ ensure_base_packages() {
     curl \
     wget \
     openssl \
-    jq \
     unzip \
     uuid-runtime \
     certbot \
@@ -648,72 +610,6 @@ install_hysteria_binary() {
   setcap 'cap_net_bind_service=+ep' /usr/local/bin/hysteria 2>/dev/null || true
 }
 
-telemt_arch() {
-  case "$(uname -m)" in
-    x86_64)
-      if [[ -r /proc/cpuinfo ]] && grep -q "avx2" /proc/cpuinfo 2>/dev/null && grep -q "bmi2" /proc/cpuinfo 2>/dev/null; then
-        printf 'x86_64-v3'
-      else
-        printf 'x86_64'
-      fi
-      ;;
-    aarch64|arm64) printf 'aarch64' ;;
-    *) fail "Unsupported architecture for Telemt: $(uname -m)" ;;
-  esac
-}
-
-telemt_libc() {
-  if grep -qi '^ID="?alpine"?' /etc/os-release 2>/dev/null; then
-    printf 'musl'
-    return
-  fi
-  if command_exists ldd && ldd --version 2>&1 | grep -qi musl; then
-    printf 'musl'
-    return
-  fi
-  printf 'gnu'
-}
-
-install_telemt_binary() {
-  local arch libc file version url tmp archive extracted
-  arch="$(telemt_arch)"
-  libc="$(telemt_libc)"
-  version="${TELEMT_VERSION#v}"
-  file="telemt-${arch}-linux-${libc}.tar.gz"
-  if [[ "${TELEMT_VERSION}" == "latest" ]]; then
-    url="https://github.com/${TELEMT_REPO}/releases/latest/download/${file}"
-  else
-    url="https://github.com/${TELEMT_REPO}/releases/download/${version}/${file}"
-  fi
-
-  substep "downloading Telemt ${TELEMT_VERSION} (${arch}/${libc})"
-  tmp="$(mktemp -d)"
-  archive="${tmp}/${file}"
-  if ! curl -fsSL "${url}" -o "${archive}"; then
-    if [[ "${arch}" == "x86_64-v3" ]]; then
-      arch="x86_64"
-      file="telemt-${arch}-linux-${libc}.tar.gz"
-      archive="${tmp}/${file}"
-      if [[ "${TELEMT_VERSION}" == "latest" ]]; then
-        url="https://github.com/${TELEMT_REPO}/releases/latest/download/${file}"
-      else
-        url="https://github.com/${TELEMT_REPO}/releases/download/${version}/${file}"
-      fi
-      substep "Telemt x86_64-v3 unavailable, falling back to x86_64"
-      curl -fsSL "${url}" -o "${archive}" || fail "Telemt download failed"
-    else
-      fail "Telemt download failed"
-    fi
-  fi
-  gzip -dc "${archive}" | tar -xf - -C "${tmp}" || fail "Telemt archive extraction failed"
-  extracted="$(find "${tmp}" -type f -name telemt -print | head -n 1)"
-  [[ -n "${extracted}" ]] || fail "Telemt binary not found in release archive"
-  mkdir -p "${INSTALL_DIR}/bin"
-  install -m 0755 "${extracted}" "${INSTALL_DIR}/bin/telemt"
-  rm -rf "${tmp}"
-  setcap 'cap_net_bind_service=+ep' "${INSTALL_DIR}/bin/telemt" 2>/dev/null || true
-}
-
 ensure_core_users() {
   if ! id -u xray >/dev/null 2>&1; then
     useradd -r -s /bin/false xray
@@ -738,10 +634,6 @@ ensure_reality_keys() {
     printf '%s\n' "${out}"
     fail "xray x25519 command failed"
   }
-  # Xray versions print "Private key:" / "PrivateKey:" (and some releases also
-  # print "Password:" as a duplicate of the private key). Split on ':' so the
-  # field name variations don't matter — we just take whatever comes after the
-  # first colon on the matching line.
   priv="$(printf '%s\n' "${out}" | awk -F: '/[Pp]rivate/ {gsub(/^[ \t]+|[ \t\r]+$/, "", $2); print $2; exit}')"
   pub="$(printf '%s\n' "${out}" | awk -F: '/[Pp]ublic/ {gsub(/^[ \t]+|[ \t\r]+$/, "", $2); print $2; exit}')"
   if [[ -z "${priv}" || -z "${pub}" ]]; then
@@ -755,25 +647,25 @@ ensure_reality_keys() {
 }
 
 render_core_configs() {
-  [[ -x "${INSTALL_DIR}/bin/panel" ]] || fail "panel binary missing; cannot render core configs"
-  run_quiet "render xray config" sudo -u panel env PANEL_ENV_FILE="${ENV_FILE}" "${INSTALL_DIR}/bin/panel" config render --core xray \
+  [[ -x "${INSTALL_DIR}/bin/h2v" ]] || fail "h2v binary missing; cannot render core configs"
+  run_quiet "render xray config" sudo -u h2v env H2V_ENV_FILE="${ENV_FILE}" "${INSTALL_DIR}/bin/h2v" config render --core xray \
     || fail "failed to render xray config"
-  run_quiet "render hysteria config" sudo -u panel env PANEL_ENV_FILE="${ENV_FILE}" "${INSTALL_DIR}/bin/panel" config render --core hysteria \
+  run_quiet "render hysteria config" sudo -u h2v env H2V_ENV_FILE="${ENV_FILE}" "${INSTALL_DIR}/bin/h2v" config render --core hysteria \
     || fail "failed to render hysteria config"
   rm -f "${INSTALL_DIR}/configs/hysteria/config.yaml" "${INSTALL_DIR}/configs/hysteria/config.yml"
-  chown panel:xray "${INSTALL_DIR}/configs/xray/config.json" 2>/dev/null || true
-  chown panel:hysteria "${INSTALL_DIR}/configs/hysteria/config.json" 2>/dev/null || true
+  chown h2v:xray "${INSTALL_DIR}/configs/xray/config.json" 2>/dev/null || true
+  chown h2v:hysteria "${INSTALL_DIR}/configs/hysteria/config.json" 2>/dev/null || true
   chmod 0640 "${INSTALL_DIR}/configs/xray/config.json" "${INSTALL_DIR}/configs/hysteria/config.json" 2>/dev/null || true
 }
 
 update_geodata() {
-  [[ -x "${INSTALL_DIR}/bin/panel" ]] || fail "panel binary missing; cannot update core geodata"
+  [[ -x "${INSTALL_DIR}/bin/h2v" ]] || fail "h2v binary missing; cannot update core geodata"
   local geodata_dir out status=0
   geodata_dir="$(env_get XRAY_GEODATA_DIR || true)"
   geodata_dir="${geodata_dir:-${XRAY_GEODATA_DIR_DEFAULT}}"
   install -d -m 0755 "${geodata_dir}"
 
-  out="$(PANEL_ENV_FILE="${ENV_FILE}" "${INSTALL_DIR}/bin/panel" geodata update 2>&1)" || status=$?
+  out="$(H2V_ENV_FILE="${ENV_FILE}" "${INSTALL_DIR}/bin/h2v" geodata update 2>&1)" || status=$?
   if [[ ${status} -ne 0 ]]; then
     if [[ -s "${geodata_dir}/geoip.dat" && -s "${geodata_dir}/geosite.dat" ]]; then
       warn "geodata update failed; keeping existing geoip.dat/geosite.dat"
@@ -785,7 +677,7 @@ update_geodata() {
   fi
 
   if [[ "${geodata_dir}" == "${INSTALL_DIR}/data" || "${geodata_dir}" == "${INSTALL_DIR}/data/"* ]]; then
-    chown -R panel:panel "${geodata_dir}" 2>/dev/null || true
+    chown -R h2v:h2v "${geodata_dir}" 2>/dev/null || true
   elif getent group xray >/dev/null 2>&1; then
     chown -R root:xray "${geodata_dir}" 2>/dev/null || true
   fi
@@ -796,10 +688,10 @@ update_geodata() {
 
 grant_cert_access() {
   local domain cert_path key_path caddy_was_active=false
-  domain="$(env_get PANEL_DOMAIN || true)"
+  domain="$(env_get H2V_DOMAIN || true)"
   cert_path="$(env_get HY2_CERT_PATH || true)"
   key_path="$(env_get HY2_KEY_PATH || true)"
-  [[ -z "${domain}" || "${domain}" == "panel.example.com" ]] && return
+  [[ -z "${domain}" || "${domain}" == "h2v.example.com" ]] && return
   [[ -z "${cert_path}" || -z "${key_path}" ]] && return
   if [[ ! -f "${cert_path}" || ! -f "${key_path}" ]]; then
     warn "TLS cert not found at ${cert_path}; trying certbot standalone for Hysteria 2"
@@ -822,13 +714,13 @@ grant_cert_access() {
 }
 
 start_cores() {
-  local panel_public_port vless_port hy2_port
-  panel_public_port="$(env_get PANEL_PUBLIC_PORT || echo 443)"
+  local h2v_public_port vless_port hy2_port
+  h2v_public_port="$(env_get H2V_PUBLIC_PORT || echo 443)"
   vless_port="$(selected_runtime_value "${VLESS_PORT_INPUT}" "vless.port" "VLESS_PORT" "8444")"
   hy2_port="$(selected_runtime_value "${HY2_PORT_INPUT}" "hy2.port" "HY2_PORT" "8443")"
 
-  if [[ "${vless_port}" == "${panel_public_port}" ]] && ss -tln 2>/dev/null | awk -v p="${panel_public_port}" '{print $4}' | grep -qE "(:|\\.)${panel_public_port}$"; then
-    warn "VLESS_PORT=${vless_port} conflicts with another listener (likely Caddy panel HTTPS)"
+  if [[ "${vless_port}" == "${h2v_public_port}" ]] && ss -tln 2>/dev/null | awk -v p="${h2v_public_port}" '{print $4}' | grep -qE "(:|\\.)${h2v_public_port}$"; then
+    warn "VLESS_PORT=${vless_port} conflicts with another listener (likely Caddy h2v HTTPS)"
     info "set VLESS_PORT to a free port (e.g. 8444) in ${ENV_FILE} and rerun"
   fi
 
@@ -847,26 +739,6 @@ start_cores() {
     warn "hysteria is NOT running — Hysteria 2 traffic will be rejected until resolved (most often a missing TLS cert)"
   else
     substep "hysteria.service active (Hysteria 2 on UDP ${hy2_port})"
-  fi
-}
-
-start_telegram_proxy() {
-  local telegram_port
-  if ! telegram_proxy_enabled; then
-    systemctl disable --now h2v-telegram.service >/dev/null 2>&1 || true
-    substep "h2v-telegram.service disabled"
-    return
-  fi
-
-  telegram_port="$(runtime_setting_value "telegram.port" "TELEGRAM_PROXY_PORT" "9443")"
-  systemctl enable h2v-telegram.service >/dev/null 2>&1 || true
-  systemctl reset-failed h2v-telegram.service >/dev/null 2>&1 || true
-  if ! systemctl restart h2v-telegram.service; then
-    red "h2v-telegram.service failed to start. Recent logs:"
-    journalctl -u h2v-telegram.service -n 40 --no-pager || true
-    warn "Telegram Proxy is NOT running until resolved"
-  else
-    substep "h2v-telegram.service active (MTProxy on TCP ${telegram_port})"
   fi
 }
 
@@ -1038,7 +910,7 @@ prompt_reconfigure_choice() {
   fi
 
   printf '\n%sExisting h2v configuration found%s\n' "${BOLD}" "${RESET}" >/dev/tty
-  printf '  1) Keep current /opt/mypanel/.env and update the app\n' >/dev/tty
+  printf '  1) Keep current /opt/h2v/.env and update the app\n' >/dev/tty
   printf '  2) Reconfigure domain and public ports\n' >/dev/tty
 
   while true; do
@@ -1095,13 +967,13 @@ port_listener_in_use() {
   return 1
 }
 
-selected_panel_domain_is_real() {
-  [[ -n "${PANEL_DOMAIN_INPUT}" && "${PANEL_DOMAIN_INPUT}" != "panel.example.com" ]]
+selected_h2v_domain_is_real() {
+  [[ -n "${H2V_DOMAIN_INPUT}" && "${H2V_DOMAIN_INPUT}" != "h2v.example.com" ]]
 }
 
 vless_fallback_port() {
-  local panel_public_port="$1"
-  if [[ "${panel_public_port}" == "8444" ]]; then
+  local h2v_public_port="$1"
+  if [[ "${h2v_public_port}" == "8444" ]]; then
     printf '443'
   else
     printf '8444'
@@ -1125,19 +997,19 @@ prompt_service_port() {
       ${is_tty} || fail "${label} is invalid"
       continue
     fi
-    if [[ "${key}" == "PANEL_PUBLIC_PORT" && ( "${port}" == "80" || ( "${port}" -lt 1024 && "${port}" != "443" ) ) ]]; then
+    if [[ "${key}" == "H2V_PUBLIC_PORT" && ( "${port}" == "80" || ( "${port}" -lt 1024 && "${port}" != "443" ) ) ]]; then
       red "${label} must be 443 or 1024 or higher." >&2
       ${is_tty} || fail "${label} must be 443 or 1024 or higher"
       continue
     fi
-    if selected_panel_domain_is_real && [[ "${key}" == "VLESS_PORT" && -n "${PANEL_PUBLIC_PORT_INPUT}" && "${port}" == "${PANEL_PUBLIC_PORT_INPUT}" ]]; then
-      red "${label} ${port}/tcp conflicts with the panel public HTTPS port." >&2
-      ${is_tty} || fail "${label} ${port}/tcp conflicts with panel public HTTPS"
+    if selected_h2v_domain_is_real && [[ "${key}" == "VLESS_PORT" && -n "${H2V_PUBLIC_PORT_INPUT}" && "${port}" == "${H2V_PUBLIC_PORT_INPUT}" ]]; then
+      red "${label} ${port}/tcp conflicts with the h2v public HTTPS port." >&2
+      ${is_tty} || fail "${label} ${port}/tcp conflicts with h2v public HTTPS"
       continue
     fi
     if [[ -n "${current_port}" && "${port}" == "${current_port}" ]]; then
       :
-    elif [[ "${key}" != "PANEL_PUBLIC_PORT" || selected_panel_domain_is_real ]] && port_listener_in_use "${protocol}" "${port}"; then
+    elif [[ "${key}" != "H2V_PUBLIC_PORT" || selected_h2v_domain_is_real ]] && port_listener_in_use "${protocol}" "${port}"; then
       red "${label} ${port}/${protocol} is already in use. Choose another port." >&2
       ${is_tty} || fail "${label} ${port}/${protocol} is already in use"
       continue
@@ -1152,27 +1024,27 @@ prompt_service_port() {
 
 collect_install_inputs() {
   local env_exists=false
-  local default_domain="panel.example.com"
-  local default_panel_public_port="443"
+  local default_domain="h2v.example.com"
+  local default_h2v_public_port="443"
   local default_vless_port="8444"
   local default_hy2_port="8443"
-  local current_panel_public_port=""
+  local current_h2v_public_port=""
   local current_vless_port=""
   local current_hy2_port=""
-  local default_admin_username="${PANEL_ADMIN_USERNAME:-admin}"
+  local default_admin_username="${H2V_ADMIN_USERNAME:-admin}"
 
   if [[ -f "${ENV_FILE}" ]]; then
     env_exists=true
-    local cur_domain cur_panel_public_port cur_vless_port cur_hy2_port
-    cur_domain="$(env_get PANEL_DOMAIN || true)"
-    cur_panel_public_port="$(env_get PANEL_PUBLIC_PORT || true)"
+    local cur_domain cur_h2v_public_port cur_vless_port cur_hy2_port
+    cur_domain="$(env_get H2V_DOMAIN || true)"
+    cur_h2v_public_port="$(env_get H2V_PUBLIC_PORT || true)"
     cur_vless_port="$(runtime_setting_value "vless.port" "VLESS_PORT" "")"
     cur_hy2_port="$(runtime_setting_value "hy2.port" "HY2_PORT" "")"
     [[ -n "${cur_domain}" ]] && default_domain="${cur_domain}"
-    [[ -n "${cur_panel_public_port}" ]] && default_panel_public_port="${cur_panel_public_port}"
+    [[ -n "${cur_h2v_public_port}" ]] && default_h2v_public_port="${cur_h2v_public_port}"
     [[ -n "${cur_vless_port}" ]] && default_vless_port="${cur_vless_port}"
     [[ -n "${cur_hy2_port}" ]] && default_hy2_port="${cur_hy2_port}"
-    current_panel_public_port="${cur_panel_public_port}"
+    current_h2v_public_port="${cur_h2v_public_port}"
     current_vless_port="${cur_vless_port}"
     current_hy2_port="${cur_hy2_port}"
   else
@@ -1194,47 +1066,47 @@ collect_install_inputs() {
   can_prompt && is_tty=true
 
   if ${is_tty}; then
-    banner "Panel configuration" "press Enter to accept defaults"
+    banner "h2v configuration" "press Enter to accept defaults"
   else
     printf '\n'
     warn "non-interactive install: using defaults and generated admin password"
   fi
 
   local domain_default="${default_domain}"
-  [[ "${domain_default}" == "panel.example.com" ]] && domain_default=""
+  [[ "${domain_default}" == "h2v.example.com" ]] && domain_default=""
 
-  local domain_label="Panel domain (e.g. vpn.example.com)"
+  local domain_label="h2v domain (e.g. vpn.example.com)"
   while true; do
-    PANEL_DOMAIN_INPUT="$(prompt_value "${domain_label}" "${domain_default}" "no")"
-    if [[ -n "${PANEL_DOMAIN_INPUT}" && "${PANEL_DOMAIN_INPUT}" != "panel.example.com" ]]; then
+    H2V_DOMAIN_INPUT="$(prompt_value "${domain_label}" "${domain_default}" "no")"
+    if [[ -n "${H2V_DOMAIN_INPUT}" && "${H2V_DOMAIN_INPUT}" != "h2v.example.com" ]]; then
       if can_prompt; then
-        tty_prompt_result_current "${domain_label}" "${PANEL_DOMAIN_INPUT}"
+        tty_prompt_result_current "${domain_label}" "${H2V_DOMAIN_INPUT}"
       fi
       break
     fi
     if ! ${is_tty}; then
-      PANEL_DOMAIN_INPUT="${default_domain}"
-      yellow "No domain provided — keeping placeholder '${PANEL_DOMAIN_INPUT}'. Edit ${ENV_FILE} manually."
+      H2V_DOMAIN_INPUT="${default_domain}"
+      yellow "No domain provided — keeping placeholder '${H2V_DOMAIN_INPUT}'. Edit ${ENV_FILE} manually."
       break
     fi
     red "A real domain is required."
   done
 
-  PANEL_PUBLIC_PORT_INPUT="$(prompt_service_port PANEL_PUBLIC_PORT "Panel public HTTPS port" "${default_panel_public_port}" tcp "${current_panel_public_port}")"
+  H2V_PUBLIC_PORT_INPUT="$(prompt_service_port H2V_PUBLIC_PORT "h2v public HTTPS port" "${default_h2v_public_port}" tcp "${current_h2v_public_port}")"
   while true; do
     VLESS_PORT_INPUT="$(prompt_service_port VLESS_PORT "VLESS Reality TCP port" "${default_vless_port}" tcp "${current_vless_port}")"
-    if [[ "${VLESS_PORT_INPUT}" != "${PANEL_PUBLIC_PORT_INPUT}" ]]; then
+    if [[ "${VLESS_PORT_INPUT}" != "${H2V_PUBLIC_PORT_INPUT}" ]]; then
       break
     fi
-    red "VLESS Reality TCP port must differ from Panel public HTTPS port." >&2
-    ${is_tty} || fail "VLESS Reality TCP port conflicts with Panel public HTTPS port"
+    red "VLESS Reality TCP port must differ from h2v public HTTPS port." >&2
+    ${is_tty} || fail "VLESS Reality TCP port conflicts with h2v public HTTPS port"
   done
   HY2_PORT_INPUT="$(prompt_service_port HY2_PORT "Hysteria 2 UDP port" "${default_hy2_port}" udp "${current_hy2_port}")"
   if ! ${env_exists}; then
     ADMIN_USERNAME_INPUT="$(prompt_value "Admin username" "${default_admin_username}")"
 
-    if [[ -n "${PANEL_ADMIN_PASSWORD:-}" ]]; then
-      ADMIN_PASSWORD_INPUT="${PANEL_ADMIN_PASSWORD}"
+    if [[ -n "${H2V_ADMIN_PASSWORD:-}" ]]; then
+      ADMIN_PASSWORD_INPUT="${H2V_ADMIN_PASSWORD}"
     elif can_prompt; then
       ADMIN_PASSWORD_INPUT="$(prompt_password "Admin password (blank to auto-generate)")"
     fi
@@ -1246,9 +1118,9 @@ collect_install_inputs() {
   fi
 }
 
-ensure_panel_user() {
-  if ! id -u panel >/dev/null 2>&1; then
-    useradd -r -s /bin/false panel
+ensure_h2v_user() {
+  if ! id -u h2v >/dev/null 2>&1; then
+    useradd -r -s /bin/false h2v
   fi
 }
 
@@ -1256,63 +1128,58 @@ ensure_dirs() {
   mkdir -p "${INSTALL_DIR}/bin" \
     "${INSTALL_DIR}/configs/xray" \
     "${INSTALL_DIR}/configs/hysteria" \
-    "${INSTALL_DIR}/configs/telegram" \
     "${INSTALL_DIR}/templates" \
     "${INSTALL_DIR}/frontend" \
     "${BUILD_STATE_DIR}" \
     "${INSTALL_DIR}/data/backups" \
-    "${INSTALL_DIR}/data/telegram" \
     "${INSTALL_DIR}/logs"
-  chown -R panel:panel "${INSTALL_DIR}"
+  chown -R h2v:h2v "${INSTALL_DIR}"
   chmod 0755 "${INSTALL_DIR}" "${INSTALL_DIR}/configs"
   chmod 0755 "${INSTALL_DIR}/data" 2>/dev/null || true
   if getent group xray >/dev/null; then
-    chown panel:xray "${INSTALL_DIR}/configs/xray"
+    chown h2v:xray "${INSTALL_DIR}/configs/xray"
     chmod 2750 "${INSTALL_DIR}/configs/xray"
-    usermod -aG xray panel 2>/dev/null || true
+    usermod -aG xray h2v 2>/dev/null || true
   fi
   if getent group hysteria >/dev/null; then
-    chown panel:hysteria "${INSTALL_DIR}/configs/hysteria"
+    chown h2v:hysteria "${INSTALL_DIR}/configs/hysteria"
     chmod 2750 "${INSTALL_DIR}/configs/hysteria"
-    usermod -aG hysteria panel 2>/dev/null || true
+    usermod -aG hysteria h2v 2>/dev/null || true
   fi
-  chown panel:panel "${INSTALL_DIR}/configs/telegram"
-  chmod 0750 "${INSTALL_DIR}/configs/telegram"
 }
 
 ensure_env() {
   if [[ ! -f "${ENV_FILE}" ]]; then
     cp "${SOURCE_DIR}/.env.example" "${ENV_FILE}.tmp"
     chmod 600 "${ENV_FILE}.tmp"
-    chown panel:panel "${ENV_FILE}.tmp"
+    chown h2v:h2v "${ENV_FILE}.tmp"
     mv "${ENV_FILE}.tmp" "${ENV_FILE}"
     substep "${ENV_FILE} seeded from .env.example"
   else
     substep "${ENV_FILE} already exists — preserving existing secrets"
   fi
 
-  if [[ -n "${PANEL_DOMAIN_INPUT}" ]]; then
-    env_set PANEL_DOMAIN "${PANEL_DOMAIN_INPUT}"
-    env_set HY2_DOMAIN "${PANEL_DOMAIN_INPUT}"
-    env_set HY2_CERT_PATH "/etc/letsencrypt/live/${PANEL_DOMAIN_INPUT}/fullchain.pem"
-    env_set HY2_KEY_PATH "/etc/letsencrypt/live/${PANEL_DOMAIN_INPUT}/privkey.pem"
-    local public_prefix="https://${PANEL_DOMAIN_INPUT}"
-    if [[ -n "${PANEL_PUBLIC_PORT_INPUT}" && "${PANEL_PUBLIC_PORT_INPUT}" != "443" ]]; then
-      public_prefix="https://${PANEL_DOMAIN_INPUT}:${PANEL_PUBLIC_PORT_INPUT}"
+  if [[ -n "${H2V_DOMAIN_INPUT}" ]]; then
+    env_set H2V_DOMAIN "${H2V_DOMAIN_INPUT}"
+    env_set HY2_DOMAIN "${H2V_DOMAIN_INPUT}"
+    env_set HY2_CERT_PATH "/etc/letsencrypt/live/${H2V_DOMAIN_INPUT}/fullchain.pem"
+    env_set HY2_KEY_PATH "/etc/letsencrypt/live/${H2V_DOMAIN_INPUT}/privkey.pem"
+    local public_prefix="https://${H2V_DOMAIN_INPUT}"
+    if [[ -n "${H2V_PUBLIC_PORT_INPUT}" && "${H2V_PUBLIC_PORT_INPUT}" != "443" ]]; then
+      public_prefix="https://${H2V_DOMAIN_INPUT}:${H2V_PUBLIC_PORT_INPUT}"
     fi
     env_set SUB_URL_PREFIX "${public_prefix}"
-    env_set TELEGRAM_PROXY_PUBLIC_HOST "${PANEL_DOMAIN_INPUT}"
   fi
-  if [[ -n "${PANEL_PUBLIC_PORT_INPUT}" ]]; then
-    env_set PANEL_PUBLIC_PORT "${PANEL_PUBLIC_PORT_INPUT}"
+  if [[ -n "${H2V_PUBLIC_PORT_INPUT}" ]]; then
+    env_set H2V_PUBLIC_PORT "${H2V_PUBLIC_PORT_INPUT}"
   fi
-  env_set_default PANEL_PORT 8000
-  env_set_default PANEL_PUBLIC_PORT 443
-  env_set_default PANEL_ARGON2_MAX_PARALLEL 2
-  env_set_default PANEL_COLLECTOR_INTERVAL 10s
-  env_set_default PANEL_ENFORCER_INTERVAL 30s
-  env_set_default PANEL_CORE_RECONCILE_INTERVAL 60s
-  env_set_default PANEL_CACHE_REFRESH_INTERVAL 5m
+  env_set_default H2V_PORT 8000
+  env_set_default H2V_PUBLIC_PORT 443
+  env_set_default H2V_ARGON2_MAX_PARALLEL 2
+  env_set_default H2V_COLLECTOR_INTERVAL 10s
+  env_set_default H2V_ENFORCER_INTERVAL 30s
+  env_set_default H2V_CORE_RECONCILE_INTERVAL 60s
+  env_set_default H2V_CACHE_REFRESH_INTERVAL 5m
   if [[ -n "${VLESS_PORT_INPUT}" ]]; then
     env_set VLESS_PORT "${VLESS_PORT_INPUT}"
   fi
@@ -1379,8 +1246,8 @@ db_setting_get() {
   db_password="$(env_get DB_PASSWORD || true)"
   db_host="${db_host:-127.0.0.1}"
   db_port="${db_port:-5432}"
-  db_name="${db_name:-mypanel}"
-  db_user="${db_user:-panel}"
+  db_name="${db_name:-h2v}"
+  db_user="${db_user:-h2v}"
   key_literal="$(printf "%s" "${key}" | sed "s/'/''/g")"
 
   if [[ "${db_host}" == "127.0.0.1" || "${db_host}" == "localhost" || "${db_host}" == "::1" ]] && command_exists sudo; then
@@ -1410,15 +1277,6 @@ runtime_setting_value() {
 
   value="$(env_get "${env_key}" || true)"
   printf '%s' "${value:-${fallback}}"
-}
-
-telegram_proxy_enabled() {
-  local enabled
-  enabled="$(runtime_setting_value "telegram.enabled" "TELEGRAM_PROXY_ENABLED" "true")"
-  case "$(printf '%s' "${enabled}" | tr '[:upper:]' '[:lower:]')" in
-    0|false|no|off) return 1 ;;
-    *) return 0 ;;
-  esac
 }
 
 selected_runtime_value() {
@@ -1455,7 +1313,7 @@ env_set() {
   ' "${ENV_FILE}" > "${tmp}"
 
   chmod 600 "${tmp}"
-  chown panel:panel "${tmp}"
+  chown h2v:h2v "${tmp}"
   mv "${tmp}" "${ENV_FILE}"
 }
 
@@ -1534,88 +1392,69 @@ auto_tune_low_memory_runtime_defaults() {
   if ! [[ "${mem_kb}" =~ ^[0-9]+$ ]] || (( mem_kb >= 1048576 )); then
     return 0
   fi
-  current="$(env_get PANEL_ARGON2_MAX_PARALLEL || true)"
+  current="$(env_get H2V_ARGON2_MAX_PARALLEL || true)"
   if [[ -z "${current}" || "${current}" == "2" ]]; then
-    env_set PANEL_ARGON2_MAX_PARALLEL 1
-    substep "low-memory runtime: PANEL_ARGON2_MAX_PARALLEL=1"
+    env_set H2V_ARGON2_MAX_PARALLEL 1
+    substep "low-memory runtime: H2V_ARGON2_MAX_PARALLEL=1"
   fi
 }
 
-panel_domain_is_real() {
+h2v_domain_is_real() {
   local domain
-  domain="$(env_get PANEL_DOMAIN || true)"
-  [[ -n "${domain}" && "${domain}" != "panel.example.com" ]]
+  domain="$(env_get H2V_DOMAIN || true)"
+  [[ -n "${domain}" && "${domain}" != "h2v.example.com" ]]
 }
 
 normalize_vless_env_port() {
-  local panel_public_port vless_port
-  if ! panel_domain_is_real; then
+  local h2v_public_port vless_port
+  if ! h2v_domain_is_real; then
     return
   fi
 
-  panel_public_port="$(env_get PANEL_PUBLIC_PORT || echo 443)"
+  h2v_public_port="$(env_get H2V_PUBLIC_PORT || echo 443)"
   vless_port="$(selected_runtime_value "${VLESS_PORT_INPUT}" "vless.port" "VLESS_PORT" "8444")"
-  if [[ "${vless_port}" == "${panel_public_port}" ]]; then
+  if [[ "${vless_port}" == "${h2v_public_port}" ]]; then
     local fallback
-    fallback="$(vless_fallback_port "${panel_public_port}")"
-    warn "VLESS_PORT=${vless_port} conflicts with the panel public HTTPS port; switching VLESS_PORT to ${fallback}"
+    fallback="$(vless_fallback_port "${h2v_public_port}")"
+    warn "VLESS_PORT=${vless_port} conflicts with the h2v public HTTPS port; switching VLESS_PORT to ${fallback}"
     env_set VLESS_PORT "${fallback}"
   fi
 }
 
 validate_selected_runtime_ports() {
-  local domain panel_port panel_public_port vless_port hy2_port telegram_port telegram_enabled=false
-  domain="$(env_get PANEL_DOMAIN || true)"
-  panel_port="$(env_get PANEL_PORT || echo 8000)"
-  panel_public_port="$(env_get PANEL_PUBLIC_PORT || echo 443)"
+  local domain h2v_port h2v_public_port vless_port hy2_port
+  domain="$(env_get H2V_DOMAIN || true)"
+  h2v_port="$(env_get H2V_PORT || echo 8000)"
+  h2v_public_port="$(env_get H2V_PUBLIC_PORT || echo 443)"
   vless_port="$(selected_runtime_value "${VLESS_PORT_INPUT}" "vless.port" "VLESS_PORT" "8444")"
   hy2_port="$(selected_runtime_value "${HY2_PORT_INPUT}" "hy2.port" "HY2_PORT" "8443")"
-  telegram_port="$(runtime_setting_value "telegram.port" "TELEGRAM_PROXY_PORT" "9443")"
-  if telegram_proxy_enabled; then
-    telegram_enabled=true
-  fi
 
-  valid_port_number "${panel_port}" || fail "PANEL_PORT must be a number between 1 and 65535"
-  valid_port_number "${panel_public_port}" || fail "PANEL_PUBLIC_PORT must be a number between 1 and 65535"
+  valid_port_number "${h2v_port}" || fail "H2V_PORT must be a number between 1 and 65535"
+  valid_port_number "${h2v_public_port}" || fail "H2V_PUBLIC_PORT must be a number between 1 and 65535"
   valid_port_number "${vless_port}" || fail "VLESS_PORT must be a number between 1 and 65535"
   valid_port_number "${hy2_port}" || fail "HY2_PORT must be a number between 1 and 65535"
-  if ${telegram_enabled}; then
-    valid_port_number "${telegram_port}" || fail "TELEGRAM_PROXY_PORT must be a number between 1 and 65535"
-  fi
 
-  if (( panel_port < 1024 )); then
-    fail "PANEL_PORT is the internal panel listener and must be 1024 or higher"
+  if (( h2v_port < 1024 )); then
+    fail "H2V_PORT is the internal h2v listener and must be 1024 or higher"
   fi
-  if [[ "${panel_public_port}" == "80" || ( "${panel_public_port}" -lt 1024 && "${panel_public_port}" != "443" ) ]]; then
-    fail "PANEL_PUBLIC_PORT must be 443 or 1024 or higher"
+  if [[ "${h2v_public_port}" == "80" || ( "${h2v_public_port}" -lt 1024 && "${h2v_public_port}" != "443" ) ]]; then
+    fail "H2V_PUBLIC_PORT must be 443 or 1024 or higher"
   fi
-  if [[ -n "${domain}" && "${domain}" != "panel.example.com" && "${panel_public_port}" == "${panel_port}" ]]; then
-    fail "PANEL_PUBLIC_PORT and PANEL_PORT cannot both use TCP ${panel_public_port}"
+  if [[ -n "${domain}" && "${domain}" != "h2v.example.com" && "${h2v_public_port}" == "${h2v_port}" ]]; then
+    fail "H2V_PUBLIC_PORT and H2V_PORT cannot both use TCP ${h2v_public_port}"
   fi
-  if [[ "${panel_port}" == "${vless_port}" ]]; then
-    fail "PANEL_PORT and VLESS_PORT cannot both use TCP ${panel_port}"
+  if [[ "${h2v_port}" == "${vless_port}" ]]; then
+    fail "H2V_PORT and VLESS_PORT cannot both use TCP ${h2v_port}"
   fi
-  if [[ -n "${domain}" && "${domain}" != "panel.example.com" && "${panel_public_port}" == "${vless_port}" ]]; then
-    fail "PANEL_PUBLIC_PORT and VLESS_PORT cannot both use TCP ${panel_public_port}"
+  if [[ -n "${domain}" && "${domain}" != "h2v.example.com" && "${h2v_public_port}" == "${vless_port}" ]]; then
+    fail "H2V_PUBLIC_PORT and VLESS_PORT cannot both use TCP ${h2v_public_port}"
   fi
-  if ${telegram_enabled}; then
-    if [[ "${panel_port}" == "${telegram_port}" ]]; then
-      fail "PANEL_PORT and TELEGRAM_PROXY_PORT cannot both use TCP ${panel_port}"
-    fi
-    if [[ "${vless_port}" == "${telegram_port}" ]]; then
-      fail "VLESS_PORT and TELEGRAM_PROXY_PORT cannot both use TCP ${vless_port}"
-    fi
-    if [[ -n "${domain}" && "${domain}" != "panel.example.com" && "${panel_public_port}" == "${telegram_port}" ]]; then
-      fail "PANEL_PUBLIC_PORT and TELEGRAM_PROXY_PORT cannot both use TCP ${panel_public_port}"
-    fi
-  fi
-
   if ${FIRST_INSTALL}; then
-    if port_listener_in_use tcp "${panel_port}"; then
-      fail "PANEL_PORT=${panel_port}/tcp is already in use"
+    if port_listener_in_use tcp "${h2v_port}"; then
+      fail "H2V_PORT=${h2v_port}/tcp is already in use"
     fi
-    if [[ -n "${domain}" && "${domain}" != "panel.example.com" ]] && port_listener_in_use tcp "${panel_public_port}"; then
-      fail "PANEL_PUBLIC_PORT=${panel_public_port}/tcp is already in use"
+    if [[ -n "${domain}" && "${domain}" != "h2v.example.com" ]] && port_listener_in_use tcp "${h2v_public_port}"; then
+      fail "H2V_PUBLIC_PORT=${h2v_public_port}/tcp is already in use"
     fi
     if port_listener_in_use tcp "${vless_port}"; then
       fail "VLESS_PORT=${vless_port}/tcp is already in use"
@@ -1623,14 +1462,11 @@ validate_selected_runtime_ports() {
     if port_listener_in_use udp "${hy2_port}"; then
       fail "HY2_PORT=${hy2_port}/udp is already in use"
     fi
-    if ${telegram_enabled} && port_listener_in_use tcp "${telegram_port}"; then
-      fail "TELEGRAM_PROXY_PORT=${telegram_port}/tcp is already in use"
-    fi
   fi
 }
 
 normalize_config_paths() {
-  local hy2_config_path telegram_config_path xray_config_path
+  local hy2_config_path xray_config_path
 
   xray_config_path="$(env_get XRAY_CONFIG_PATH || true)"
   if [[ -z "${xray_config_path}" || "${xray_config_path}" != "${INSTALL_DIR}/configs/xray/config.json" ]]; then
@@ -1641,11 +1477,6 @@ normalize_config_paths() {
   if [[ -z "${hy2_config_path}" || "${hy2_config_path}" != "${INSTALL_DIR}/configs/hysteria/config.json" ]]; then
     warn "HY2_CONFIG_PATH must point to JSON; switching it to ${INSTALL_DIR}/configs/hysteria/config.json"
     env_set HY2_CONFIG_PATH "${INSTALL_DIR}/configs/hysteria/config.json"
-  fi
-
-  telegram_config_path="$(env_get TELEGRAM_PROXY_CONFIG_PATH || true)"
-  if [[ -z "${telegram_config_path}" || "${telegram_config_path}" != "${INSTALL_DIR}/configs/telegram/telemt.toml" ]]; then
-    env_set TELEGRAM_PROXY_CONFIG_PATH "${INSTALL_DIR}/configs/telegram/telemt.toml"
   fi
 }
 
@@ -1669,21 +1500,17 @@ configure_local_firewall() {
     return
   fi
 
-  local domain panel_public_port vless_port hy2_port telegram_port
-  domain="$(env_get PANEL_DOMAIN || true)"
-  panel_public_port="$(env_get PANEL_PUBLIC_PORT || echo 443)"
+  local domain h2v_public_port vless_port hy2_port
+  domain="$(env_get H2V_DOMAIN || true)"
+  h2v_public_port="$(env_get H2V_PUBLIC_PORT || echo 443)"
   vless_port="$(selected_runtime_value "${VLESS_PORT_INPUT}" "vless.port" "VLESS_PORT" "8444")"
   hy2_port="$(selected_runtime_value "${HY2_PORT_INPUT}" "hy2.port" "HY2_PORT" "8443")"
-  telegram_port="$(runtime_setting_value "telegram.port" "TELEGRAM_PROXY_PORT" "9443")"
 
   substep "opening required ports in UFW"
-  if [[ -n "${domain}" && "${domain}" != "panel.example.com" ]]; then
-    ufw_allow_port "${panel_public_port}" tcp "panel HTTPS"
+  if [[ -n "${domain}" && "${domain}" != "h2v.example.com" ]]; then
+    ufw_allow_port "${h2v_public_port}" tcp "h2v HTTPS"
   fi
   ufw_allow_port "${vless_port}" tcp "VLESS Reality"
-  if telegram_proxy_enabled; then
-    ufw_allow_port "${telegram_port}" tcp "Telegram Proxy"
-  fi
   ufw_allow_port "${hy2_port}" udp "Hysteria 2"
 }
 
@@ -1697,11 +1524,10 @@ ensure_secret_value() {
   fi
 
   case "${key}" in
-    PANEL_JWT_SECRET) value="$(openssl rand -hex 64)" ;;
+    H2V_JWT_SECRET) value="$(openssl rand -hex 64)" ;;
     DB_PASSWORD) value="$(openssl rand -hex 24)" ;;
     HY2_TRAFFIC_SECRET) value="$(openssl rand -hex 32)" ;;
     HY2_OBFS_PASSWORD) value="$(openssl rand -base64 24 | tr -d '\n')" ;;
-    TELEGRAM_PROXY_SECRET) value="$(openssl rand -hex 16)" ;;
     *)
       fail "unknown secret key requested: ${key}"
       ;;
@@ -1711,22 +1537,10 @@ ensure_secret_value() {
 }
 
 ensure_runtime_secrets() {
-  local panel_domain telegram_host
-  panel_domain="$(env_get PANEL_DOMAIN || echo panel.example.com)"
-  ensure_secret_value PANEL_JWT_SECRET
+  ensure_secret_value H2V_JWT_SECRET
   ensure_secret_value DB_PASSWORD
   ensure_secret_value HY2_TRAFFIC_SECRET
   ensure_secret_value HY2_OBFS_PASSWORD
-  telegram_host="$(env_get TELEGRAM_PROXY_PUBLIC_HOST || true)"
-  if [[ -z "${telegram_host}" || "${telegram_host}" == "panel.example.com" ]]; then
-    env_set TELEGRAM_PROXY_PUBLIC_HOST "${panel_domain}"
-  fi
-  env_set_default TELEGRAM_PROXY_CONFIG_PATH "${INSTALL_DIR}/configs/telegram/telemt.toml"
-  env_set_default TELEGRAM_PROXY_ENABLED "true"
-  env_set_default TELEGRAM_PROXY_PORT "9443"
-  env_set_default TELEGRAM_PROXY_MASK_DOMAIN "www.google.com"
-  env_set_default TELEGRAM_PROXY_FALLBACK_ADDR "www.google.com:443"
-  ensure_secret_value TELEGRAM_PROXY_SECRET
 }
 
 ensure_postgres() {
@@ -1740,8 +1554,8 @@ ensure_postgres() {
 
   db_host="${db_host:-127.0.0.1}"
   db_port="${db_port:-5432}"
-  db_name="${db_name:-mypanel}"
-  db_user="${db_user:-panel}"
+  db_name="${db_name:-h2v}"
+  db_user="${db_user:-h2v}"
 
   if [[ -z "${db_password}" ]]; then
     fail "DB_PASSWORD is empty after env initialization"
@@ -1780,17 +1594,17 @@ ensure_postgres() {
 }
 
 sync_runtime_settings() {
-  local db_host db_port db_name db_user db_password panel_public_port vless_port current
-  if ! panel_domain_is_real; then
+  local db_host db_port db_name db_user db_password h2v_public_port vless_port current
+  if ! h2v_domain_is_real; then
     return
   fi
 
-  panel_public_port="$(env_get PANEL_PUBLIC_PORT || echo 443)"
+  h2v_public_port="$(env_get H2V_PUBLIC_PORT || echo 443)"
   vless_port="$(selected_runtime_value "${VLESS_PORT_INPUT}" "vless.port" "VLESS_PORT" "8444")"
-  if [[ "${vless_port}" == "${panel_public_port}" ]]; then
+  if [[ "${vless_port}" == "${h2v_public_port}" ]]; then
     local fallback
-    fallback="$(vless_fallback_port "${panel_public_port}")"
-    warn "VLESS_PORT=${vless_port} conflicts with the panel public HTTPS port; switching VLESS_PORT to ${fallback}"
+    fallback="$(vless_fallback_port "${h2v_public_port}")"
+    warn "VLESS_PORT=${vless_port} conflicts with the h2v public HTTPS port; switching VLESS_PORT to ${fallback}"
     env_set VLESS_PORT "${fallback}"
     vless_port="${fallback}"
   fi
@@ -1805,8 +1619,8 @@ sync_runtime_settings() {
   db_password="$(env_get DB_PASSWORD || true)"
   db_host="${db_host:-127.0.0.1}"
   db_port="${db_port:-5432}"
-  db_name="${db_name:-mypanel}"
-  db_user="${db_user:-panel}"
+  db_name="${db_name:-h2v}"
+  db_user="${db_user:-h2v}"
 
   if [[ "${db_host}" == "127.0.0.1" || "${db_host}" == "localhost" || "${db_host}" == "::1" ]]; then
     current="$(sudo -u postgres psql -tA --dbname="${db_name}" --port="${db_port}" \
@@ -1818,11 +1632,11 @@ sync_runtime_settings() {
   current="${current%\"}"
   current="${current#\"}"
 
-  if [[ "${current}" != "${panel_public_port}" ]]; then
+  if [[ "${current}" != "${h2v_public_port}" ]]; then
     return
   fi
 
-  warn "database setting vless.port still conflicts with PANEL_PUBLIC_PORT=${panel_public_port}; updating it to ${vless_port}"
+  warn "database setting vless.port still conflicts with H2V_PUBLIC_PORT=${h2v_public_port}; updating it to ${vless_port}"
   if [[ "${db_host}" == "127.0.0.1" || "${db_host}" == "localhost" || "${db_host}" == "::1" ]]; then
     sudo -u postgres psql -v ON_ERROR_STOP=1 --dbname="${db_name}" --port="${db_port}" \
       -c "INSERT INTO settings (key, value, updated_at) VALUES ('vless.port', '${vless_port}'::jsonb, now()) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = now()" >/dev/null
@@ -1853,12 +1667,12 @@ build_artifacts() {
   build_time="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
   ldflags="-s -w -X main.version=${H2V_VERSION:-${REPO_REF}} -X main.commit=${build_commit} -X main.builtAt=${build_time}"
 
-  substep "compiling backend panel"
+  substep "compiling h2v backend"
   if ! (
     cd "${SOURCE_DIR}/backend" &&
     go mod download &&
     go mod verify &&
-    go build -mod=readonly -ldflags "${ldflags}" -o "${INSTALL_DIR}/bin/panel" ./cmd/panel
+    go build -mod=readonly -ldflags "${ldflags}" -o "${INSTALL_DIR}/bin/h2v" ./cmd/h2v
   ) >"${backend_log}" 2>&1; then
     red "backend build failed"
     printf '  %slog:%s %s\n' "${DIM}" "${RESET}" "${backend_log}"
@@ -1908,20 +1722,19 @@ build_artifacts() {
   cp "${frontend_dir}/package-lock.json" "${cached_lock}"
   rsync -a --delete "${frontend_dir}/dist/" "${INSTALL_DIR}/frontend/"
 
-  [[ -x "${INSTALL_DIR}/bin/panel" ]] || fail "backend build completed without producing ${INSTALL_DIR}/bin/panel"
+  [[ -x "${INSTALL_DIR}/bin/h2v" ]] || fail "backend build completed without producing ${INSTALL_DIR}/bin/h2v"
   [[ -f "${INSTALL_DIR}/frontend/index.html" ]] || fail "frontend build completed without producing ${INSTALL_DIR}/frontend/index.html"
 
-  chown -R panel:panel "${INSTALL_DIR}/bin" "${INSTALL_DIR}/frontend" "${BUILD_STATE_DIR}"
+  chown -R h2v:h2v "${INSTALL_DIR}/bin" "${INSTALL_DIR}/frontend" "${BUILD_STATE_DIR}"
 }
 
 install_templates() {
   rsync -a --delete "${SOURCE_DIR}/templates/" "${INSTALL_DIR}/templates/"
   install -m 0644 "${SOURCE_DIR}/backend/schema.sql" "${INSTALL_DIR}/schema.sql"
-  rm -rf "${INSTALL_DIR}/migrations"
   install -m 0755 "${SOURCE_DIR}/install.sh" "${INSTALL_DIR}/install.sh"
   chown root:root "${INSTALL_DIR}/install.sh" 2>/dev/null || true
-  chown -R panel:panel "${INSTALL_DIR}/templates"
-  chown panel:panel "${INSTALL_DIR}/schema.sql"
+  chown -R h2v:h2v "${INSTALL_DIR}/templates"
+  chown h2v:h2v "${INSTALL_DIR}/schema.sql"
 }
 
 install_units() {
@@ -1932,19 +1745,18 @@ install_units() {
 
 setup_geodata_timer() {
   if ! systemctl enable --now h2v-geodata-update.timer >/dev/null 2>&1; then
-    warn "failed to enable h2v-geodata-update.timer; run panel geodata update manually if needed"
+    warn "failed to enable h2v-geodata-update.timer; run h2v geodata update manually if needed"
     return
   fi
   substep "h2v-geodata-update.timer enabled"
 }
 
 install_sudoers() {
-  local path="/etc/sudoers.d/mypanel-systemctl"
+  local path="/etc/sudoers.d/h2v-systemctl"
   local tmp="${path}.tmp"
   cat >"${tmp}" <<'EOF'
-panel ALL=(root) NOPASSWD: /bin/systemctl restart xray.service, /bin/systemctl restart hysteria.service, /bin/systemctl restart h2v-telegram.service
-panel ALL=(root) NOPASSWD: /bin/systemctl stop h2v-telegram.service
-panel ALL=(root) NOPASSWD: /bin/systemctl reload xray.service, /bin/systemctl reload hysteria.service
+h2v ALL=(root) NOPASSWD: /bin/systemctl restart xray.service, /bin/systemctl restart hysteria.service
+h2v ALL=(root) NOPASSWD: /bin/systemctl reload xray.service, /bin/systemctl reload hysteria.service
 EOF
   chmod 0440 "${tmp}"
   if command_exists visudo; then
@@ -1953,47 +1765,44 @@ EOF
   mv "${tmp}" "${path}"
 }
 
-start_panel() {
-  substep "enabling panel.service"
-  systemctl enable panel.service >/dev/null 2>&1 || true
-  if ! systemctl restart panel.service; then
-    red "panel.service failed to start. Recent logs:"
-    journalctl -u panel.service -n 30 --no-pager || true
-    fail "panel.service is not running"
+start_h2v() {
+  substep "enabling h2v.service"
+  systemctl enable h2v.service >/dev/null 2>&1 || true
+  if ! systemctl restart h2v.service; then
+    red "h2v.service failed to start. Recent logs:"
+    journalctl -u h2v.service -n 30 --no-pager || true
+    fail "h2v.service is not running"
   fi
   sleep 1
-  if ! systemctl is-active --quiet panel.service; then
-    red "panel.service is not active after start. Recent logs:"
-    journalctl -u panel.service -n 30 --no-pager || true
-    fail "panel.service failed to come up"
+  if ! systemctl is-active --quiet h2v.service; then
+    red "h2v.service is not active after start. Recent logs:"
+    journalctl -u h2v.service -n 30 --no-pager || true
+    fail "h2v.service failed to come up"
   fi
 }
 
 setup_reverse_proxy() {
-  local domain panel_port panel_public_port site_address public_url
-  domain="$(env_get PANEL_DOMAIN || true)"
-  panel_port="$(env_get PANEL_PORT || true)"
-  panel_port="${panel_port:-8000}"
-  panel_public_port="$(env_get PANEL_PUBLIC_PORT || true)"
-  panel_public_port="${panel_public_port:-443}"
+  local domain h2v_port h2v_public_port site_address public_url
+  domain="$(env_get H2V_DOMAIN || true)"
+  h2v_port="$(env_get H2V_PORT || true)"
+  h2v_port="${h2v_port:-8000}"
+  h2v_public_port="$(env_get H2V_PUBLIC_PORT || true)"
+  h2v_public_port="${h2v_public_port:-443}"
 
-  if [[ -z "${domain}" || "${domain}" == "panel.example.com" ]]; then
-    warn "skipping Caddy config (no real PANEL_DOMAIN set)"
-    info "panel is local-only at http://127.0.0.1:${panel_port}/ — set PANEL_DOMAIN and rerun for auto-TLS"
+  if [[ -z "${domain}" || "${domain}" == "h2v.example.com" ]]; then
+    warn "skipping Caddy config (no real H2V_DOMAIN set)"
+    info "h2v is local-only at http://127.0.0.1:${h2v_port}/ — set H2V_DOMAIN and rerun for auto-TLS"
     return
   fi
   site_address="${domain}"
   public_url="https://${domain}/"
-  if [[ "${panel_public_port}" != "443" ]]; then
-    site_address="${domain}:${panel_public_port}"
-    public_url="https://${domain}:${panel_public_port}/"
+  if [[ "${h2v_public_port}" != "443" ]]; then
+    site_address="${domain}:${h2v_public_port}"
+    public_url="https://${domain}:${h2v_public_port}/"
   fi
 
   substep "writing /etc/caddy/Caddyfile for ${site_address}"
   mkdir -p /etc/caddy
-  # protocols h1 h2: disable HTTP/3. The panel is low-traffic and UDP/443 is
-  # frequently blocked or mangled by ISPs/NAT; leaving QUIC on triggers
-  # ERR_QUIC_PROTOCOL_ERROR in browsers that cached the Alt-Svc hint.
   cat >/etc/caddy/Caddyfile <<EOF
 {
   admin off
@@ -2008,7 +1817,7 @@ ${site_address} {
   @private path /metrics /hy2/auth
   respond @private 404
 
-  reverse_proxy 127.0.0.1:${panel_port}
+  reverse_proxy 127.0.0.1:${h2v_port}
 }
 EOF
 
@@ -2017,34 +1826,34 @@ EOF
     if ! systemctl restart caddy.service; then
       red "caddy.service failed to start. Recent logs:"
       journalctl -u caddy.service -n 30 --no-pager || true
-      warn "backend up on 127.0.0.1:${panel_port}, reverse proxy is NOT — fix Caddy separately"
+      warn "backend up on 127.0.0.1:${h2v_port}, reverse proxy is NOT — fix Caddy separately"
       return
     fi
   fi
   substep "Caddy active for ${public_url} (auto-TLS via Let's Encrypt)"
-  if [[ "${panel_public_port}" == "443" ]]; then
+  if [[ "${h2v_public_port}" == "443" ]]; then
     info "DNS must point ${domain} at this server; ports 80/443 must be open"
   else
-    info "DNS must point ${domain} at this server; ports 80 and ${panel_public_port}/tcp must be open"
+    info "DNS must point ${domain} at this server; ports 80 and ${h2v_public_port}/tcp must be open"
   fi
 }
 
 init_database_schema() {
-  [[ -x "${INSTALL_DIR}/bin/panel" ]] || fail "panel binary missing; cannot initialize database schema"
-  sudo -u panel env PANEL_ENV_FILE="${ENV_FILE}" "${INSTALL_DIR}/bin/panel" db init
+  [[ -x "${INSTALL_DIR}/bin/h2v" ]] || fail "h2v binary missing; cannot initialize database schema"
+  sudo -u h2v env H2V_ENV_FILE="${ENV_FILE}" "${INSTALL_DIR}/bin/h2v" db init
 }
 
 create_admin() {
   if ! ${FIRST_INSTALL}; then
     return
   fi
-  local admin_username="${ADMIN_USERNAME_INPUT:-${PANEL_ADMIN_USERNAME:-admin}}"
-  local admin_password="${ADMIN_PASSWORD_INPUT:-${PANEL_ADMIN_PASSWORD:-admin123456}}"
-  [[ -x "${INSTALL_DIR}/bin/panel" ]] || fail "panel binary missing; cannot create initial admin"
+  local admin_username="${ADMIN_USERNAME_INPUT:-${H2V_ADMIN_USERNAME:-admin}}"
+  local admin_password="${ADMIN_PASSWORD_INPUT:-${H2V_ADMIN_PASSWORD:-admin123456}}"
+  [[ -x "${INSTALL_DIR}/bin/h2v" ]] || fail "h2v binary missing; cannot create initial admin"
 
   local admin_output
   local admin_status=0
-  admin_output="$(sudo -u panel env PANEL_ENV_FILE="${ENV_FILE}" "${INSTALL_DIR}/bin/panel" admin create \
+  admin_output="$(sudo -u h2v env H2V_ENV_FILE="${ENV_FILE}" "${INSTALL_DIR}/bin/h2v" admin create \
     --username="${admin_username}" \
     --password="${admin_password}" 2>&1)" || admin_status=$?
 
@@ -2077,22 +1886,21 @@ plan_value() {
 }
 
 print_install_plan() {
-  local domain panel_port panel_public_port vless_port hy2_port telegram_port panel_url mode
-  domain="$(plan_value "${PANEL_DOMAIN_INPUT}" "PANEL_DOMAIN" "panel.example.com")"
-  panel_port="$(plan_value "" "PANEL_PORT" "8000")"
-  panel_public_port="$(plan_value "${PANEL_PUBLIC_PORT_INPUT}" "PANEL_PUBLIC_PORT" "443")"
+  local domain h2v_port h2v_public_port vless_port hy2_port h2v_url mode
+  domain="$(plan_value "${H2V_DOMAIN_INPUT}" "H2V_DOMAIN" "h2v.example.com")"
+  h2v_port="$(plan_value "" "H2V_PORT" "8000")"
+  h2v_public_port="$(plan_value "${H2V_PUBLIC_PORT_INPUT}" "H2V_PUBLIC_PORT" "443")"
   vless_port="$(selected_runtime_value "${VLESS_PORT_INPUT}" "vless.port" "VLESS_PORT" "8444")"
   hy2_port="$(selected_runtime_value "${HY2_PORT_INPUT}" "hy2.port" "HY2_PORT" "8443")"
-  telegram_port="$(runtime_setting_value "telegram.port" "TELEGRAM_PROXY_PORT" "9443")"
 
-  if [[ -n "${domain}" && "${domain}" != "panel.example.com" ]]; then
-    if [[ "${panel_public_port}" == "443" ]]; then
-      panel_url="https://${domain}/"
+  if [[ -n "${domain}" && "${domain}" != "h2v.example.com" ]]; then
+    if [[ "${h2v_public_port}" == "443" ]]; then
+      h2v_url="https://${domain}/"
     else
-      panel_url="https://${domain}:${panel_public_port}/"
+      h2v_url="https://${domain}:${h2v_public_port}/"
     fi
   else
-    panel_url="http://127.0.0.1:${panel_port}/"
+    h2v_url="http://127.0.0.1:${h2v_port}/"
   fi
 
   if ${FIRST_INSTALL}; then
@@ -2107,14 +1915,9 @@ print_install_plan() {
   printf '  %s%-18s%s %s\n' "${DIM}" "Mode" "${RESET}" "${mode}"
   printf '  %s%-18s%s %s/%s@%s\n' "${DIM}" "Source" "${RESET}" "${REPO_OWNER}" "${REPO_NAME}" "${REPO_REF}"
   printf '  %s%-18s%s %s\n' "${DIM}" "Install dir" "${RESET}" "${INSTALL_DIR}"
-  printf '  %s%-18s%s %s\n' "${DIM}" "Panel URL" "${RESET}" "${panel_url}"
+  printf '  %s%-18s%s %s\n' "${DIM}" "h2v URL" "${RESET}" "${h2v_url}"
   printf '  %s%-18s%s %s/tcp\n' "${DIM}" "VLESS Reality" "${RESET}" "${vless_port}"
   printf '  %s%-18s%s %s/udp\n' "${DIM}" "Hysteria 2" "${RESET}" "${hy2_port}"
-  if telegram_proxy_enabled; then
-    printf '  %s%-18s%s %s/tcp\n' "${DIM}" "Telegram Proxy" "${RESET}" "${telegram_port}"
-  else
-    printf '  %s%-18s%s disabled\n' "${DIM}" "Telegram Proxy" "${RESET}"
-  fi
   if ${FIRST_INSTALL}; then
     printf '  %s%-18s%s %s\n' "${DIM}" "Config" "${RESET}" "create new .env"
   elif ${RECONFIGURE_RUNTIME}; then
@@ -2128,9 +1931,9 @@ print_install_plan() {
 print_welcome() {
   printf '\n'
   printf '  %sThis installer will prepare:%s\n' "${BOLD}" "${RESET}"
-  printf '    - panel backend and web UI\n'
+  printf '    - h2v backend and web UI\n'
   printf '    - PostgreSQL database schema\n'
-  printf '    - Xray VLESS Reality, Hysteria 2, and Telemt-powered Telegram Proxy services\n'
+  printf '    - Xray VLESS Reality and Hysteria 2 services\n'
   printf '    - Caddy TLS reverse proxy, geodata timer, and backups\n'
   printf '\n'
   printf '  %sTip:%s press Enter to accept suggested defaults during setup.\n' "${DIM}" "${RESET}"
@@ -2140,7 +1943,7 @@ install_all() {
   require_root
   detect_os
   clear_screen
-  banner "h2v panel installer" "VLESS Reality + Hysteria 2 | Ubuntu 22.04/24.04"
+  banner "h2v installer" "VLESS Reality + Hysteria 2 | Ubuntu 22.04/24.04"
   print_welcome
   resolve_source_dir
 
@@ -2160,15 +1963,14 @@ install_all() {
   ensure_build_toolchain
   success "Go $(go version | awk '{print $3}') · Node $(node -v) · npm $(npm -v)"
 
-  step "cores" "Installing Xray-core, Hysteria 2, and Telemt binaries"
+  step "cores" "Installing Xray-core and Hysteria 2 binaries"
   install_xray_binary
   install_hysteria_binary
-  install_telemt_binary
   ensure_core_users
-  success "core and Telegram proxy binaries installed"
+  success "core binaries installed"
 
-  step "layout" "Creating panel user and directory layout"
-  ensure_panel_user
+  step "layout" "Creating h2v user and directory layout"
+  ensure_h2v_user
   ensure_dirs
   ensure_env
   normalize_config_paths
@@ -2177,7 +1979,7 @@ install_all() {
   validate_selected_runtime_ports
   configure_local_firewall
   ensure_reality_keys
-  success "user/panel and ${INSTALL_DIR} prepared"
+  success "user/h2v and ${INSTALL_DIR} prepared"
 
   step "db" "Ensuring PostgreSQL role and database"
   ensure_postgres
@@ -2224,19 +2026,18 @@ install_all() {
   grant_cert_access
   success "core configs written to ${INSTALL_DIR}/configs/"
 
-  step "service" "Starting panel, cores, and reverse proxy"
-  start_panel
+  step "service" "Starting h2v, cores, and reverse proxy"
+  start_h2v
   setup_reverse_proxy
   start_cores
-  start_telegram_proxy
   success "services active"
 
   local final_domain final_port final_public_port access_url local_url
-  final_domain="$(env_get PANEL_DOMAIN || echo panel.example.com)"
-  final_port="$(env_get PANEL_PORT || echo 8000)"
-  final_public_port="$(env_get PANEL_PUBLIC_PORT || echo 443)"
+  final_domain="$(env_get H2V_DOMAIN || echo h2v.example.com)"
+  final_port="$(env_get H2V_PORT || echo 8000)"
+  final_public_port="$(env_get H2V_PUBLIC_PORT || echo 443)"
   local_url="http://127.0.0.1:${final_port}/"
-  if [[ -n "${final_domain}" && "${final_domain}" != "panel.example.com" ]]; then
+  if [[ -n "${final_domain}" && "${final_domain}" != "h2v.example.com" ]]; then
     if [[ "${final_public_port}" == "443" ]]; then
       access_url="https://${final_domain}/"
     else
@@ -2261,12 +2062,12 @@ backup_db() {
 
   db_host="${db_host:-127.0.0.1}"
   db_port="${db_port:-5432}"
-  db_name="${db_name:-mypanel}"
-  db_user="${db_user:-panel}"
+  db_name="${db_name:-h2v}"
+  db_user="${db_user:-h2v}"
   backup_dir="${backup_dir:-${INSTALL_DIR}/data/backups}"
 
   mkdir -p "${backup_dir}"
-  local name="panel-$(date -u +%F-%H%M%S).sql.gz"
+  local name="h2v-$(date -u +%F-%H%M%S).sql.gz"
   PGPASSWORD="${db_password}" pg_dump -h "${db_host}" -p "${db_port}" -U "${db_user}" "${db_name}" | gzip > "${backup_dir}/${name}"
   green "Backup written to ${backup_dir}/${name}"
 }
@@ -2282,8 +2083,8 @@ restore_db() {
 
   db_host="${db_host:-127.0.0.1}"
   db_port="${db_port:-5432}"
-  db_name="${db_name:-mypanel}"
-  db_user="${db_user:-panel}"
+  db_name="${db_name:-h2v}"
+  db_user="${db_user:-h2v}"
 
   local file="${1:-}"
   if [[ -z "${file}" || ! -f "${file}" ]]; then
@@ -2314,19 +2115,19 @@ update_geodata_command() {
 uninstall_all() {
   require_root
   clear_screen
-  banner "h2v panel uninstaller" "stopping services and removing ${INSTALL_DIR}"
+  banner "h2v uninstaller" "stopping services and removing ${INSTALL_DIR}"
   STAGE_INDEX=0
   STAGE_TOTAL=2
 
   step "stop" "Stopping and disabling services"
-  systemctl disable --now panel hysteria xray h2v-telegram h2v-geodata-update.timer h2v-geodata-update.service 2>/dev/null || true
-  success "panel/hysteria/xray/telegram services and geodata timer stopped"
+  systemctl disable --now h2v hysteria xray h2v-geodata-update.timer h2v-geodata-update.service 2>/dev/null || true
+  success "h2v/hysteria/xray services and geodata timer stopped"
 
   step "purge" "Removing application files and units"
   rm -rf "${INSTALL_DIR}"
-  rm -f /etc/systemd/system/panel.service /etc/systemd/system/xray.service /etc/systemd/system/hysteria.service /etc/systemd/system/h2v-telegram.service
+  rm -f /etc/systemd/system/h2v.service /etc/systemd/system/xray.service /etc/systemd/system/hysteria.service
   rm -f /etc/systemd/system/h2v-geodata-update.service /etc/systemd/system/h2v-geodata-update.timer
-  rm -f /etc/sudoers.d/mypanel-systemctl
+  rm -f /etc/sudoers.d/h2v-systemctl
   systemctl daemon-reload
   success "${INSTALL_DIR} and systemd units removed"
 
@@ -2337,11 +2138,11 @@ uninstall_all() {
 
 reset_admin() {
   require_root
-  [[ -x "${INSTALL_DIR}/bin/panel" ]] || fail "panel binary missing at ${INSTALL_DIR}/bin/panel — run install first"
+  [[ -x "${INSTALL_DIR}/bin/h2v" ]] || fail "h2v binary missing at ${INSTALL_DIR}/bin/h2v — run install first"
   [[ -f "${ENV_FILE}" ]] || fail "${ENV_FILE} not found"
 
   clear_screen
-  banner "Admin password reset" "panel admin set-password"
+  banner "Admin password reset" "h2v admin set-password"
 
   local username password generated=false
   username="${1:-}"
@@ -2365,7 +2166,7 @@ reset_admin() {
   STAGE_TOTAL=1
   step "reset" "Applying new password for admin '${username}'"
   local out status=0
-  out="$(sudo -u panel env PANEL_ENV_FILE="${ENV_FILE}" "${INSTALL_DIR}/bin/panel" admin set-password \
+  out="$(sudo -u h2v env H2V_ENV_FILE="${ENV_FILE}" "${INSTALL_DIR}/bin/h2v" admin set-password \
     --username="${username}" \
     --password="${password}" 2>&1)" || status=$?
 
@@ -2395,7 +2196,7 @@ case "${1:-install}" in
   restore) restore_db "${2:-}" ;;
   help|-h|--help)
     cat <<'USAGE'
-h2v panel installer
+h2v installer
 
 Quick install:
   bash <(curl -fsSL https://raw.githubusercontent.com/ProstyGospody/h2v/main/install.sh)
@@ -2404,14 +2205,14 @@ Usage:
   install.sh install                         full install or update with interactive prompts
   install.sh update | reinstall              same as install; keeps .env unless you choose reconfigure
   install.sh geodata | update-geodata        refresh core geoip.dat/geosite.dat
-  install.sh uninstall                       remove /opt/mypanel and systemd units
+  install.sh uninstall                       remove /opt/h2v and systemd units
   install.sh reset-admin [user] [pw]         reset admin password
   install.sh backup                          dump database to data/backups
   install.sh restore <file>                  restore database from a gzip dump
 
 Env overrides:
   H2V_REF=<branch|tag|commit>                repository source; defaults to main
-  H2V_VERSION=<version>                      panel version embedded via ldflags; defaults to H2V_REF/main
+  H2V_VERSION=<version>                      h2v version embedded via ldflags; defaults to H2V_REF/main
   H2V_SOURCE_SHA256=<sha256>                 verify downloaded source archive
   H2V_REQUIRE_SOURCE_SHA256=1                fail if source checksum is absent
   XRAY_VERSION, HYSTERIA_VERSION             override pinned core versions
@@ -2419,7 +2220,7 @@ Env overrides:
   H2V_INSTALL_LOG=/path/to/log               quiet-mode command log
   H2V_NO_CLEAR=1                             keep previous terminal output
   H2V_NODE_MAX_OLD_SPACE_MB=512              cap Node.js heap during frontend build; 0 disables
-  PANEL_ADMIN_USERNAME, PANEL_ADMIN_PASSWORD seed non-interactive admin
+  H2V_ADMIN_USERNAME, H2V_ADMIN_PASSWORD seed non-interactive admin
 
 USAGE
     ;;

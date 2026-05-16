@@ -20,9 +20,9 @@ Do not include backup exports, subscription tokens, admin passwords, JWT secrets
 
 Treat these as production secrets:
 
-- `/opt/mypanel/.env`
-- PostgreSQL dumps and panel backup exports
-- `PANEL_JWT_SECRET`
+- `/opt/h2v/.env`
+- PostgreSQL dumps and h2v backup exports
+- `H2V_JWT_SECRET`
 - `DB_PASSWORD`
 - Reality private key
 - Hysteria traffic and obfs secrets

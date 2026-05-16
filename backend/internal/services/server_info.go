@@ -60,7 +60,7 @@ func (s *ServerInfoService) Info(ctx context.Context, hostHint string) (*domain.
 		runtime = DefaultRuntime(s.cfg)
 	}
 
-	lookupTarget := firstNonEmpty(runtime.PublicServerIP, hostHint, publicHostFromURL(runtime.SubURLPrefix), runtime.PanelDomain)
+	lookupTarget := firstNonEmpty(runtime.PublicServerIP, hostHint, publicHostFromURL(runtime.SubURLPrefix), runtime.H2VDomain)
 	geo, err := s.location(ctx, lookupTarget)
 	if err != nil {
 		s.logger.Debug("server geo lookup failed", "target", lookupTarget, "err", err)
@@ -182,7 +182,7 @@ func (s *ServerInfoService) getJSON(ctx context.Context, endpoint string, target
 		return err
 	}
 	req.Header.Set("Accept", "application/json")
-	req.Header.Set("User-Agent", "h2v-panel server-info")
+	req.Header.Set("User-Agent", "h2v server-info")
 
 	resp, err := s.client.Do(req)
 	if err != nil {

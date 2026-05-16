@@ -14,8 +14,8 @@ import (
 )
 
 const (
-	panelBackupType    = "h2v.panel.backup"
-	panelBackupVersion = 1
+	h2vBackupType    = "h2v.backup"
+	h2vBackupVersion = 1
 )
 
 type BackupService struct {
@@ -25,7 +25,7 @@ type BackupService struct {
 	cache    SubscriptionCache
 }
 
-type PanelBackup struct {
+type H2VBackup struct {
 	Type       string           `json:"type"`
 	Version    int              `json:"version"`
 	ExportedAt time.Time        `json:"exported_at"`
@@ -64,7 +64,7 @@ func NewBackupService(repository *repo.Repository, settings *SettingsService, co
 	}
 }
 
-func (s *BackupService) Export(ctx context.Context) (*PanelBackup, error) {
+func (s *BackupService) Export(ctx context.Context) (*H2VBackup, error) {
 	settings, err := s.settings.List(ctx)
 	if err != nil {
 		return nil, err
@@ -82,9 +82,9 @@ func (s *BackupService) Export(ctx context.Context) (*PanelBackup, error) {
 		configs[core] = string(content)
 	}
 
-	return &PanelBackup{
-		Type:       panelBackupType,
-		Version:    panelBackupVersion,
+	return &H2VBackup{
+		Type:       h2vBackupType,
+		Version:    h2vBackupVersion,
 		ExportedAt: time.Now().UTC(),
 		Settings:   settings,
 		Configs:    configs,
@@ -92,8 +92,8 @@ func (s *BackupService) Export(ctx context.Context) (*PanelBackup, error) {
 	}, nil
 }
 
-func (s *BackupService) Import(ctx context.Context, backup PanelBackup) (*BackupImportSummary, error) {
-	if err := validatePanelBackup(backup); err != nil {
+func (s *BackupService) Import(ctx context.Context, backup H2VBackup) (*BackupImportSummary, error) {
+	if err := validateH2VBackup(backup); err != nil {
 		return nil, err
 	}
 
@@ -164,7 +164,7 @@ func (s *BackupService) Import(ctx context.Context, backup PanelBackup) (*Backup
 	}, nil
 }
 
-func (s *BackupService) rollbackImport(ctx context.Context, snapshot *PanelBackup, cause error) (*BackupImportSummary, error) {
+func (s *BackupService) rollbackImport(ctx context.Context, snapshot *H2VBackup, cause error) (*BackupImportSummary, error) {
 	if snapshot == nil {
 		return nil, cause
 	}
@@ -179,7 +179,7 @@ func (s *BackupService) rollbackImport(ctx context.Context, snapshot *PanelBacku
 	return nil, cause
 }
 
-func (s *BackupService) restoreSnapshot(ctx context.Context, snapshot *PanelBackup) error {
+func (s *BackupService) restoreSnapshot(ctx context.Context, snapshot *H2VBackup) error {
 	settings, err := backupSettingsForUpdate(snapshot.Settings)
 	if err != nil {
 		return err
@@ -207,11 +207,11 @@ func (s *BackupService) restoreSnapshot(ctx context.Context, snapshot *PanelBack
 	return nil
 }
 
-func validatePanelBackup(backup PanelBackup) error {
-	if backup.Type != "" && backup.Type != panelBackupType {
-		return domain.NewError(400, "invalid_backup", "Backup file is not an h2v panel backup", nil)
+func validateH2VBackup(backup H2VBackup) error {
+	if backup.Type != "" && backup.Type != h2vBackupType {
+		return domain.NewError(400, "invalid_backup", "Backup file is not an h2v backup", nil)
 	}
-	if backup.Version != panelBackupVersion {
+	if backup.Version != h2vBackupVersion {
 		return domain.NewError(400, "invalid_backup", "Backup version is not supported", nil)
 	}
 	return nil
