@@ -102,10 +102,10 @@
 
     --sidebar: 228 17% 6.3%;
     --sidebar-foreground: 222 12% 95%;
-    --accent-primary-hsl: 248 92% 75.3%;
-    --accent-secondary-hsl: 194 68% 59.4%;
-    --accent-primary-rgb: 148 134 250;
-    --accent-secondary-rgb: 82 187 221;
+    --accent-primary-hsl: 248 88% 71.5%;
+    --accent-secondary-hsl: 194 66% 54.5%;
+    --accent-primary-rgb: 137 121 246;
+    --accent-secondary-rgb: 62 174 211;
     --accent-on-gradient: 0 0% 100%;
 
     --sidebar-primary: var(--accent-primary-hsl);
@@ -181,10 +181,10 @@
     --foreground: 224 26% 12%;
     --sidebar: 222 36% 96%;
     --sidebar-foreground: 224 26% 12%;
-    --accent-primary-hsl: 248 92% 75.3%;
-    --accent-secondary-hsl: 194 68% 59.4%;
-    --accent-primary-rgb: 148 134 250;
-    --accent-secondary-rgb: 82 187 221;
+    --accent-primary-hsl: 248 88% 71.5%;
+    --accent-secondary-hsl: 194 66% 54.5%;
+    --accent-primary-rgb: 137 121 246;
+    --accent-secondary-rgb: 62 174 211;
     --accent-on-gradient: 0 0% 100%;
 
     --sidebar-primary: var(--accent-primary-hsl);
