@@ -1,5 +1,6 @@
 import * as React from 'react';
 import { Slot } from '@radix-ui/react-slot';
+import { cva, type VariantProps } from 'class-variance-authority';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -14,6 +15,34 @@ type SidebarContextValue = {
 const SIDEBAR_TRANSITION_MS = 220;
 
 const SidebarContext = React.createContext<SidebarContextValue | null>(null);
+
+const sidebarMenuButtonVariants = cva(
+  [
+    'group/menu-button peer/menu-button relative flex w-full min-w-0 items-center overflow-hidden rounded-md text-left outline-none ring-sidebar-ring transition-[background-color,color,box-shadow] duration-150',
+    'text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:ring-2 focus-visible:ring-sidebar-ring/35',
+    'data-[active=true]:bg-sidebar-accent data-[active=true]:font-semibold data-[active=true]:text-sidebar-accent-foreground data-[active=true]:ring-1 data-[active=true]:ring-sidebar-ring/25',
+    'before:pointer-events-none before:absolute before:inset-y-2 before:left-0 before:w-0.5 before:rounded-r-full before:bg-transparent data-[active=true]:before:bg-sidebar-ring',
+    "disabled:pointer-events-none disabled:opacity-50 [&_svg:not([class*='size-'])]:size-4 [&_svg]:shrink-0",
+  ],
+  {
+    variants: {
+      size: {
+        default: 'h-11 gap-2.5 px-2.5 text-sm',
+        sm: 'h-9 gap-2 px-2 text-xs',
+        lg: 'h-12 gap-3 px-3 text-sm',
+      },
+      variant: {
+        default: '',
+        outline:
+          'bg-sidebar/35 ring-1 ring-sidebar-border hover:bg-sidebar-accent hover:ring-sidebar-ring/25',
+      },
+    },
+    defaultVariants: {
+      size: 'default',
+      variant: 'default',
+    },
+  },
+);
 
 function useSidebar() {
   const context = React.useContext(SidebarContext);
@@ -94,7 +123,7 @@ function Sidebar({ className, children, ...props }: React.ComponentProps<'aside'
         data-slot="sidebar"
         data-state={state}
         className={cn(
-          'fixed inset-y-0 left-0 z-40 hidden overflow-hidden flex-col border-r border-border/55 bg-sidebar-panel lg:flex',
+          'fixed inset-y-0 left-0 z-40 hidden overflow-hidden flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground lg:flex',
           className,
         )}
         {...props}
@@ -138,7 +167,13 @@ function SidebarGroup({ className, ...props }: React.ComponentProps<'div'>) {
 }
 
 function SidebarGroupLabel({ className, ...props }: React.ComponentProps<'div'>) {
-  return <div data-slot="sidebar-group-label" className={cn('px-2 pb-3 t-label', className)} {...props} />;
+  return (
+    <div
+      data-slot="sidebar-group-label"
+      className={cn('px-2 pb-3 t-label text-sidebar-foreground/50', className)}
+      {...props}
+    />
+  );
 }
 
 function SidebarMenu({ className, ...props }: React.ComponentProps<'nav'>) {
@@ -153,13 +188,15 @@ function SidebarMenuButton({
   asChild = false,
   className,
   isActive = false,
+  size = 'default',
   tooltip,
+  variant = 'default',
   ...props
 }: React.ComponentProps<'a'> & {
   asChild?: boolean;
   isActive?: boolean;
   tooltip?: string;
-}) {
+} & VariantProps<typeof sidebarMenuButtonVariants>) {
   const { state } = useSidebar();
   const collapsed = state === 'collapsed';
   const Comp = asChild ? Slot : 'a';
@@ -169,11 +206,7 @@ function SidebarMenuButton({
       data-active={isActive}
       data-slot="sidebar-menu-button"
       title={collapsed ? tooltip : undefined}
-      className={cn(
-        'group relative flex h-12 min-w-0 items-center rounded-lg text-sm font-semibold text-muted-foreground transition-colors duration-200 data-[active=true]:shadow-sm data-[active=true]:before:absolute data-[active=true]:before:inset-y-2 data-[active=true]:before:left-0 data-[active=true]:before:w-0.5 data-[active=true]:before:rounded-r-full data-[active=true]:before:bg-accent-gradient-vertical',
-        'gap-3 px-3',
-        className,
-      )}
+      className={cn(sidebarMenuButtonVariants({ size, variant }), className)}
       {...props}
     />
   );
@@ -194,7 +227,7 @@ function SidebarTrigger({ className, ...props }: React.ComponentProps<typeof But
       variant="ghost"
       {...props}
     >
-      <Icon className="size-4" />
+      <Icon aria-hidden="true" />
     </Button>
   );
 }
@@ -212,5 +245,6 @@ export {
   SidebarMenuItem,
   SidebarProvider,
   SidebarTrigger,
+  sidebarMenuButtonVariants,
   useSidebar,
 };

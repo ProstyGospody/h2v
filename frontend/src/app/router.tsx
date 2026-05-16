@@ -1,4 +1,4 @@
-import { useId, useState, type ComponentType } from 'react';
+import { useId, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Link, Outlet, createRootRoute, createRoute, createRouter, useRouterState } from '@tanstack/react-router';
 import {
@@ -51,7 +51,7 @@ type LinkTo = '/' | '/users' | '/settings' | '/configs';
 type StatusTone = 'ok' | 'warn' | 'idle';
 
 const primaryLinks: Array<{
-  icon: ComponentType<{ className?: string }>;
+  icon: LucideIcon;
   labelKey: TranslationKey;
   to: LinkTo;
 }> = [
@@ -98,7 +98,7 @@ function ProtectedShell() {
             size="icon"
             variant="ghost"
           >
-            <Menu className="size-5" />
+            <Menu aria-hidden="true" />
           </Button>
           <AppBrand compact />
           <div className="ml-auto flex items-center gap-1">
@@ -111,7 +111,7 @@ function ProtectedShell() {
       </SidebarInset>
 
       <Sheet onOpenChange={setNavOpen} open={navOpen}>
-        <SheetContent className="w-70 bg-sidebar-panel p-0" side="left">
+        <SheetContent className="w-70 bg-sidebar p-0 text-sidebar-foreground" side="left">
           <SidebarProvider open>
             <SidebarBody admin={admin} logout={logout} onNavigate={() => setNavOpen(false)} />
           </SidebarProvider>
@@ -168,7 +168,7 @@ function SidebarBody({
     <div className="flex h-dvh flex-col">
       <SidebarHeader
         className={cn(
-          'relative flex h-[72px] items-center border-b border-border/45',
+          'relative flex h-[72px] items-center border-b border-sidebar-border/70',
           collapsed ? 'flex-col justify-center gap-1 px-2' : 'justify-between px-5',
         )}
       >
@@ -197,9 +197,9 @@ function SidebarBody({
         </SidebarGroup>
       </SidebarContent>
 
-      <SidebarFooter className={cn('border-t border-border/55', collapsed ? 'px-3 py-3' : 'px-5 py-4')}>
+      <SidebarFooter className={cn('border-t border-sidebar-border/70', collapsed ? 'px-3 py-3' : 'px-5 py-4')}>
         <div className={cn('flex', collapsed ? 'flex-col items-center gap-2' : 'items-center gap-2.5')}>
-          <div className="flex size-9 shrink-0 items-center justify-center rounded-lg border border-border/55 bg-muted/45 font-mono text-xs font-semibold text-foreground">
+          <div className="flex size-9 shrink-0 items-center justify-center rounded-md border border-sidebar-border bg-sidebar-accent font-mono text-xs font-semibold text-sidebar-accent-foreground">
             {admin.username.slice(0, 1).toUpperCase()}
           </div>
           {!collapsed ? (
@@ -220,7 +220,7 @@ function SidebarBody({
             type="button"
             variant="ghost"
           >
-            <LogOut className="size-4" />
+            <LogOut aria-hidden="true" />
           </Button>
         </div>
       </SidebarFooter>
@@ -262,7 +262,7 @@ function ServiceStatusPanel({
         return (
           <div
             data-slot="sidebar-service-item"
-            className="relative flex h-11 items-center gap-2.5 rounded-lg px-1 py-1.5 transition-colors hover:bg-muted/25"
+            className="group/service relative flex h-11 items-center gap-2.5 rounded-md px-1.5 py-1 text-sidebar-foreground/75 transition-[background-color,color] duration-150 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
             key={item.label}
             title={collapsed ? `${item.label}: ${item.value}` : undefined}
           >
@@ -270,22 +270,22 @@ function ServiceStatusPanel({
               <span
                 data-logo={item.logo ? item.logo : undefined}
                 data-slot="sidebar-service-icon"
-                className="flex size-9 shrink-0 items-center justify-center rounded-md"
+                className="flex size-8 shrink-0 items-center justify-center rounded-md"
               >
                 {item.logo ? (
                   <CoreLogo className={cn(item.logo === 'hysteria' ? 'h-7 w-9' : 'size-7')} core={item.logo} />
                 ) : Icon ? (
-                  <Icon className="size-5" stroke={`url(#${gradientId})`} strokeWidth={2.25} />
+                  <Icon stroke={`url(#${gradientId})`} strokeWidth={2.25} />
                 ) : null}
               </span>
             ) : null}
             <span data-slot="sidebar-service-label" className="min-w-0 flex-1">
-              <span className="block truncate text-sm font-semibold leading-5 text-foreground">
+              <span className="block truncate text-sm font-medium leading-5 text-current">
                 {item.label}
               </span>
             </span>
             {item.showValue ? (
-              <span data-slot="sidebar-service-value" className="shrink-0 font-mono text-[11px] text-muted-foreground">
+              <span data-slot="sidebar-service-value" className="shrink-0 font-mono text-[11px] text-sidebar-foreground/55 group-hover/service:text-sidebar-accent-foreground/70">
                 {item.value}
               </span>
             ) : null}
@@ -340,7 +340,7 @@ function SidebarLink({
   onClick,
   to,
 }: {
-  icon: ComponentType<{ className?: string }>;
+  icon: LucideIcon;
   label: string;
   onClick?: () => void;
   to: LinkTo;
@@ -352,11 +352,15 @@ function SidebarLink({
     <SidebarMenuItem>
       <SidebarMenuButton asChild isActive={isActive} tooltip={label}>
         <Link
+          aria-current={isActive ? 'page' : undefined}
           onClick={onClick}
           to={to}
         >
-          <span className="flex size-9 shrink-0 items-center justify-center rounded-md">
-            <Icon className="size-5 shrink-0" />
+          <span
+            data-slot="sidebar-menu-icon"
+            className="flex size-8 shrink-0 items-center justify-center rounded-md text-current transition-colors group-data-[active=true]/menu-button:bg-sidebar-primary/10 group-data-[active=true]/menu-button:text-sidebar-primary"
+          >
+            <Icon aria-hidden="true" />
           </span>
           <span data-slot="sidebar-menu-label" className="min-w-0 truncate">{label}</span>
         </Link>

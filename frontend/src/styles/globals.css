@@ -53,6 +53,14 @@
   --color-input: hsl(var(--input));
   --color-ring: hsl(var(--ring));
   --color-faint: hsl(var(--faint));
+  --color-sidebar: hsl(var(--sidebar));
+  --color-sidebar-foreground: hsl(var(--sidebar-foreground));
+  --color-sidebar-primary: hsl(var(--sidebar-primary));
+  --color-sidebar-primary-foreground: hsl(var(--sidebar-primary-foreground));
+  --color-sidebar-accent: hsl(var(--sidebar-accent));
+  --color-sidebar-accent-foreground: hsl(var(--sidebar-accent-foreground));
+  --color-sidebar-border: hsl(var(--sidebar-border));
+  --color-sidebar-ring: hsl(var(--sidebar-ring));
 
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
@@ -93,8 +101,13 @@
     --foreground: 222 12% 95%;
 
     --sidebar: 228 17% 6.3%;
-    --sidebar-nav-hover: 216 42% 26%;
-    --sidebar-nav-active: 215 42% 29%;
+    --sidebar-foreground: 222 12% 95%;
+    --sidebar-primary: 247 100% 78.2%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 228 14% 12.2%;
+    --sidebar-accent-foreground: 222 12% 96%;
+    --sidebar-border: 228 12% 17.4%;
+    --sidebar-ring: 247 100% 78.2%;
     --surface: 230 16% 7.7%;
     --surface-elevated: 230 14% 10.5%;
 
@@ -158,8 +171,13 @@
     --background: 222 44% 97.5%;
     --foreground: 224 26% 12%;
     --sidebar: 222 36% 96%;
-    --sidebar-nav-hover: 217 46% 86%;
-    --sidebar-nav-active: 217 48% 82%;
+    --sidebar-foreground: 224 26% 12%;
+    --sidebar-primary: 247 92% 66%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 222 34% 91.5%;
+    --sidebar-accent-foreground: 224 26% 12%;
+    --sidebar-border: 222 25% 86%;
+    --sidebar-ring: 247 92% 66%;
     --surface: 222 44% 98.2%;
     --surface-elevated: 0 0% 100%;
     --card: 0 0% 100%;
@@ -355,19 +373,6 @@
   width: var(--sidebar-width);
 }
 
-[data-slot="sidebar-menu-button"][data-active="true"] {
-  background-color: hsl(var(--sidebar-nav-active));
-  color: hsl(var(--foreground));
-}
-
-[data-slot="sidebar-menu-button"]:hover {
-  background: linear-gradient(135deg, rgb(157 144 255 / 0.48) 0%, rgb(99 199 230 / 0.38) 100%);
-  box-shadow:
-    inset 0 0 0 1px rgb(157 144 255 / 0.3),
-    0 10px 24px -18px rgb(99 199 230 / 0.9);
-  color: hsl(var(--foreground));
-}
-
 [data-slot="sidebar-wrapper"] {
   display: flex;
   width: 100%;
@@ -524,7 +529,8 @@
       padding-inline var(--sidebar-transition-duration) var(--sidebar-transition-easing),
       gap var(--sidebar-transition-duration) var(--sidebar-transition-easing),
       color 160ms ease,
-      background 160ms ease;
+      background-color 160ms ease,
+      box-shadow 160ms ease;
   }
 
   [data-slot="sidebar"][data-state="collapsed"] [data-slot="sidebar-menu-button"] {
