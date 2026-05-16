@@ -102,12 +102,17 @@
 
     --sidebar: 228 17% 6.3%;
     --sidebar-foreground: 222 12% 95%;
-    --sidebar-primary: 247 100% 78.2%;
+    --accent-primary-hsl: 247 100% 78.2%;
+    --accent-secondary-hsl: 194 72% 64.5%;
+    --accent-primary-rgb: 157 144 255;
+    --accent-secondary-rgb: 99 199 230;
+
+    --sidebar-primary: var(--accent-primary-hsl);
     --sidebar-primary-foreground: 0 0% 100%;
     --sidebar-accent: 228 14% 12.2%;
     --sidebar-accent-foreground: 222 12% 96%;
     --sidebar-border: 228 12% 17.4%;
-    --sidebar-ring: 247 100% 78.2%;
+    --sidebar-ring: var(--accent-primary-hsl);
     --surface: 230 16% 7.7%;
     --surface-elevated: 230 14% 10.5%;
 
@@ -117,14 +122,17 @@
     --popover: 230 14% 9.7%;
     --popover-foreground: 222 12% 95%;
 
-    --primary: 247 100% 78.2%;
+    --primary: var(--accent-primary-hsl);
     --primary-foreground: 0 0% 100%;
-    --accent-primary: #9D90FF;
-    --accent-secondary: #63C7E6;
+    --accent-primary: rgb(var(--accent-primary-rgb));
+    --accent-secondary: rgb(var(--accent-secondary-rgb));
     --gradient-accent: linear-gradient(135deg, var(--accent-primary) 0%, var(--accent-secondary) 100%);
     --gradient-accent-vertical: linear-gradient(180deg, var(--accent-primary) 0%, var(--accent-secondary) 100%);
-    --gradient-accent-soft: linear-gradient(135deg, rgb(157 144 255 / 0.18) 0%, rgb(99 199 230 / 0.16) 100%);
+    --gradient-accent-soft: linear-gradient(135deg, rgb(var(--accent-primary-rgb) / 0.18) 0%, rgb(var(--accent-secondary-rgb) / 0.16) 100%);
     --gradient-accent-text: linear-gradient(135deg, var(--accent-primary) 0%, var(--accent-secondary) 100%);
+    --sidebar-action-hover: var(--gradient-accent-soft);
+    --sidebar-action-active: var(--gradient-accent);
+    --sidebar-action-shadow: 0 10px 24px -18px rgb(var(--accent-secondary-rgb) / 0.9);
 
     --secondary: 230 13% 12.2%;
     --secondary-foreground: 222 12% 95%;
@@ -148,7 +156,7 @@
     --border: 228 12% 17.4%;
     --border-strong: 228 11% 25.5%;
     --input: 230 12% 13.8%;
-    --ring: 247 100% 78.2%;
+    --ring: var(--accent-primary-hsl);
   }
 
   [data-theme="light"] {
@@ -172,26 +180,34 @@
     --foreground: 224 26% 12%;
     --sidebar: 222 36% 96%;
     --sidebar-foreground: 224 26% 12%;
-    --sidebar-primary: 247 92% 66%;
+    --accent-primary-hsl: 247 100% 78.2%;
+    --accent-secondary-hsl: 194 72% 64.5%;
+    --accent-primary-rgb: 157 144 255;
+    --accent-secondary-rgb: 99 199 230;
+
+    --sidebar-primary: var(--accent-primary-hsl);
     --sidebar-primary-foreground: 0 0% 100%;
     --sidebar-accent: 222 34% 91.5%;
     --sidebar-accent-foreground: 224 26% 12%;
     --sidebar-border: 222 25% 86%;
-    --sidebar-ring: 247 92% 66%;
+    --sidebar-ring: var(--accent-primary-hsl);
     --surface: 222 44% 98.2%;
     --surface-elevated: 0 0% 100%;
     --card: 0 0% 100%;
     --card-foreground: 224 26% 12%;
     --popover: 0 0% 100%;
     --popover-foreground: 224 26% 12%;
-    --primary: 247 100% 78.2%;
+    --primary: var(--accent-primary-hsl);
     --primary-foreground: 0 0% 100%;
-    --accent-primary: #9D90FF;
-    --accent-secondary: #63C7E6;
+    --accent-primary: rgb(var(--accent-primary-rgb));
+    --accent-secondary: rgb(var(--accent-secondary-rgb));
     --gradient-accent: linear-gradient(135deg, var(--accent-primary) 0%, var(--accent-secondary) 100%);
     --gradient-accent-vertical: linear-gradient(180deg, var(--accent-primary) 0%, var(--accent-secondary) 100%);
-    --gradient-accent-soft: linear-gradient(135deg, rgb(157 144 255 / 0.2) 0%, rgb(99 199 230 / 0.18) 100%);
+    --gradient-accent-soft: linear-gradient(135deg, rgb(var(--accent-primary-rgb) / 0.2) 0%, rgb(var(--accent-secondary-rgb) / 0.18) 100%);
     --gradient-accent-text: linear-gradient(135deg, var(--accent-primary) 0%, var(--accent-secondary) 100%);
+    --sidebar-action-hover: var(--gradient-accent-soft);
+    --sidebar-action-active: var(--gradient-accent);
+    --sidebar-action-shadow: 0 10px 24px -18px rgb(var(--accent-secondary-rgb) / 0.42);
     --secondary: 222 34% 93.5%;
     --secondary-foreground: 224 24% 16%;
     --muted: 222 32% 94.5%;
@@ -208,7 +224,7 @@
     --border: 222 25% 86%;
     --border-strong: 222 18% 73%;
     --input: 222 35% 94%;
-    --ring: 247 100% 78.2%;
+    --ring: var(--accent-primary-hsl);
   }
 
   * {
@@ -881,7 +897,7 @@
 .login-code-background::after {
   background:
     linear-gradient(90deg, hsl(var(--background) / 0.5) 0%, transparent 5%, transparent 95%, hsl(var(--background) / 0.5) 100%),
-    linear-gradient(180deg, transparent 0%, rgb(99 199 230 / 0.08) 48%, transparent 100%);
+    linear-gradient(180deg, transparent 0%, rgb(var(--accent-secondary-rgb) / 0.08) 48%, transparent 100%);
 }
 
 [data-theme="light"] .login-code-background {
@@ -899,7 +915,7 @@
 [data-theme="light"] .login-code-background::after {
   background:
     linear-gradient(90deg, hsl(var(--background) / 0.58) 0%, transparent 5%, transparent 95%, hsl(var(--background) / 0.58) 100%),
-    linear-gradient(180deg, transparent 0%, rgb(99 199 230 / 0.11) 48%, transparent 100%);
+    linear-gradient(180deg, transparent 0%, rgb(var(--accent-secondary-rgb) / 0.11) 48%, transparent 100%);
 }
 
 .login-code-sheet {
@@ -916,15 +932,15 @@
   width: 100%;
   min-width: 100vw;
   padding-inline: clamp(0.75rem, 2vw, 2rem);
-  color: rgb(99 199 230 / 0.38);
-  filter: drop-shadow(0 0 12px rgb(99 199 230 / 0.28));
+  color: rgb(var(--accent-secondary-rgb) / 0.38);
+  filter: drop-shadow(0 0 12px rgb(var(--accent-secondary-rgb) / 0.28));
   animation: login-code-run var(--login-code-duration) linear infinite;
   will-change: transform;
 }
 
 [data-theme="light"] .login-code-sheet {
   color: rgb(13 103 132 / 0.42);
-  filter: drop-shadow(0 0 6px rgb(99 199 230 / 0.12));
+  filter: drop-shadow(0 0 6px rgb(var(--accent-secondary-rgb) / 0.12));
 }
 
 .login-code-sheet pre {
@@ -937,7 +953,7 @@
   font-weight: 600;
   line-height: 1.85;
   letter-spacing: 0;
-  text-shadow: 0 0 14px rgb(99 199 230 / 0.24);
+  text-shadow: 0 0 14px rgb(var(--accent-secondary-rgb) / 0.24);
 }
 
 [data-theme="light"] .login-code-sheet pre {

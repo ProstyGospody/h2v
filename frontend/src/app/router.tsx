@@ -262,7 +262,7 @@ function ServiceStatusPanel({
         return (
           <div
             data-slot="sidebar-service-item"
-            className="group/service relative flex h-11 items-center gap-2.5 rounded-md px-1.5 py-1 text-sidebar-foreground/75 transition-[background-color,color] duration-150 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+            className="group/service relative flex h-11 items-center gap-2.5 rounded-md px-1.5 py-1 text-sidebar-foreground/75 transition-[background-color,color] duration-150 hover:[background-image:var(--sidebar-action-hover)] hover:text-sidebar-accent-foreground"
             key={item.label}
             title={collapsed ? `${item.label}: ${item.value}` : undefined}
           >
@@ -358,7 +358,7 @@ function SidebarLink({
         >
           <span
             data-slot="sidebar-menu-icon"
-            className="flex size-8 shrink-0 items-center justify-center rounded-md text-current transition-colors group-data-[active=true]/menu-button:bg-primary-foreground/15 group-data-[active=true]/menu-button:text-primary-foreground"
+            className="flex size-8 shrink-0 items-center justify-center rounded-md text-current transition-colors group-data-[active=true]/menu-button:text-primary-foreground"
           >
             <Icon aria-hidden="true" />
           </span>
