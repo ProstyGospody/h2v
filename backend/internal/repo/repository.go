@@ -415,6 +415,7 @@ func (r *Repository) ListActiveUsers(ctx context.Context) ([]domain.User, error)
 		WHERE status = 'active'
 		  AND (expires_at IS NULL OR expires_at >= now())
 		  AND (traffic_limit <= 0 OR traffic_used < traffic_limit)
+		ORDER BY username ASC
 	`)
 	if err != nil {
 		return nil, err

@@ -126,6 +126,31 @@ func (s *ConfigService) ReconcileHysteria(ctx context.Context, overrides ...map[
 	return s.ReconcileCore(ctx, "hysteria", overrides...)
 }
 
+func (s *ConfigService) PersistXray(ctx context.Context, overrides ...map[string]json.RawMessage) error {
+	return s.PersistCoreConfig(ctx, "xray", overrides...)
+}
+
+func (s *ConfigService) PersistCoreConfig(ctx context.Context, core string, overrides ...map[string]json.RawMessage) error {
+	s.reconcileMu.Lock()
+	defer s.reconcileMu.Unlock()
+
+	content, err := s.Render(ctx, core, overrides...)
+	if err != nil {
+		return err
+	}
+	path, err := s.pathForCore(core)
+	if err != nil {
+		return err
+	}
+	if current, err := os.ReadFile(path); err == nil && bytes.Equal(current, content) {
+		return nil
+	}
+	if err := s.Validate(ctx, core, content); err != nil {
+		return err
+	}
+	return writeFileAtomic(path, content, 0o640)
+}
+
 func (s *ConfigService) ReconcileCore(ctx context.Context, core string, overrides ...map[string]json.RawMessage) error {
 	s.reconcileMu.Lock()
 	defer s.reconcileMu.Unlock()

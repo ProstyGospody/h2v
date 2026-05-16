@@ -2,6 +2,7 @@ package services
 
 import (
 	"context"
+	"errors"
 	"log/slog"
 	"regexp"
 	"strings"
@@ -99,9 +100,9 @@ func (s *UserService) Create(ctx context.Context, req CreateUserRequest) (*domai
 	if err := s.repo.CreateUser(ctx, user); err != nil {
 		return nil, err
 	}
-	_ = s.xray.AddUser(ctx, user)
-	s.cache.Set(user)
-	s.reconcileXray(ctx, "create", user.Username)
+	hotErr := s.applyXrayUserChange(ctx, nil, user)
+	s.setCachedUser(user)
+	s.persistXrayOrReconcile(ctx, "create", user.Username, hotErr)
 	return user, nil
 }
 
@@ -110,6 +111,7 @@ func (s *UserService) Update(ctx context.Context, id uuid.UUID, req UpdateUserRe
 	if err != nil {
 		return nil, err
 	}
+	previous := *user
 	if req.Username != nil {
 		user.Username = strings.TrimSpace(*req.Username)
 	}
@@ -137,15 +139,17 @@ func (s *UserService) Update(ctx context.Context, id uuid.UUID, req UpdateUserRe
 		return nil, err
 	}
 
+	hotErr := s.applyXrayUserChange(ctx, &previous, user)
 	if user.CanConnect() {
-		_ = s.xray.AddUser(ctx, user)
-		s.cache.Set(user)
+		s.setCachedUser(user)
+		if previous.CanConnect() && previous.Username != user.Username {
+			s.kickHysteriaUsers(ctx, []string{previous.Username})
+		}
 	} else {
-		_ = s.xray.RemoveUser(ctx, user.Username)
-		_ = s.hysteria.Kick(ctx, []string{user.Username})
-		s.cache.Delete(user)
+		s.deleteCachedUser(&previous)
+		s.kickHysteriaUsers(ctx, []string{previous.Username})
 	}
-	s.reconcileXray(ctx, "update", user.Username)
+	s.persistXrayOrReconcile(ctx, "update", user.Username, hotErr)
 	return user, nil
 }
 
@@ -157,10 +161,10 @@ func (s *UserService) Delete(ctx context.Context, id uuid.UUID) error {
 	if err := s.repo.DeleteUser(ctx, id); err != nil {
 		return err
 	}
-	_ = s.xray.RemoveUser(ctx, user.Username)
-	_ = s.hysteria.Kick(ctx, []string{user.Username})
-	s.cache.Delete(user)
-	s.reconcileXray(ctx, "delete", user.Username)
+	hotErr := s.removeXrayUser(ctx, user.Username)
+	s.kickHysteriaUsers(ctx, []string{user.Username})
+	s.deleteCachedUser(user)
+	s.persistXrayOrReconcile(ctx, "delete", user.Username, hotErr)
 	return nil
 }
 
@@ -175,33 +179,34 @@ func (s *UserService) Bulk(ctx context.Context, req BulkUsersRequest) (*BulkUser
 
 	var users []domain.User
 	var err error
-	needsReconcile := false
+	var hotErr error
+	needsPersist := false
 
 	switch req.Action {
 	case "enable":
 		users, err = s.repo.BulkUpdateUserStatus(ctx, ids, domain.StatusActive)
 		if err == nil {
-			s.syncConnectableUsers(ctx, users)
+			hotErr = s.syncConnectableUsers(ctx, users)
 		}
-		needsReconcile = true
+		needsPersist = true
 	case "disable":
 		users, err = s.repo.BulkUpdateUserStatus(ctx, ids, domain.StatusDisabled)
 		if err == nil {
-			s.removeUsersFromCores(ctx, users)
+			hotErr = s.removeUsersFromCores(ctx, users)
 		}
-		needsReconcile = true
+		needsPersist = true
 	case "delete":
 		users, err = s.repo.BulkDeleteUsers(ctx, ids)
 		if err == nil {
-			s.removeUsersFromCores(ctx, users)
+			hotErr = s.removeUsersFromCores(ctx, users)
 		}
-		needsReconcile = true
+		needsPersist = true
 	case "reset_traffic":
 		users, err = s.repo.BulkResetUserTraffic(ctx, ids)
 		if err == nil {
-			s.syncConnectableUsers(ctx, users)
+			hotErr = s.syncConnectableUsers(ctx, users)
 		}
-		needsReconcile = true
+		needsPersist = true
 	case "extend":
 		days := req.Days
 		if days <= 0 {
@@ -212,17 +217,17 @@ func (s *UserService) Bulk(ctx context.Context, req BulkUsersRequest) (*BulkUser
 		}
 		users, err = s.repo.BulkExtendUsers(ctx, ids, days)
 		if err == nil {
-			s.syncConnectableUsers(ctx, users)
+			hotErr = s.syncConnectableUsers(ctx, users)
 		}
-		needsReconcile = true
+		needsPersist = true
 	default:
 		return nil, domain.NewError(400, "invalid_bulk_action", "Bulk action is not supported", nil)
 	}
 	if err != nil {
 		return nil, err
 	}
-	if needsReconcile {
-		s.reconcileXray(ctx, "bulk_"+req.Action, "")
+	if needsPersist {
+		s.persistXrayOrReconcile(ctx, "bulk_"+req.Action, "", hotErr)
 	}
 	return &BulkUsersResult{Action: req.Action, Matched: len(users)}, nil
 }
@@ -241,7 +246,7 @@ func (s *UserService) ResetSubscription(ctx context.Context, id uuid.UUID) (*dom
 	if err := s.repo.UpdateUser(ctx, user); err != nil {
 		return nil, err
 	}
-	s.cache.Set(user)
+	s.setCachedUser(user)
 	return user, nil
 }
 
@@ -250,11 +255,19 @@ func (s *UserService) ResetTraffic(ctx context.Context, id uuid.UUID) (*domain.U
 	if err != nil {
 		return nil, err
 	}
+	previous := *user
 	user.TrafficUsed = 0
 	user.UpdatedAt = time.Now().UTC()
 	if err := s.repo.UpdateUser(ctx, user); err != nil {
 		return nil, err
 	}
+	hotErr := s.applyXrayUserChange(ctx, &previous, user)
+	if user.CanConnect() {
+		s.setCachedUser(user)
+	} else {
+		s.deleteCachedUser(&previous)
+	}
+	s.persistXrayOrReconcile(ctx, "reset_traffic", user.Username, hotErr)
 	return user, nil
 }
 
@@ -270,30 +283,34 @@ func (s *UserService) Links(ctx context.Context, id uuid.UUID) (*domain.Subscrip
 	return s.subscription.LinksForUser(ctx, user)
 }
 
-func (s *UserService) syncConnectableUsers(ctx context.Context, users []domain.User) {
+func (s *UserService) syncConnectableUsers(ctx context.Context, users []domain.User) error {
+	var err error
 	for i := range users {
 		user := &users[i]
 		if user.CanConnect() {
-			_ = s.xray.AddUser(ctx, user)
-			s.cache.Set(user)
+			err = errors.Join(err, s.addXrayUser(ctx, user))
+			s.setCachedUser(user)
 			continue
 		}
-		_ = s.xray.RemoveUser(ctx, user.Username)
-		s.cache.Delete(user)
+		err = errors.Join(err, s.removeXrayUser(ctx, user.Username))
+		s.deleteCachedUser(user)
 	}
+	return err
 }
 
-func (s *UserService) removeUsersFromCores(ctx context.Context, users []domain.User) {
+func (s *UserService) removeUsersFromCores(ctx context.Context, users []domain.User) error {
 	usernames := make([]string, 0, len(users))
+	var err error
 	for i := range users {
 		user := &users[i]
-		_ = s.xray.RemoveUser(ctx, user.Username)
-		s.cache.Delete(user)
+		err = errors.Join(err, s.removeXrayUser(ctx, user.Username))
+		s.deleteCachedUser(user)
 		usernames = append(usernames, user.Username)
 	}
 	if len(usernames) > 0 {
-		_ = s.hysteria.Kick(ctx, usernames)
+		s.kickHysteriaUsers(ctx, usernames)
 	}
+	return err
 }
 
 func dedupeUUIDs(ids []uuid.UUID) []uuid.UUID {
@@ -351,6 +368,84 @@ func (s *UserService) reconcileXray(_ context.Context, op, username string) {
 	reconcileCtx, cancel := context.WithTimeout(context.Background(), 45*time.Second)
 	defer cancel()
 	if err := s.configs.ReconcileXray(reconcileCtx); err != nil {
-		s.logger.Error("xray reconcile failed after user change", "op", op, "user", username, "err", err)
+		if s.logger != nil {
+			s.logger.Error("xray reconcile failed after user change", "op", op, "user", username, "err", err)
+		}
+	}
+}
+
+func (s *UserService) persistXrayOrReconcile(_ context.Context, op, username string, hotErr error) {
+	if s.configs == nil {
+		return
+	}
+	if hotErr != nil {
+		s.logWarn("xray hot user update failed; falling back to config reconcile", "op", op, "user", username, "err", hotErr)
+		s.reconcileXray(context.Background(), op, username)
+		return
+	}
+
+	persistCtx, cancel := context.WithTimeout(context.Background(), 45*time.Second)
+	defer cancel()
+	if err := s.configs.PersistXray(persistCtx); err != nil {
+		s.logWarn("xray config persist failed after hot update; falling back to config reconcile", "op", op, "user", username, "err", err)
+		s.reconcileXray(context.Background(), op, username)
+	}
+}
+
+func (s *UserService) applyXrayUserChange(ctx context.Context, previous, next *domain.User) error {
+	previousCanConnect := previous != nil && previous.CanConnect()
+	nextCanConnect := next != nil && next.CanConnect()
+
+	switch {
+	case !previousCanConnect && nextCanConnect:
+		return s.addXrayUser(ctx, next)
+	case previousCanConnect && !nextCanConnect:
+		return s.removeXrayUser(ctx, previous.Username)
+	case previousCanConnect && nextCanConnect:
+		if previous.Username != next.Username || previous.VlessUUID != next.VlessUUID {
+			return errors.Join(
+				s.removeXrayUser(ctx, previous.Username),
+				s.addXrayUser(ctx, next),
+			)
+		}
+	}
+	return nil
+}
+
+func (s *UserService) addXrayUser(ctx context.Context, user *domain.User) error {
+	if s.xray == nil {
+		return nil
+	}
+	return s.xray.AddUser(ctx, user)
+}
+
+func (s *UserService) removeXrayUser(ctx context.Context, username string) error {
+	if s.xray == nil {
+		return nil
+	}
+	return s.xray.RemoveUser(ctx, username)
+}
+
+func (s *UserService) setCachedUser(user *domain.User) {
+	if s.cache != nil {
+		s.cache.Set(user)
+	}
+}
+
+func (s *UserService) deleteCachedUser(user *domain.User) {
+	if s.cache != nil {
+		s.cache.Delete(user)
+	}
+}
+
+func (s *UserService) kickHysteriaUsers(ctx context.Context, usernames []string) {
+	if s.hysteria != nil {
+		_ = s.hysteria.Kick(ctx, usernames)
+	}
+}
+
+func (s *UserService) logWarn(message string, args ...any) {
+	if s.logger != nil {
+		s.logger.Warn(message, args...)
 	}
 }

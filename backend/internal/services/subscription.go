@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net"
 	"net/url"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -167,7 +168,14 @@ type RuntimeSettings struct {
 
 func (r RuntimeSettings) XrayClients() []ClientEntry {
 	if len(r.Clients) > 0 {
-		return r.Clients
+		clients := append([]ClientEntry(nil), r.Clients...)
+		sort.SliceStable(clients, func(i, j int) bool {
+			if clients[i].Email == clients[j].Email {
+				return clients[i].UUID < clients[j].UUID
+			}
+			return clients[i].Email < clients[j].Email
+		})
+		return clients
 	}
 	if r.FallbackClient.UUID == "" {
 		return nil

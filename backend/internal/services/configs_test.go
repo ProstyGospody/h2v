@@ -212,6 +212,44 @@ func TestRenderXrayConfigWithClientsIncludesVLESSInbound(t *testing.T) {
 	t.Fatal("vless-reality inbound not found")
 }
 
+func TestRenderXrayConfigSortsClientsForStableOutput(t *testing.T) {
+	runtime := baseXrayRuntimeForTest()
+	runtime.Clients = []ClientEntry{
+		{UUID: "22222222-2222-2222-2222-222222222222", Email: "bob"},
+		{UUID: "11111111-1111-1111-1111-111111111111", Email: "alice"},
+	}
+	content := renderXrayTemplateForTest(t, runtime)
+
+	var payload struct {
+		Inbounds []struct {
+			Tag      string `json:"tag"`
+			Settings struct {
+				Clients []struct {
+					Email string `json:"email"`
+				} `json:"clients"`
+			} `json:"settings"`
+		} `json:"inbounds"`
+	}
+	if err := json.Unmarshal(content, &payload); err != nil {
+		t.Fatal(err)
+	}
+
+	for _, inbound := range payload.Inbounds {
+		if inbound.Tag != "vless-reality" {
+			continue
+		}
+		if len(inbound.Settings.Clients) != 2 {
+			t.Fatalf("vless clients = %d, want 2", len(inbound.Settings.Clients))
+		}
+		got := []string{inbound.Settings.Clients[0].Email, inbound.Settings.Clients[1].Email}
+		if want := []string{"alice", "bob"}; !stringSlicesEqual(got, want) {
+			t.Fatalf("client order = %#v, want %#v", got, want)
+		}
+		return
+	}
+	t.Fatal("vless-reality inbound not found")
+}
+
 func TestRenderXrayConfigUsesStabilityRoutingAndSniffingDefaults(t *testing.T) {
 	content := renderXrayTemplateForTest(t, baseXrayRuntimeForTest())
 
