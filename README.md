@@ -55,9 +55,9 @@ curl -fsSL https://raw.githubusercontent.com/ProstyGospody/h2v/main/install.sh |
 | --- | --- | --- |
 | Пользователи, лимиты, сроки действия, отключение доступа. | VLESS Reality TCP и Hysteria 2 UDP с отдельными публичными портами. | Обновление GeoIP/Geosite, резервные копии, состояние сервисов. |
 
-| Подписки | Панель | Установка |
-| --- | --- | --- |
-| Ссылки, QR-коды и страницы пользователей для клиентских приложений. | Минималистичный интерфейс для ежедневного управления. | Мастер на русском и английском, без перезаписи существующих секретов. |
+| Подписки | Панель | 
+| --- | --- | 
+| Ссылки, QR-коды и страницы пользователей для клиентских приложений. | Минималистичный интерфейс для ежедневного управления. |
 
 ### Перед запуском
 
@@ -77,20 +77,6 @@ curl -fsSL https://raw.githubusercontent.com/ProstyGospody/h2v/main/install.sh |
 /opt/h2v/install.sh reset-admin
 /opt/h2v/install.sh backup
 ```
-
-### Поддерживаемые клиенты
-
-<p>
-  <img alt="Hiddify" src="frontend/public/clients/hiddify.svg" height="28">
-  &nbsp;
-  <img alt="v2rayNG" src="frontend/public/clients/v2rayng.svg" height="28">
-  &nbsp;
-  <img alt="Shadowrocket" src="frontend/public/clients/shadowrocket.svg" height="28">
-  &nbsp;
-  <img alt="Streisand" src="frontend/public/clients/streisand.svg" height="28">
-  &nbsp;
-  <img alt="Karing" src="frontend/public/clients/karing.svg" height="28">
-</p>
 
 ---
 
@@ -112,9 +98,9 @@ curl -fsSL https://raw.githubusercontent.com/ProstyGospody/h2v/main/install.sh |
 | --- | --- | --- |
 | Users, limits, expiration dates, and access control. | VLESS Reality TCP and Hysteria 2 UDP on separate public ports. | GeoIP/Geosite updates, backups, and service health. |
 
-| Subscriptions | Panel | Installer |
-| --- | --- | --- |
-| Links, QR codes, and user pages for client apps. | Minimal interface for daily operation. | Russian and English wizard that preserves existing secrets. |
+| Subscriptions | Panel |
+| --- | --- |
+| Links, QR codes, and user pages for client apps. | Minimal interface for daily operation. | 
 
 ### Before You Start
 
@@ -134,17 +120,3 @@ The installer prints the panel address, admin login, and admin password. If the 
 /opt/h2v/install.sh reset-admin
 /opt/h2v/install.sh backup
 ```
-
-### Supported Clients
-
-<p>
-  <img alt="Hiddify" src="frontend/public/clients/hiddify.svg" height="28">
-  &nbsp;
-  <img alt="v2rayNG" src="frontend/public/clients/v2rayng.svg" height="28">
-  &nbsp;
-  <img alt="Shadowrocket" src="frontend/public/clients/shadowrocket.svg" height="28">
-  &nbsp;
-  <img alt="Streisand" src="frontend/public/clients/streisand.svg" height="28">
-  &nbsp;
-  <img alt="Karing" src="frontend/public/clients/karing.svg" height="28">
-</p>
