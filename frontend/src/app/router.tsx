@@ -196,7 +196,7 @@ function SidebarBody({
         <div className={cn('flex', collapsed ? 'flex-col items-center gap-2' : 'items-center gap-2.5')}>
           <button
             aria-label={t('profile.edit')}
-            className="flex size-11 shrink-0 items-center justify-center rounded-md bg-profile-icon-gradient text-primary-foreground shadow-sm transition-opacity hover:opacity-95"
+            className="flex size-11 shrink-0 items-center justify-center rounded-md bg-accent-gradient-soft text-foreground shadow-sm transition-opacity hover:opacity-95"
             onClick={() => setProfileOpen(true)}
             title={profileIcon.label}
             type="button"

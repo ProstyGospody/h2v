@@ -775,13 +775,15 @@ export function UsersPage() {
                   </Button>
                 ))}
                 <Button
+                  aria-label={t('common.unlimited')}
                   className={cn('h-7 px-3 text-xs', trafficGb !== null && 'bg-background/70 shadow-none hover:bg-muted/55')}
                   onClick={() => setTrafficGb(null)}
                   size="sm"
+                  title={t('common.unlimited')}
                   type="button"
                   variant={trafficGb === null ? 'default' : 'secondary'}
                 >
-                  {t('common.unlimited')}
+                  <span className="text-base leading-none">∞</span>
                 </Button>
               </div>
             </div>
@@ -802,13 +804,15 @@ export function UsersPage() {
                   </Button>
                 ))}
                 <Button
+                  aria-label={t('common.never')}
                   className={cn('h-7 px-3 text-xs', expiryDays !== null && 'bg-background/70 shadow-none hover:bg-muted/55')}
                   onClick={() => setExpiryDays(null)}
                   size="sm"
+                  title={t('common.never')}
                   type="button"
                   variant={expiryDays === null ? 'default' : 'secondary'}
                 >
-                  {t('common.never')}
+                  <span className="text-base leading-none">∞</span>
                 </Button>
               </div>
             </div>
