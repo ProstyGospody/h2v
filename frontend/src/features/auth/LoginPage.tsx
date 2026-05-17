@@ -84,6 +84,7 @@ export function LoginPage() {
                 <Input
                   aria-invalid={usernameInvalid}
                   autoComplete="username"
+                  className="h-14 px-4 text-sm"
                   id="username"
                   placeholder={t('login.username')}
                   {...form.register('username')}
@@ -96,7 +97,7 @@ export function LoginPage() {
                   <Input
                     aria-invalid={passwordInvalid}
                     autoComplete="current-password"
-                    className="pr-11"
+                    className="h-14 px-4 pr-12 text-sm"
                     id="password"
                     placeholder={t('login.password')}
                     type={showPassword ? 'text' : 'password'}
@@ -104,7 +105,7 @@ export function LoginPage() {
                   />
                   <Button
                     aria-label={showPassword ? t('login.hidePassword') : t('login.showPassword')}
-                    className="absolute right-2 top-1/2 size-8 -translate-y-1/2 text-muted-foreground hover:bg-transparent hover:text-foreground"
+                    className="absolute right-3 top-1/2 size-9 -translate-y-1/2 text-muted-foreground hover:bg-transparent hover:text-foreground"
                     onClick={() => setShowPassword((value) => !value)}
                     size="icon-sm"
                     type="button"
@@ -116,7 +117,7 @@ export function LoginPage() {
               </Field>
             </FieldGroup>
 
-            <Button className="w-full" disabled={form.formState.isSubmitting} type="submit">
+            <Button className="h-14 w-full text-sm" disabled={form.formState.isSubmitting} type="submit">
               {form.formState.isSubmitting ? t('login.signingIn') : t('login.signIn')}
             </Button>
 
