@@ -166,7 +166,10 @@ export function DashboardPage() {
       </div>
 
       <div className="px-page pt-4">
-        <div className="flex justify-center">
+        <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <h2 className="min-w-0 truncate font-display text-xl font-semibold leading-tight text-foreground">
+            {t('dashboard.traffic')}
+          </h2>
           <Tabs onValueChange={(v) => setDays(v as Range)} value={days}>
             <TabsList>
               {ranges.map((r) => (
@@ -178,11 +181,6 @@ export function DashboardPage() {
           </Tabs>
         </div>
         <div className="relative">
-          <div className="absolute right-0 top-0 z-10 flex items-center justify-end gap-3">
-            <span className="font-mono text-[11px] uppercase tracking-wider text-muted-foreground">
-              {t('dashboard.daysRange', { days })}
-            </span>
-          </div>
           <div className="h-80 pt-6 sm:h-96 xl:h-[420px]">
             {traffic.isLoading ? (
               <Skeleton className="h-full w-full" />
