@@ -171,7 +171,7 @@ export function DashboardPage() {
             {t('dashboard.traffic')}
           </h2>
           <Tabs onValueChange={(v) => setDays(v as Range)} value={days}>
-            <TabsList>
+            <TabsList className="bg-accent-gradient-soft">
               {ranges.map((r) => (
                 <TabsTrigger key={r} value={r}>
                   {t('dashboard.rangeDay', { days: r })}
