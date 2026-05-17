@@ -31,7 +31,6 @@ import {
   SidebarContent,
   SidebarFooter,
   SidebarGroup,
-  SidebarGroupLabel,
   SidebarHeader,
   SidebarInset,
   SidebarMenu,
@@ -168,17 +167,16 @@ function SidebarBody({
     <div className="flex h-dvh flex-col">
       <SidebarHeader
         className={cn(
-          'relative flex h-[72px] items-center border-b border-sidebar-border/70',
-          collapsed ? 'flex-col justify-center gap-1 px-2' : 'justify-between px-5',
+          'relative flex h-[72px] items-center justify-center',
+          collapsed ? 'px-2' : 'px-5',
         )}
       >
         <AppBrand compact={collapsed} iconOnly={collapsed} />
       </SidebarHeader>
 
-      <SidebarContent className="px-4 py-5">
+      <SidebarContent className="px-4 pb-5 pt-8">
         <SidebarGroup>
-          <SidebarGroupLabel>{t('nav.workspace')}</SidebarGroupLabel>
-          <SidebarMenu>
+          <SidebarMenu className="gap-3">
             {primaryLinks.map((link) => (
               <SidebarLink
                 icon={link.icon}
@@ -193,26 +191,26 @@ function SidebarBody({
       </SidebarContent>
 
       <SidebarFooter className={cn('border-t border-sidebar-border/70', collapsed ? 'px-3 py-3' : 'px-5 py-4')}>
-        <div className={cn('flex', collapsed ? 'flex-col items-center gap-2' : 'items-center gap-2.5')}>
+        <div className={cn('flex', collapsed ? 'flex-col items-center gap-2.5' : 'items-center gap-3')}>
           <button
             aria-label={t('profile.edit')}
-            className="flex size-11 shrink-0 items-center justify-center rounded-md bg-accent-gradient-soft text-foreground shadow-sm transition-opacity hover:opacity-95"
+            className="flex size-12 shrink-0 items-center justify-center rounded-md bg-accent-gradient-soft text-foreground shadow-sm transition-opacity hover:opacity-95"
             onClick={() => setProfileOpen(true)}
             title={profileIcon.label}
             type="button"
           >
-            <ProfileIcon className="size-8" icon={admin.icon} />
+            <ProfileIcon className="size-9" icon={admin.icon} />
           </button>
           {!collapsed ? (
             <div className="min-w-0 flex-1">
               <div className="truncate text-sm font-medium leading-5 text-foreground">{admin.username}</div>
             </div>
           ) : null}
-          <ThemeToggle className="shrink-0 text-muted-foreground" compact />
-          <LanguageSwitcher className="shrink-0 text-muted-foreground" compact />
+          <ThemeToggle className="size-10 shrink-0 text-muted-foreground [&_svg]:size-5" compact />
+          <LanguageSwitcher className="size-10 shrink-0 text-muted-foreground [&_svg]:size-5" compact />
           <Button
             aria-label={t('nav.signOut')}
-            className="size-8 shrink-0 text-muted-foreground"
+            className="size-10 shrink-0 text-muted-foreground [&_svg]:size-5"
             onClick={async () => {
               onNavigate?.();
               await logout();
@@ -386,7 +384,12 @@ function SidebarLink({
 
   return (
     <SidebarMenuItem>
-      <SidebarMenuButton asChild isActive={isActive} tooltip={label}>
+      <SidebarMenuButton
+        asChild
+        className="h-12 gap-3 px-3.5 text-[15px]"
+        isActive={isActive}
+        tooltip={label}
+      >
         <Link
           aria-current={isActive ? 'page' : undefined}
           onClick={onClick}
@@ -394,9 +397,9 @@ function SidebarLink({
         >
           <span
             data-slot="sidebar-menu-icon"
-            className="flex size-8 shrink-0 items-center justify-center rounded-md text-current transition-colors group-data-[active=true]/menu-button:text-primary-foreground"
+            className="flex size-9 shrink-0 items-center justify-center rounded-md text-current transition-colors group-data-[active=true]/menu-button:text-primary-foreground"
           >
-            <Icon aria-hidden="true" />
+            <Icon aria-hidden="true" className="size-5" />
           </span>
           <span data-slot="sidebar-menu-label" className="min-w-0 truncate">{label}</span>
         </Link>
