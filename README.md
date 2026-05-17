@@ -1,11 +1,11 @@
 <p align="center">
-  <img src="frontend/public/logo.svg" alt="h2v" width="168">
+  <img src="frontend/public/logo.svg" alt="h2v" width="172">
 </p>
 
 <h1 align="center">h2v</h1>
 
 <p align="center">
-  Minimal self-hosted VPN panel for Xray VLESS Reality and Hysteria 2.
+  A clean self-hosted VPN panel for Xray VLESS Reality and Hysteria 2.
 </p>
 
 <p align="center">
@@ -16,15 +16,15 @@
 
 <p align="center">
   <a href="https://github.com/XTLS/Xray-core">
-    <img src="frontend/public/cores/xray.svg" alt="Xray" height="32">
+    <img src="frontend/public/cores/xray.svg" alt="Xray" height="34">
   </a>
-  &nbsp;&nbsp;
+  &nbsp;&nbsp;&nbsp;
   <a href="https://github.com/apernet/hysteria">
-    <img src="frontend/public/cores/hysteria2.svg" alt="Hysteria 2" height="32">
+    <img src="frontend/public/cores/hysteria2.svg" alt="Hysteria 2" height="34">
   </a>
 </p>
 
-## Quick Start
+## Install
 
 ```bash
 bash <(curl -fsSL https://raw.githubusercontent.com/ProstyGospody/h2v/main/install.sh)
@@ -32,32 +32,40 @@ bash <(curl -fsSL https://raw.githubusercontent.com/ProstyGospody/h2v/main/insta
 
 ---
 
-<a id="english"></a>
-
 ## English
 
-### Overview
+**h2v** is a private web panel for running a small VPN server. It gives you one place to manage users, subscriptions, traffic, service status, and protocol settings.
 
-**h2v** is a private dashboard for managing a small VPN node. It combines user management, subscriptions, traffic visibility, and core configuration in one panel.
+### What It Does
 
-### Highlights
+- Creates and manages VPN users.
+- Tracks traffic usage, limits, and expiration dates.
+- Generates subscription links and QR codes.
+- Renders configs for Xray VLESS Reality and Hysteria 2.
+- Shows traffic, uptime, and service health on the dashboard.
+- Keeps panel settings, backups, geodata, and core options in the UI.
 
-- Users, traffic limits, expiration dates, and status control.
-- Subscription links, QR codes, and a public user page.
-- Automatic config rendering for Xray VLESS Reality and Hysteria 2.
-- Dashboard with traffic, uptime, and service health.
-- Panel settings for domains, ports, Reality keys, Hysteria options, backups, and geodata.
+### Supported Cores
 
-### Built Around
+<p>
+  <a href="https://github.com/XTLS/Xray-core">
+    <img src="frontend/public/cores/xray.svg" alt="Xray" height="24">
+  </a>
+  &nbsp;
+  <strong>Xray-core</strong> - VLESS Reality support.
+</p>
 
-| Core | Project |
-| --- | --- |
-| <img src="frontend/public/cores/xray.svg" alt="Xray" height="22"> Xray | [XTLS/Xray-core](https://github.com/XTLS/Xray-core) |
-| <img src="frontend/public/cores/hysteria2.svg" alt="Hysteria 2" height="22"> Hysteria 2 | [apernet/hysteria](https://github.com/apernet/hysteria) |
+<p>
+  <a href="https://github.com/apernet/hysteria">
+    <img src="frontend/public/cores/hysteria2.svg" alt="Hysteria 2" height="24">
+  </a>
+  &nbsp;
+  <strong>Hysteria 2</strong> - fast QUIC-based transport.
+</p>
 
-### Intended Use
+### Built For
 
-h2v is designed for a fresh Ubuntu server with a real domain pointed to it. The installer sets up the panel, backend, frontend, database, systemd services, Xray, and Hysteria 2.
+h2v is intended for a fresh Ubuntu server with a domain pointed to it. The installer prepares the panel, backend, frontend, database, services, Xray, and Hysteria 2.
 
 ---
 
@@ -65,25 +73,35 @@ h2v is designed for a fresh Ubuntu server with a real domain pointed to it. The 
 
 ## Русский
 
-### Обзор
+**h2v** - приватная веб-панель для небольшого VPN-сервера. В одном интерфейсе собраны пользователи, подписки, трафик, состояние сервисов и настройки протоколов.
 
-**h2v** - приватный дашборд для управления небольшим VPN-сервером. Панель объединяет пользователей, подписки, трафик и конфигурацию cores в одном интерфейсе.
+### Что Умеет
 
-### Возможности
+- Создает VPN-пользователей и помогает управлять ими.
+- Показывает расход трафика, лимиты и сроки действия.
+- Генерирует ссылки подписки и QR-коды.
+- Собирает конфиги для Xray VLESS Reality и Hysteria 2.
+- Показывает трафик, uptime и состояние сервисов на дашборде.
+- Позволяет менять настройки панели, резервных копий, geodata и ядер через интерфейс.
 
-- Пользователи, лимиты трафика, сроки действия и управление статусом.
-- Ссылки подписки, QR-коды и публичная страница пользователя.
-- Автоматическая генерация конфигов для Xray VLESS Reality и Hysteria 2.
-- Дашборд с трафиком, uptime и состоянием сервисов.
-- Настройки доменов, портов, Reality-ключей, Hysteria, бэкапов и geodata.
+### Поддерживаемые Ядра
 
-### Основано На
+<p>
+  <a href="https://github.com/XTLS/Xray-core">
+    <img src="frontend/public/cores/xray.svg" alt="Xray" height="24">
+  </a>
+  &nbsp;
+  <strong>Xray-core</strong> - поддержка VLESS Reality.
+</p>
 
-| Core | Проект |
-| --- | --- |
-| <img src="frontend/public/cores/xray.svg" alt="Xray" height="22"> Xray | [XTLS/Xray-core](https://github.com/XTLS/Xray-core) |
-| <img src="frontend/public/cores/hysteria2.svg" alt="Hysteria 2" height="22"> Hysteria 2 | [apernet/hysteria](https://github.com/apernet/hysteria) |
+<p>
+  <a href="https://github.com/apernet/hysteria">
+    <img src="frontend/public/cores/hysteria2.svg" alt="Hysteria 2" height="24">
+  </a>
+  &nbsp;
+  <strong>Hysteria 2</strong> - быстрый транспорт на базе QUIC.
+</p>
 
 ### Для Чего
 
-h2v рассчитан на чистый Ubuntu-сервер с реальным доменом, направленным на сервер. Installer настраивает панель, backend, frontend, базу данных, systemd-сервисы, Xray и Hysteria 2.
+h2v рассчитан на чистый Ubuntu-сервер с доменом, направленным на него. Установщик подготавливает панель, серверную часть, веб-интерфейс, базу данных, сервисы, Xray и Hysteria 2.
