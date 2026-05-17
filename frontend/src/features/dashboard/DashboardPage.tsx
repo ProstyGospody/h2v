@@ -240,7 +240,7 @@ function ServiceStatusIsland({ items, label }: { items: DashboardServiceItem[]; 
 
   return (
     <section aria-label={label} className="flex max-w-full justify-center">
-      <div className="flex w-fit max-w-full flex-wrap items-center justify-center gap-1.5 rounded-[1.75rem] bg-surface-elevated/95 p-1.5 backdrop-blur-xl">
+      <div className="flex w-fit max-w-full flex-wrap items-center justify-center gap-1.5 rounded-[1.75rem] bg-surface-elevated/55 p-1.5 backdrop-blur-md">
         <svg aria-hidden="true" className="pointer-events-none absolute size-0 overflow-hidden">
           <defs>
             <linearGradient id={gradientId} x1="4" x2="20" y1="4" y2="20" gradientUnits="userSpaceOnUse">
@@ -255,7 +255,7 @@ function ServiceStatusIsland({ items, label }: { items: DashboardServiceItem[]; 
 
           return (
             <div
-              className="flex h-9 min-w-0 items-center gap-2 rounded-full px-2.5 text-foreground transition-colors hover:bg-muted/40"
+              className="flex h-9 min-w-0 items-center gap-2 rounded-full px-2.5 text-foreground transition-colors hover:bg-muted/25"
               key={item.label}
               title={`${item.label}: ${item.value}`}
             >
