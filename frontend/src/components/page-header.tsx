@@ -5,17 +5,23 @@ interface PageHeaderProps {
   title: string;
   description?: React.ReactNode;
   action?: React.ReactNode;
+  center?: React.ReactNode;
   className?: string;
 }
 
-export function PageHeader({ action, className, description, title }: PageHeaderProps) {
+export function PageHeader({ action, center, className, description, title }: PageHeaderProps) {
   return (
     <header
       className={cn(
-        'px-page pb-1 pt-5 sm:pt-6',
+        'relative px-page pb-1 pt-5 sm:pt-6',
         className,
       )}
     >
+      {center ? (
+        <div className="pointer-events-none absolute inset-x-0 top-5 z-10 hidden justify-center px-page xl:flex">
+          <div className="pointer-events-auto max-w-full">{center}</div>
+        </div>
+      ) : null}
       <div className="flex min-h-9 min-w-0 flex-col justify-center gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
         <div className="flex min-w-0 items-center gap-3">
           <SidebarTrigger className="-ml-1 size-8 rounded-md bg-transparent text-muted-foreground/75 shadow-none hover:bg-muted/45 hover:bg-none hover:text-foreground focus-visible:ring-ring/30 [&_svg]:size-4" />

@@ -114,12 +114,8 @@ export function DashboardPage() {
 
   return (
     <div className="pb-10">
-      <div className="sticky top-16 z-20 flex justify-center px-page pt-3 lg:top-3">
-        <ServiceStatusIsland items={serviceStatuses} label={t('nav.services')} />
-      </div>
-
       <PageHeader
-        className="pt-4 sm:pt-5"
+        center={<ServiceStatusIsland items={serviceStatuses} label={t('nav.services')} />}
         title={t('dashboard.overview')}
         action={
           <Tabs onValueChange={(v) => setDays(v as Range)} value={days}>
@@ -244,7 +240,7 @@ function ServiceStatusIsland({ items, label }: { items: DashboardServiceItem[]; 
 
   return (
     <section aria-label={label} className="flex max-w-full justify-center">
-      <div className="flex w-fit max-w-full flex-wrap items-center justify-center gap-1.5 rounded-[1.75rem] border border-border/70 bg-surface-elevated/95 p-1.5 shadow-pop backdrop-blur-xl">
+      <div className="flex w-fit max-w-full flex-wrap items-center justify-center gap-1.5 rounded-[1.75rem] bg-surface-elevated/95 p-1.5 backdrop-blur-xl">
         <svg aria-hidden="true" className="pointer-events-none absolute size-0 overflow-hidden">
           <defs>
             <linearGradient id={gradientId} x1="4" x2="20" y1="4" y2="20" gradientUnits="userSpaceOnUse">
