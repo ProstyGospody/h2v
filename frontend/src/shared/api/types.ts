@@ -16,6 +16,8 @@ export type ApiErrorShape = {
   };
 };
 
+export type AdminIcon = 'astronaut' | 'crown' | 'dino' | 'robot' | 'rocket';
+
 export type UserStatus = 'active' | 'disabled' | 'expired' | 'limited';
 
 export type User = {
@@ -90,6 +92,7 @@ export type Admin = {
   id: string;
   username: string;
   role: string;
+  icon: AdminIcon;
   created_at: string;
   last_login_at?: string | null;
 };

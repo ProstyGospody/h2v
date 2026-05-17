@@ -1,31 +1,31 @@
 import { useEffect, useState } from 'react';
 import { Link, Outlet, createRootRoute, createRoute, createRouter, useRouterState } from '@tanstack/react-router';
 import {
-  BadgeCheck,
   Check,
-  Crown,
   FileCode2,
-  KeyRound,
   LayoutDashboard,
   LogOut,
   Menu,
-  ShieldCheck,
+  Save,
   Settings2,
-  UserRound,
   Users,
   type LucideIcon,
 } from 'lucide-react';
+import { toast } from 'sonner';
 import { AppProviders } from '@/app/providers';
 import { BrandLogo } from '@/components/brand-logo';
 import { LanguageSwitcher } from '@/components/language-switcher';
 import { ThemeToggle } from '@/components/theme-toggle';
 import { Button } from '@/components/ui/button';
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import {
   Sidebar,
   SidebarContent,
@@ -50,11 +50,12 @@ import { SettingsPage } from '@/features/settings/SettingsPage';
 import { SubPage } from '@/features/subscription/SubPage';
 import { UsersPage } from '@/features/users/UsersPage';
 import { cn } from '@/lib/utils';
+import { ApiError } from '@/shared/api/client';
+import type { Admin, AdminIcon } from '@/shared/api/types';
 import { useI18n } from '@/shared/i18n/i18n';
 import type { TranslationKey } from '@/shared/i18n/translations';
 
 type LinkTo = '/' | '/users' | '/settings' | '/configs';
-type OwnerIconId = 'admin' | 'owner' | 'key' | 'verified' | 'user';
 
 const primaryLinks: Array<{
   icon: LucideIcon;
@@ -67,30 +68,18 @@ const primaryLinks: Array<{
   { icon: Settings2, labelKey: 'nav.settings', to: '/settings' },
 ];
 
-const ownerIconOptions: Array<{ icon: LucideIcon; id: OwnerIconId; label: string }> = [
-  { icon: ShieldCheck, id: 'admin', label: 'Admin' },
-  { icon: Crown, id: 'owner', label: 'Owner' },
-  { icon: KeyRound, id: 'key', label: 'Root' },
-  { icon: BadgeCheck, id: 'verified', label: 'Verified' },
-  { icon: UserRound, id: 'user', label: 'User' },
+const profileIconOptions: Array<{ id: AdminIcon; label: string; src: string }> = [
+  { id: 'robot', label: 'Robot', src: '/profile-icons/robot.svg' },
+  { id: 'dino', label: 'Dino', src: '/profile-icons/dino.svg' },
+  { id: 'astronaut', label: 'Astronaut', src: '/profile-icons/astronaut.svg' },
+  { id: 'rocket', label: 'Rocket', src: '/profile-icons/rocket.svg' },
+  { id: 'crown', label: 'Crown', src: '/profile-icons/crown.svg' },
 ];
 
-const ownerIconFallback = ownerIconOptions[0];
+const profileIconFallback = profileIconOptions[0]!;
 
-function ownerIconStorageKey(username: string) {
-  return `h2v-owner-icon:${username}`;
-}
-
-function readOwnerIcon(username: string): OwnerIconId {
-  if (typeof window === 'undefined') return ownerIconFallback.id;
-  try {
-    const stored = window.localStorage.getItem(ownerIconStorageKey(username));
-    return ownerIconOptions.some((option) => option.id === stored)
-      ? (stored as OwnerIconId)
-      : ownerIconFallback.id;
-  } catch {
-    return ownerIconFallback.id;
-  }
+function profileIconMeta(icon: AdminIcon | undefined) {
+  return profileIconOptions.find((option) => option.id === icon) ?? profileIconFallback;
 }
 
 function RootLayout() {
@@ -102,7 +91,7 @@ function RootLayout() {
 }
 
 function ProtectedShell() {
-  const { admin, logout, ready } = useAuth();
+  const { admin, logout, ready, updateAdmin } = useAuth();
   const { t } = useI18n();
   const [navOpen, setNavOpen] = useState(false);
 
@@ -118,7 +107,7 @@ function ProtectedShell() {
   return (
     <SidebarProvider defaultOpen className="min-h-screen min-w-0 overflow-x-hidden bg-app-background text-foreground">
       <Sidebar>
-        <SidebarBody admin={admin} logout={logout} />
+        <SidebarBody admin={admin} logout={logout} updateAdmin={updateAdmin} />
       </Sidebar>
 
       <SidebarInset>
@@ -145,7 +134,12 @@ function ProtectedShell() {
       <Sheet onOpenChange={setNavOpen} open={navOpen}>
         <SheetContent className="w-70 bg-sidebar p-0 text-sidebar-foreground" side="left">
           <SidebarProvider open>
-            <SidebarBody admin={admin} logout={logout} onNavigate={() => setNavOpen(false)} />
+            <SidebarBody
+              admin={admin}
+              logout={logout}
+              onNavigate={() => setNavOpen(false)}
+              updateAdmin={updateAdmin}
+            />
           </SidebarProvider>
         </SheetContent>
       </Sheet>
@@ -157,30 +151,18 @@ function SidebarBody({
   admin,
   logout,
   onNavigate,
+  updateAdmin,
 }: {
-  admin: { username: string };
+  admin: Admin;
   logout: () => Promise<void> | void;
   onNavigate?: () => void;
+  updateAdmin: (input: { icon: AdminIcon; password?: string; username: string }) => Promise<void>;
 }) {
   const { t } = useI18n();
   const { state } = useSidebar();
   const collapsed = state === 'collapsed';
-  const [ownerIconId, setOwnerIconId] = useState<OwnerIconId>(() => readOwnerIcon(admin.username));
-  const ownerIcon = ownerIconOptions.find((option) => option.id === ownerIconId) ?? ownerIconFallback;
-  const OwnerIcon = ownerIcon.icon;
-
-  useEffect(() => {
-    setOwnerIconId(readOwnerIcon(admin.username));
-  }, [admin.username]);
-
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    try {
-      window.localStorage.setItem(ownerIconStorageKey(admin.username), ownerIconId);
-    } catch {
-      // The selected icon is cosmetic; ignore storage failures in restricted browsers.
-    }
-  }, [admin.username, ownerIconId]);
+  const [profileOpen, setProfileOpen] = useState(false);
+  const profileIcon = profileIconMeta(admin.icon);
 
   return (
     <div className="flex h-dvh flex-col">
@@ -212,36 +194,15 @@ function SidebarBody({
 
       <SidebarFooter className={cn('border-t border-sidebar-border/70', collapsed ? 'px-3 py-3' : 'px-5 py-4')}>
         <div className={cn('flex', collapsed ? 'flex-col items-center gap-2' : 'items-center gap-2.5')}>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <button
-                aria-label="Change owner icon"
-                className="flex size-9 shrink-0 items-center justify-center rounded-md border border-sidebar-border bg-sidebar-accent text-sidebar-accent-foreground transition-colors hover:[background-image:var(--sidebar-action-hover)]"
-                title={ownerIcon.label}
-                type="button"
-              >
-                <OwnerIcon aria-hidden="true" className="size-4" />
-              </button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align={collapsed ? 'center' : 'start'} side="top">
-              {ownerIconOptions.map((option) => {
-                const Icon = option.icon;
-                const selected = ownerIconId === option.id;
-
-                return (
-                  <DropdownMenuItem
-                    className={cn(selected && '[background-image:var(--gradient-accent-soft)] text-foreground')}
-                    key={option.id}
-                    onSelect={() => setOwnerIconId(option.id)}
-                  >
-                    <Icon />
-                    <span className="flex-1">{option.label}</span>
-                    {selected ? <Check className="ml-auto" /> : null}
-                  </DropdownMenuItem>
-                );
-              })}
-            </DropdownMenuContent>
-          </DropdownMenu>
+          <button
+            aria-label={t('profile.edit')}
+            className="flex size-11 shrink-0 items-center justify-center rounded-md bg-accent-gradient text-primary-foreground shadow-sm transition-opacity hover:opacity-95"
+            onClick={() => setProfileOpen(true)}
+            title={profileIcon.label}
+            type="button"
+          >
+            <ProfileIcon className="size-8" icon={admin.icon} />
+          </button>
           {!collapsed ? (
             <div className="min-w-0 flex-1">
               <div className="truncate text-sm font-medium leading-5 text-foreground">{admin.username}</div>
@@ -264,7 +225,140 @@ function SidebarBody({
           </Button>
         </div>
       </SidebarFooter>
+
+      <ProfileDialog
+        admin={admin}
+        onOpenChange={setProfileOpen}
+        open={profileOpen}
+        updateAdmin={updateAdmin}
+      />
     </div>
+  );
+}
+
+function ProfileDialog({
+  admin,
+  onOpenChange,
+  open,
+  updateAdmin,
+}: {
+  admin: Admin;
+  onOpenChange: (open: boolean) => void;
+  open: boolean;
+  updateAdmin: (input: { icon: AdminIcon; password?: string; username: string }) => Promise<void>;
+}) {
+  const { t } = useI18n();
+  const [icon, setIcon] = useState<AdminIcon>(profileIconMeta(admin.icon).id);
+  const [password, setPassword] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [username, setUsername] = useState(admin.username);
+
+  useEffect(() => {
+    if (!open) return;
+    setIcon(profileIconMeta(admin.icon).id);
+    setPassword('');
+    setUsername(admin.username);
+  }, [admin.icon, admin.username, open]);
+
+  async function saveProfile() {
+    setSaving(true);
+    try {
+      await updateAdmin({
+        icon,
+        password: password ? password : undefined,
+        username: username.trim(),
+      });
+      toast.success(t('profile.updated'));
+      onOpenChange(false);
+    } catch (error) {
+      toast.error(error instanceof ApiError ? error.message : t('profile.updateFailed'));
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <Dialog onOpenChange={onOpenChange} open={open}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>{t('profile.title')}</DialogTitle>
+        </DialogHeader>
+
+        <div className="space-y-5">
+          <div className="space-y-2">
+            <Label htmlFor="profile-username">{t('login.username')}</Label>
+            <Input
+              id="profile-username"
+              onChange={(event) => setUsername(event.target.value)}
+              value={username}
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="profile-password">{t('login.password')}</Label>
+            <Input
+              id="profile-password"
+              onChange={(event) => setPassword(event.target.value)}
+              placeholder={t('profile.passwordPlaceholder')}
+              type="password"
+              value={password}
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label>{t('profile.icon')}</Label>
+            <div className="grid grid-cols-5 gap-2">
+              {profileIconOptions.map((option) => {
+                const selected = icon === option.id;
+
+                return (
+                  <button
+                    aria-label={option.label}
+                    className={cn(
+                      'relative flex aspect-square items-center justify-center rounded-md bg-muted/45 p-2 transition-colors hover:bg-muted/70',
+                      selected && 'bg-accent-gradient-soft ring-2 ring-ring/45',
+                    )}
+                    key={option.id}
+                    onClick={() => setIcon(option.id)}
+                    type="button"
+                  >
+                    <ProfileIcon className="size-10" icon={option.id} />
+                    {selected ? (
+                      <span className="absolute right-1 top-1 flex size-4 items-center justify-center rounded-full bg-accent-gradient text-primary-foreground">
+                        <Check className="size-3" />
+                      </span>
+                    ) : null}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+
+        <DialogFooter>
+          <Button onClick={() => onOpenChange(false)} type="button" variant="secondary">
+            {t('common.cancel')}
+          </Button>
+          <Button disabled={saving} onClick={() => void saveProfile()} type="button">
+            <Save />
+            {t('common.save')}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function ProfileIcon({ className, icon }: { className?: string; icon?: AdminIcon }) {
+  const meta = profileIconMeta(icon);
+  return (
+    <img
+      alt=""
+      aria-hidden="true"
+      className={cn('block object-contain', className)}
+      draggable={false}
+      src={meta.src}
+    />
   );
 }
 

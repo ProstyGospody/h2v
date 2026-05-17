@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Astronaut">
+  <defs>
+    <linearGradient id="helmet" x1="14" x2="50" y1="10" y2="54" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#e0f2fe"/>
+      <stop offset="1" stop-color="#93c5fd"/>
+    </linearGradient>
+    <linearGradient id="visor" x1="20" x2="45" y1="24" y2="42" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#1e293b"/>
+      <stop offset="1" stop-color="#6d28d9"/>
+    </linearGradient>
+  </defs>
+  <circle cx="32" cy="31" r="23" fill="url(#helmet)"/>
+  <path fill="url(#visor)" d="M18 31c0-8 6-13 14-13s14 5 14 13v4c0 5-4 8-9 8H27c-5 0-9-3-9-8v-4Z"/>
+  <path fill="#f8fafc" fill-opacity=".35" d="M23 25c4-4 11-5 17-1-7 0-13 2-18 7 0-2 0-4 1-6Z"/>
+  <path fill="#f97316" d="M17 48h30c3 0 5 2 5 5v3H12v-3c0-3 2-5 5-5Z"/>
+  <path fill="#a78bfa" d="M48 18h6v11h-6zM10 18h6v11h-6z"/>
+  <circle cx="50" cy="13" r="3" fill="#fde68a"/>
+</svg>

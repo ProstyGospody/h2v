@@ -16,7 +16,7 @@ export function PageHeader({ action, className, description, title }: PageHeader
         className,
       )}
     >
-      <div className="flex min-h-9 min-w-0 flex-col justify-center gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+      <div className="flex min-h-10 min-w-0 flex-col justify-center gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
         <div className="flex min-w-0 items-center gap-3">
           <SidebarTrigger className="-ml-1 size-8 rounded-md bg-transparent text-muted-foreground/75 shadow-none hover:bg-muted/45 hover:bg-none hover:text-foreground focus-visible:ring-ring/30 [&_svg]:size-4" />
           <div className="min-w-0 space-y-1">

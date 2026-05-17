@@ -9,6 +9,7 @@ type AuthContextValue = {
   ready: boolean;
   login: (input: { username: string; password: string }) => Promise<void>;
   logout: () => Promise<void>;
+  updateAdmin: (input: { icon: Admin['icon']; password?: string; username: string }) => Promise<void>;
 };
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -55,6 +56,14 @@ export function AuthProvider({ children }: PropsWithChildren) {
         await apiClient.request('/auth/logout', { method: 'POST' });
         apiClient.setAccessToken(null);
         setAdmin(null);
+      },
+      async updateAdmin(input) {
+        const data = await apiClient.request<{ access_token: string; admin: Admin }>('/auth/me', {
+          method: 'PATCH',
+          body: JSON.stringify(input),
+        });
+        apiClient.setAccessToken(data.access_token);
+        setAdmin(data.admin);
       },
     }),
     [admin, ready, t],

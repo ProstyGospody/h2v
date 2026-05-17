@@ -743,7 +743,7 @@ func (r *Repository) InsertMissingSettings(ctx context.Context, values map[strin
 
 func (r *Repository) GetAdminByUsername(ctx context.Context, username string) (*domain.Admin, error) {
 	row := r.pool.QueryRow(ctx, `
-		SELECT id, username, password_hash, role, last_login_at, created_at
+		SELECT id, username, password_hash, role, icon, last_login_at, created_at
 		FROM admins
 		WHERE username = $1
 	`, username)
@@ -759,7 +759,7 @@ func (r *Repository) GetAdminByUsername(ctx context.Context, username string) (*
 
 func (r *Repository) GetAdminByID(ctx context.Context, id uuid.UUID) (*domain.Admin, error) {
 	row := r.pool.QueryRow(ctx, `
-		SELECT id, username, password_hash, role, last_login_at, created_at
+		SELECT id, username, password_hash, role, icon, last_login_at, created_at
 		FROM admins
 		WHERE id = $1
 	`, id)
@@ -794,6 +794,40 @@ func (r *Repository) UpdateAdminPassword(ctx context.Context, id uuid.UUID, pass
 		WHERE id = $1
 	`, id, passwordHash)
 	return err
+}
+
+func (r *Repository) UpdateAdminProfile(ctx context.Context, id uuid.UUID, username, icon string, passwordHash *string) (*domain.Admin, error) {
+	var row pgx.Row
+	if passwordHash != nil {
+		row = r.pool.QueryRow(ctx, `
+			UPDATE admins
+			SET username = $2,
+			    icon = $3,
+			    password_hash = $4
+			WHERE id = $1
+			RETURNING id, username, password_hash, role, icon, last_login_at, created_at
+		`, id, username, icon, *passwordHash)
+	} else {
+		row = r.pool.QueryRow(ctx, `
+			UPDATE admins
+			SET username = $2,
+			    icon = $3
+			WHERE id = $1
+			RETURNING id, username, password_hash, role, icon, last_login_at, created_at
+		`, id, username, icon)
+	}
+
+	admin, err := scanAdmin(row)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, domain.NewError(404, "admin_not_found", "Admin does not exist", err)
+		}
+		if _, ok := uniqueViolationConstraint(err); ok {
+			return nil, domain.NewError(409, "admin_username_exists", "Admin username already exists", err)
+		}
+		return nil, err
+	}
+	return admin, nil
 }
 
 func (r *Repository) TouchAdminLogin(ctx context.Context, id uuid.UUID) error {
@@ -857,6 +891,7 @@ func scanAdmin(row interface {
 		&admin.Username,
 		&admin.PasswordHash,
 		&admin.Role,
+		&admin.Icon,
 		&admin.LastLoginAt,
 		&admin.CreatedAt,
 	); err != nil {

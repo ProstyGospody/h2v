@@ -367,7 +367,7 @@ export function SettingsPage() {
         }
       />
 
-      <div className="space-y-5 px-page pt-7">
+      <div className="space-y-5 px-page pt-5">
         {settings.isLoading ? (
           <SettingsSkeleton />
         ) : settings.isError ? (

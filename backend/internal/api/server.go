@@ -123,6 +123,9 @@ func (s *Server) routes(r chi.Router) {
 	r.Route("/api", func(api chi.Router) {
 		api.Use(s.requireAuth)
 
+		api.Get("/auth/me", s.handleAuthMe)
+		api.Patch("/auth/me", s.handleAuthUpdate)
+
 		api.Get("/users", s.handleUsersList)
 		api.Post("/users", s.handleUsersCreate)
 		api.Post("/users/bulk", s.handleUsersBulk)
@@ -193,12 +196,7 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 	jsonData(w, http.StatusOK, map[string]any{
 		"access_token": tokens.AccessToken,
 		"expires_in":   int(tokens.ExpiresIn.Seconds()),
-		"admin": map[string]any{
-			"id":         tokens.Admin.ID,
-			"username":   tokens.Admin.Username,
-			"role":       tokens.Admin.Role,
-			"created_at": tokens.Admin.CreatedAt,
-		},
+		"admin":        adminResponse(tokens.Admin),
 	}, nil)
 }
 
@@ -217,11 +215,7 @@ func (s *Server) handleRefresh(w http.ResponseWriter, r *http.Request) {
 	jsonData(w, http.StatusOK, map[string]any{
 		"access_token": tokens.AccessToken,
 		"expires_in":   int(tokens.ExpiresIn.Seconds()),
-		"admin": map[string]any{
-			"id":       tokens.Admin.ID,
-			"username": tokens.Admin.Username,
-			"role":     tokens.Admin.Role,
-		},
+		"admin":        adminResponse(tokens.Admin),
 	}, nil)
 }
 
@@ -235,6 +229,63 @@ func (s *Server) handleLogout(w http.ResponseWriter, _ *http.Request) {
 		Expires:  time.Unix(0, 0),
 	})
 	jsonData(w, http.StatusOK, map[string]any{"ok": true}, nil)
+}
+
+func (s *Server) handleAuthMe(w http.ResponseWriter, r *http.Request) {
+	claims, ok := claimsFromContext(r.Context())
+	if !ok {
+		jsonError(w, domain.NewError(401, "unauthorized", "Authorization header is required", nil))
+		return
+	}
+	adminID, err := uuid.Parse(claims.AdminID)
+	if err != nil {
+		jsonError(w, domain.NewError(401, "invalid_token", "Invalid token", err))
+		return
+	}
+	admin, err := s.services.Auth.CurrentAdmin(r.Context(), adminID)
+	if err != nil {
+		jsonError(w, err)
+		return
+	}
+	jsonData(w, http.StatusOK, adminResponse(*admin), nil)
+}
+
+func (s *Server) handleAuthUpdate(w http.ResponseWriter, r *http.Request) {
+	claims, ok := claimsFromContext(r.Context())
+	if !ok {
+		jsonError(w, domain.NewError(401, "unauthorized", "Authorization header is required", nil))
+		return
+	}
+	adminID, err := uuid.Parse(claims.AdminID)
+	if err != nil {
+		jsonError(w, domain.NewError(401, "invalid_token", "Invalid token", err))
+		return
+	}
+
+	var req struct {
+		Username string `json:"username"`
+		Password string `json:"password"`
+		Icon     string `json:"icon"`
+	}
+	if err := decodeJSON(r, &req); err != nil {
+		jsonError(w, err)
+		return
+	}
+	tokens, err := s.services.Auth.UpdateProfile(r.Context(), adminID, services.UpdateAdminProfileRequest{
+		Username: req.Username,
+		Password: req.Password,
+		Icon:     req.Icon,
+	})
+	if err != nil {
+		jsonError(w, err)
+		return
+	}
+	setRefreshCookie(w, s.cfg, tokens.RefreshToken)
+	jsonData(w, http.StatusOK, map[string]any{
+		"access_token": tokens.AccessToken,
+		"expires_in":   int(tokens.ExpiresIn.Seconds()),
+		"admin":        adminResponse(tokens.Admin),
+	}, nil)
 }
 
 func (s *Server) handlePublicServerInfo(w http.ResponseWriter, r *http.Request) {
@@ -880,6 +931,26 @@ func jsonData(w http.ResponseWriter, status int, data any, meta any) {
 		payload["meta"] = meta
 	}
 	writeJSON(w, status, payload)
+}
+
+func adminResponse(admin domain.Admin) map[string]any {
+	icon := admin.Icon
+	if icon == "" {
+		icon = "robot"
+	}
+	return map[string]any{
+		"id":            admin.ID,
+		"username":      admin.Username,
+		"role":          admin.Role,
+		"icon":          icon,
+		"last_login_at": admin.LastLoginAt,
+		"created_at":    admin.CreatedAt,
+	}
+}
+
+func claimsFromContext(ctx context.Context) (*domain.Claims, bool) {
+	claims, ok := ctx.Value(claimsContextKey).(*domain.Claims)
+	return claims, ok && claims != nil
 }
 
 func jsonError(w http.ResponseWriter, err error) {

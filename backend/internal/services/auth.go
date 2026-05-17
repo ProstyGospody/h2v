@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"log/slog"
+	"regexp"
+	"strings"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
@@ -14,6 +16,16 @@ import (
 	"github.com/prost/h2v/backend/internal/repo"
 	"github.com/prost/h2v/backend/internal/util"
 )
+
+var adminUsernamePattern = regexp.MustCompile(`^[a-zA-Z0-9_-]{3,32}$`)
+
+var adminIcons = map[string]struct{}{
+	"astronaut": {},
+	"crown":     {},
+	"dino":      {},
+	"robot":     {},
+	"rocket":    {},
+}
 
 type AuthService struct {
 	cfg    config.Config
@@ -26,6 +38,12 @@ type AuthTokens struct {
 	RefreshToken string        `json:"refresh_token"`
 	ExpiresIn    time.Duration `json:"expires_in"`
 	Admin        domain.Admin  `json:"admin"`
+}
+
+type UpdateAdminProfileRequest struct {
+	Username string
+	Password string
+	Icon     string
 }
 
 type tokenClaims struct {
@@ -65,6 +83,55 @@ func (s *AuthService) Refresh(ctx context.Context, refreshToken string) (*AuthTo
 		return nil, err
 	}
 	return s.issueTokens(*admin)
+}
+
+func (s *AuthService) CurrentAdmin(ctx context.Context, adminID uuid.UUID) (*domain.Admin, error) {
+	return s.repo.GetAdminByID(ctx, adminID)
+}
+
+func (s *AuthService) UpdateProfile(ctx context.Context, adminID uuid.UUID, req UpdateAdminProfileRequest) (*AuthTokens, error) {
+	admin, err := s.repo.GetAdminByID(ctx, adminID)
+	if err != nil {
+		return nil, err
+	}
+
+	username := strings.TrimSpace(req.Username)
+	if username == "" {
+		username = admin.Username
+	}
+	if !adminUsernamePattern.MatchString(username) {
+		return nil, domain.NewError(400, "invalid_admin_username", "Username must be 3-32 characters and contain only letters, numbers, underscores, or hyphens", nil)
+	}
+
+	icon := strings.TrimSpace(req.Icon)
+	if icon == "" {
+		icon = admin.Icon
+	}
+	if icon == "" {
+		icon = "robot"
+	}
+	if _, ok := adminIcons[icon]; !ok {
+		return nil, domain.NewError(400, "invalid_admin_icon", "Unknown profile icon", nil)
+	}
+
+	var passwordHash *string
+	password := req.Password
+	if password != "" {
+		if len(password) < 8 {
+			return nil, domain.NewError(400, "invalid_admin_password", "Password must be at least 8 characters", nil)
+		}
+		hash, err := util.HashPassword(password)
+		if err != nil {
+			return nil, err
+		}
+		passwordHash = &hash
+	}
+
+	updated, err := s.repo.UpdateAdminProfile(ctx, adminID, username, icon, passwordHash)
+	if err != nil {
+		return nil, err
+	}
+	return s.issueTokens(*updated)
 }
 
 func (s *AuthService) ParseAccess(token string) (*domain.Claims, error) {
