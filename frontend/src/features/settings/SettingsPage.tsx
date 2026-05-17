@@ -17,6 +17,14 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
 import { CoreLogo, type CoreLogoName } from '@/components/core-logo';
 import { PageHeader } from '@/components/page-header';
@@ -809,23 +817,25 @@ function SelectControl({
   options: Array<{ label: string; value: string }>;
   value: string;
 }) {
+  const selectedOption = options.find((option) => option.value === value);
+
   return (
     <div className="space-y-[13px]">
       <Label>{label}</Label>
-      <select
-        className={cn(
-          'h-9 w-full rounded-[22px] border border-transparent bg-accent-gradient-soft px-3 text-sm text-foreground shadow-xs outline-none transition-colors',
-          'hover:bg-[image:var(--gradient-accent-soft)] focus-visible:border-ring/45 focus-visible:bg-[image:var(--gradient-accent-soft)] focus-visible:ring-2 focus-visible:ring-ring/35',
-        )}
-        onChange={(event) => onChange(event.target.value)}
-        value={value}
-      >
-        {options.map((option) => (
-          <option key={option.value} value={option.value}>
-            {option.label}
-          </option>
-        ))}
-      </select>
+      <Select onValueChange={onChange} value={value}>
+        <SelectTrigger>
+          <SelectValue>{selectedOption?.label ?? value}</SelectValue>
+        </SelectTrigger>
+        <SelectContent>
+          <SelectGroup>
+            {options.map((option) => (
+              <SelectItem key={option.value} value={option.value}>
+                {option.label}
+              </SelectItem>
+            ))}
+          </SelectGroup>
+        </SelectContent>
+      </Select>
     </div>
   );
 }
