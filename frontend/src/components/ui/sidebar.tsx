@@ -124,7 +124,7 @@ function Sidebar({ className, children, ...props }: React.ComponentProps<'aside'
         data-slot="sidebar"
         data-state={state}
         className={cn(
-          'fixed bottom-6 left-6 top-6 z-40 hidden overflow-hidden flex-col rounded-[22px] bg-card text-sidebar-foreground lg:flex',
+          'fixed bottom-6 left-6 top-6 z-40 hidden overflow-hidden flex-col rounded-[22px] bg-card text-sidebar-foreground shadow-sm lg:flex',
           className,
         )}
         {...props}
