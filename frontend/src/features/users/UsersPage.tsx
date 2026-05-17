@@ -5,8 +5,10 @@ import { QRCodeSVG } from 'qrcode.react';
 import { Bar, BarChart, XAxis } from 'recharts';
 import {
   ArrowRight,
+  Ban,
   Copy,
   MoreHorizontal,
+  Power,
   Plus,
   QrCode,
   RefreshCw,
@@ -61,12 +63,15 @@ import { useI18n } from '@/shared/i18n/i18n';
 import type { TranslationKey } from '@/shared/i18n/translations';
 import { daysUntil, formatBytes, formatDate, formatDateTime, formatMonthDay, usagePercent } from '@/shared/lib/format';
 
-const statusOptions: Array<{ labelKey: TranslationKey; value: 'all' | UserStatus }> = [
+type UserFilter = 'all' | UserStatus | 'near_expiry';
+
+const statusOptions: Array<{ labelKey: TranslationKey; value: UserFilter }> = [
   { labelKey: 'users.all', value: 'all' },
   { labelKey: 'users.active', value: 'active' },
   { labelKey: 'users.limited', value: 'limited' },
   { labelKey: 'common.expired', value: 'expired' },
   { labelKey: 'common.disabled', value: 'disabled' },
+  { labelKey: 'users.nearExpiry', value: 'near_expiry' },
 ];
 
 export function UsersPage() {
@@ -89,7 +94,7 @@ export function UsersPage() {
   const [note, setNote] = useState('');
   const trafficPresets = [10, 50, 100, 500];
   const expiryPresets = [7, 30, 90, 365];
-  const perPage = 50;
+  const perPage = 100;
 
   useEffect(() => {
     setPage(1);
@@ -115,16 +120,7 @@ export function UsersPage() {
     refetchInterval: 10_000,
   });
   const userItems = users.data?.data ?? [];
-  const usersMeta = users.data?.meta ?? { page, per_page: perPage, total: userItems.length };
-  const totalPages = Math.max(1, Math.ceil(usersMeta.total / usersMeta.per_page));
-  const firstItem = usersMeta.total === 0 ? 0 : (usersMeta.page - 1) * usersMeta.per_page + 1;
-  const lastItem = Math.min(usersMeta.total, usersMeta.page * usersMeta.per_page);
-
-  useEffect(() => {
-    if (!users.isLoading && page > totalPages) {
-      setPage(totalPages);
-    }
-  }, [page, totalPages, users.isLoading]);
+  const activeFilter: UserFilter = nearExpiry ? 'near_expiry' : status;
 
   const drawerUser = useMemo(
     () => userItems.find((u) => u.id === drawerUserId) ?? null,
@@ -279,17 +275,31 @@ export function UsersPage() {
 
       <div className="space-y-4 px-page pt-6">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-          <div className="relative w-full lg:max-w-sm">
-            <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              className="pl-9"
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder={t('users.searchPlaceholder')}
-              value={search}
-            />
+          <div className="w-full rounded-md bg-accent-gradient-soft px-4 py-3 shadow-sm lg:max-w-sm">
+            <div className="relative">
+              <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                className="pl-9"
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder={t('users.searchPlaceholder')}
+                value={search}
+              />
+            </div>
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            <Tabs onValueChange={(v) => setStatus(v as typeof status)} value={status}>
+            <Tabs
+              onValueChange={(v) => {
+                const next = v as UserFilter;
+                if (next === 'near_expiry') {
+                  setStatus('all');
+                  setNearExpiry(true);
+                  return;
+                }
+                setNearExpiry(false);
+                setStatus(next);
+              }}
+              value={activeFilter}
+            >
               <TabsList>
                 {statusOptions.map((o) => (
                   <TabsTrigger key={o.value} value={o.value}>
@@ -298,13 +308,6 @@ export function UsersPage() {
                 ))}
               </TabsList>
             </Tabs>
-            <Button
-              onClick={() => setNearExpiry((v) => !v)}
-              size="sm"
-              variant={nearExpiry ? 'outline' : 'ghost'}
-            >
-              {t('users.nearExpiry')}
-            </Button>
           </div>
         </div>
 
@@ -321,6 +324,7 @@ export function UsersPage() {
                 size="sm"
                 variant="secondary"
               >
+                <Power />
                 {t('common.enable')}
               </Button>
               <Button
@@ -329,6 +333,7 @@ export function UsersPage() {
                 size="sm"
                 variant="secondary"
               >
+                <Ban />
                 {t('common.disable')}
               </Button>
               <Button
@@ -505,6 +510,7 @@ export function UsersPage() {
                                 )
                               }
                             >
+                              {user.status === 'disabled' ? <Power /> : <Ban />}
                               {user.status === 'disabled' ? t('common.enable') : t('common.disable')}
                             </DropdownMenuItem>
                             <DropdownMenuItem
@@ -574,36 +580,6 @@ export function UsersPage() {
             </CardContent>
           )}
         </Card>
-        {usersMeta.total > 0 ? (
-          <div className="flex flex-col items-start justify-between gap-3 px-1 text-sm text-muted-foreground sm:flex-row sm:items-center">
-            <div>
-              {t('users.paginationRange', { first: firstItem, last: lastItem, total: usersMeta.total })}
-            </div>
-            <div className="flex items-center gap-2">
-              <Button
-                disabled={users.isFetching || usersMeta.page <= 1}
-                onClick={() => setPage((current) => Math.max(1, current - 1))}
-                size="sm"
-                type="button"
-                variant="secondary"
-              >
-                {t('users.previous')}
-              </Button>
-              <span className="min-w-16 text-center font-mono text-xs">
-                {usersMeta.page}/{totalPages}
-              </span>
-              <Button
-                disabled={users.isFetching || usersMeta.page >= totalPages}
-                onClick={() => setPage((current) => Math.min(totalPages, current + 1))}
-                size="sm"
-                type="button"
-                variant="secondary"
-              >
-                {t('users.next')}
-              </Button>
-            </div>
-          </div>
-        ) : null}
       </div>
 
       <Sheet onOpenChange={(next) => (next ? null : setDrawerUserId(null))} open={drawerOpen}>
