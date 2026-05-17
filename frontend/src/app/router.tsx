@@ -191,6 +191,10 @@ function SidebarBody({
       </SidebarContent>
 
       <SidebarFooter className={cn('border-t border-sidebar-border/70 lg:border-t-0', collapsed ? 'px-3 py-3' : 'px-5 py-4 lg:px-0 lg:py-0')}>
+        <div className={cn('mb-3 flex w-fit rounded-xl bg-accent-gradient-soft p-1.5', collapsed ? 'flex-col self-center' : 'self-end')}>
+          <ThemeToggle className="size-10 shrink-0 text-muted-foreground hover:bg-muted/30 [&_svg]:size-5" compact />
+          <LanguageSwitcher className="size-10 shrink-0 text-muted-foreground hover:bg-muted/30 [&_svg]:size-5" compact />
+        </div>
         <div className={cn('flex rounded-xl lg:bg-accent-gradient-soft lg:p-2', collapsed ? 'flex-col items-center gap-2.5' : 'items-center gap-3')}>
           <button
             aria-label={t('profile.edit')}
@@ -206,8 +210,6 @@ function SidebarBody({
               <div className="truncate text-sm font-medium leading-5 text-foreground">{admin.username}</div>
             </div>
           ) : null}
-          <ThemeToggle className="size-10 shrink-0 text-muted-foreground hover:bg-muted/30 [&_svg]:size-5" compact />
-          <LanguageSwitcher className="size-10 shrink-0 text-muted-foreground hover:bg-muted/30 [&_svg]:size-5" compact />
           <Button
             aria-label={t('nav.signOut')}
             className="size-10 shrink-0 text-muted-foreground [&_svg]:size-5"
