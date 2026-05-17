@@ -115,18 +115,20 @@ export function DashboardPage() {
   return (
     <div className="pb-10">
       <PageHeader
-        center={<ServiceStatusIsland items={serviceStatuses} label={t('nav.services')} />}
         title={t('dashboard.overview')}
         action={
-          <Tabs onValueChange={(v) => setDays(v as Range)} value={days}>
-            <TabsList>
-              {ranges.map((r) => (
-                <TabsTrigger key={r} value={r}>
-                  {t('dashboard.rangeDay', { days: r })}
-                </TabsTrigger>
-              ))}
-            </TabsList>
-          </Tabs>
+          <div className="flex w-full min-w-0 flex-wrap items-center justify-end gap-2 sm:w-auto">
+            <Tabs onValueChange={(v) => setDays(v as Range)} value={days}>
+              <TabsList>
+                {ranges.map((r) => (
+                  <TabsTrigger key={r} value={r}>
+                    {t('dashboard.rangeDay', { days: r })}
+                  </TabsTrigger>
+                ))}
+              </TabsList>
+            </Tabs>
+            <ServiceStatusIsland items={serviceStatuses} label={t('nav.services')} />
+          </div>
         }
       />
 
