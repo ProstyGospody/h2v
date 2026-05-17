@@ -198,7 +198,7 @@ function SidebarBody({
         <div className={cn('flex rounded-[22px] lg:bg-accent-gradient-soft lg:p-2', collapsed ? 'flex-col items-center gap-2.5' : 'items-center gap-3')}>
           <button
             aria-label={t('profile.edit')}
-            className="flex size-12 shrink-0 items-center justify-center rounded-[22px] bg-accent-gradient-soft text-foreground shadow-sm transition-opacity hover:opacity-95 lg:bg-transparent lg:shadow-none"
+            className="flex size-12 shrink-0 items-center justify-center rounded-md bg-accent-gradient-soft text-foreground shadow-sm transition-opacity hover:opacity-95 lg:bg-transparent lg:shadow-none"
             onClick={() => setProfileOpen(true)}
             title={profileIcon.label}
             type="button"

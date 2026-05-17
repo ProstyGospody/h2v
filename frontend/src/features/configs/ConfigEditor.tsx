@@ -118,7 +118,7 @@ export function ConfigEditor({
     <div
       aria-label={label}
       className={cn(
-        'config-editor h-full min-h-[360px] overflow-hidden rounded-[22px] border border-border/65 bg-card shadow-[inset_0_1px_0_hsl(var(--foreground)/0.03)]',
+        'config-editor h-full min-h-[360px] overflow-hidden rounded-md border border-border/65 bg-card shadow-[inset_0_1px_0_hsl(var(--foreground)/0.03)]',
         className,
       )}
       ref={hostRef}
