@@ -253,7 +253,7 @@ function ServiceStatusIsland({ items, label }: { items: DashboardServiceItem[]; 
 
           return (
             <div
-              className="flex h-7 min-w-0 items-center gap-1.5 rounded-md px-1 text-foreground transition-colors hover:bg-muted/25"
+              className="flex h-7 min-w-0 items-center gap-1.5 rounded-[18px] px-1 text-foreground transition-colors hover:bg-muted/25"
               key={item.label}
               title={`${item.label}: ${item.value}`}
             >

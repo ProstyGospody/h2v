@@ -39,7 +39,7 @@ function DialogContent({
       <DialogPrimitive.Content
         data-slot="dialog-content"
         className={cn(
-          'fixed left-1/2 top-1/2 z-50 grid w-[calc(100%-2rem)] max-w-lg -translate-x-1/2 -translate-y-1/2 gap-5 rounded-lg border border-border/55 bg-card p-6 shadow-overlay',
+          'fixed left-1/2 top-1/2 z-50 grid w-[calc(100%-2rem)] max-w-lg -translate-x-1/2 -translate-y-1/2 gap-5 rounded-[22px] border border-border/55 bg-card p-6 shadow-overlay',
           'data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95',
           'sm:max-w-lg',
           className,
@@ -48,7 +48,7 @@ function DialogContent({
       >
         {children}
         {showCloseButton ? (
-          <DialogPrimitive.Close className="absolute right-4 top-4 inline-flex size-7 items-center justify-center rounded-md text-muted-foreground transition hover:bg-[image:var(--gradient-accent-soft)] hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/40 disabled:pointer-events-none">
+          <DialogPrimitive.Close className="absolute right-4 top-4 inline-flex size-7 items-center justify-center rounded-[18px] text-muted-foreground transition hover:bg-[image:var(--gradient-accent-soft)] hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/40 disabled:pointer-events-none">
             <XIcon className="size-4" />
             <span className="sr-only">{t('common.close')}</span>
           </DialogPrimitive.Close>

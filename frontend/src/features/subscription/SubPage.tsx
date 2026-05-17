@@ -143,7 +143,7 @@ export function SubPage() {
           <Card>
             <CardContent className="flex flex-col items-center gap-5 p-6">
               {subscription.isLoading ? (
-                <Skeleton className="aspect-square w-full max-w-65 rounded-md" />
+                <Skeleton className="aspect-square w-full max-w-65 rounded-[22px]" />
               ) : (
                 <QRCodePreview
                   label={t('subscription.qr')}
@@ -227,13 +227,13 @@ export function SubPage() {
             <CardContent className="space-y-2 p-4">
               {clientLinks[os].map((client) => (
                 <a
-                  className="group flex min-h-12 items-center gap-3 rounded-md bg-surface-elevated px-3 py-3 transition hover:bg-[image:var(--gradient-accent-soft)]"
+                  className="group flex min-h-12 items-center gap-3 rounded-[22px] bg-surface-elevated px-3 py-3 transition hover:bg-[image:var(--gradient-accent-soft)]"
                   href={client.href}
                   key={client.label}
                   rel="noreferrer"
                   target="_blank"
                 >
-                  <img alt="" className="size-9 rounded-md" src={client.icon} />
+                  <img alt="" className="size-9 rounded-[18px]" src={client.icon} />
                   <span className="flex-1 text-sm font-medium text-foreground">{client.label}</span>
                   <ChevronRight className="size-4 text-muted-foreground transition group-hover:translate-x-0.5 group-hover:text-foreground" />
                 </a>
@@ -241,7 +241,7 @@ export function SubPage() {
             </CardContent>
           </Card>
 
-          <details className="group rounded-lg bg-surface shadow-sm">
+          <details className="group rounded-[22px] bg-surface shadow-sm">
             <summary className="flex cursor-pointer list-none items-center justify-between px-5 py-4 text-sm font-medium text-foreground">
               <span>{t('subscription.howToConnect')}</span>
               <ChevronRight className="size-4 text-muted-foreground transition group-open:rotate-90" />
@@ -249,7 +249,7 @@ export function SubPage() {
             <div className="space-y-3 bg-muted/20 px-5 py-5">
               {helpSections.map((section) => (
                 <div
-                  className="rounded-md bg-surface-elevated p-4"
+                  className="rounded-[22px] bg-surface-elevated p-4"
                   key={section.title}
                 >
                   <div className="mb-3 t-label">{section.title}</div>
@@ -268,7 +268,7 @@ export function SubPage() {
             </div>
           </details>
 
-          <details className="group rounded-lg bg-surface shadow-sm">
+          <details className="group rounded-[22px] bg-surface shadow-sm">
             <summary className="flex cursor-pointer list-none items-center justify-between px-5 py-4 text-sm font-medium text-foreground">
               <span>{t('subscription.advanced')}</span>
               <ChevronRight className="size-4 text-muted-foreground transition group-open:rotate-90" />
@@ -288,7 +288,7 @@ export function SubPage() {
                       { label: 'Hysteria 2', value: data?.hysteria2 ?? '' },
                     ].map((item) => (
                       <div
-                        className="space-y-3 rounded-md bg-surface-elevated p-4"
+                        className="space-y-3 rounded-[22px] bg-surface-elevated p-4"
                         key={item.label}
                       >
                         <div className="t-label">{item.label}</div>
@@ -346,7 +346,7 @@ function QRCodePreview({
       <div
         aria-label={label}
         className={cn(
-          'flex aspect-square w-full items-center justify-center overflow-hidden rounded-md border border-border/65 bg-white p-3',
+          'flex aspect-square w-full items-center justify-center overflow-hidden rounded-[22px] border border-border/65 bg-white p-3',
           maxWidthClassName,
         )}
         role="img"
@@ -369,7 +369,7 @@ function QRCodePreview({
   return (
     <div
       className={cn(
-        'aspect-square w-full rounded-md border border-border/65 bg-surface',
+        'aspect-square w-full rounded-[22px] border border-border/65 bg-surface',
         maxWidthClassName,
       )}
     />

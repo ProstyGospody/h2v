@@ -30,13 +30,13 @@ function Toaster({ style, ...props }: ToasterProps) {
       toastOptions={{
         classNames: {
           toast:
-            'group toast rounded-lg border border-border/45 bg-card px-4 py-3 text-sm text-card-foreground shadow-pop',
+            'group toast rounded-[22px] border border-border/45 bg-card px-4 py-3 text-sm text-card-foreground shadow-pop',
           title: 'text-sm font-medium',
           description: 'text-xs text-muted-foreground',
           actionButton:
-            'rounded-md bg-accent-gradient px-2.5 py-1 text-xs font-medium text-primary-foreground',
+            'rounded-[18px] bg-accent-gradient px-2.5 py-1 text-xs font-medium text-primary-foreground',
           cancelButton:
-            'rounded-md bg-muted px-2.5 py-1 text-xs font-medium text-muted-foreground',
+            'rounded-[18px] bg-muted px-2.5 py-1 text-xs font-medium text-muted-foreground',
           success: 'border-success/35 [&_[data-icon]>svg]:text-success',
           error: 'border-destructive/40 [&_[data-icon]>svg]:text-destructive',
           warning: 'border-warning/35 [&_[data-icon]>svg]:text-warning',

@@ -191,14 +191,14 @@ function SidebarBody({
       </SidebarContent>
 
       <SidebarFooter className={cn('border-t border-sidebar-border/70 lg:border-t-0', collapsed ? 'px-3 py-3' : 'px-5 py-4 lg:px-0 lg:py-0')}>
-        <div className={cn('mb-3 flex rounded-xl bg-accent-gradient-soft p-1.5', collapsed ? 'flex-col items-center gap-1' : 'w-full items-center justify-center gap-1')}>
+        <div className={cn('mb-3 flex rounded-[22px] bg-accent-gradient-soft p-1.5', collapsed ? 'flex-col items-center gap-1' : 'w-full items-center justify-center gap-1')}>
           <ThemeToggle className="size-10 shrink-0 text-muted-foreground hover:bg-muted/30 [&_svg]:size-5" compact />
           <LanguageSwitcher className="size-10 shrink-0 text-muted-foreground hover:bg-muted/30 [&_svg]:size-5" compact />
         </div>
-        <div className={cn('flex rounded-xl lg:bg-accent-gradient-soft lg:p-2', collapsed ? 'flex-col items-center gap-2.5' : 'items-center gap-3')}>
+        <div className={cn('flex rounded-[22px] lg:bg-accent-gradient-soft lg:p-2', collapsed ? 'flex-col items-center gap-2.5' : 'items-center gap-3')}>
           <button
             aria-label={t('profile.edit')}
-            className="flex size-12 shrink-0 items-center justify-center rounded-md bg-accent-gradient-soft text-foreground shadow-sm transition-opacity hover:opacity-95 lg:bg-transparent lg:shadow-none"
+            className="flex size-12 shrink-0 items-center justify-center rounded-[22px] bg-accent-gradient-soft text-foreground shadow-sm transition-opacity hover:opacity-95 lg:bg-transparent lg:shadow-none"
             onClick={() => setProfileOpen(true)}
             title={profileIcon.label}
             type="button"
@@ -315,7 +315,7 @@ function ProfileDialog({
                   <button
                     aria-label={option.label}
                     className={cn(
-                      'relative flex aspect-square items-center justify-center rounded-md bg-muted/45 p-2 transition-colors hover:bg-muted/70',
+                      'relative flex aspect-square items-center justify-center rounded-[22px] bg-muted/45 p-2 transition-colors hover:bg-muted/70',
                       selected && 'bg-accent-gradient-soft ring-2 ring-ring/45',
                     )}
                     key={option.id}
@@ -388,7 +388,7 @@ function SidebarLink({
     <SidebarMenuItem>
       <SidebarMenuButton
         asChild
-        className="h-14 gap-3 rounded-xl px-4 text-[15px] before:hidden"
+        className="h-14 gap-3 rounded-[22px] px-4 text-[15px] before:hidden"
         isActive={isActive}
         tooltip={label}
       >
@@ -399,7 +399,7 @@ function SidebarLink({
         >
           <span
             data-slot="sidebar-menu-icon"
-            className="flex size-10 shrink-0 items-center justify-center rounded-md text-current transition-colors group-data-[active=true]/menu-button:text-primary-foreground"
+            className="flex size-10 shrink-0 items-center justify-center rounded-[22px] text-current transition-colors group-data-[active=true]/menu-button:text-primary-foreground"
           >
             <Icon aria-hidden="true" className="size-[22px]" />
           </span>

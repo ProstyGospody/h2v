@@ -621,17 +621,17 @@ export function UsersPage() {
                 </div>
 
                 <div className="space-y-1">
-                  <div className="flex items-center justify-between gap-3 rounded-md bg-muted/30 px-2 py-2.5 text-sm">
+                  <div className="flex items-center justify-between gap-3 rounded-[22px] bg-muted/30 px-2 py-2.5 text-sm">
                     <span className="text-muted-foreground">{t('users.created')}</span>
                     <span className="text-right text-foreground">{formatDateTime(drawerUser.created_at, locale)}</span>
                   </div>
-                  <div className="flex items-center justify-between gap-3 rounded-md bg-muted/30 px-2 py-2.5 text-sm">
+                  <div className="flex items-center justify-between gap-3 rounded-[22px] bg-muted/30 px-2 py-2.5 text-sm">
                     <span className="text-muted-foreground">{t('users.expires')}</span>
                     <span className="text-right text-foreground">
                       {drawerUser.expires_at ? formatDateTime(drawerUser.expires_at, locale) : t('common.never')}
                     </span>
                   </div>
-                  <div className="flex items-center justify-between gap-3 rounded-md bg-muted/30 px-2 py-2.5 text-sm">
+                  <div className="flex items-center justify-between gap-3 rounded-[22px] bg-muted/30 px-2 py-2.5 text-sm">
                     <span className="text-muted-foreground">{t('users.status')}</span>
                     <span className="text-right text-foreground">
                       <UserStatusBadge status={drawerUser.status} />
@@ -674,7 +674,7 @@ export function UsersPage() {
 
                 <div className="space-y-2">
                   <div className="t-label">{t('users.trafficSevenDays')}</div>
-                  <div className="h-32 rounded-md bg-muted/60 p-2">
+                  <div className="h-32 rounded-[22px] bg-muted/60 p-2">
                     {traffic.isLoading ? (
                       <Skeleton className="h-full w-full" />
                     ) : hasDrawerTrafficSamples ? (
@@ -913,9 +913,9 @@ function QRDialogContent({
       {isLoading ? (
         <div className="grid min-w-0 gap-4 sm:grid-cols-3">
           {Array.from({ length: 3 }).map((_, index) => (
-            <div className="space-y-3 rounded-md bg-muted/35 p-3" key={index}>
+            <div className="space-y-3 rounded-[22px] bg-muted/35 p-3" key={index}>
               <Skeleton className="h-4 w-20" />
-              <Skeleton className="aspect-square w-full rounded-md" />
+              <Skeleton className="aspect-square w-full rounded-[22px]" />
               <Skeleton className="h-9 w-full" />
             </div>
           ))}
@@ -923,7 +923,7 @@ function QRDialogContent({
       ) : links ? (
         <div className="grid gap-4 sm:grid-cols-3">
           {qrItems.map((item) => (
-            <div className="space-y-3 rounded-md bg-muted/35 p-3" key={item.label}>
+            <div className="space-y-3 rounded-[22px] bg-muted/35 p-3" key={item.label}>
               <div className="t-label">{item.label}</div>
               <QRCodePreview label={`${username || t('common.user')} ${item.label} QR`} value={item.value} />
               <Button
@@ -944,7 +944,7 @@ function QRDialogContent({
           ))}
         </div>
       ) : (
-        <div className="rounded-md bg-destructive/10 px-3 py-6 text-center text-sm text-destructive">
+        <div className="rounded-[22px] bg-destructive/10 px-3 py-6 text-center text-sm text-destructive">
           {t('users.qrDataError')}
         </div>
       )}
@@ -958,13 +958,13 @@ function publicLink(links: UserLinks): string {
 
 function QRCodePreview({ label, value }: { label: string; value: string }) {
   if (!value) {
-    return <div className="aspect-square w-full rounded-md border border-border/65 bg-surface" />;
+    return <div className="aspect-square w-full rounded-[22px] border border-border/65 bg-surface" />;
   }
 
   return (
     <div
       aria-label={label}
-      className="flex aspect-square w-full items-center justify-center overflow-hidden rounded-md border border-border/65 bg-white p-3"
+      className="flex aspect-square w-full items-center justify-center overflow-hidden rounded-[22px] border border-border/65 bg-white p-3"
       role="img"
     >
       <QRCodeSVG
@@ -986,7 +986,7 @@ function LinkCopyRow({ label, value }: { label: string; value: string }) {
   const { t } = useI18n();
 
   return (
-    <div className="flex w-full min-w-0 items-center gap-2 overflow-hidden rounded-md bg-muted/60 px-3 py-2 transition-colors hover:bg-muted">
+    <div className="flex w-full min-w-0 items-center gap-2 overflow-hidden rounded-[22px] bg-muted/60 px-3 py-2 transition-colors hover:bg-muted">
       <div className="min-w-0 flex-1 overflow-hidden">
         <div className="text-xs font-medium text-foreground">{label}</div>
         <div className="truncate font-mono text-[11px] text-muted-foreground">{value || '--'}</div>

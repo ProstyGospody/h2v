@@ -562,7 +562,7 @@ function SettingsSection({
               className={cn(
                 'flex shrink-0 items-center justify-center',
                 'size-9',
-                !logo && 'rounded-md bg-accent-gradient-soft',
+                !logo && 'rounded-[22px] bg-accent-gradient-soft',
               )}
             >
               {logo ? (
@@ -764,7 +764,7 @@ function ToggleControl({
   return (
     <div className="space-y-[13px]">
       <Label>{label}</Label>
-      <div className="grid grid-cols-2 gap-1 rounded-md">
+      <div className="grid grid-cols-2 gap-1 rounded-[22px]">
         <Button
           className={cn(!value && 'bg-background/70 shadow-none hover:bg-muted/55')}
           onClick={() => onChange(true)}
@@ -804,7 +804,7 @@ function SelectControl({
       <Label>{label}</Label>
       <select
         className={cn(
-          'h-9 w-full rounded-md border border-transparent bg-background/70 px-3 text-sm text-foreground shadow-xs outline-none transition-colors',
+          'h-9 w-full rounded-[22px] border border-transparent bg-background/70 px-3 text-sm text-foreground shadow-xs outline-none transition-colors',
           'hover:bg-muted/55 focus-visible:border-ring/45 focus-visible:bg-background focus-visible:ring-2 focus-visible:ring-ring/35',
         )}
         onChange={(event) => onChange(event.target.value)}
@@ -824,7 +824,7 @@ function SettingsIssues({ issues }: { issues: string[] }) {
   const { t } = useI18n();
 
   return (
-    <div className="rounded-md border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+    <div className="rounded-[22px] border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
       <div className="flex items-center gap-2 font-medium">
         <AlertTriangle className="size-4" />
         {t('settings.settingsNeedAttention')}

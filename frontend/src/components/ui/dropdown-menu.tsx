@@ -23,7 +23,7 @@ function DropdownMenuContent({
         data-slot="dropdown-menu-content"
         sideOffset={sideOffset}
         className={cn(
-          'z-50 min-w-40 overflow-hidden rounded-md border border-border/55 bg-popover p-1 text-popover-foreground shadow-pop',
+          'z-50 min-w-40 overflow-hidden rounded-[22px] border border-border/55 bg-popover p-1 text-popover-foreground shadow-pop',
           'data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95',
           className,
         )}
@@ -48,7 +48,7 @@ function DropdownMenuItem({
       data-inset={inset}
       data-variant={variant}
       className={cn(
-        "relative flex cursor-pointer select-none items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-none transition-colors",
+        "relative flex cursor-pointer select-none items-center gap-2 rounded-[18px] px-2 py-1.5 text-sm outline-none transition-colors",
         'focus:bg-[image:var(--gradient-accent-soft)] focus:text-foreground',
         'data-[disabled]:pointer-events-none data-[disabled]:opacity-50',
         'data-[variant=destructive]:text-destructive data-[variant=destructive]:focus:bg-destructive/12 data-[variant=destructive]:focus:text-destructive',

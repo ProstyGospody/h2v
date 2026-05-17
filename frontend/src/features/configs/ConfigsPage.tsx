@@ -179,7 +179,7 @@ function ConfigSection({ core }: { core: Core }) {
 
   return (
     <>
-      <section className="flex min-w-0 flex-col overflow-hidden rounded-lg bg-surface shadow-sm">
+      <section className="flex min-w-0 flex-col overflow-hidden rounded-[22px] bg-surface shadow-sm">
         <div className="border-b border-border/55 bg-background/35 px-4 py-3 sm:px-5">
           <div className="flex min-w-0 items-center gap-3">
             <span className="flex size-9 shrink-0 items-center justify-center">
@@ -247,7 +247,7 @@ function ConfigSection({ core }: { core: Core }) {
           {config.isLoading ? (
             <Skeleton className="h-[68vh] min-h-[520px] w-full xl:h-[calc(100vh-256px)] xl:min-h-[620px]" />
           ) : config.isError ? (
-            <div className="flex h-[68vh] min-h-[520px] flex-col items-center justify-center gap-3 rounded-md border border-border/65 bg-card px-6 text-center xl:h-[calc(100vh-256px)] xl:min-h-[620px]">
+            <div className="flex h-[68vh] min-h-[520px] flex-col items-center justify-center gap-3 rounded-[22px] border border-border/65 bg-card px-6 text-center xl:h-[calc(100vh-256px)] xl:min-h-[620px]">
               <XCircle className="size-8 text-destructive" />
               <div className="text-base font-semibold text-foreground">
                 {t('configs.unableLoad', { name: meta.label })}
@@ -375,7 +375,7 @@ function ConfigStatus({
 
 function DiffMetric({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-md border border-border/55 bg-muted/35 px-3 py-2">
+    <div className="rounded-[22px] border border-border/55 bg-muted/35 px-3 py-2">
       <div className="t-label">{label}</div>
       <div className="mt-1 font-mono text-sm leading-5 text-foreground">{value}</div>
     </div>
@@ -387,7 +387,7 @@ function DiffView({ label, value }: { label: string; value: string }) {
   const stats = contentStats(value);
 
   return (
-    <div className="flex min-h-0 flex-col overflow-hidden rounded-md border border-border/60 bg-card">
+    <div className="flex min-h-0 flex-col overflow-hidden rounded-[22px] border border-border/60 bg-card">
       <div className="flex items-center justify-between gap-3 border-b border-border/55 bg-surface px-3 py-2">
         <div className="text-xs font-medium text-foreground">{label}</div>
         <div className="font-mono text-[10px] text-muted-foreground">
