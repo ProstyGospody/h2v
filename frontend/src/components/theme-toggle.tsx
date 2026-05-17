@@ -24,7 +24,7 @@ export function ThemeToggle({ className, compact = false }: ThemeToggleProps) {
       type="button"
       variant="ghost"
     >
-      <Icon data-icon="inline-start" />
+      <Icon className={compact ? 'size-5' : 'size-4'} data-icon="inline-start" />
       {compact ? null : <span>{nextTheme === 'light' ? 'Light' : 'Dark'}</span>}
     </Button>
   );

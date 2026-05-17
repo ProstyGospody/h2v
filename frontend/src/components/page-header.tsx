@@ -32,9 +32,9 @@ export function PageHeader({ action, className, description, title }: PageHeader
         </div>
         <div className="flex w-full min-w-0 flex-wrap items-center gap-2 sm:w-auto sm:shrink-0 sm:justify-end">
           {action}
-          <div className="ml-auto hidden items-center gap-1 lg:flex">
-            <ThemeToggle className="size-9 text-muted-foreground [&_svg]:size-[18px]" compact />
-            <LanguageSwitcher className="size-9 text-muted-foreground [&_svg]:size-[18px]" compact />
+          <div className="ml-auto hidden items-center gap-1 rounded-md bg-accent-gradient-soft p-1 shadow-sm lg:flex">
+            <ThemeToggle className="size-8 text-muted-foreground" compact />
+            <LanguageSwitcher className="size-8 text-muted-foreground" compact />
           </div>
         </div>
       </div>

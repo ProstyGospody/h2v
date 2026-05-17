@@ -28,7 +28,7 @@ export function LanguageSwitcher({ align = 'end', className, compact = false }: 
           type="button"
           variant="ghost"
         >
-          <Globe className="size-4" />
+          <Globe className={compact ? 'size-5' : 'size-4'} />
           {compact ? null : <span className="font-mono uppercase">{locale}</span>}
         </Button>
       </DropdownMenuTrigger>
