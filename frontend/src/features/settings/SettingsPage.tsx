@@ -124,6 +124,9 @@ const portDefinitions: Array<{ key: PortKey; presets: number[]; protocol: 'tcp' 
   { key: 'hy2.port', presets: hy2PortPresets, protocol: 'udp' },
 ];
 
+const settingFieldClassName =
+  'bg-accent-gradient-soft hover:bg-[image:var(--gradient-accent-soft)] focus-visible:bg-[image:var(--gradient-accent-soft)]';
+
 type SettingsUpdateResult = {
   updated: boolean;
 };
@@ -597,7 +600,12 @@ function TextControl({
   return (
     <div className="space-y-[13px]">
       <Label>{label}</Label>
-      <Input onChange={(event) => onChange(event.target.value)} placeholder={placeholder} value={value} />
+      <Input
+        className={settingFieldClassName}
+        onChange={(event) => onChange(event.target.value)}
+        placeholder={placeholder}
+        value={value}
+      />
     </div>
   );
 }
@@ -625,7 +633,7 @@ function SecretControl({
       <div className="relative">
         <KeyRound className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
         <Input
-          className="pl-9 pr-11 font-mono"
+          className={cn(settingFieldClassName, 'pl-9 pr-11 font-mono')}
           onChange={(event) => onChange(event.target.value)}
           type={reveal ? 'text' : 'password'}
           value={value}
@@ -694,7 +702,7 @@ function PortControl({
           </Button>
         ))}
         <Input
-          className="h-9 w-28 shrink-0 font-mono text-xs"
+          className={cn(settingFieldClassName, 'h-9 w-28 shrink-0 font-mono text-xs')}
           inputMode="numeric"
           max={max}
           min={min}
@@ -738,7 +746,7 @@ function BandwidthControl({
           </Button>
         ))}
         <Input
-          className="h-9 w-32 shrink-0 font-mono text-xs"
+          className={cn(settingFieldClassName, 'h-9 w-32 shrink-0 font-mono text-xs')}
           onChange={(event) => onChange(event.target.value)}
           placeholder="1 gbps"
           value={value}
@@ -804,8 +812,8 @@ function SelectControl({
       <Label>{label}</Label>
       <select
         className={cn(
-          'h-9 w-full rounded-[22px] border border-transparent bg-background/70 px-3 text-sm text-foreground shadow-xs outline-none transition-colors',
-          'hover:bg-muted/55 focus-visible:border-ring/45 focus-visible:bg-background focus-visible:ring-2 focus-visible:ring-ring/35',
+          'h-9 w-full rounded-[22px] border border-transparent bg-accent-gradient-soft px-3 text-sm text-foreground shadow-xs outline-none transition-colors',
+          'hover:bg-[image:var(--gradient-accent-soft)] focus-visible:border-ring/45 focus-visible:bg-[image:var(--gradient-accent-soft)] focus-visible:ring-2 focus-visible:ring-ring/35',
         )}
         onChange={(event) => onChange(event.target.value)}
         value={value}
