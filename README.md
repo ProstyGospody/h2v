@@ -14,6 +14,13 @@
   <a href="#english"><strong>English</strong></a>
 </p>
 
+<p align="center">
+  <img alt="RU / EN interface" src="https://img.shields.io/badge/RU%20%2F%20EN-interface-8b5cf6?style=for-the-badge">
+  <img alt="Ubuntu 22.04 / 24.04" src="https://img.shields.io/badge/Ubuntu-22.04%20%2F%2024.04-f97316?style=for-the-badge">
+  <img alt="VLESS Reality" src="https://img.shields.io/badge/VLESS-Reality-06b6d4?style=for-the-badge">
+  <img alt="Hysteria 2" src="https://img.shields.io/badge/Hysteria-2-22c55e?style=for-the-badge">
+</p>
+
 ---
 
 <a id="russian"></a>

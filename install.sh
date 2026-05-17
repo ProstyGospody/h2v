@@ -47,9 +47,9 @@ export PATH="/usr/local/go/bin:${PATH}"
 
 if [[ -t 1 ]]; then
   RESET=$'\033[0m'; BOLD=$'\033[1m'; DIM=$'\033[2m'
-  GREEN=$'\033[32m'; YELLOW=$'\033[33m'; RED=$'\033[31m'; CYAN=$'\033[36m'; MAGENTA=$'\033[35m'
+  GREEN=$'\033[32m'; YELLOW=$'\033[33m'; RED=$'\033[31m'; CYAN=$'\033[36m'; MAGENTA=$'\033[35m'; BLUE=$'\033[34m'
 else
-  RESET=""; BOLD=""; DIM=""; GREEN=""; YELLOW=""; RED=""; CYAN=""; MAGENTA=""
+  RESET=""; BOLD=""; DIM=""; GREEN=""; YELLOW=""; RED=""; CYAN=""; MAGENTA=""; BLUE=""
 fi
 
 UI_TTY=false
@@ -106,11 +106,11 @@ select_language() {
   [[ "${default_lang}" == "ru" ]] && default_choice=1
 
   if can_prompt; then
-    printf '\n%sLanguage / Язык%s\n' "${BOLD}" "${RESET}" >/dev/tty
-    printf '  1  Русский\n' >/dev/tty
-    printf '  2  English\n' >/dev/tty
+    printf '\n  %s%s%s %sLanguage / Язык%s\n' "${BOLD}${CYAN}" "h2v" "${RESET}" "${BOLD}" "${RESET}" >/dev/tty
+    printf '  %s  Русский\n' "$(ui_tag "${MAGENTA}" "1")" >/dev/tty
+    printf '  %s  English\n' "$(ui_tag "${BLUE}" "2")" >/dev/tty
     while true; do
-      printf 'Choose / Выберите [%s]: ' "${default_choice}" >/dev/tty
+      printf '  %s [%s]: ' "Choose / Выберите" "${default_choice}" >/dev/tty
       read -r answer </dev/tty
       answer="${answer#"${answer%%[![:space:]]*}"}"
       answer="${answer%"${answer##*[![:space:]]}"}"
@@ -138,10 +138,37 @@ green()   { ui_line "${GREEN}$1${RESET}"; }
 yellow()  { ui_line "${YELLOW}$1${RESET}"; }
 red()     { ui_line "${RED}$1${RESET}"; }
 log()     { ui_detail "    $1"; }
-substep() { ui_detail "  ${DIM}>${RESET} $1"; }
-success() { ui_detail "  ${GREEN}[ok]${RESET} $1"; }
-warn()    { ui_line "  ${YELLOW}[!]${RESET} $1"; }
-info()    { ui_detail "  ${CYAN}i${RESET} $1"; }
+substep() { ui_detail "  ${CYAN}>${RESET} $1"; }
+success() { ui_detail "  ${GREEN}[ OK ]${RESET} $1"; }
+warn()    { ui_line "  ${YELLOW}[WARN]${RESET} $1"; }
+info()    { ui_detail "  ${CYAN}[INFO]${RESET} $1"; }
+
+ui_rule() {
+  local color="${1:-${DIM}}"
+  printf '  %s%s%s\n' "${color}" "------------------------------------------------------------" "${RESET}"
+}
+
+ui_tag() {
+  local color="$1"
+  local text="$2"
+  printf '%s[%s]%s' "${color}" "${text}" "${RESET}"
+}
+
+ui_item() {
+  local color="$1"
+  local tag="$2"
+  local text="$3"
+  printf '  %s %s\n' "$(ui_tag "${color}" "${tag}")" "${text}"
+}
+
+ui_value() {
+  local color="$1"
+  local tag="$2"
+  local label="$3"
+  local value="$4"
+  printf '  %s %s\n' "$(ui_tag "${color}" "${tag}")" "${label}"
+  printf '      %s%s%s\n' "${BOLD}${color}" "${value}" "${RESET}"
+}
 
 terminal_width() {
   local width="${COLUMNS:-}"
@@ -352,7 +379,7 @@ step() {
     PROGRESS_ACTIVE=true
     progress_render
   else
-    printf '\n%s>%s %s%s%s %s%s%s\n' "${CYAN}" "${RESET}" "${DIM}" "${counter}" "${RESET}" "${BOLD}" "$2" "${RESET}"
+    printf '\n  %s %s%s%s\n' "$(ui_tag "${CYAN}" "${counter}")" "${BOLD}" "$2" "${RESET}"
     if (( STAGE_TOTAL > 0 )); then
       printf '  %s\n' "$(progress_bar "${STAGE_INDEX}" "${STAGE_TOTAL}")"
     fi
@@ -363,44 +390,39 @@ banner() {
   local title="$1"
   local sub="${2:-}"
   printf '\n'
-  printf '  %s%s%s\n' "${BOLD}" "${title}" "${RESET}"
+  ui_rule "${CYAN}"
+  printf '  %s%s%s  %s%s%s\n' "${BOLD}${CYAN}" "h2v" "${RESET}" "${BOLD}" "${title}" "${RESET}"
   if [[ -n "${sub}" ]]; then
-    printf '  %s%s%s\n' "${DIM}" "${sub}" "${RESET}"
+    printf '  %s%s%s\n' "${MAGENTA}" "${sub}" "${RESET}"
   fi
-  printf '  %s------------------------------------------------------------%s\n' "${DIM}" "${RESET}"
+  ui_rule "${CYAN}"
 }
 
 print_summary() {
   local access_url="$1"
-  local local_url="$2"
-  local public_server_ip
   progress_finish
-  public_server_ip="$(env_get PUBLIC_SERVER_IP || true)"
   printf '\n'
-  printf '  %s%s%s\n' "${BOLD}${GREEN}" "$(ui_text "h2v готов" "h2v is ready")" "${RESET}"
-  printf '  %s------------------------------------------------------------%s\n' "${DIM}" "${RESET}"
+  ui_rule "${GREEN}"
+  printf '  %s%s%s  %s%s%s\n' "${BOLD}${GREEN}" "$(ui_text "ГОТОВО" "READY")" "${RESET}" "${BOLD}" "$(ui_text "h2v запущен" "h2v is running")" "${RESET}"
+  ui_rule "${GREEN}"
   printf '\n'
-  printf '  %s%-18s%s %s%s%s\n' "${BOLD}" "$(ui_text "Панель" "Panel")" "${RESET}" "${CYAN}" "${access_url}" "${RESET}"
-  printf '  %s%-18s%s %s%s%s\n' "${BOLD}" "$(ui_text "Локально" "Local")" "${RESET}" "${DIM}" "${local_url}" "${RESET}"
-  if valid_ip_literal "${public_server_ip}"; then
-    printf '  %s%-18s%s %s%s%s\n' "${BOLD}" "$(ui_text "IP для клиентов" "Client server IP")" "${RESET}" "${CYAN}" "${public_server_ip}" "${RESET}"
-  fi
+  ui_value "${CYAN}" "$(ui_text "ПАНЕЛЬ" "PANEL")" "$(ui_text "Адрес для входа" "Sign-in address")" "${access_url}"
   if ${FIRST_INSTALL}; then
     printf '\n'
-    printf '  %s%-18s%s %s\n' "${BOLD}" "$(ui_text "Логин" "Admin login")" "${RESET}" "${ADMIN_USERNAME_INPUT}"
+    ui_value "${MAGENTA}" "$(ui_text "ЛОГИН" "LOGIN")" "$(ui_text "Администратор" "Administrator")" "${ADMIN_USERNAME_INPUT}"
     if ${ADMIN_PASSWORD_GENERATED}; then
-      printf '  %s%-18s%s %s%s%s %s%s%s\n' "${BOLD}" "$(ui_text "Пароль" "Admin password")" "${RESET}" "${YELLOW}" "${ADMIN_PASSWORD_INPUT}" "${RESET}" "${DIM}" "$(ui_text "(создан автоматически)" "(auto-generated)")" "${RESET}"
+      ui_value "${YELLOW}" "$(ui_text "ПАРОЛЬ" "PASSWORD")" "$(ui_text "Создан автоматически" "Generated automatically")" "${ADMIN_PASSWORD_INPUT}"
     else
-      printf '  %s%-18s%s %s%s%s\n' "${BOLD}" "$(ui_text "Пароль" "Admin password")" "${RESET}" "${YELLOW}" "${ADMIN_PASSWORD_INPUT}" "${RESET}"
+      ui_value "${YELLOW}" "$(ui_text "ПАРОЛЬ" "PASSWORD")" "$(ui_text "Пароль администратора" "Admin password")" "${ADMIN_PASSWORD_INPUT}"
     fi
     printf '  %s[!] %s%s\n' "${YELLOW}" "$(ui_text "Сохраните пароль: он больше не будет показан." "Save this password: it will not be shown again.")" "${RESET}"
   fi
   printf '\n'
   printf '  %s%s%s\n' "${BOLD}" "$(ui_text "Полезные действия" "Useful actions")" "${RESET}"
-  printf '    %-24s %s%s%s\n' "$(ui_text "Обновить h2v" "Update h2v")" "${CYAN}" "/opt/h2v/install.sh update" "${RESET}"
-  printf '    %-24s %s%s%s\n' "$(ui_text "Обновить маршруты" "Update routing data")" "${CYAN}" "/opt/h2v/install.sh geodata" "${RESET}"
-  printf '    %-24s %s%s%s\n' "$(ui_text "Сменить пароль" "Reset admin password")" "${CYAN}" "/opt/h2v/install.sh reset-admin" "${RESET}"
-  printf '    %-24s %s%s%s\n' "$(ui_text "Создать копию" "Create backup")" "${CYAN}" "/opt/h2v/install.sh backup" "${RESET}"
+  ui_item "${GREEN}" "$(ui_text "UPDATE" "UPDATE")" "$(ui_text "Обновить h2v:" "Update h2v:") ${CYAN}/opt/h2v/install.sh update${RESET}"
+  ui_item "${BLUE}" "$(ui_text "ROUTES" "ROUTES")" "$(ui_text "Обновить маршруты:" "Update routing data:") ${CYAN}/opt/h2v/install.sh geodata${RESET}"
+  ui_item "${MAGENTA}" "$(ui_text "ADMIN" "ADMIN")" "$(ui_text "Сменить пароль:" "Reset password:") ${CYAN}/opt/h2v/install.sh reset-admin${RESET}"
+  ui_item "${YELLOW}" "$(ui_text "BACKUP" "BACKUP")" "$(ui_text "Создать копию:" "Create backup:") ${CYAN}/opt/h2v/install.sh backup${RESET}"
   printf '\n'
   printf '  %s%s:%s %s\n' "${DIM}" "$(ui_text "Журнал установки" "Install log")" "${RESET}" "${INSTALL_LOG}"
   printf '\n'
@@ -1974,22 +1996,25 @@ print_install_plan() {
     config_note="$(ui_text "Сохранить текущие секреты" "Keep existing secrets")"
   fi
 
-  printf '\n%s%s%s\n' "${BOLD}" "$(ui_text "План" "Overview")" "${RESET}"
-  printf '  %s%-18s%s %s\n' "${DIM}" "$(ui_text "Действие" "Action")" "${RESET}" "${mode}"
-  printf '  %s%-18s%s %s\n' "${DIM}" "$(ui_text "Панель" "Panel")" "${RESET}" "${h2v_url}"
-  printf '  %s%-18s%s TCP %s\n' "${DIM}" "VLESS Reality" "${RESET}" "${vless_port}"
-  printf '  %s%-18s%s UDP %s\n' "${DIM}" "Hysteria 2" "${RESET}" "${hy2_port}"
-  printf '  %s%-18s%s %s\n' "${DIM}" "$(ui_text "Настройки" "Settings")" "${RESET}" "${config_note}"
+  printf '\n'
+  ui_rule "${MAGENTA}"
+  printf '  %s%s%s\n' "${BOLD}" "$(ui_text "План установки" "Install overview")" "${RESET}"
+  ui_item "${GREEN}" "$(ui_text "РЕЖИМ" "MODE")" "${mode}"
+  ui_item "${CYAN}" "$(ui_text "ПАНЕЛЬ" "PANEL")" "${h2v_url}"
+  ui_item "${BLUE}" "VLESS" "TCP ${vless_port}"
+  ui_item "${MAGENTA}" "HY2" "UDP ${hy2_port}"
+  ui_item "${YELLOW}" "$(ui_text "ENV" "ENV")" "${config_note}"
+  ui_rule "${MAGENTA}"
   printf '\n'
 }
 
 print_welcome() {
   printf '\n'
-  printf '  %s%s%s\n' "${BOLD}" "$(ui_text "Мастер подготовит:" "The installer will prepare:")" "${RESET}"
-  printf '    - %s\n' "$(ui_text "веб-панель h2v" "the h2v web panel")"
-  printf '    - %s\n' "$(ui_text "пользователей, подписки и статистику" "users, subscriptions, and traffic stats")"
-  printf '    - %s\n' "$(ui_text "VLESS Reality и Hysteria 2" "VLESS Reality and Hysteria 2")"
-  printf '    - %s\n' "$(ui_text "резервные копии и обновление маршрутных данных" "backups and routing-data updates")"
+  printf '  %s%s%s\n' "${BOLD}" "$(ui_text "Что будет готово" "What will be ready")" "${RESET}"
+  ui_item "${CYAN}" "$(ui_text "ПАНЕЛЬ" "PANEL")" "$(ui_text "веб-интерфейс h2v" "h2v web interface")"
+  ui_item "${GREEN}" "$(ui_text "ЛЮДИ" "USERS")" "$(ui_text "пользователи, подписки и статистика" "users, subscriptions, and traffic stats")"
+  ui_item "${MAGENTA}" "VPN" "$(ui_text "VLESS Reality и Hysteria 2" "VLESS Reality and Hysteria 2")"
+  ui_item "${YELLOW}" "$(ui_text "КОПИИ" "BACKUP")" "$(ui_text "резервные копии и маршрутные данные" "backups and routing data")"
   printf '\n'
   printf '  %s%s%s\n' "${DIM}" "$(ui_text "Подсказка: Enter принимает предложенное значение." "Tip: press Enter to accept the suggested value.")" "${RESET}"
 }
@@ -2102,7 +2127,7 @@ install_all() {
     access_url="${local_url}"
   fi
 
-  print_summary "${access_url}" "${local_url}"
+  print_summary "${access_url}"
 }
 
 backup_db() {
