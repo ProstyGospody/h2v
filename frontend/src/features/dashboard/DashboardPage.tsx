@@ -116,20 +116,7 @@ export function DashboardPage() {
     <div className="pb-10">
       <PageHeader
         title={t('dashboard.overview')}
-        action={
-          <div className="flex w-full min-w-0 flex-wrap items-center justify-end gap-2 sm:w-auto">
-            <Tabs onValueChange={(v) => setDays(v as Range)} value={days}>
-              <TabsList>
-                {ranges.map((r) => (
-                  <TabsTrigger key={r} value={r}>
-                    {t('dashboard.rangeDay', { days: r })}
-                  </TabsTrigger>
-                ))}
-              </TabsList>
-            </Tabs>
-            <ServiceStatusIsland items={serviceStatuses} label={t('nav.services')} />
-          </div>
-        }
+        action={<ServiceStatusIsland items={serviceStatuses} label={t('nav.services')} />}
       />
 
       <div className="grid auto-rows-fr grid-cols-2 gap-2.5 px-page pt-5 sm:grid-cols-3 sm:gap-3 2xl:grid-cols-6">
@@ -179,6 +166,17 @@ export function DashboardPage() {
       </div>
 
       <div className="px-page pt-4">
+        <div className="flex justify-center">
+          <Tabs onValueChange={(v) => setDays(v as Range)} value={days}>
+            <TabsList>
+              {ranges.map((r) => (
+                <TabsTrigger key={r} value={r}>
+                  {t('dashboard.rangeDay', { days: r })}
+                </TabsTrigger>
+              ))}
+            </TabsList>
+          </Tabs>
+        </div>
         <div className="relative">
           <div className="absolute right-0 top-0 z-10 flex items-center justify-end gap-3">
             <span className="font-mono text-[11px] uppercase tracking-wider text-muted-foreground">
