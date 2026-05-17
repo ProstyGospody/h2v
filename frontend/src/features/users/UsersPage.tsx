@@ -275,7 +275,7 @@ export function UsersPage() {
 
       <div className="space-y-4 px-page pt-5">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-          <div className="flex h-11 w-full min-w-0 items-center gap-2 rounded-md bg-surface-elevated px-3 shadow-sm transition-colors focus-within:bg-card lg:max-w-md">
+          <div className="flex h-11 w-full min-w-0 items-center gap-2 rounded-md bg-accent-gradient-soft px-3 shadow-sm transition-colors focus-within:bg-accent-gradient-soft lg:max-w-md">
             <Search className="size-4 shrink-0 text-muted-foreground" />
             <Input
               className="h-9 border-0 bg-transparent px-0 shadow-none hover:bg-transparent focus-visible:bg-transparent focus-visible:ring-0"
@@ -310,7 +310,7 @@ export function UsersPage() {
               }}
               value={activeFilter}
             >
-              <TabsList>
+              <TabsList className="bg-accent-gradient-soft">
                 {statusOptions.map((o) => (
                   <TabsTrigger key={o.value} value={o.value}>
                     {t(o.labelKey)}
