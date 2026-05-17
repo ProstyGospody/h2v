@@ -7,6 +7,7 @@ REPO_OWNER="ProstyGospody"
 REPO_NAME="h2v"
 REPO_REF="${H2V_REF:-main}"
 H2V_VERSION="${H2V_VERSION:-${REPO_REF}}"
+H2V_LANG="${H2V_LANG:-}"
 H2V_ALLOW_FLOATING_REF="${H2V_ALLOW_FLOATING_REF:-1}"
 ARCHIVE_URL="https://codeload.github.com/${REPO_OWNER}/${REPO_NAME}/tar.gz/${REPO_REF}"
 H2V_SOURCE_SHA256="${H2V_SOURCE_SHA256:-}"
@@ -66,13 +67,80 @@ PROGRESS_ACTIVE=false
 PROGRESS_COUNTER=""
 PROGRESS_TITLE=""
 
+normalize_language() {
+  local raw="${1:-}"
+  raw="$(printf '%s' "${raw}" | tr '[:upper:]' '[:lower:]')"
+  case "${raw}" in
+    ru|ru_*|ru.*|russian|русский) printf 'ru' ;;
+    en|en_*|en.*|english) printf 'en' ;;
+    *) return 1 ;;
+  esac
+}
+
+default_language() {
+  normalize_language "${LANG:-}" 2>/dev/null || printf 'en'
+}
+
+ui_ru() {
+  [[ "${H2V_LANG:-en}" == "ru" ]]
+}
+
+ui_text() {
+  if ui_ru; then
+    printf '%s' "$1"
+  else
+    printf '%s' "$2"
+  fi
+}
+
+select_language() {
+  local selected default_lang default_choice answer normalized
+  if selected="$(normalize_language "${H2V_LANG:-}" 2>/dev/null)"; then
+    H2V_LANG="${selected}"
+    export H2V_LANG
+    return
+  fi
+
+  default_lang="$(default_language)"
+  default_choice=2
+  [[ "${default_lang}" == "ru" ]] && default_choice=1
+
+  if can_prompt; then
+    printf '\n%sLanguage / Язык%s\n' "${BOLD}" "${RESET}" >/dev/tty
+    printf '  1  Русский\n' >/dev/tty
+    printf '  2  English\n' >/dev/tty
+    while true; do
+      printf 'Choose / Выберите [%s]: ' "${default_choice}" >/dev/tty
+      read -r answer </dev/tty
+      answer="${answer#"${answer%%[![:space:]]*}"}"
+      answer="${answer%"${answer##*[![:space:]]}"}"
+      answer="${answer:-${default_choice}}"
+      case "${answer}" in
+        1|ru|RU|Ru|r|R|русский|Русский) H2V_LANG="ru"; break ;;
+        2|en|EN|En|e|E|english|English) H2V_LANG="en"; break ;;
+        *)
+          if normalized="$(normalize_language "${answer}" 2>/dev/null)"; then
+            H2V_LANG="${normalized}"
+            break
+          fi
+          printf '%sEnter 1 or 2. / Введите 1 или 2.%s\n' "${RED}" "${RESET}" >/dev/tty
+          ;;
+      esac
+    done
+  else
+    H2V_LANG="${default_lang}"
+  fi
+
+  export H2V_LANG
+}
+
 green()   { ui_line "${GREEN}$1${RESET}"; }
 yellow()  { ui_line "${YELLOW}$1${RESET}"; }
 red()     { ui_line "${RED}$1${RESET}"; }
 log()     { ui_detail "    $1"; }
-substep() { ui_detail "  ${DIM}→${RESET} $1"; }
-success() { ui_detail "  ${GREEN}✓${RESET} $1"; }
-warn()    { ui_line "  ${YELLOW}⚠${RESET} $1"; }
+substep() { ui_detail "  ${DIM}>${RESET} $1"; }
+success() { ui_detail "  ${GREEN}[ok]${RESET} $1"; }
+warn()    { ui_line "  ${YELLOW}[!]${RESET} $1"; }
 info()    { ui_detail "  ${CYAN}i${RESET} $1"; }
 
 terminal_width() {
@@ -122,8 +190,8 @@ progress_bar() {
 
   printf -v fill_chunk '%*s' "${filled}" ''
   printf -v empty_chunk '%*s' "${empty}" ''
-  fill_chunk="${fill_chunk// /█}"
-  empty_chunk="${empty_chunk// /░}"
+  fill_chunk="${fill_chunk// /#}"
+  empty_chunk="${empty_chunk// /-}"
 
   printf '%s[%s%s%s%s]%s %3d%%' "${DIM}" "${CYAN}" "${fill_chunk}" "${DIM}" "${empty_chunk}" "${RESET}" "${percent}"
 }
@@ -156,7 +224,7 @@ progress_text() {
     title_width=12
   fi
   title="$(truncate_text "${PROGRESS_TITLE}" "${title_width}")"
-  printf '%s▶%s %s%s%s %s%s%s  %s' \
+  printf '%s>%s %s%s%s %s%s%s  %s' \
     "${CYAN}" "${RESET}" \
     "${DIM}" "${PROGRESS_COUNTER}" "${RESET}" \
     "${BOLD}" "${title}" "${RESET}" \
@@ -220,7 +288,7 @@ run_quiet() {
 
   if [[ ${status} -ne 0 ]]; then
     progress_finish
-    red "${label} failed. Last log lines from ${INSTALL_LOG}:"
+    red "$(ui_text "${label}: ошибка. Последние строки журнала ${INSTALL_LOG}:" "${label} failed. Last log lines from ${INSTALL_LOG}:")"
     tail -n 60 "${INSTALL_LOG}" || true
   fi
   return "${status}"
@@ -266,14 +334,14 @@ tty_prompt_result_current() {
   ${UI_TTY} || return 0
   can_prompt || return 0
   printf '\r\033[2K' >/dev/tty
-  printf '  %s✓%s %s%s%s: %s\n' "${GREEN}" "${RESET}" "${BOLD}" "${label}" "${RESET}" "${value}" >/dev/tty
+  printf '  %s[ok]%s %s%s%s: %s\n' "${GREEN}" "${RESET}" "${BOLD}" "${label}" "${RESET}" "${value}" >/dev/tty
 }
 
 step() {
   STAGE_INDEX=$((STAGE_INDEX + 1))
   local counter=""
   if (( STAGE_TOTAL > 0 )); then
-    counter=$(printf 'Stage %02d/%02d' "${STAGE_INDEX}" "${STAGE_TOTAL}")
+    counter=$(printf '%s %02d/%02d' "$(ui_text "Шаг" "Step")" "${STAGE_INDEX}" "${STAGE_TOTAL}")
   else
     counter=$(printf '%s' "$1")
   fi
@@ -284,7 +352,7 @@ step() {
     PROGRESS_ACTIVE=true
     progress_render
   else
-    printf '\n%s▶%s %s%s%s %s%s%s\n' "${CYAN}" "${RESET}" "${DIM}" "${counter}" "${RESET}" "${BOLD}" "$2" "${RESET}"
+    printf '\n%s>%s %s%s%s %s%s%s\n' "${CYAN}" "${RESET}" "${DIM}" "${counter}" "${RESET}" "${BOLD}" "$2" "${RESET}"
     if (( STAGE_TOTAL > 0 )); then
       printf '  %s\n' "$(progress_bar "${STAGE_INDEX}" "${STAGE_TOTAL}")"
     fi
@@ -294,18 +362,12 @@ step() {
 banner() {
   local title="$1"
   local sub="${2:-}"
-  local title_pad sub_pad
-  title_pad=$((60 - $(printf '%s' "${title}" | wc -m)))
-  sub_pad=$((60 - $(printf '%s' "${sub}" | wc -m)))
-  (( title_pad < 0 )) && title_pad=0
-  (( sub_pad < 0 )) && sub_pad=0
   printf '\n'
-  printf '%s╔══════════════════════════════════════════════════════════════╗%s\n' "${CYAN}" "${RESET}"
-  printf '%s║%s %s%s%*s%s %s║%s\n' "${CYAN}" "${RESET}" "${BOLD}" "${title}" "${title_pad}" "" "${RESET}" "${CYAN}" "${RESET}"
+  printf '  %s%s%s\n' "${BOLD}" "${title}" "${RESET}"
   if [[ -n "${sub}" ]]; then
-    printf '%s║%s %s%s%*s%s %s║%s\n' "${CYAN}" "${RESET}" "${DIM}" "${sub}" "${sub_pad}" "" "${RESET}" "${CYAN}" "${RESET}"
+    printf '  %s%s%s\n' "${DIM}" "${sub}" "${RESET}"
   fi
-  printf '%s╚══════════════════════════════════════════════════════════════╝%s\n' "${CYAN}" "${RESET}"
+  printf '  %s------------------------------------------------------------%s\n' "${DIM}" "${RESET}"
 }
 
 print_summary() {
@@ -315,35 +377,32 @@ print_summary() {
   progress_finish
   public_server_ip="$(env_get PUBLIC_SERVER_IP || true)"
   printf '\n'
-  printf '%s╔══════════════════════════════════════════════════════════════╗%s\n' "${GREEN}" "${RESET}"
-  printf '%s║%s %s✓ h2v ready%s%44s%s║%s\n' "${GREEN}" "${RESET}" "${BOLD}${GREEN}" "${RESET}" "" "${GREEN}" "${RESET}"
-  printf '%s╚══════════════════════════════════════════════════════════════╝%s\n' "${GREEN}" "${RESET}"
+  printf '  %s%s%s\n' "${BOLD}${GREEN}" "$(ui_text "h2v готов" "h2v is ready")" "${RESET}"
+  printf '  %s------------------------------------------------------------%s\n' "${DIM}" "${RESET}"
   printf '\n'
-  printf '  %sh2v URL%s   %s%s%s\n' "${BOLD}" "${RESET}" "${CYAN}" "${access_url}" "${RESET}"
-  printf '  %sLocal URL%s   %s%s%s\n' "${BOLD}" "${RESET}" "${DIM}" "${local_url}" "${RESET}"
+  printf '  %s%-18s%s %s%s%s\n' "${BOLD}" "$(ui_text "Панель" "Panel")" "${RESET}" "${CYAN}" "${access_url}" "${RESET}"
+  printf '  %s%-18s%s %s%s%s\n' "${BOLD}" "$(ui_text "Локально" "Local")" "${RESET}" "${DIM}" "${local_url}" "${RESET}"
   if valid_ip_literal "${public_server_ip}"; then
-    printf '  %sProtocol IP%s %s%s%s\n' "${BOLD}" "${RESET}" "${CYAN}" "${public_server_ip}" "${RESET}"
+    printf '  %s%-18s%s %s%s%s\n' "${BOLD}" "$(ui_text "IP для клиентов" "Client server IP")" "${RESET}" "${CYAN}" "${public_server_ip}" "${RESET}"
   fi
   if ${FIRST_INSTALL}; then
     printf '\n'
-    printf '  %sAdmin login%s    %s\n' "${BOLD}" "${RESET}" "${ADMIN_USERNAME_INPUT}"
+    printf '  %s%-18s%s %s\n' "${BOLD}" "$(ui_text "Логин" "Admin login")" "${RESET}" "${ADMIN_USERNAME_INPUT}"
     if ${ADMIN_PASSWORD_GENERATED}; then
-      printf '  %sAdmin password%s %s%s%s %s(auto-generated)%s\n' "${BOLD}" "${RESET}" "${YELLOW}" "${ADMIN_PASSWORD_INPUT}" "${RESET}" "${DIM}" "${RESET}"
+      printf '  %s%-18s%s %s%s%s %s%s%s\n' "${BOLD}" "$(ui_text "Пароль" "Admin password")" "${RESET}" "${YELLOW}" "${ADMIN_PASSWORD_INPUT}" "${RESET}" "${DIM}" "$(ui_text "(создан автоматически)" "(auto-generated)")" "${RESET}"
     else
-      printf '  %sAdmin password%s %s%s%s\n' "${BOLD}" "${RESET}" "${YELLOW}" "${ADMIN_PASSWORD_INPUT}" "${RESET}"
+      printf '  %s%-18s%s %s%s%s\n' "${BOLD}" "$(ui_text "Пароль" "Admin password")" "${RESET}" "${YELLOW}" "${ADMIN_PASSWORD_INPUT}" "${RESET}"
     fi
-    printf '  %s⚠ Save this password — it will not be shown again.%s\n' "${YELLOW}" "${RESET}"
+    printf '  %s[!] %s%s\n' "${YELLOW}" "$(ui_text "Сохраните пароль: он больше не будет показан." "Save this password: it will not be shown again.")" "${RESET}"
   fi
   printf '\n'
-  printf '  %sEnv file%s     %s\n' "${DIM}" "${RESET}" "${ENV_FILE}"
-  printf '  %sSource ref%s   %s %s(defaults to latest main commit)%s\n' "${DIM}" "${RESET}" "${REPO_REF}" "${DIM}" "${RESET}"
-  printf '  %sToolchain%s    Go %s · Node %s · npm %s\n' "${DIM}" "${RESET}" "$(go version | awk '{print $3}')" "$(node -v)" "$(npm -v)"
+  printf '  %s%s%s\n' "${BOLD}" "$(ui_text "Полезные действия" "Useful actions")" "${RESET}"
+  printf '    %-24s %s%s%s\n' "$(ui_text "Обновить h2v" "Update h2v")" "${CYAN}" "/opt/h2v/install.sh update" "${RESET}"
+  printf '    %-24s %s%s%s\n' "$(ui_text "Обновить маршруты" "Update routing data")" "${CYAN}" "/opt/h2v/install.sh geodata" "${RESET}"
+  printf '    %-24s %s%s%s\n' "$(ui_text "Сменить пароль" "Reset admin password")" "${CYAN}" "/opt/h2v/install.sh reset-admin" "${RESET}"
+  printf '    %-24s %s%s%s\n' "$(ui_text "Создать копию" "Create backup")" "${CYAN}" "/opt/h2v/install.sh backup" "${RESET}"
   printf '\n'
-  printf '  %sUseful commands%s\n' "${BOLD}" "${RESET}"
-  printf '    %s/opt/h2v/install.sh update%s\n' "${CYAN}" "${RESET}"
-  printf '    %s/opt/h2v/install.sh geodata%s\n' "${CYAN}" "${RESET}"
-  printf '    %s/opt/h2v/install.sh reset-admin%s\n' "${CYAN}" "${RESET}"
-  printf '    %s/opt/h2v/install.sh backup%s\n' "${CYAN}" "${RESET}"
+  printf '  %s%s:%s %s\n' "${DIM}" "$(ui_text "Журнал установки" "Install log")" "${RESET}" "${INSTALL_LOG}"
   printf '\n'
 }
 
@@ -357,9 +416,9 @@ trap remove_tmp_source EXIT
 
 require_root() {
   if [[ "${EUID}" -ne 0 ]]; then
-    red "Root privileges are required."
-    info "Open a root shell with sudo -i, then run:"
-    printf '  %sbash <(curl -fsSL https://raw.githubusercontent.com/%s/%s/main/install.sh)%s\n' "${CYAN}" "${REPO_OWNER}" "${REPO_NAME}" "${RESET}"
+    red "$(ui_text "Нужны права администратора." "Administrator privileges are required.")"
+    info "$(ui_text "Запустите установку через sudo:" "Run the installer with sudo:")"
+    printf '  %scurl -fsSL https://raw.githubusercontent.com/%s/%s/main/install.sh | sudo bash%s\n' "${CYAN}" "${REPO_OWNER}" "${REPO_NAME}" "${RESET}"
     exit 1
   fi
 }
@@ -367,8 +426,8 @@ require_root() {
 detect_os() {
   . /etc/os-release
   if [[ "${ID:-}" != "ubuntu" ]]; then
-    red "Unsupported OS: ${PRETTY_NAME:-unknown}."
-    info "h2v supports Ubuntu 22.04 and Ubuntu 24.04."
+    red "$(ui_text "Эта система не поддерживается: ${PRETTY_NAME:-unknown}." "Unsupported OS: ${PRETTY_NAME:-unknown}.")"
+    info "$(ui_text "Поддерживаются Ubuntu 22.04 и Ubuntu 24.04." "h2v supports Ubuntu 22.04 and Ubuntu 24.04.")"
     exit 1
   fi
 }
@@ -729,14 +788,14 @@ start_cores() {
   if ! systemctl restart xray.service; then
     red "xray.service failed to start. Recent logs:"
     journalctl -u xray.service -n 40 --no-pager || true
-    warn "xray is NOT running — VLESS traffic will be rejected until resolved"
+    warn "xray is NOT running - VLESS traffic will be rejected until resolved"
   else
     substep "xray.service active (VLESS Reality on TCP ${vless_port})"
   fi
   if ! systemctl restart hysteria.service; then
     red "hysteria.service failed to start. Recent logs:"
     journalctl -u hysteria.service -n 40 --no-pager || true
-    warn "hysteria is NOT running — Hysteria 2 traffic will be rejected until resolved (most often a missing TLS cert)"
+    warn "hysteria is NOT running - Hysteria 2 traffic will be rejected until resolved (most often a missing TLS cert)"
   else
     substep "hysteria.service active (Hysteria 2 on UDP ${hy2_port})"
   fi
@@ -824,34 +883,34 @@ resolve_source_dir() {
   case "${REPO_REF}" in
     main|master|HEAD|latest)
       if [[ "${H2V_ALLOW_FLOATING_REF:-0}" != "1" ]]; then
-        fail "ref ${REPO_REF} is moving; set H2V_REF to a pinned tag/commit or H2V_ALLOW_FLOATING_REF=1 to use latest main"
+        fail "$(ui_text "Версия ${REPO_REF} не закреплена. Укажите точный tag/commit или разрешите main через H2V_ALLOW_FLOATING_REF=1." "Ref ${REPO_REF} is moving. Set H2V_REF to a pinned tag/commit or allow main with H2V_ALLOW_FLOATING_REF=1.")"
       fi
       ;;
   esac
 
-  substep "downloading repository source ${REPO_OWNER}/${REPO_NAME}@${REPO_REF}"
+  substep "$(ui_text "загрузка файлов h2v (${REPO_REF})" "downloading h2v files (${REPO_REF})")"
   TMP_SOURCE_DIR="$(mktemp -d)"
   local archive
   archive="${TMP_SOURCE_DIR}/source.tar.gz"
   if ! curl -fsSL "${ARCHIVE_URL}" -o "${archive}"; then
     if [[ "${REPO_REF}" == "v${H2V_VERSION:-}" ]]; then
-      fail "repository ref ${REPO_REF} was not found. Run from a full local checkout, set H2V_REF=main H2V_ALLOW_FLOATING_REF=1, or set H2V_REF to an existing tag/commit"
+      fail "$(ui_text "Версия ${REPO_REF} не найдена. Укажите существующий tag/commit или используйте main." "Repository ref ${REPO_REF} was not found. Set H2V_REF to an existing tag/commit or use main.")"
     fi
-    fail "unable to download repository source ${REPO_OWNER}/${REPO_NAME}@${REPO_REF}"
+    fail "$(ui_text "Не удалось загрузить файлы h2v (${REPO_REF})." "Unable to download h2v files (${REPO_REF}).")"
   fi
   if [[ -n "${H2V_SOURCE_SHA256}" ]]; then
     verify_sha256 "${archive}" "${H2V_SOURCE_SHA256}" "${REPO_OWNER}/${REPO_NAME}@${REPO_REF}"
   elif [[ "${H2V_REQUIRE_SOURCE_SHA256:-0}" == "1" ]]; then
     fail "H2V_SOURCE_SHA256 is required for repository source verification"
   else
-    warn "repository source checksum not set; using repository ref ${REPO_REF}"
+    info "$(ui_text "Используется версия ${REPO_REF} из GitHub." "Using ${REPO_REF} from GitHub.")"
   fi
   tar -xzf "${archive}" -C "${TMP_SOURCE_DIR}"
 
   local extracted
   extracted="$(find "${TMP_SOURCE_DIR}" -mindepth 1 -maxdepth 1 -type d | head -n 1)"
   if [[ -z "${extracted}" || ! -f "${extracted}/.env.example" ]]; then
-    red "Failed to prepare repository source from ${ARCHIVE_URL}"
+    red "$(ui_text "Не удалось подготовить файлы h2v." "Failed to prepare h2v files.")"
     exit 1
   fi
 
@@ -909,27 +968,27 @@ prompt_reconfigure_choice() {
     return 1
   fi
 
-  printf '\n%sExisting h2v configuration found%s\n' "${BOLD}" "${RESET}" >/dev/tty
-  printf '  1) Keep current /opt/h2v/.env and update the app\n' >/dev/tty
-  printf '  2) Reconfigure domain and public ports\n' >/dev/tty
+  printf '\n%s%s%s\n' "${BOLD}" "$(ui_text "Настройки h2v уже найдены" "Existing h2v settings found")" "${RESET}" >/dev/tty
+  printf '  1  %s\n' "$(ui_text "Оставить настройки и обновить приложение" "Keep settings and update the app")" >/dev/tty
+  printf '  2  %s\n' "$(ui_text "Изменить домен и публичные порты" "Change domain and public ports")" >/dev/tty
 
   while true; do
-    printf 'Choose an option [1]: ' >/dev/tty
+    printf '%s [1]: ' "$(ui_text "Выберите действие" "Choose an action")" >/dev/tty
     read -r answer </dev/tty
     answer="${answer#"${answer%%[![:space:]]*}"}"
     answer="${answer%"${answer##*[![:space:]]}"}"
     answer="${answer:-1}"
     case "${answer}" in
       1)
-        tty_prompt_result_current "Configuration" "keep existing .env"
+        tty_prompt_result_current "$(ui_text "Настройки" "Settings")" "$(ui_text "оставить текущие" "keep current")"
         return 1
         ;;
       2)
-        tty_prompt_result_current "Configuration" "reconfigure"
+        tty_prompt_result_current "$(ui_text "Настройки" "Settings")" "$(ui_text "изменить" "change")"
         return 0
         ;;
       *)
-        printf '%sEnter 1 or 2.%s\n' "${RED}" "${RESET}" >/dev/tty
+        printf '%s%s%s\n' "${RED}" "$(ui_text "Введите 1 или 2." "Enter 1 or 2.")" "${RESET}" >/dev/tty
         ;;
     esac
   done
@@ -993,25 +1052,25 @@ prompt_service_port() {
   while true; do
     port="$(prompt_value "${label}" "${default}" "no")"
     if ! valid_port_number "${port}"; then
-      red "${label} must be a number between 1 and 65535." >&2
-      ${is_tty} || fail "${label} is invalid"
+      red "$(ui_text "${label}: введите число от 1 до 65535." "${label} must be a number between 1 and 65535.")" >&2
+      ${is_tty} || fail "$(ui_text "${label}: неверное значение" "${label} is invalid")"
       continue
     fi
     if [[ "${key}" == "H2V_PUBLIC_PORT" && ( "${port}" == "80" || ( "${port}" -lt 1024 && "${port}" != "443" ) ) ]]; then
-      red "${label} must be 443 or 1024 or higher." >&2
-      ${is_tty} || fail "${label} must be 443 or 1024 or higher"
+      red "$(ui_text "${label}: используйте 443 или порт от 1024." "${label} must be 443 or 1024 or higher.")" >&2
+      ${is_tty} || fail "$(ui_text "${label}: используйте 443 или порт от 1024" "${label} must be 443 or 1024 or higher")"
       continue
     fi
     if selected_h2v_domain_is_real && [[ "${key}" == "VLESS_PORT" && -n "${H2V_PUBLIC_PORT_INPUT}" && "${port}" == "${H2V_PUBLIC_PORT_INPUT}" ]]; then
-      red "${label} ${port}/tcp conflicts with the h2v public HTTPS port." >&2
-      ${is_tty} || fail "${label} ${port}/tcp conflicts with h2v public HTTPS"
+      red "$(ui_text "${label} ${port}/tcp уже занят портом панели." "${label} ${port}/tcp conflicts with the h2v public HTTPS port.")" >&2
+      ${is_tty} || fail "$(ui_text "${label} ${port}/tcp конфликтует с портом панели" "${label} ${port}/tcp conflicts with h2v public HTTPS")"
       continue
     fi
     if [[ -n "${current_port}" && "${port}" == "${current_port}" ]]; then
       :
     elif [[ "${key}" != "H2V_PUBLIC_PORT" || selected_h2v_domain_is_real ]] && port_listener_in_use "${protocol}" "${port}"; then
-      red "${label} ${port}/${protocol} is already in use. Choose another port." >&2
-      ${is_tty} || fail "${label} ${port}/${protocol} is already in use"
+      red "$(ui_text "${label} ${port}/${protocol} уже используется. Выберите другой порт." "${label} ${port}/${protocol} is already in use. Choose another port.")" >&2
+      ${is_tty} || fail "$(ui_text "${label} ${port}/${protocol} уже используется" "${label} ${port}/${protocol} is already in use")"
       continue
     fi
     if can_prompt; then
@@ -1059,23 +1118,24 @@ collect_install_inputs() {
       return
     fi
     RECONFIGURE_RUNTIME=true
-    info "reconfiguration enabled - domain and public ports will be prompted"
+    info "$(ui_text "Можно изменить домен и публичные порты." "You can change the domain and public ports.")"
   fi
 
   local is_tty=false
   can_prompt && is_tty=true
 
   if ${is_tty}; then
-    banner "h2v configuration" "press Enter to accept defaults"
+    banner "$(ui_text "Настройка h2v" "h2v setup")" "$(ui_text "Нажмите Enter, чтобы принять предложенное значение" "Press Enter to accept the suggested value")"
   else
     printf '\n'
-    warn "non-interactive install: using defaults and generated admin password"
+    warn "$(ui_text "Установка без ввода: будут использованы значения по умолчанию и созданный пароль." "Non-interactive install: using defaults and a generated admin password.")"
   fi
 
   local domain_default="${default_domain}"
   [[ "${domain_default}" == "h2v.example.com" ]] && domain_default=""
 
-  local domain_label="h2v domain (e.g. vpn.example.com)"
+  local domain_label
+  domain_label="$(ui_text "Домен панели, например vpn.example.com" "Panel domain, for example vpn.example.com")"
   while true; do
     H2V_DOMAIN_INPUT="$(prompt_value "${domain_label}" "${domain_default}" "no")"
     if [[ -n "${H2V_DOMAIN_INPUT}" && "${H2V_DOMAIN_INPUT}" != "h2v.example.com" ]]; then
@@ -1086,29 +1146,29 @@ collect_install_inputs() {
     fi
     if ! ${is_tty}; then
       H2V_DOMAIN_INPUT="${default_domain}"
-      yellow "No domain provided — keeping placeholder '${H2V_DOMAIN_INPUT}'. Edit ${ENV_FILE} manually."
+      yellow "$(ui_text "Домен не указан - оставляю '${H2V_DOMAIN_INPUT}'. Его можно изменить позже в ${ENV_FILE}." "No domain provided - keeping '${H2V_DOMAIN_INPUT}'. You can change it later in ${ENV_FILE}.")"
       break
     fi
-    red "A real domain is required."
+    red "$(ui_text "Укажите реальный домен." "A real domain is required.")"
   done
 
-  H2V_PUBLIC_PORT_INPUT="$(prompt_service_port H2V_PUBLIC_PORT "h2v public HTTPS port" "${default_h2v_public_port}" tcp "${current_h2v_public_port}")"
+  H2V_PUBLIC_PORT_INPUT="$(prompt_service_port H2V_PUBLIC_PORT "$(ui_text "HTTPS-порт панели" "Panel HTTPS port")" "${default_h2v_public_port}" tcp "${current_h2v_public_port}")"
   while true; do
-    VLESS_PORT_INPUT="$(prompt_service_port VLESS_PORT "VLESS Reality TCP port" "${default_vless_port}" tcp "${current_vless_port}")"
+    VLESS_PORT_INPUT="$(prompt_service_port VLESS_PORT "$(ui_text "TCP-порт VLESS Reality" "VLESS Reality TCP port")" "${default_vless_port}" tcp "${current_vless_port}")"
     if [[ "${VLESS_PORT_INPUT}" != "${H2V_PUBLIC_PORT_INPUT}" ]]; then
       break
     fi
-    red "VLESS Reality TCP port must differ from h2v public HTTPS port." >&2
-    ${is_tty} || fail "VLESS Reality TCP port conflicts with h2v public HTTPS port"
+    red "$(ui_text "Порт VLESS Reality должен отличаться от HTTPS-порта панели." "VLESS Reality TCP port must differ from the panel HTTPS port.")" >&2
+    ${is_tty} || fail "$(ui_text "Порт VLESS Reality конфликтует с HTTPS-портом панели" "VLESS Reality TCP port conflicts with the panel HTTPS port")"
   done
-  HY2_PORT_INPUT="$(prompt_service_port HY2_PORT "Hysteria 2 UDP port" "${default_hy2_port}" udp "${current_hy2_port}")"
+  HY2_PORT_INPUT="$(prompt_service_port HY2_PORT "$(ui_text "UDP-порт Hysteria 2" "Hysteria 2 UDP port")" "${default_hy2_port}" udp "${current_hy2_port}")"
   if ! ${env_exists}; then
-    ADMIN_USERNAME_INPUT="$(prompt_value "Admin username" "${default_admin_username}")"
+    ADMIN_USERNAME_INPUT="$(prompt_value "$(ui_text "Логин администратора" "Admin username")" "${default_admin_username}")"
 
     if [[ -n "${H2V_ADMIN_PASSWORD:-}" ]]; then
       ADMIN_PASSWORD_INPUT="${H2V_ADMIN_PASSWORD}"
     elif can_prompt; then
-      ADMIN_PASSWORD_INPUT="$(prompt_password "Admin password (blank to auto-generate)")"
+      ADMIN_PASSWORD_INPUT="$(prompt_password "$(ui_text "Пароль администратора (пусто - создать автоматически)" "Admin password (blank to auto-generate)")")"
     fi
 
     if [[ -z "${ADMIN_PASSWORD_INPUT}" ]]; then
@@ -1154,9 +1214,9 @@ ensure_env() {
     chmod 600 "${ENV_FILE}.tmp"
     chown h2v:h2v "${ENV_FILE}.tmp"
     mv "${ENV_FILE}.tmp" "${ENV_FILE}"
-    substep "${ENV_FILE} seeded from .env.example"
+    substep "$(ui_text "создан файл настроек" "settings file created")"
   else
-    substep "${ENV_FILE} already exists — preserving existing secrets"
+    substep "$(ui_text "текущие секреты сохранены" "existing secrets preserved")"
   fi
 
   if [[ -n "${H2V_DOMAIN_INPUT}" ]]; then
@@ -1791,7 +1851,7 @@ setup_reverse_proxy() {
 
   if [[ -z "${domain}" || "${domain}" == "h2v.example.com" ]]; then
     warn "skipping Caddy config (no real H2V_DOMAIN set)"
-    info "h2v is local-only at http://127.0.0.1:${h2v_port}/ — set H2V_DOMAIN and rerun for auto-TLS"
+    info "h2v is local-only at http://127.0.0.1:${h2v_port}/ - set H2V_DOMAIN and rerun for auto-TLS"
     return
   fi
   site_address="${domain}"
@@ -1826,7 +1886,7 @@ EOF
     if ! systemctl restart caddy.service; then
       red "caddy.service failed to start. Recent logs:"
       journalctl -u caddy.service -n 30 --no-pager || true
-      warn "backend up on 127.0.0.1:${h2v_port}, reverse proxy is NOT — fix Caddy separately"
+      warn "backend up on 127.0.0.1:${h2v_port}, reverse proxy is NOT - fix Caddy separately"
       return
     fi
   fi
@@ -1886,7 +1946,7 @@ plan_value() {
 }
 
 print_install_plan() {
-  local domain h2v_port h2v_public_port vless_port hy2_port h2v_url mode
+  local domain h2v_port h2v_public_port vless_port hy2_port h2v_url mode config_note
   domain="$(plan_value "${H2V_DOMAIN_INPUT}" "H2V_DOMAIN" "h2v.example.com")"
   h2v_port="$(plan_value "" "H2V_PORT" "8000")"
   h2v_public_port="$(plan_value "${H2V_PUBLIC_PORT_INPUT}" "H2V_PUBLIC_PORT" "443")"
@@ -1904,46 +1964,41 @@ print_install_plan() {
   fi
 
   if ${FIRST_INSTALL}; then
-    mode="fresh install"
+    mode="$(ui_text "Новая установка" "New installation")"
+    config_note="$(ui_text "Создать новые настройки" "Create new settings")"
   elif ${RECONFIGURE_RUNTIME}; then
-    mode="reconfigure"
+    mode="$(ui_text "Изменить настройки" "Change settings")"
+    config_note="$(ui_text "Обновить домен и порты" "Update domain and ports")"
   else
-    mode="update"
+    mode="$(ui_text "Обновление" "Update")"
+    config_note="$(ui_text "Сохранить текущие секреты" "Keep existing secrets")"
   fi
 
-  printf '\n%sInstall plan%s\n' "${BOLD}" "${RESET}"
-  printf '  %s%-18s%s %s\n' "${DIM}" "Mode" "${RESET}" "${mode}"
-  printf '  %s%-18s%s %s/%s@%s\n' "${DIM}" "Source" "${RESET}" "${REPO_OWNER}" "${REPO_NAME}" "${REPO_REF}"
-  printf '  %s%-18s%s %s\n' "${DIM}" "Install dir" "${RESET}" "${INSTALL_DIR}"
-  printf '  %s%-18s%s %s\n' "${DIM}" "h2v URL" "${RESET}" "${h2v_url}"
-  printf '  %s%-18s%s %s/tcp\n' "${DIM}" "VLESS Reality" "${RESET}" "${vless_port}"
-  printf '  %s%-18s%s %s/udp\n' "${DIM}" "Hysteria 2" "${RESET}" "${hy2_port}"
-  if ${FIRST_INSTALL}; then
-    printf '  %s%-18s%s %s\n' "${DIM}" "Config" "${RESET}" "create new .env"
-  elif ${RECONFIGURE_RUNTIME}; then
-    printf '  %s%-18s%s %s\n' "${DIM}" "Config" "${RESET}" "will update .env values"
-  else
-    printf '  %s%-18s%s %s\n' "${DIM}" "Config" "${RESET}" "preserve existing secrets"
-  fi
+  printf '\n%s%s%s\n' "${BOLD}" "$(ui_text "План" "Overview")" "${RESET}"
+  printf '  %s%-18s%s %s\n' "${DIM}" "$(ui_text "Действие" "Action")" "${RESET}" "${mode}"
+  printf '  %s%-18s%s %s\n' "${DIM}" "$(ui_text "Панель" "Panel")" "${RESET}" "${h2v_url}"
+  printf '  %s%-18s%s TCP %s\n' "${DIM}" "VLESS Reality" "${RESET}" "${vless_port}"
+  printf '  %s%-18s%s UDP %s\n' "${DIM}" "Hysteria 2" "${RESET}" "${hy2_port}"
+  printf '  %s%-18s%s %s\n' "${DIM}" "$(ui_text "Настройки" "Settings")" "${RESET}" "${config_note}"
   printf '\n'
 }
 
 print_welcome() {
   printf '\n'
-  printf '  %sThis installer will prepare:%s\n' "${BOLD}" "${RESET}"
-  printf '    - h2v backend and web UI\n'
-  printf '    - PostgreSQL database schema\n'
-  printf '    - Xray VLESS Reality and Hysteria 2 services\n'
-  printf '    - Caddy TLS reverse proxy, geodata timer, and backups\n'
+  printf '  %s%s%s\n' "${BOLD}" "$(ui_text "Мастер подготовит:" "The installer will prepare:")" "${RESET}"
+  printf '    - %s\n' "$(ui_text "веб-панель h2v" "the h2v web panel")"
+  printf '    - %s\n' "$(ui_text "пользователей, подписки и статистику" "users, subscriptions, and traffic stats")"
+  printf '    - %s\n' "$(ui_text "VLESS Reality и Hysteria 2" "VLESS Reality and Hysteria 2")"
+  printf '    - %s\n' "$(ui_text "резервные копии и обновление маршрутных данных" "backups and routing-data updates")"
   printf '\n'
-  printf '  %sTip:%s press Enter to accept suggested defaults during setup.\n' "${DIM}" "${RESET}"
+  printf '  %s%s%s\n' "${DIM}" "$(ui_text "Подсказка: Enter принимает предложенное значение." "Tip: press Enter to accept the suggested value.")" "${RESET}"
 }
 
 install_all() {
   require_root
   detect_os
   clear_screen
-  banner "h2v installer" "VLESS Reality + Hysteria 2 | Ubuntu 22.04/24.04"
+  banner "$(ui_text "Установка h2v" "h2v installer")" "$(ui_text "Панель VPN для VLESS Reality и Hysteria 2" "VPN panel for VLESS Reality and Hysteria 2")"
   print_welcome
   resolve_source_dir
 
@@ -1954,22 +2009,22 @@ install_all() {
   STAGE_INDEX=0
   STAGE_TOTAL=13
 
-  step "deps" "Installing Ubuntu dependencies"
+  step "deps" "$(ui_text "Подготовка сервера" "Preparing the server")"
   ensure_base_packages
   ensure_build_swap
-  success "base packages ready"
+  success "$(ui_text "сервер готов к установке" "server is ready")"
 
-  step "toolchain" "Installing Go ${GO_VERSION} and Node ${NODE_VERSION}"
+  step "toolchain" "$(ui_text "Подготовка сборки" "Preparing the build environment")"
   ensure_build_toolchain
-  success "Go $(go version | awk '{print $3}') · Node $(node -v) · npm $(npm -v)"
+  success "$(ui_text "среда сборки готова" "build environment is ready")"
 
-  step "cores" "Installing Xray-core and Hysteria 2 binaries"
+  step "cores" "$(ui_text "Установка VPN-ядер" "Installing VPN cores")"
   install_xray_binary
   install_hysteria_binary
   ensure_core_users
-  success "core binaries installed"
+  success "$(ui_text "VPN-ядра установлены" "VPN cores are installed")"
 
-  step "layout" "Creating h2v user and directory layout"
+  step "layout" "$(ui_text "Подготовка файлов h2v" "Preparing h2v files")"
   ensure_h2v_user
   ensure_dirs
   ensure_env
@@ -1979,58 +2034,58 @@ install_all() {
   validate_selected_runtime_ports
   configure_local_firewall
   ensure_reality_keys
-  success "user/h2v and ${INSTALL_DIR} prepared"
+  success "$(ui_text "файлы и настройки подготовлены" "files and settings are prepared")"
 
-  step "db" "Ensuring PostgreSQL role and database"
+  step "db" "$(ui_text "Подготовка базы данных" "Preparing the database")"
   ensure_postgres
-  success "PostgreSQL configured"
+  success "$(ui_text "база данных готова" "database is ready")"
 
-  step "assets" "Installing templates and database schema"
+  step "assets" "$(ui_text "Копирование шаблонов" "Copying templates")"
   install_templates
-  success "templates and database schema synced"
+  success "$(ui_text "шаблоны обновлены" "templates are updated")"
 
-  step "build" "Building backend and frontend"
+  step "build" "$(ui_text "Сборка панели" "Building the panel")"
   build_artifacts
-  success "backend binary and frontend bundle built"
+  success "$(ui_text "панель собрана" "panel is built")"
 
-  step "geodata" "Downloading GeoIP and Geosite data"
+  step "geodata" "$(ui_text "Обновление маршрутных данных" "Updating routing data")"
   update_geodata
-  success "routing data ready for Xray and Hysteria 2"
+  success "$(ui_text "маршрутные данные готовы" "routing data is ready")"
 
-  step "units" "Installing systemd units"
+  step "units" "$(ui_text "Настройка автозапуска" "Configuring autostart")"
   install_units
   install_sudoers
   setup_geodata_timer
-  success "systemd units installed"
+  success "$(ui_text "автозапуск настроен" "autostart is configured")"
 
-  step "schema" "Initializing database schema"
+  step "schema" "$(ui_text "Инициализация данных" "Initializing data")"
   local schema_out schema_status=0
   schema_out="$(init_database_schema 2>&1)" || schema_status=$?
   if [[ ${schema_status} -ne 0 ]]; then
     printf '%s\n' "${schema_out}"
-    fail "database schema initialization failed"
+    fail "$(ui_text "Не удалось подготовить базу данных" "Database initialization failed")"
   fi
-  success "database schema ready"
+  success "$(ui_text "структура данных готова" "data schema is ready")"
 
-  step "admin" "Ensuring initial admin account"
+  step "admin" "$(ui_text "Создание администратора" "Preparing admin access")"
   create_admin
   if ${FIRST_INSTALL}; then
-    success "admin '${ADMIN_USERNAME_INPUT}' ready"
+    success "$(ui_text "администратор '${ADMIN_USERNAME_INPUT}' готов" "admin '${ADMIN_USERNAME_INPUT}' is ready")"
   else
-    info "existing admin account preserved"
+    info "$(ui_text "текущий администратор сохранён" "existing admin account preserved")"
   fi
 
-  step "configs" "Rendering xray and hysteria configs"
+  step "configs" "$(ui_text "Применение настроек VPN" "Applying VPN settings")"
   sync_runtime_settings
   render_core_configs
   grant_cert_access
-  success "core configs written to ${INSTALL_DIR}/configs/"
+  success "$(ui_text "настройки VPN применены" "VPN settings are applied")"
 
-  step "service" "Starting h2v, cores, and reverse proxy"
+  step "service" "$(ui_text "Запуск сервисов" "Starting services")"
   start_h2v
   setup_reverse_proxy
   start_cores
-  success "services active"
+  success "$(ui_text "сервисы запущены" "services are running")"
 
   local final_domain final_port final_public_port access_url local_url
   final_domain="$(env_get H2V_DOMAIN || echo h2v.example.com)"
@@ -2069,7 +2124,7 @@ backup_db() {
   mkdir -p "${backup_dir}"
   local name="h2v-$(date -u +%F-%H%M%S).sql.gz"
   PGPASSWORD="${db_password}" pg_dump -h "${db_host}" -p "${db_port}" -U "${db_user}" "${db_name}" | gzip > "${backup_dir}/${name}"
-  green "Backup written to ${backup_dir}/${name}"
+  green "$(ui_text "Резервная копия создана: ${backup_dir}/${name}" "Backup created: ${backup_dir}/${name}")"
 }
 
 restore_db() {
@@ -2088,11 +2143,11 @@ restore_db() {
 
   local file="${1:-}"
   if [[ -z "${file}" || ! -f "${file}" ]]; then
-    red "Provide a valid backup file."
+    red "$(ui_text "Укажите существующий файл резервной копии." "Provide a valid backup file.")"
     exit 1
   fi
   gunzip -c "${file}" | PGPASSWORD="${db_password}" psql -h "${db_host}" -p "${db_port}" -U "${db_user}" "${db_name}"
-  green "Restore complete."
+  green "$(ui_text "Восстановление завершено." "Restore complete.")"
 }
 
 update_all() {
@@ -2101,60 +2156,60 @@ update_all() {
 
 update_geodata_command() {
   require_root
-  [[ -f "${ENV_FILE}" ]] || fail "${ENV_FILE} not found"
+  [[ -f "${ENV_FILE}" ]] || fail "$(ui_text "Настройки ${ENV_FILE} не найдены" "${ENV_FILE} not found")"
   clear_screen
-  banner "Core geodata update" "geoip.dat + geosite.dat"
+  banner "$(ui_text "Обновление маршрутных данных" "Routing data update")" "geoip.dat + geosite.dat"
   STAGE_INDEX=0
   STAGE_TOTAL=1
-  step "geodata" "Downloading GeoIP and Geosite data"
+  step "geodata" "$(ui_text "Загрузка GeoIP и Geosite" "Downloading GeoIP and Geosite")"
   update_geodata
-  success "routing data ready for Xray and Hysteria 2"
+  success "$(ui_text "маршрутные данные обновлены" "routing data is updated")"
   systemctl try-restart xray.service hysteria.service >/dev/null 2>&1 || true
 }
 
 uninstall_all() {
   require_root
   clear_screen
-  banner "h2v uninstaller" "stopping services and removing ${INSTALL_DIR}"
+  banner "$(ui_text "Удаление h2v" "h2v uninstaller")" "$(ui_text "Остановка сервисов и удаление файлов приложения" "Stopping services and removing application files")"
   STAGE_INDEX=0
   STAGE_TOTAL=2
 
-  step "stop" "Stopping and disabling services"
+  step "stop" "$(ui_text "Остановка сервисов" "Stopping services")"
   systemctl disable --now h2v hysteria xray h2v-geodata-update.timer h2v-geodata-update.service 2>/dev/null || true
-  success "h2v/hysteria/xray services and geodata timer stopped"
+  success "$(ui_text "сервисы h2v, Hysteria 2 и Xray остановлены" "h2v, Hysteria 2, and Xray services are stopped")"
 
-  step "purge" "Removing application files and units"
+  step "purge" "$(ui_text "Удаление файлов приложения" "Removing application files")"
   rm -rf "${INSTALL_DIR}"
   rm -f /etc/systemd/system/h2v.service /etc/systemd/system/xray.service /etc/systemd/system/hysteria.service
   rm -f /etc/systemd/system/h2v-geodata-update.service /etc/systemd/system/h2v-geodata-update.timer
   rm -f /etc/sudoers.d/h2v-systemctl
   systemctl daemon-reload
-  success "${INSTALL_DIR} and systemd units removed"
+  success "$(ui_text "${INSTALL_DIR} и сервисные файлы удалены" "${INSTALL_DIR} and service files are removed")"
 
   printf '\n'
-  info "packages, Let's Encrypt certs, and database objects were left in place"
+  info "$(ui_text "Пакеты, сертификаты Let's Encrypt и база данных оставлены на сервере." "Packages, Let's Encrypt certificates, and database objects were left on the server.")"
   printf '\n'
 }
 
 reset_admin() {
   require_root
-  [[ -x "${INSTALL_DIR}/bin/h2v" ]] || fail "h2v binary missing at ${INSTALL_DIR}/bin/h2v — run install first"
-  [[ -f "${ENV_FILE}" ]] || fail "${ENV_FILE} not found"
+  [[ -x "${INSTALL_DIR}/bin/h2v" ]] || fail "$(ui_text "h2v не найден в ${INSTALL_DIR}/bin/h2v - сначала выполните установку" "h2v binary missing at ${INSTALL_DIR}/bin/h2v - run install first")"
+  [[ -f "${ENV_FILE}" ]] || fail "$(ui_text "Настройки ${ENV_FILE} не найдены" "${ENV_FILE} not found")"
 
   clear_screen
-  banner "Admin password reset" "h2v admin set-password"
+  banner "$(ui_text "Смена пароля администратора" "Admin password reset")" "$(ui_text "Новый пароль для входа в панель" "New password for panel access")"
 
   local username password generated=false
   username="${1:-}"
   password="${2:-}"
 
   if [[ -z "${username}" ]]; then
-    username="$(prompt_value "Admin username" "admin")"
+    username="$(prompt_value "$(ui_text "Логин администратора" "Admin username")" "admin")"
   fi
 
   if [[ -z "${password}" ]]; then
     if can_prompt; then
-      password="$(prompt_password "New password (blank to auto-generate)")"
+      password="$(prompt_password "$(ui_text "Новый пароль (пусто - создать автоматически)" "New password (blank to auto-generate)")")"
     fi
     if [[ -z "${password}" ]]; then
       password="$(openssl rand -base64 24 | tr -dc 'A-Za-z0-9' | cut -c1-20)"
@@ -2164,7 +2219,7 @@ reset_admin() {
 
   STAGE_INDEX=0
   STAGE_TOTAL=1
-  step "reset" "Applying new password for admin '${username}'"
+  step "reset" "$(ui_text "Применение нового пароля для '${username}'" "Applying new password for '${username}'")"
   local out status=0
   out="$(sudo -u h2v env H2V_ENV_FILE="${ENV_FILE}" "${INSTALL_DIR}/bin/h2v" admin set-password \
     --username="${username}" \
@@ -2172,19 +2227,21 @@ reset_admin() {
 
   if [[ ${status} -ne 0 ]]; then
     red "${out}"
-    fail "failed to reset admin password"
+    fail "$(ui_text "Не удалось сменить пароль администратора" "Failed to reset admin password")"
   fi
-  success "password updated"
+  success "$(ui_text "пароль обновлён" "password is updated")"
 
   printf '\n'
-  printf '  %sAdmin login%s    %s\n' "${BOLD}" "${RESET}" "${username}"
+  printf '  %s%-18s%s %s\n' "${BOLD}" "$(ui_text "Логин" "Admin login")" "${RESET}" "${username}"
   if ${generated}; then
-    printf '  %sAdmin password%s %s%s%s %s(auto-generated)%s\n' "${BOLD}" "${RESET}" "${YELLOW}" "${password}" "${RESET}" "${DIM}" "${RESET}"
+    printf '  %s%-18s%s %s%s%s %s%s%s\n' "${BOLD}" "$(ui_text "Пароль" "Admin password")" "${RESET}" "${YELLOW}" "${password}" "${RESET}" "${DIM}" "$(ui_text "(создан автоматически)" "(auto-generated)")" "${RESET}"
   else
-    printf '  %sAdmin password%s %s%s%s\n' "${BOLD}" "${RESET}" "${YELLOW}" "${password}" "${RESET}"
+    printf '  %s%-18s%s %s%s%s\n' "${BOLD}" "$(ui_text "Пароль" "Admin password")" "${RESET}" "${YELLOW}" "${password}" "${RESET}"
   fi
-  printf '  %s⚠ Save this password — it will not be shown again.%s\n\n' "${YELLOW}" "${RESET}"
+  printf '  %s[!] %s%s\n\n' "${YELLOW}" "$(ui_text "Сохраните пароль: он больше не будет показан." "Save this password: it will not be shown again.")" "${RESET}"
 }
+
+select_language "${1:-install}"
 
 case "${1:-install}" in
   install) install_all ;;
@@ -2195,37 +2252,66 @@ case "${1:-install}" in
   backup) backup_db ;;
   restore) restore_db "${2:-}" ;;
   help|-h|--help)
-    cat <<'USAGE'
+    if ui_ru; then
+      cat <<'USAGE'
+Установщик h2v
+
+Быстрая установка:
+  curl -fsSL https://raw.githubusercontent.com/ProstyGospody/h2v/main/install.sh | sudo bash
+
+Действия:
+  install.sh install                         установить или обновить h2v
+  install.sh update | reinstall              обновить, сохранив текущие настройки
+  install.sh geodata | update-geodata        обновить маршрутные данные
+  install.sh uninstall                       удалить приложение и сервисы h2v
+  install.sh reset-admin [login] [password]  сменить пароль администратора
+  install.sh backup                          создать резервную копию
+  install.sh restore <file>                  восстановить из резервной копии
+
+Язык:
+  H2V_LANG=ru                                русский интерфейс
+  H2V_LANG=en                                English interface
+
+Дополнительно:
+  H2V_REF=<branch|tag|commit>                версия исходного кода
+  H2V_VERBOSE=1                              показать подробный вывод
+  H2V_INSTALL_LOG=/path/to/log               путь к журналу установки
+  H2V_NO_CLEAR=1                             не очищать экран перед запуском
+  H2V_ADMIN_USERNAME, H2V_ADMIN_PASSWORD     логин и пароль для установки без вопросов
+
+USAGE
+    else
+      cat <<'USAGE'
 h2v installer
 
 Quick install:
-  bash <(curl -fsSL https://raw.githubusercontent.com/ProstyGospody/h2v/main/install.sh)
+  curl -fsSL https://raw.githubusercontent.com/ProstyGospody/h2v/main/install.sh | sudo bash
 
-Usage:
-  install.sh install                         full install or update with interactive prompts
-  install.sh update | reinstall              same as install; keeps .env unless you choose reconfigure
-  install.sh geodata | update-geodata        refresh core geoip.dat/geosite.dat
-  install.sh uninstall                       remove /opt/h2v and systemd units
-  install.sh reset-admin [user] [pw]         reset admin password
-  install.sh backup                          dump database to data/backups
-  install.sh restore <file>                  restore database from a gzip dump
+Actions:
+  install.sh install                         install or update h2v
+  install.sh update | reinstall              update and keep current settings
+  install.sh geodata | update-geodata        update routing data
+  install.sh uninstall                       remove h2v app and services
+  install.sh reset-admin [login] [password]  reset admin password
+  install.sh backup                          create a backup
+  install.sh restore <file>                  restore from backup
 
-Env overrides:
-  H2V_REF=<branch|tag|commit>                repository source; defaults to main
-  H2V_VERSION=<version>                      h2v version embedded via ldflags; defaults to H2V_REF/main
-  H2V_SOURCE_SHA256=<sha256>                 verify downloaded source archive
-  H2V_REQUIRE_SOURCE_SHA256=1                fail if source checksum is absent
-  XRAY_VERSION, HYSTERIA_VERSION             override pinned core versions
-  H2V_VERBOSE=1                              show detailed install output
-  H2V_INSTALL_LOG=/path/to/log               quiet-mode command log
+Language:
+  H2V_LANG=en                                English interface
+  H2V_LANG=ru                                русский интерфейс
+
+Advanced:
+  H2V_REF=<branch|tag|commit>                source version
+  H2V_VERBOSE=1                              show detailed output
+  H2V_INSTALL_LOG=/path/to/log               install log path
   H2V_NO_CLEAR=1                             keep previous terminal output
-  H2V_NODE_MAX_OLD_SPACE_MB=512              cap Node.js heap during frontend build; 0 disables
-  H2V_ADMIN_USERNAME, H2V_ADMIN_PASSWORD seed non-interactive admin
+  H2V_ADMIN_USERNAME, H2V_ADMIN_PASSWORD     admin login and password for unattended install
 
 USAGE
+    fi
     ;;
   *)
-    red "Usage: $0 {install|update|reinstall|geodata|update-geodata|uninstall|reset-admin [username] [password]|backup|restore <file>|help}"
+    red "$(ui_text "Использование: $0 {install|update|reinstall|geodata|update-geodata|uninstall|reset-admin [login] [password]|backup|restore <file>|help}" "Usage: $0 {install|update|reinstall|geodata|update-geodata|uninstall|reset-admin [login] [password]|backup|restore <file>|help}")"
     exit 1
     ;;
 esac
