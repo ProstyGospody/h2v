@@ -18,7 +18,7 @@ export function PageHeader({ action, center, className, description, title }: Pa
       )}
     >
       {center ? (
-        <div className="pointer-events-none absolute inset-x-0 top-5 z-10 hidden justify-center px-page xl:flex">
+        <div className="pointer-events-none absolute inset-x-0 top-2 z-10 hidden justify-center px-page xl:flex">
           <div className="pointer-events-auto max-w-full">{center}</div>
         </div>
       ) : null}

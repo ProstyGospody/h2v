@@ -240,7 +240,7 @@ function ServiceStatusIsland({ items, label }: { items: DashboardServiceItem[]; 
 
   return (
     <section aria-label={label} className="flex max-w-full justify-center">
-      <div className="flex w-fit max-w-full flex-wrap items-center justify-center gap-2 rounded-md bg-accent-gradient-soft px-4 py-3 shadow-sm">
+      <div className="flex w-fit max-w-full flex-wrap items-center justify-center gap-2 rounded-md bg-accent-gradient-soft px-3 py-1.5 shadow-sm">
         <svg aria-hidden="true" className="pointer-events-none absolute size-0 overflow-hidden">
           <defs>
             <linearGradient id={gradientId} x1="4" x2="20" y1="4" y2="20" gradientUnits="userSpaceOnUse">
@@ -255,20 +255,20 @@ function ServiceStatusIsland({ items, label }: { items: DashboardServiceItem[]; 
 
           return (
             <div
-              className="flex h-8 min-w-0 items-center gap-2 rounded-md px-1 text-foreground transition-colors hover:bg-muted/25"
+              className="flex h-7 min-w-0 items-center gap-1.5 rounded-md px-1 text-foreground transition-colors hover:bg-muted/25"
               key={item.label}
               title={`${item.label}: ${item.value}`}
             >
               {item.logo || Icon ? (
-                <span className="flex size-7 shrink-0 items-center justify-center rounded-full">
+                <span className="flex size-6 shrink-0 items-center justify-center rounded-full">
                   {item.logo ? (
-                    <CoreLogo className={cn(item.logo === 'hysteria' ? 'h-6 w-8' : 'size-6')} core={item.logo} />
+                    <CoreLogo className={cn(item.logo === 'hysteria' ? 'h-5 w-7' : 'size-5')} core={item.logo} />
                   ) : Icon ? (
-                    <Icon className="size-5" stroke={`url(#${gradientId})`} strokeWidth={2.35} />
+                    <Icon className="size-4" stroke={`url(#${gradientId})`} strokeWidth={2.35} />
                   ) : null}
                 </span>
               ) : null}
-              <span className="min-w-0 truncate text-sm font-medium leading-5">{item.label}</span>
+              <span className="min-w-0 truncate text-xs font-medium leading-5">{item.label}</span>
               {item.showValue ? (
                 <span className="shrink-0 font-mono text-[11px] text-muted-foreground">{item.value}</span>
               ) : null}
