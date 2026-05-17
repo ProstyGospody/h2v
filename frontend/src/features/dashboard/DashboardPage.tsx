@@ -115,7 +115,8 @@ export function DashboardPage() {
   return (
     <div className="pb-10">
       <PageHeader
-        title={t('dashboard.overview')}
+        title={t('nav.dashboard')}
+        titleClassName="text-muted-foreground"
         action={<ServiceStatusIsland items={serviceStatuses} label={t('nav.services')} />}
       />
 
@@ -167,7 +168,7 @@ export function DashboardPage() {
 
       <div className="px-page pt-4">
         <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <h2 className="min-w-0 truncate font-display text-xl font-semibold leading-tight text-foreground">
+          <h2 className="min-w-0 truncate font-display text-xl font-semibold leading-tight text-muted-foreground">
             {t('dashboard.traffic')}
           </h2>
           <Tabs onValueChange={(v) => setDays(v as Range)} value={days}>
