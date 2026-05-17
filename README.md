@@ -49,12 +49,6 @@
 curl -fsSL https://raw.githubusercontent.com/ProstyGospody/h2v/main/install.sh | sudo bash
 ```
 
-Запуск сразу на русском:
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/ProstyGospody/h2v/main/install.sh | sudo env H2V_LANG=ru bash
-```
-
 ### Что внутри
 
 | Управление | Протоколы | Обслуживание |
@@ -110,12 +104,6 @@ curl -fsSL https://raw.githubusercontent.com/ProstyGospody/h2v/main/install.sh |
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/ProstyGospody/h2v/main/install.sh | sudo bash
-```
-
-Run directly in English:
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/ProstyGospody/h2v/main/install.sh | sudo env H2V_LANG=en bash
 ```
 
 ### What You Get
