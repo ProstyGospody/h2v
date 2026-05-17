@@ -126,6 +126,8 @@ const portDefinitions: Array<{ key: PortKey; presets: number[]; protocol: 'tcp' 
 
 const settingFieldClassName =
   'bg-accent-gradient-soft hover:bg-[image:var(--gradient-accent-soft)] focus-visible:bg-[image:var(--gradient-accent-soft)]';
+const settingChoiceClassName =
+  'bg-accent-gradient-soft shadow-none hover:bg-[image:var(--gradient-accent-soft)]';
 
 type SettingsUpdateResult = {
   updated: boolean;
@@ -689,7 +691,7 @@ function PortControl({
       <div className="flex flex-wrap items-center gap-2.5">
         {presets.map((port) => (
           <Button
-            className={cn(value !== port && 'bg-background/70 shadow-none hover:bg-muted/55')}
+            className={cn(value !== port && settingChoiceClassName)}
             disabled={unavailable.has(port)}
             key={port}
             onClick={() => onChange(port)}
@@ -735,7 +737,7 @@ function BandwidthControl({
       <div className="flex flex-wrap items-center gap-2.5">
         {presets.map((preset) => (
           <Button
-            className={cn(normalizedValue !== preset && 'bg-background/70 shadow-none hover:bg-muted/55')}
+            className={cn(normalizedValue !== preset && settingChoiceClassName)}
             key={preset}
             onClick={() => onChange(preset)}
             size="sm"
@@ -774,7 +776,7 @@ function ToggleControl({
       <Label>{label}</Label>
       <div className="grid grid-cols-2 gap-1 rounded-[22px]">
         <Button
-          className={cn(!value && 'bg-background/70 shadow-none hover:bg-muted/55')}
+          className={cn(!value && settingChoiceClassName)}
           onClick={() => onChange(true)}
           size="sm"
           type="button"
@@ -783,7 +785,7 @@ function ToggleControl({
           {onLabel}
         </Button>
         <Button
-          className={cn(value && 'bg-background/70 shadow-none hover:bg-muted/55')}
+          className={cn(value && settingChoiceClassName)}
           onClick={() => onChange(false)}
           size="sm"
           type="button"
