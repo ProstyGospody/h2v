@@ -640,9 +640,9 @@
 .login-modal {
   position: relative;
   overflow: hidden;
-  border-radius: 6px;
+  border-radius: 22px;
   border-color: transparent !important;
-  background: var(--gradient-accent-soft) !important;
+  background: hsl(var(--card)) !important;
   box-shadow: none !important;
   backdrop-filter: blur(16px);
 }
@@ -684,8 +684,8 @@
   width: fit-content;
   max-width: 100%;
   border: 0;
-  border-radius: 999px;
-  background: hsl(var(--muted) / 0.26);
+  border-radius: 22px;
+  background: var(--gradient-accent-soft);
 }
 
 .login-modal-location {
@@ -759,6 +759,17 @@
   margin-inline: auto;
 }
 
+.login-modal-form [data-slot="input"] {
+  background-color: transparent;
+  background-image: var(--gradient-accent-soft);
+}
+
+.login-modal-form [data-slot="input"]:hover,
+.login-modal-form [data-slot="input"]:focus-visible {
+  background-color: transparent;
+  background-image: var(--gradient-accent-soft);
+}
+
 .login-modal-github {
   display: inline-flex;
   height: 2.25rem;
@@ -767,7 +778,8 @@
   justify-content: center;
   gap: 0.45rem;
   align-self: center;
-  border-radius: 999px;
+  border-radius: 22px;
+  background: var(--gradient-accent-soft);
   padding-inline: 0.85rem;
   color: hsl(var(--muted-foreground));
   font-size: 0.82rem;
@@ -780,7 +792,7 @@
 }
 
 .login-modal-github:hover {
-  background: hsl(var(--muted) / 0.34);
+  background: var(--gradient-accent-soft);
   color: hsl(var(--foreground));
 }
 
