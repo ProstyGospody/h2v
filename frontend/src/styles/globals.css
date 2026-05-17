@@ -641,8 +641,8 @@
   position: relative;
   overflow: hidden;
   border-radius: 6px;
-  border-color: hsl(var(--border) / 0.62) !important;
-  background: hsl(var(--card) / 0.97) !important;
+  border-color: transparent !important;
+  background: var(--gradient-accent-soft) !important;
   box-shadow: none !important;
   backdrop-filter: blur(16px);
 }
