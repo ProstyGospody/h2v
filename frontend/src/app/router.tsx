@@ -1,19 +1,16 @@
-import { useId, useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useState } from 'react';
 import { Link, Outlet, createRootRoute, createRoute, createRouter, useRouterState } from '@tanstack/react-router';
 import {
   FileCode2,
   LayoutDashboard,
   LogOut,
   Menu,
-  Timer,
   Settings2,
   Users,
   type LucideIcon,
 } from 'lucide-react';
 import { AppProviders } from '@/app/providers';
 import { BrandLogo } from '@/components/brand-logo';
-import { CoreLogo, type CoreLogoName } from '@/components/core-logo';
 import { LanguageSwitcher } from '@/components/language-switcher';
 import { ThemeToggle } from '@/components/theme-toggle';
 import { Button } from '@/components/ui/button';
@@ -41,14 +38,10 @@ import { SettingsPage } from '@/features/settings/SettingsPage';
 import { SubPage } from '@/features/subscription/SubPage';
 import { UsersPage } from '@/features/users/UsersPage';
 import { cn } from '@/lib/utils';
-import { apiClient } from '@/shared/api/client';
-import type { OverviewStats } from '@/shared/api/types';
-import { useI18n, type Translate } from '@/shared/i18n/i18n';
+import { useI18n } from '@/shared/i18n/i18n';
 import type { TranslationKey } from '@/shared/i18n/translations';
-import { formatDurationCompact } from '@/shared/lib/format';
 
 type LinkTo = '/' | '/users' | '/settings' | '/configs';
-type StatusTone = 'ok' | 'warn' | 'idle';
 
 const primaryLinks: Array<{
   icon: LucideIcon;
@@ -130,39 +123,9 @@ function SidebarBody({
   logout: () => Promise<void> | void;
   onNavigate?: () => void;
 }) {
-  const { locale, t } = useI18n();
+  const { t } = useI18n();
   const { state } = useSidebar();
   const collapsed = state === 'collapsed';
-  const overview = useQuery({
-    queryKey: ['stats', 'overview'],
-    queryFn: () => apiClient.request<OverviewStats>('/stats/overview'),
-    refetchInterval: 10_000,
-  });
-  const serviceStatuses = [
-    {
-      label: t('shell.uptime'),
-      icon: Timer,
-      value: formatDurationCompact(overview.data?.uptime_seconds, locale),
-      showIndicator: false,
-      showValue: true,
-    },
-    {
-      label: 'Xray',
-      logo: 'xray' as const,
-      tone: serviceTone(overview.data?.xray_status, overview.isError),
-      value: serviceStatusLabel(overview.data?.xray_status, overview.isLoading, overview.isError, t),
-      showIndicator: true,
-      showValue: false,
-    },
-    {
-      label: 'Hysteria 2',
-      logo: 'hysteria' as const,
-      tone: serviceTone(overview.data?.hysteria_status, overview.isError),
-      value: serviceStatusLabel(overview.data?.hysteria_status, overview.isLoading, overview.isError, t),
-      showIndicator: true,
-      showValue: false,
-    },
-  ];
 
   return (
     <div className="flex h-dvh flex-col">
@@ -189,11 +152,6 @@ function SidebarBody({
               />
             ))}
           </SidebarMenu>
-        </SidebarGroup>
-
-        <SidebarGroup className="mt-7">
-          <SidebarGroupLabel>{t('nav.services')}</SidebarGroupLabel>
-          <ServiceStatusList collapsed={collapsed} items={serviceStatuses} />
         </SidebarGroup>
       </SidebarContent>
 
@@ -226,104 +184,6 @@ function SidebarBody({
       </SidebarFooter>
     </div>
   );
-}
-
-function ServiceStatusList({
-  collapsed = false,
-  items,
-}: {
-  collapsed?: boolean;
-  items: Array<{
-    icon?: LucideIcon;
-    label: string;
-    logo?: CoreLogoName;
-    showIndicator?: boolean;
-    showValue?: boolean;
-    tone?: StatusTone;
-    value: string;
-  }>;
-}) {
-  const gradientId = `service-icon-${useId().replace(/:/g, '')}`;
-
-  return (
-    <div data-slot="sidebar-service-list" className="flex flex-col gap-1 px-1">
-      <svg aria-hidden="true" className="pointer-events-none absolute size-0 overflow-hidden">
-        <defs>
-          <linearGradient id={gradientId} x1="4" x2="20" y1="4" y2="20" gradientUnits="userSpaceOnUse">
-            <stop offset="0" stopColor="var(--icon-gradient-start)" />
-            <stop offset="0.45" stopColor="var(--icon-gradient-mid)" />
-            <stop offset="1" stopColor="var(--icon-gradient-end)" />
-          </linearGradient>
-        </defs>
-      </svg>
-      {items.map((item) => {
-        const Icon = item.icon;
-
-        return (
-          <div
-            data-slot="sidebar-service-item"
-            className="group/service relative flex h-11 items-center gap-2.5 rounded-md px-1.5 py-1 text-sidebar-foreground/75 transition-[background-color,color] duration-150 hover:[background-image:var(--sidebar-action-hover)] hover:text-sidebar-accent-foreground"
-            key={item.label}
-            title={collapsed ? `${item.label}: ${item.value}` : undefined}
-          >
-            {item.logo || Icon ? (
-              <span
-                data-logo={item.logo ? item.logo : undefined}
-                data-slot="sidebar-service-icon"
-                className="flex size-8 shrink-0 items-center justify-center rounded-md"
-              >
-                {item.logo ? (
-                  <CoreLogo className={cn(item.logo === 'hysteria' ? 'h-7 w-9' : 'size-7')} core={item.logo} />
-                ) : Icon ? (
-                  <Icon stroke={`url(#${gradientId})`} strokeWidth={2.25} />
-                ) : null}
-              </span>
-            ) : null}
-            <span data-slot="sidebar-service-label" className="min-w-0 flex-1">
-              <span className="block truncate text-sm font-medium leading-5 text-current">
-                {item.label}
-              </span>
-            </span>
-            {item.showValue ? (
-              <span data-slot="sidebar-service-value" className="shrink-0 font-mono text-[11px] text-sidebar-foreground/55 group-hover/service:text-sidebar-accent-foreground/70">
-                {item.value}
-              </span>
-            ) : null}
-            {item.showIndicator ? (
-              <span
-                data-slot="sidebar-service-dot"
-                aria-label={item.value}
-                className={cn(
-                  'size-2 shrink-0 rounded-full ring-2',
-                  serviceDotTone(item.tone ?? 'idle'),
-                )}
-                title={item.value}
-              />
-            ) : null}
-          </div>
-        );
-      })}
-    </div>
-  );
-}
-
-function serviceTone(value: string | undefined, isError: boolean): StatusTone {
-  if (isError) return 'warn';
-  if (!value) return 'idle';
-  return value.toLowerCase().startsWith('fail') ? 'warn' : 'ok';
-}
-
-function serviceStatusLabel(value: string | undefined, isLoading: boolean, isError: boolean, t: Translate): string {
-  if (isError) return t('common.issue');
-  if (isLoading && !value) return t('common.syncing');
-  if (!value) return t('common.unknown');
-  return value.toLowerCase().startsWith('fail') ? t('common.issue') : t('common.ok');
-}
-
-function serviceDotTone(tone: StatusTone): string {
-  if (tone === 'ok') return 'bg-success ring-success/15';
-  if (tone === 'warn') return 'bg-warning ring-warning/15';
-  return 'bg-muted-foreground ring-muted-foreground/10';
 }
 
 function AppBrand({ compact = false, iconOnly = false }: { compact?: boolean; iconOnly?: boolean }) {

@@ -556,9 +556,7 @@
     padding-inline: 0.75rem;
   }
 
-  [data-slot="sidebar-menu-label"],
-  [data-slot="sidebar-service-label"],
-  [data-slot="sidebar-service-value"] {
+  [data-slot="sidebar-menu-label"] {
     max-width: 12rem;
     overflow: hidden;
     opacity: 1;
@@ -582,9 +580,7 @@
       transform var(--sidebar-transition-duration) var(--sidebar-transition-easing);
   }
 
-  [data-slot="sidebar"][data-state="collapsed"] [data-slot="sidebar-menu-label"],
-  [data-slot="sidebar"][data-state="collapsed"] [data-slot="sidebar-service-label"],
-  [data-slot="sidebar"][data-state="collapsed"] [data-slot="sidebar-service-value"] {
+  [data-slot="sidebar"][data-state="collapsed"] [data-slot="sidebar-menu-label"] {
     max-width: 0;
     opacity: 0;
     transform: translateX(-0.25rem);
@@ -597,50 +593,6 @@
     transform: translateX(-0.25rem);
   }
 
-  [data-slot="sidebar-service-list"] {
-    transition:
-      gap var(--sidebar-transition-duration) var(--sidebar-transition-easing),
-      padding-inline var(--sidebar-transition-duration) var(--sidebar-transition-easing);
-  }
-
-  [data-slot="sidebar-service-item"] {
-    transition:
-      padding-inline var(--sidebar-transition-duration) var(--sidebar-transition-easing),
-      gap var(--sidebar-transition-duration) var(--sidebar-transition-easing),
-      background-color 160ms ease;
-  }
-
-  [data-slot="sidebar-service-icon"][data-logo] {
-    position: relative;
-    isolation: isolate;
-  }
-
-  [data-slot="sidebar-service-icon"][data-logo]::before {
-    content: "";
-    position: absolute;
-    inset: 0.35rem;
-    z-index: -1;
-    border-radius: 999px;
-    background: var(--gradient-accent-soft);
-    filter: blur(7px);
-    opacity: 0.7;
-  }
-
-  [data-slot="sidebar"][data-state="collapsed"] [data-slot="sidebar-service-list"] {
-    gap: 0.5rem;
-    padding-inline: 0;
-  }
-
-  [data-slot="sidebar"][data-state="collapsed"] [data-slot="sidebar-service-item"] {
-    gap: 0;
-    padding-inline: 0.75rem;
-  }
-
-  [data-slot="sidebar"][data-state="collapsed"] [data-slot="sidebar-service-dot"] {
-    position: absolute;
-    right: 0.55rem;
-    top: 0.55rem;
-  }
 }
 
 @keyframes pulse-ring {
