@@ -667,7 +667,7 @@ export function UsersPage() {
                     <div className="space-y-1.5">
                       <LinkCopyRow label={t('users.publicPage')} value={publicLink(links.data)} />
                       <LinkCopyRow label="VLESS" value={links.data.vless} />
-                      <LinkCopyRow label="Hys2" value={links.data.hysteria2} />
+                      <LinkCopyRow label="Hysteria 2" value={links.data.hysteria2} />
                     </div>
                   ) : null}
                 </div>
@@ -897,8 +897,8 @@ function QRDialogContent({
         },
         {
           copyLabel: t('common.copy'),
-          label: 'Hys2',
-          toastLabel: 'Hys2',
+          label: 'Hysteria 2',
+          toastLabel: 'Hysteria 2',
           value: links.hysteria2,
         },
       ]
