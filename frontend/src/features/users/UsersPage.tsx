@@ -74,6 +74,11 @@ const statusOptions: Array<{ labelKey: TranslationKey; value: UserFilter }> = [
   { labelKey: 'users.nearExpiry', value: 'near_expiry' },
 ];
 
+const createUserFieldClassName =
+  'bg-accent-gradient-soft hover:bg-[image:var(--gradient-accent-soft)] focus-visible:bg-[image:var(--gradient-accent-soft)]';
+const createUserChoiceClassName =
+  'bg-accent-gradient-soft shadow-none hover:bg-[image:var(--gradient-accent-soft)]';
+
 export function UsersPage() {
   const { locale, t } = useI18n();
   const queryClient = useQueryClient();
@@ -741,14 +746,14 @@ export function UsersPage() {
               <Label htmlFor="username">{t('users.username')}</Label>
               <div className="relative">
                 <Input
-                  className="pr-10 font-mono"
+                  className={cn(createUserFieldClassName, 'pr-10 font-mono')}
                   id="username"
                   onChange={(e) => setUsername(e.target.value)}
                   value={username}
                 />
                 <Button
                   aria-label={t('users.regenerate')}
-                  className="absolute inset-y-0 right-0 h-full w-10 rounded-l-none"
+                  className="absolute inset-y-0 right-0 h-full w-10 rounded-l-none hover:bg-[image:var(--gradient-accent-soft)]"
                   onClick={() => setUsername(generateUsername())}
                   size="icon"
                   type="button"
@@ -764,7 +769,7 @@ export function UsersPage() {
               <div className="flex flex-wrap gap-1.5">
                 {trafficPresets.map((p) => (
                   <Button
-                    className={cn('h-7 px-3 text-xs', trafficGb !== p && 'bg-background/70 shadow-none hover:bg-muted/55')}
+                    className={cn('h-7 px-3 text-xs', trafficGb !== p && createUserChoiceClassName)}
                     key={p}
                     onClick={() => setTrafficGb(p)}
                     size="sm"
@@ -776,7 +781,7 @@ export function UsersPage() {
                 ))}
                 <Button
                   aria-label={t('common.unlimited')}
-                  className={cn('h-7 px-3 text-xs', trafficGb !== null && 'bg-background/70 shadow-none hover:bg-muted/55')}
+                  className={cn('h-7 px-3 text-xs', trafficGb !== null && createUserChoiceClassName)}
                   onClick={() => setTrafficGb(null)}
                   size="sm"
                   title={t('common.unlimited')}
@@ -793,7 +798,7 @@ export function UsersPage() {
               <div className="flex flex-wrap gap-1.5">
                 {expiryPresets.map((p) => (
                   <Button
-                    className={cn('h-7 px-3 text-xs', expiryDays !== p && 'bg-background/70 shadow-none hover:bg-muted/55')}
+                    className={cn('h-7 px-3 text-xs', expiryDays !== p && createUserChoiceClassName)}
                     key={p}
                     onClick={() => setExpiryDays(p)}
                     size="sm"
@@ -805,7 +810,7 @@ export function UsersPage() {
                 ))}
                 <Button
                   aria-label={t('common.never')}
-                  className={cn('h-7 px-3 text-xs', expiryDays !== null && 'bg-background/70 shadow-none hover:bg-muted/55')}
+                  className={cn('h-7 px-3 text-xs', expiryDays !== null && createUserChoiceClassName)}
                   onClick={() => setExpiryDays(null)}
                   size="sm"
                   title={t('common.never')}
@@ -820,6 +825,7 @@ export function UsersPage() {
             <div className="space-y-2">
               <Label htmlFor="note">{t('users.note')}</Label>
               <Textarea
+                className={createUserFieldClassName}
                 id="note"
                 onChange={(e) => setNote(e.target.value)}
                 placeholder={t('users.friendPlaceholder')}
