@@ -1,3 +1,5 @@
+import { LanguageSwitcher } from '@/components/language-switcher';
+import { ThemeToggle } from '@/components/theme-toggle';
 import { SidebarTrigger } from '@/components/ui/sidebar';
 import { cn } from '@/lib/utils';
 
@@ -28,9 +30,13 @@ export function PageHeader({ action, className, description, title }: PageHeader
             ) : null}
           </div>
         </div>
-        {action ? (
-          <div className="flex w-full min-w-0 flex-wrap items-center gap-2 sm:w-auto sm:shrink-0">{action}</div>
-        ) : null}
+        <div className="flex w-full min-w-0 flex-wrap items-center gap-2 sm:w-auto sm:shrink-0 sm:justify-end">
+          {action}
+          <div className="ml-auto hidden items-center gap-1 lg:flex">
+            <ThemeToggle className="size-9 text-muted-foreground [&_svg]:size-[18px]" compact />
+            <LanguageSwitcher className="size-9 text-muted-foreground [&_svg]:size-[18px]" compact />
+          </div>
+        </div>
       </div>
     </header>
   );

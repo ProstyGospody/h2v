@@ -206,8 +206,6 @@ function SidebarBody({
               <div className="truncate text-sm font-medium leading-5 text-foreground">{admin.username}</div>
             </div>
           ) : null}
-          <ThemeToggle className="size-10 shrink-0 text-muted-foreground [&_svg]:size-5" compact />
-          <LanguageSwitcher className="size-10 shrink-0 text-muted-foreground [&_svg]:size-5" compact />
           <Button
             aria-label={t('nav.signOut')}
             className="size-10 shrink-0 text-muted-foreground [&_svg]:size-5"
