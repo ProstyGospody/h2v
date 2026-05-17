@@ -1157,7 +1157,7 @@ collect_install_inputs() {
   [[ "${domain_default}" == "h2v.example.com" ]] && domain_default=""
 
   local domain_label
-  domain_label="$(ui_text "Домен панели, например vpn.example.com" "Panel domain, for example vpn.example.com")"
+  domain_label="$(ui_text "Домен панели, например panel.example.com" "Panel domain, for example panel.example.com")"
   while true; do
     H2V_DOMAIN_INPUT="$(prompt_value "${domain_label}" "${domain_default}" "no")"
     if [[ -n "${H2V_DOMAIN_INPUT}" && "${H2V_DOMAIN_INPUT}" != "h2v.example.com" ]]; then
@@ -2013,7 +2013,7 @@ print_welcome() {
   printf '  %s%s%s\n' "${BOLD}" "$(ui_text "Что будет готово" "What will be ready")" "${RESET}"
   ui_item "${CYAN}" "$(ui_text "ПАНЕЛЬ" "PANEL")" "$(ui_text "веб-интерфейс h2v" "h2v web interface")"
   ui_item "${GREEN}" "$(ui_text "ЛЮДИ" "USERS")" "$(ui_text "пользователи, подписки и статистика" "users, subscriptions, and traffic stats")"
-  ui_item "${MAGENTA}" "VPN" "$(ui_text "VLESS Reality и Hysteria 2" "VLESS Reality and Hysteria 2")"
+  ui_item "${MAGENTA}" "$(ui_text "ПРОКСИ" "PROXY")" "$(ui_text "VLESS Reality и Hysteria 2" "VLESS Reality and Hysteria 2")"
   ui_item "${YELLOW}" "$(ui_text "КОПИИ" "BACKUP")" "$(ui_text "резервные копии и маршрутные данные" "backups and routing data")"
   printf '\n'
   printf '  %s%s%s\n' "${DIM}" "$(ui_text "Подсказка: Enter принимает предложенное значение." "Tip: press Enter to accept the suggested value.")" "${RESET}"
@@ -2023,7 +2023,7 @@ install_all() {
   require_root
   detect_os
   clear_screen
-  banner "$(ui_text "Установка h2v" "h2v installer")" "$(ui_text "Панель VPN для VLESS Reality и Hysteria 2" "VPN panel for VLESS Reality and Hysteria 2")"
+  banner "$(ui_text "Установка h2v" "h2v installer")" "$(ui_text "Панель управления VLESS Reality и Hysteria 2" "Management panel for VLESS Reality and Hysteria 2")"
   print_welcome
   resolve_source_dir
 
@@ -2043,11 +2043,11 @@ install_all() {
   ensure_build_toolchain
   success "$(ui_text "среда сборки готова" "build environment is ready")"
 
-  step "cores" "$(ui_text "Установка VPN-ядер" "Installing VPN cores")"
+  step "cores" "$(ui_text "Установка прокси-ядер" "Installing proxy cores")"
   install_xray_binary
   install_hysteria_binary
   ensure_core_users
-  success "$(ui_text "VPN-ядра установлены" "VPN cores are installed")"
+  success "$(ui_text "прокси-ядра установлены" "proxy cores are installed")"
 
   step "layout" "$(ui_text "Подготовка файлов h2v" "Preparing h2v files")"
   ensure_h2v_user
@@ -2100,11 +2100,11 @@ install_all() {
     info "$(ui_text "текущий администратор сохранён" "existing admin account preserved")"
   fi
 
-  step "configs" "$(ui_text "Применение настроек VPN" "Applying VPN settings")"
+  step "configs" "$(ui_text "Применение настроек прокси" "Applying proxy settings")"
   sync_runtime_settings
   render_core_configs
   grant_cert_access
-  success "$(ui_text "настройки VPN применены" "VPN settings are applied")"
+  success "$(ui_text "настройки прокси применены" "proxy settings are applied")"
 
   step "service" "$(ui_text "Запуск сервисов" "Starting services")"
   start_h2v

@@ -37,7 +37,7 @@ export function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const form = useForm<FormValues>({
     resolver: zodResolver(schema),
-    defaultValues: { username: 'admin', password: '' },
+    defaultValues: { username: '', password: '' },
   });
   const serverInfo = useQuery({
     queryKey: ['public', 'server-info'],
