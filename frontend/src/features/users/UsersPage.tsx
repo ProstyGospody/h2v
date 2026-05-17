@@ -269,7 +269,6 @@ export function UsersPage() {
   return (
     <div className="pb-10">
       <PageHeader
-        title={t('nav.users')}
         action={
           <Button onClick={() => setCreateOpen(true)}>
             <Plus />

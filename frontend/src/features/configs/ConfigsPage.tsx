@@ -21,7 +21,6 @@ import {
 } from '@/components/ui/dialog';
 import { Skeleton } from '@/components/ui/skeleton';
 import { CoreLogo, type CoreLogoName } from '@/components/core-logo';
-import { PageHeader } from '@/components/page-header';
 import { cn } from '@/lib/utils';
 import { apiClient, ApiError } from '@/shared/api/client';
 import { useI18n, type Translate } from '@/shared/i18n/i18n';
@@ -64,13 +63,9 @@ const ConfigEditor = lazy(() =>
 );
 
 export function ConfigsPage() {
-  const { t } = useI18n();
-
   return (
-    <div className="pb-10">
-      <PageHeader title={t('configs.title')} />
-
-      <div className="grid gap-4 px-page pt-5 xl:grid-cols-2">
+    <div className="pb-10 lg:flex lg:h-dvh lg:flex-col lg:overflow-hidden lg:pb-6">
+      <div className="grid gap-4 overflow-y-auto px-page pt-5 lg:min-h-0 lg:flex-1 xl:grid-cols-2 xl:overflow-visible">
         {cores.map((core) => (
           <ConfigSection core={core} key={core} />
         ))}
@@ -179,7 +174,7 @@ function ConfigSection({ core }: { core: Core }) {
 
   return (
     <>
-      <section className="flex min-w-0 flex-col overflow-hidden rounded-lg bg-surface shadow-sm">
+      <section className="flex min-w-0 flex-col overflow-hidden rounded-lg bg-surface shadow-sm xl:h-full">
         <div className="border-b border-border/55 bg-background/35 px-4 py-3 sm:px-5">
           <div className="flex min-w-0 items-center gap-3">
             <span className="flex size-9 shrink-0 items-center justify-center">
@@ -245,9 +240,9 @@ function ConfigSection({ core }: { core: Core }) {
 
         <div className="min-h-0 flex-1 bg-card p-2 sm:p-3">
           {config.isLoading ? (
-            <Skeleton className="h-[68vh] min-h-[520px] w-full xl:h-[calc(100vh-256px)] xl:min-h-[620px]" />
+            <Skeleton className="h-[68vh] min-h-[520px] w-full xl:h-full xl:min-h-0" />
           ) : config.isError ? (
-            <div className="flex h-[68vh] min-h-[520px] flex-col items-center justify-center gap-3 rounded-md border border-border/65 bg-card px-6 text-center xl:h-[calc(100vh-256px)] xl:min-h-[620px]">
+            <div className="flex h-[68vh] min-h-[520px] flex-col items-center justify-center gap-3 rounded-md border border-border/65 bg-card px-6 text-center xl:h-full xl:min-h-0">
               <XCircle className="size-8 text-destructive" />
               <div className="text-base font-semibold text-foreground">
                 {t('configs.unableLoad', { name: meta.label })}
@@ -261,11 +256,11 @@ function ConfigSection({ core }: { core: Core }) {
           ) : (
             <Suspense
               fallback={
-                <Skeleton className="h-[68vh] min-h-[520px] w-full xl:h-[calc(100vh-256px)] xl:min-h-[620px]" />
+                <Skeleton className="h-[68vh] min-h-[520px] w-full xl:h-full xl:min-h-0" />
               }
             >
               <ConfigEditor
-                className="h-[68vh] min-h-[520px] xl:h-[calc(100vh-256px)] xl:min-h-[620px]"
+                className="h-[68vh] min-h-[520px] xl:h-full xl:min-h-0"
                 label={t('configs.configurationEditor', { name: meta.label })}
                 onChange={updateDraft}
                 value={content}

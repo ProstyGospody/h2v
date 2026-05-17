@@ -301,7 +301,6 @@ export function SettingsPage() {
   return (
     <div className="pb-10">
       <PageHeader
-        title={t('settings.title')}
         action={
           <>
             <Button

@@ -115,8 +115,6 @@ export function DashboardPage() {
   return (
     <div className="pb-10">
       <PageHeader
-        title={t('nav.dashboard')}
-        titleClassName="text-muted-foreground"
         action={<ServiceStatusIsland items={serviceStatuses} label={t('nav.services')} />}
       />
 
