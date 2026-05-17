@@ -164,19 +164,19 @@ function SidebarBody({
   const profileIcon = profileIconMeta(admin.icon);
 
   return (
-    <div className="flex h-dvh flex-col">
+    <div className="flex h-dvh flex-col lg:h-full lg:p-5">
       <SidebarHeader
         className={cn(
-          'relative flex h-[72px] items-center justify-center',
-          collapsed ? 'px-2' : 'px-5',
+          'relative flex h-[72px] items-center justify-center lg:h-24',
+          collapsed ? 'px-2' : 'px-5 lg:px-0',
         )}
       >
         <AppBrand compact={collapsed} iconOnly={collapsed} />
       </SidebarHeader>
 
-      <SidebarContent className="px-4 pb-5 pt-8">
+      <SidebarContent className="px-4 pb-5 pt-8 lg:px-0 lg:pt-7">
         <SidebarGroup>
-          <SidebarMenu className="gap-3">
+          <SidebarMenu className="gap-3 lg:gap-3.5">
             {primaryLinks.map((link) => (
               <SidebarLink
                 icon={link.icon}
@@ -190,11 +190,11 @@ function SidebarBody({
         </SidebarGroup>
       </SidebarContent>
 
-      <SidebarFooter className={cn('border-t border-sidebar-border/70', collapsed ? 'px-3 py-3' : 'px-5 py-4')}>
-        <div className={cn('flex', collapsed ? 'flex-col items-center gap-2.5' : 'items-center gap-3')}>
+      <SidebarFooter className={cn('border-t border-sidebar-border/70 lg:border-t-0', collapsed ? 'px-3 py-3' : 'px-5 py-4 lg:px-0 lg:py-0')}>
+        <div className={cn('flex rounded-xl lg:bg-accent-gradient-soft lg:p-2', collapsed ? 'flex-col items-center gap-2.5' : 'items-center gap-3')}>
           <button
             aria-label={t('profile.edit')}
-            className="flex size-12 shrink-0 items-center justify-center rounded-md bg-accent-gradient-soft text-foreground shadow-sm transition-opacity hover:opacity-95"
+            className="flex size-12 shrink-0 items-center justify-center rounded-md bg-accent-gradient-soft text-foreground shadow-sm transition-opacity hover:opacity-95 lg:bg-transparent lg:shadow-none"
             onClick={() => setProfileOpen(true)}
             title={profileIcon.label}
             type="button"
@@ -361,7 +361,7 @@ function ProfileIcon({ className, icon }: { className?: string; icon?: AdminIcon
 function AppBrand({ compact = false, iconOnly = false }: { compact?: boolean; iconOnly?: boolean }) {
   return (
     <div className={cn('flex min-w-0 items-center', iconOnly && 'justify-center')}>
-      <BrandLogo className={cn(iconOnly ? 'h-10 w-10' : compact ? 'h-10 w-20' : 'h-12 w-24')} />
+      <BrandLogo className={cn(iconOnly ? 'h-10 w-10' : compact ? 'h-10 w-20' : 'h-14 w-32')} />
     </div>
   );
 }
@@ -384,7 +384,7 @@ function SidebarLink({
     <SidebarMenuItem>
       <SidebarMenuButton
         asChild
-        className="h-12 gap-3 px-3.5 text-[15px]"
+        className="h-14 gap-3 rounded-xl px-4 text-[15px] before:hidden"
         isActive={isActive}
         tooltip={label}
       >
@@ -395,9 +395,9 @@ function SidebarLink({
         >
           <span
             data-slot="sidebar-menu-icon"
-            className="flex size-9 shrink-0 items-center justify-center rounded-md text-current transition-colors group-data-[active=true]/menu-button:text-primary-foreground"
+            className="flex size-10 shrink-0 items-center justify-center rounded-md text-current transition-colors group-data-[active=true]/menu-button:text-primary-foreground"
           >
-            <Icon aria-hidden="true" className="size-5" />
+            <Icon aria-hidden="true" className="size-[22px]" />
           </span>
           <span data-slot="sidebar-menu-label" className="min-w-0 truncate">{label}</span>
         </Link>

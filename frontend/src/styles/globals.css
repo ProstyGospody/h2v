@@ -388,7 +388,7 @@
 
 [data-slot="sidebar"] {
   overflow: hidden;
-  width: var(--sidebar-width);
+  width: var(--sidebar-panel-width, var(--sidebar-width));
 }
 
 [data-slot="sidebar-wrapper"] {

@@ -95,7 +95,8 @@ function SidebarProvider({
         data-slot="sidebar-wrapper"
         data-state={state}
         style={{
-          '--sidebar-width': '17.5rem',
+          '--sidebar-width': '23rem',
+          '--sidebar-panel-width': '20.5rem',
           '--sidebar-width-icon': '5.25rem',
           '--sidebar-transition-duration': `${SIDEBAR_TRANSITION_MS}ms`,
           ...style,
@@ -123,7 +124,7 @@ function Sidebar({ className, children, ...props }: React.ComponentProps<'aside'
         data-slot="sidebar"
         data-state={state}
         className={cn(
-          'fixed inset-y-0 left-0 z-40 hidden overflow-hidden flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground lg:flex',
+          'fixed bottom-6 left-6 top-6 z-40 hidden overflow-hidden flex-col rounded-[22px] bg-sidebar text-sidebar-foreground shadow-pop ring-1 ring-sidebar-border/55 lg:flex',
           className,
         )}
         {...props}
