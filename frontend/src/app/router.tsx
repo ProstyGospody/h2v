@@ -113,12 +113,12 @@ function ProtectedShell() {
         <header className="sticky top-0 z-30 flex h-14 items-center gap-3 bg-background/90 px-4 shadow-sm backdrop-blur supports-backdrop-filter:bg-background/70 lg:hidden">
           <Button
             aria-label={t('shell.openNavigation')}
-            className="size-9"
+            className="size-10"
             onClick={() => setNavOpen(true)}
             size="icon"
             variant="ghost"
           >
-            <Menu aria-hidden="true" />
+            <Menu aria-hidden="true" className="size-6" />
           </Button>
           <AppBrand compact />
           <div className="ml-auto flex items-center gap-1">
@@ -192,8 +192,8 @@ function SidebarBody({
 
       <SidebarFooter className={cn('border-t border-sidebar-border/70 lg:border-t-0', collapsed ? 'px-3 py-3' : 'px-5 py-4 lg:px-0 lg:py-0')}>
         <div className={cn('mb-3 flex rounded-[22px] bg-accent-gradient-soft p-1.5', collapsed ? 'flex-col items-center gap-1' : 'w-full items-center justify-center gap-1')}>
-          <ThemeToggle className="size-10 shrink-0 text-muted-foreground hover:bg-muted/30 [&_svg]:size-5" compact />
-          <LanguageSwitcher className="size-10 shrink-0 text-muted-foreground hover:bg-muted/30 [&_svg]:size-5" compact />
+          <ThemeToggle className="size-10 shrink-0 text-muted-foreground hover:bg-muted/30 [&_svg]:size-6" compact />
+          <LanguageSwitcher className="size-10 shrink-0 text-muted-foreground hover:bg-muted/30 [&_svg]:size-6" compact />
         </div>
         <div className={cn('flex rounded-[22px] lg:bg-accent-gradient-soft lg:p-2', collapsed ? 'flex-col items-center gap-2.5' : 'items-center gap-3')}>
           <button

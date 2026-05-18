@@ -23,12 +23,12 @@ export function LanguageSwitcher({ align = 'end', className, compact = false }: 
       <DropdownMenuTrigger asChild>
         <Button
           aria-label={t('language.switch')}
-          className={cn(compact ? 'size-8' : 'h-8 px-2.5 text-xs', className)}
+          className={cn(compact ? 'size-10' : 'h-8 px-2.5 text-xs', className)}
           size={compact ? 'icon-sm' : 'sm'}
           type="button"
           variant="ghost"
         >
-          <Globe className={compact ? 'size-5' : 'size-4'} />
+          <Globe className={compact ? 'size-6' : 'size-4'} />
           {compact ? null : <span className="font-mono uppercase">{locale}</span>}
         </Button>
       </DropdownMenuTrigger>
