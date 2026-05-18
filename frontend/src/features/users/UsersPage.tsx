@@ -318,7 +318,7 @@ export function UsersPage() {
       <PageHeader
         actionClassName="sm:ml-0 sm:w-full sm:shrink sm:justify-start"
         action={
-          <div className="flex w-full min-w-0 flex-col gap-2 sm:w-auto sm:flex-row sm:items-center sm:justify-start">
+          <div className="flex w-full min-w-0 flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex h-10 w-full min-w-0 items-center gap-2 rounded-[22px] bg-accent-gradient-soft px-3 shadow-sm transition-colors focus-within:bg-accent-gradient-soft sm:w-72 lg:w-80 xl:w-96">
               <Search className="size-4 shrink-0 text-muted-foreground" />
               <Input
@@ -514,7 +514,7 @@ export function UsersPage() {
 
       <Button
         aria-label={t('users.createUser')}
-        className="fixed bottom-[calc(env(safe-area-inset-bottom)_+_1.25rem)] right-5 z-40 size-[52px] rounded-[22px] p-0 sm:bottom-7 sm:right-7"
+        className="fixed bottom-[calc(env(safe-area-inset-bottom)_+_1.25rem)] right-5 z-40 size-[52px] rounded-full p-0 sm:bottom-7 sm:right-7"
         onClick={() => setCreateOpen(true)}
         size="icon"
         type="button"

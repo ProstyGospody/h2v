@@ -79,23 +79,6 @@ export function DashboardPage() {
     <div className="pb-10">
       <div className="grid auto-rows-fr grid-cols-2 gap-2.5 px-page pt-5 sm:grid-cols-3 sm:gap-3 lg:pt-6 2xl:grid-cols-6">
         <MetricCard
-          value={
-            <NetworkSpeedValue
-              rx={data?.network_rx_bytes_per_second ?? 0}
-              tx={data?.network_tx_bytes_per_second ?? 0}
-            />
-          }
-          icon={Network}
-          label={t('dashboard.traffic')}
-          loading={overview.isLoading}
-        />
-        <MetricCard
-          icon={ChartColumnIncreasing}
-          label={t('dashboard.today')}
-          loading={overview.isLoading}
-          value={formatBytes(data?.today_traffic ?? 0)}
-        />
-        <MetricCard
           bar={{ percent: cpuPercent ?? 0, tone: usageTone(cpuPercent) }}
           icon={Cpu}
           label="CPU"
@@ -110,16 +93,33 @@ export function DashboardPage() {
           value={formatPercent(memoryPercent)}
         />
         <MetricCard
-          icon={Wifi}
-          label={t('dashboard.online')}
+          value={
+            <NetworkSpeedValue
+              rx={data?.network_rx_bytes_per_second ?? 0}
+              tx={data?.network_tx_bytes_per_second ?? 0}
+            />
+          }
+          icon={Network}
+          label={t('dashboard.traffic')}
           loading={overview.isLoading}
-          value={formatNumber(data?.online_users?.length ?? 0, locale)}
         />
         <MetricCard
           icon={Timer}
           label={t('shell.uptime')}
           loading={overview.isLoading}
           value={formatDurationCompact(data?.uptime_seconds, locale)}
+        />
+        <MetricCard
+          icon={ChartColumnIncreasing}
+          label={t('dashboard.today')}
+          loading={overview.isLoading}
+          value={formatBytes(data?.today_traffic ?? 0)}
+        />
+        <MetricCard
+          icon={Wifi}
+          label={t('dashboard.online')}
+          loading={overview.isLoading}
+          value={formatNumber(data?.online_users?.length ?? 0, locale)}
         />
       </div>
 
