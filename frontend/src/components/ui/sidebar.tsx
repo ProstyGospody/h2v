@@ -95,7 +95,7 @@ function SidebarProvider({
         data-slot="sidebar-wrapper"
         data-state={state}
         style={{
-          '--sidebar-width': '23rem',
+          '--sidebar-width': '22rem',
           '--sidebar-panel-width': '20.5rem',
           '--sidebar-width-icon': '5.25rem',
           '--sidebar-transition-duration': `${SIDEBAR_TRANSITION_MS}ms`,
