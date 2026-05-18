@@ -412,29 +412,6 @@ export function SettingsPage() {
                 <RefreshCw className={cn(updateGeodata.isPending && 'animate-spin')} />
                 {t('settings.updateGeo')}
               </Button>
-              {hasDraft ? (
-                <>
-                  <Button
-                    className="h-10 w-full justify-center sm:w-auto"
-                    disabled={save.isPending}
-                    onClick={() => setDraft({})}
-                    size="sm"
-                    variant="ghost"
-                  >
-                    <RotateCcw />
-                    {t('common.discard')}
-                  </Button>
-                  <Button
-                    className="h-10 w-full justify-center sm:w-auto"
-                    disabled={save.isPending || hasIssues || isCheckingPorts}
-                    onClick={() => save.mutate()}
-                    size="sm"
-                  >
-                    <Save />
-                    {t('common.save')}
-                  </Button>
-                </>
-              ) : null}
             </div>
           </div>
         }
@@ -589,15 +566,42 @@ export function SettingsPage() {
         )}
       </div>
 
-      <Button
-        aria-label={showSecrets ? t('settings.hideSecrets') : t('settings.showSecrets')}
-        className="fixed bottom-[calc(env(safe-area-inset-bottom)_+_1.25rem)] right-5 z-40 size-16 rounded-full p-0 sm:bottom-7 sm:right-7"
-        onClick={toggleSecrets}
-        size="icon"
-        type="button"
-      >
-        {showSecrets ? <EyeOff className="size-8" /> : <Eye className="size-8" />}
-      </Button>
+      <div className="fixed bottom-[calc(env(safe-area-inset-bottom)_+_1.25rem)] right-5 z-40 flex items-center gap-2 sm:bottom-7 sm:right-7">
+        {hasDraft ? (
+          <>
+            <Button
+              aria-label={t('common.discard')}
+              className="size-16 rounded-full p-0"
+              disabled={save.isPending}
+              onClick={() => setDraft({})}
+              size="icon"
+              type="button"
+              variant="secondary"
+            >
+              <RotateCcw className="size-7" />
+            </Button>
+            <Button
+              aria-label={t('common.save')}
+              className="size-16 rounded-full p-0"
+              disabled={save.isPending || hasIssues || isCheckingPorts}
+              onClick={() => save.mutate()}
+              size="icon"
+              type="button"
+            >
+              <Save className="size-7" />
+            </Button>
+          </>
+        ) : null}
+        <Button
+          aria-label={showSecrets ? t('settings.hideSecrets') : t('settings.showSecrets')}
+          className="size-16 rounded-full p-0"
+          onClick={toggleSecrets}
+          size="icon"
+          type="button"
+        >
+          {showSecrets ? <EyeOff className="size-8" /> : <Eye className="size-8" />}
+        </Button>
+      </div>
     </div>
   );
 }
