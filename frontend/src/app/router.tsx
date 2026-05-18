@@ -204,7 +204,7 @@ function SidebarBody({
             variant="ghost"
           >
             <a href="https://github.com/ProstyGospody/h2v" rel="noreferrer" target="_blank">
-              <Github aria-hidden="true" />
+              <Github aria-hidden="true" className="size-7" />
             </a>
           </Button>
         </div>
