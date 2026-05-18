@@ -3,6 +3,7 @@ import { Link, Outlet, createRootRoute, createRoute, createRouter, useRouterStat
 import {
   Check,
   FileCode2,
+  Github,
   LayoutDashboard,
   LogOut,
   Menu,
@@ -194,6 +195,18 @@ function SidebarBody({
         <div className={cn('mb-3 flex rounded-[22px] bg-accent-gradient-soft p-1.5', collapsed ? 'flex-col items-center gap-1' : 'w-full items-center justify-center gap-1')}>
           <ThemeToggle className="size-10 shrink-0 text-muted-foreground hover:bg-muted/30 [&_svg]:size-6" compact />
           <LanguageSwitcher className="size-10 shrink-0 text-muted-foreground hover:bg-muted/30 [&_svg]:size-6" compact />
+          <Button
+            aria-label="GitHub"
+            asChild
+            className="size-10 shrink-0 text-muted-foreground hover:bg-muted/30 [&_svg]:size-6"
+            size="icon"
+            title="GitHub"
+            variant="ghost"
+          >
+            <a href="https://github.com/ProstyGospody/h2v" rel="noreferrer" target="_blank">
+              <Github aria-hidden="true" />
+            </a>
+          </Button>
         </div>
         <div className={cn('flex rounded-[22px] lg:bg-accent-gradient-soft lg:p-2', collapsed ? 'flex-col items-center gap-2.5' : 'items-center gap-3')}>
           <button
