@@ -30,6 +30,8 @@ import {
 } from '@/shared/lib/format';
 
 const ranges = ['1', '7', '30'] as const;
+const overviewRefetchIntervalMs = 5_000;
+const trafficRefetchIntervalMs = 10_000;
 type Range = (typeof ranges)[number];
 
 function usageTone(value: number | undefined) {
@@ -46,12 +48,12 @@ export function DashboardPage() {
   const overview = useQuery({
     queryKey: ['stats', 'overview'],
     queryFn: () => apiClient.request<OverviewStats>('/stats/overview'),
-    refetchInterval: 10_000,
+    refetchInterval: overviewRefetchIntervalMs,
   });
   const traffic = useQuery({
     queryKey: ['stats', 'traffic', days],
     queryFn: () => apiClient.request<TrafficPoint[]>(`/stats/traffic?days=${days}`),
-    refetchInterval: 10_000,
+    refetchInterval: trafficRefetchIntervalMs,
   });
 
   const data = overview.data;

@@ -43,13 +43,14 @@ func NewUsersCache(repository *repo.Repository) *UsersCache {
 }
 
 func (c *UsersCache) LoadAll(ctx context.Context) error {
-	users, err := c.repo.ListActiveUsers(ctx)
+	users, err := c.repo.ListActiveAuthUsers(ctx)
 	if err != nil {
 		return err
 	}
 	nextPassword := make(map[string]domain.User, len(users))
-	for _, user := range users {
-		nextPassword[user.Hy2Password] = user
+	for i := range users {
+		user := &users[i]
+		nextPassword[user.Hy2Password] = cachedAuthUser(user)
 	}
 
 	c.mu.Lock()
@@ -71,7 +72,7 @@ func (c *UsersCache) Set(user *domain.User) {
 	}
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	c.byPassword[user.Hy2Password] = *user
+	c.byPassword[user.Hy2Password] = cachedAuthUser(user)
 	c.size.Store(int64(len(c.byPassword)))
 	cacheSize.Set(float64(len(c.byPassword)))
 }
@@ -101,4 +102,14 @@ func (c *UsersCache) GetByPassword(password string) (*domain.User, bool) {
 
 func (c *UsersCache) Size() int64 {
 	return c.size.Load()
+}
+
+func cachedAuthUser(user *domain.User) domain.User {
+	return domain.User{
+		Username:     user.Username,
+		TrafficLimit: user.TrafficLimit,
+		TrafficUsed:  user.TrafficUsed,
+		ExpiresAt:    user.ExpiresAt,
+		Status:       user.Status,
+	}
 }

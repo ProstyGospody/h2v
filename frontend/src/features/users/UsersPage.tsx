@@ -1,7 +1,6 @@
-import { memo, useCallback, useEffect, useMemo, useState } from 'react';
+import { lazy, memo, Suspense, useCallback, useEffect, useMemo, useState } from 'react';
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { addDays } from 'date-fns';
-import { QRCodeSVG } from 'qrcode.react';
 import { Bar, BarChart, XAxis } from 'recharts';
 import {
   ArrowRight,
@@ -85,6 +84,7 @@ const expiryPresets = [7, 30, 90, 365];
 const usersPerPage = 100;
 const userSearchDebounceMs = 250;
 const usersRefetchIntervalMs = 30_000;
+const QRCodeSVG = lazy(() => import('qrcode.react').then((module) => ({ default: module.QRCodeSVG })));
 
 export function UsersPage() {
   const { locale, t } = useI18n();
@@ -116,6 +116,7 @@ export function UsersPage() {
   }, [page]);
 
   const users = useQuery({
+    gcTime: 60_000,
     placeholderData: keepPreviousData,
     queryKey: ['users', debouncedSearch, status, nearExpiry, page, usersPerPage],
     queryFn: async () => {
@@ -146,18 +147,21 @@ export function UsersPage() {
   const qrOpen = Boolean(qrUser);
 
   const links = useQuery({
+    gcTime: 60_000,
     enabled: drawerOpen && Boolean(drawerUser?.id),
     queryKey: ['users', drawerUser?.id, 'links'],
     queryFn: () => apiClient.request<UserLinks>(`/users/${drawerUser!.id}/links`),
   });
 
   const qrLinks = useQuery({
+    gcTime: 60_000,
     enabled: qrOpen && Boolean(qrUser?.id),
     queryKey: ['users', qrUser?.id, 'links'],
     queryFn: () => apiClient.request<UserLinks>(`/users/${qrUser!.id}/links`),
   });
 
   const traffic = useQuery({
+    gcTime: 60_000,
     enabled: drawerOpen && Boolean(drawerUser?.id),
     queryKey: ['users', drawerUser?.id, 'traffic'],
     queryFn: () => apiClient.request<TrafficPoint[]>(`/users/${drawerUser!.id}/traffic?days=7`),
@@ -1091,17 +1095,19 @@ function QRCodePreview({ label, value }: { label: string; value: string }) {
       className="flex aspect-square w-full items-center justify-center overflow-hidden rounded-[22px] border border-border/65 bg-white p-3"
       role="img"
     >
-      <QRCodeSVG
-        className="block h-full w-full"
-        bgColor="#ffffff"
-        fgColor="#050505"
-        level="L"
-        marginSize={4}
-        size={160}
-        style={{ height: '100%', width: '100%' }}
-        title={label}
-        value={value}
-      />
+      <Suspense fallback={<Skeleton className="h-full w-full rounded-[18px]" />}>
+        <QRCodeSVG
+          className="block h-full w-full"
+          bgColor="#ffffff"
+          fgColor="#050505"
+          level="L"
+          marginSize={4}
+          size={160}
+          style={{ height: '100%', width: '100%' }}
+          title={label}
+          value={value}
+        />
+      </Suspense>
     </div>
   );
 }

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { lazy, Suspense, useEffect, useState } from 'react';
 import { Link, Outlet, createRootRoute, createRoute, createRouter, useRouterState } from '@tanstack/react-router';
 import {
   Check,
@@ -41,14 +41,8 @@ import {
   useSidebar,
 } from '@/components/ui/sidebar';
 import { Sheet, SheetContent } from '@/components/ui/sheet';
-import { LoginPage } from '@/features/auth/LoginPage';
 import { useAuth } from '@/features/auth/useAuth';
-import { ConfigsPage } from '@/features/configs/ConfigsPage';
-import { DashboardPage } from '@/features/dashboard/DashboardPage';
 import { NotFoundPage } from '@/features/errors/NotFoundPage';
-import { SettingsPage } from '@/features/settings/SettingsPage';
-import { SubPage } from '@/features/subscription/SubPage';
-import { UsersPage } from '@/features/users/UsersPage';
 import { cn } from '@/lib/utils';
 import { ApiError } from '@/shared/api/client';
 import type { Admin, AdminIcon } from '@/shared/api/types';
@@ -78,6 +72,27 @@ const profileIconOptions: Array<{ id: AdminIcon; label: string; src: string }> =
 
 const profileIconFallback = profileIconOptions[0]!;
 
+const loadLoginPage = () => import('@/features/auth/LoginPage');
+const loadDashboardPage = () => import('@/features/dashboard/DashboardPage');
+const loadUsersPage = () => import('@/features/users/UsersPage');
+const loadConfigsPage = () => import('@/features/configs/ConfigsPage');
+const loadSettingsPage = () => import('@/features/settings/SettingsPage');
+const loadSubPage = () => import('@/features/subscription/SubPage');
+
+const LoginPage = lazy(() => loadLoginPage().then((module) => ({ default: module.LoginPage })));
+const DashboardPage = lazy(() => loadDashboardPage().then((module) => ({ default: module.DashboardPage })));
+const UsersPage = lazy(() => loadUsersPage().then((module) => ({ default: module.UsersPage })));
+const ConfigsPage = lazy(() => loadConfigsPage().then((module) => ({ default: module.ConfigsPage })));
+const SettingsPage = lazy(() => loadSettingsPage().then((module) => ({ default: module.SettingsPage })));
+const SubPage = lazy(() => loadSubPage().then((module) => ({ default: module.SubPage })));
+
+const routePreloaders: Partial<Record<LinkTo, () => Promise<unknown>>> = {
+  '/': loadDashboardPage,
+  '/configs': loadConfigsPage,
+  '/settings': loadSettingsPage,
+  '/users': loadUsersPage,
+};
+
 function profileIconMeta(icon: AdminIcon | undefined) {
   return profileIconOptions.find((option) => option.id === icon) ?? profileIconFallback;
 }
@@ -85,7 +100,9 @@ function profileIconMeta(icon: AdminIcon | undefined) {
 function RootLayout() {
   return (
     <AppProviders>
-      <Outlet />
+      <Suspense fallback={<RouteFallback />}>
+        <Outlet />
+      </Suspense>
     </AppProviders>
   );
 }
@@ -128,7 +145,9 @@ function ProtectedShell() {
           </div>
         </header>
 
-        <Outlet />
+        <Suspense fallback={<RouteFallback />}>
+          <Outlet />
+        </Suspense>
       </SidebarInset>
 
       <Sheet onOpenChange={setNavOpen} open={navOpen}>
@@ -144,6 +163,16 @@ function ProtectedShell() {
         </SheetContent>
       </Sheet>
     </SidebarProvider>
+  );
+}
+
+function RouteFallback() {
+  const { t } = useI18n();
+
+  return (
+    <div className="flex min-h-[240px] items-center justify-center px-page py-10 text-sm text-muted-foreground">
+      {t('common.loading')}
+    </div>
   );
 }
 
@@ -396,6 +425,7 @@ function SidebarLink({
 }) {
   const pathname = useRouterState({ select: (state) => state.location.pathname });
   const isActive = pathname === to;
+  const preload = routePreloaders[to];
 
   return (
     <SidebarMenuItem>
@@ -407,6 +437,12 @@ function SidebarLink({
       >
         <Link
           aria-current={isActive ? 'page' : undefined}
+          onFocus={() => {
+            void preload?.();
+          }}
+          onMouseEnter={() => {
+            void preload?.();
+          }}
           onClick={onClick}
           to={to}
         >

@@ -191,15 +191,15 @@ func (s *SettingsService) Runtime(ctx context.Context) (RuntimeSettings, error) 
 	normalizeRuntimeDerivedValues(&runtime)
 
 	if s.repo != nil {
-		users, err := s.repo.ListActiveUsers(ctx)
+		clients, err := s.repo.ListActiveClientEntries(ctx)
 		if err != nil {
-			s.logger.Warn("active users lookup failed; rendering xray config without clients", "err", err)
+			s.logger.Warn("active client lookup failed; rendering xray config without clients", "err", err)
 		} else {
-			runtime.Clients = make([]ClientEntry, 0, len(users))
-			for _, user := range users {
+			runtime.Clients = make([]ClientEntry, 0, len(clients))
+			for _, client := range clients {
 				runtime.Clients = append(runtime.Clients, ClientEntry{
-					UUID:  user.VlessUUID.String(),
-					Email: user.Username,
+					UUID:  client.VlessUUID.String(),
+					Email: client.Username,
 				})
 			}
 		}

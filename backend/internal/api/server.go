@@ -670,7 +670,7 @@ func (s *Server) handleBackupExport(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.Header().Set("Content-Disposition", `attachment; filename="h2v-backup.json"`)
-	jsonData(w, http.StatusOK, backup, nil)
+	writeJSON(w, http.StatusOK, backup)
 }
 
 func (s *Server) handleBackupImport(w http.ResponseWriter, r *http.Request) {

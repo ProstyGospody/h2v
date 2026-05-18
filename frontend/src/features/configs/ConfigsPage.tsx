@@ -87,11 +87,13 @@ function ConfigSection({ core }: { core: Core }) {
   const [validation, setValidation] = useState<ValidationState>('idle');
 
   const config = useQuery({
+    gcTime: 30_000,
     queryKey: ['configs', core],
     queryFn: () => apiClient.request<ConfigResponse>(`/configs/${core}`),
   });
   const managedConfig = useQuery({
     enabled: false,
+    gcTime: 30_000,
     queryKey: ['configs', core, 'managed', managedVersion],
     queryFn: () => apiClient.request<ConfigResponse>(`/configs/${core}?include_managed=1`),
   });

@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useParams } from '@tanstack/react-router';
 import { QRCodeSVG } from 'qrcode.react';
@@ -81,8 +81,10 @@ export function SubPage() {
   const { locale, t } = useI18n();
   const { token } = useParams({ from: '/u/$token' });
   const os = typeof window !== 'undefined' ? detectOS() : 'desktop';
+  const [advancedOpen, setAdvancedOpen] = useState(false);
 
   const subscription = useQuery({
+    gcTime: 60_000,
     queryKey: ['public-sub', token],
     queryFn: () => apiClient.request<UserLinks>(`/sub/${token}?format=json`),
   });
@@ -268,51 +270,56 @@ export function SubPage() {
             </div>
           </details>
 
-          <details className="group rounded-[22px] bg-surface shadow-sm">
+          <details
+            className="group rounded-[22px] bg-surface shadow-sm"
+            onToggle={(event) => setAdvancedOpen(event.currentTarget.open)}
+          >
             <summary className="flex cursor-pointer list-none items-center justify-between px-5 py-4 text-sm font-medium text-foreground">
               <span>{t('subscription.advanced')}</span>
               <ChevronRight className="size-4 text-muted-foreground transition group-open:rotate-90" />
             </summary>
-            <div className="space-y-4 bg-muted/20 px-5 py-5">
-              {subscription.isLoading ? (
-                <>
-                  <Skeleton className="h-32 w-full" />
-                  <Skeleton className="h-44 w-full" />
-                  <Skeleton className="h-44 w-full" />
-                </>
-              ) : (
-                <div className="space-y-5">
-                  <div className="grid gap-4 sm:grid-cols-2">
-                    {[
-                      { label: 'VLESS - Reality', value: data?.vless ?? '' },
-                      { label: 'Hysteria 2', value: data?.hysteria2 ?? '' },
-                    ].map((item) => (
-                      <div
-                        className="space-y-3 rounded-[22px] bg-surface-elevated p-4"
-                        key={item.label}
-                      >
-                        <div className="t-label">{item.label}</div>
-                        <QRCodePreview label={item.label} value={item.value} />
-                        <Button
-                          className="w-full"
-                          disabled={!item.value}
-                          onClick={async () => {
-                            if (!item.value) return;
-                            await navigator.clipboard.writeText(item.value);
-                            toast.success(t('common.copied', { label: item.label }));
-                          }}
-                          type="button"
-                          variant="secondary"
+            {advancedOpen ? (
+              <div className="space-y-4 bg-muted/20 px-5 py-5">
+                {subscription.isLoading ? (
+                  <>
+                    <Skeleton className="h-32 w-full" />
+                    <Skeleton className="h-44 w-full" />
+                    <Skeleton className="h-44 w-full" />
+                  </>
+                ) : (
+                  <div className="space-y-5">
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      {[
+                        { label: 'VLESS - Reality', value: data?.vless ?? '' },
+                        { label: 'Hysteria 2', value: data?.hysteria2 ?? '' },
+                      ].map((item) => (
+                        <div
+                          className="space-y-3 rounded-[22px] bg-surface-elevated p-4"
+                          key={item.label}
                         >
-                          <Copy className="size-4" />
-                          {t('common.copy')}
-                        </Button>
-                      </div>
-                    ))}
+                          <div className="t-label">{item.label}</div>
+                          <QRCodePreview label={item.label} value={item.value} />
+                          <Button
+                            className="w-full"
+                            disabled={!item.value}
+                            onClick={async () => {
+                              if (!item.value) return;
+                              await navigator.clipboard.writeText(item.value);
+                              toast.success(t('common.copied', { label: item.label }));
+                            }}
+                            type="button"
+                            variant="secondary"
+                          >
+                            <Copy className="size-4" />
+                            {t('common.copy')}
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
                   </div>
-                </div>
-              )}
-            </div>
+                )}
+              </div>
+            ) : null}
           </details>
         </div>
       </div>

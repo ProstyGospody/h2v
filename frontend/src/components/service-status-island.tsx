@@ -20,13 +20,15 @@ type ServiceStatusItem = {
   value: string;
 };
 
+const serviceStatusRefetchIntervalMs = 5_000;
+
 export function ServiceStatusIsland() {
   const { locale, t } = useI18n();
   const gradientId = `service-status-icon-${useId().replace(/:/g, '')}`;
   const overview = useQuery({
     queryKey: ['stats', 'overview'],
     queryFn: () => apiClient.request<OverviewStats>('/stats/overview'),
-    refetchInterval: 10_000,
+    refetchInterval: serviceStatusRefetchIntervalMs,
   });
   const data = overview.data;
   const items: ServiceStatusItem[] = [

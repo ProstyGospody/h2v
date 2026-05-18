@@ -31,6 +31,11 @@ type User struct {
 	UpdatedAt    time.Time  `json:"updated_at"`
 }
 
+type ActiveClientEntry struct {
+	Username  string
+	VlessUUID uuid.UUID
+}
+
 func (u User) CanConnect() bool {
 	if u.Status != StatusActive {
 		return false

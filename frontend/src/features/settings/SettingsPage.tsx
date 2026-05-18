@@ -1,4 +1,13 @@
-import { useMemo, useRef, useState, type ChangeEvent, type ComponentType, type ReactNode } from 'react';
+import {
+  memo,
+  useCallback,
+  useMemo,
+  useRef,
+  useState,
+  type ChangeEvent,
+  type ComponentType,
+  type ReactNode,
+} from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   AlertTriangle,
@@ -70,8 +79,6 @@ type RealityKeyPair = {
   private_key: string;
   public_key: string;
 };
-
-type H2VBackup = Record<string, unknown>;
 
 type BackupImportSummary = {
   settings: number;
@@ -194,6 +201,28 @@ export function SettingsPage() {
   const hasIssues = allIssues.length > 0;
   const currentRealityPreset = findRealityPreset(values.string('reality.sni'), values.string('reality.dest'));
   const currentMasqueradePreset = findURLPreset(values.string('hy2.masquerade_url'), masqueradePresets);
+  const realityTargetOptions = useMemo(
+    () => [
+      ...realityPresets.map((item) => ({ label: item.label, value: item.label })),
+      { label: t('common.custom'), value: 'Custom' },
+    ],
+    [t],
+  );
+  const masqueradeTargetOptions = useMemo(
+    () => [
+      ...masqueradePresets.map((item) => ({ label: item.label, value: item.value })),
+      { label: t('common.custom'), value: 'Custom' },
+    ],
+    [t],
+  );
+  const vlessUnavailablePorts = useMemo(
+    () => unavailablePresetPorts('vless.port', originalValues, portAvailability.data),
+    [originalValues, portAvailability.data],
+  );
+  const hy2UnavailablePorts = useMemo(
+    () => unavailablePresetPorts('hy2.port', originalValues, portAvailability.data),
+    [originalValues, portAvailability.data],
+  );
 
   const save = useMutation({
     mutationFn: () =>
@@ -227,20 +256,27 @@ export function SettingsPage() {
   });
 
   const exportBackup = useMutation({
-    mutationFn: () => apiClient.request<H2VBackup>('/backup/export'),
+    mutationFn: async () => {
+      const response = await apiClient.requestRaw('/backup/export');
+      return {
+        blob: await response.blob(),
+        filename: backupFilename(),
+      };
+    },
     onError: (error) => {
       toast.error(error instanceof ApiError ? error.message : t('settings.unableExportBackup'));
     },
-    onSuccess: (backup) => {
-      downloadBackupFile(backup);
+    onSuccess: ({ blob, filename }) => {
+      downloadBackupFile(blob, filename);
       toast.success(t('settings.backupSaved'));
     },
   });
 
   const importBackup = useMutation({
-    mutationFn: (backup: H2VBackup) =>
+    mutationFn: (backup: File) =>
       apiClient.request<BackupImportSummary>('/backup/import', {
-        body: JSON.stringify(backup),
+        body: backup,
+        headers: { 'Content-Type': 'application/json' },
         method: 'POST',
       }),
     onError: (error) => {
@@ -266,7 +302,7 @@ export function SettingsPage() {
     },
   });
 
-  function setValue(key: SettingKey, value: SettingValue) {
+  const setValue = useCallback((key: SettingKey, value: SettingValue) => {
     setDraft((current) => {
       const next = { ...current };
       if (sameSettingValue(value, originalValues.value(key))) {
@@ -276,14 +312,40 @@ export function SettingsPage() {
       }
       return next;
     });
-  }
+  }, [originalValues]);
 
-  function setRealityPreset(label: string) {
+  const setRealityPreset = useCallback((label: string) => {
     const preset = realityPresets.find((item) => item.label === label);
     if (!preset) return;
     setValue('reality.sni', preset.sni);
     setValue('reality.dest', preset.dest);
-  }
+  }, [setValue]);
+
+  const setVlessPort = useCallback((value: number) => setValue('vless.port', value), [setValue]);
+  const setRealitySNI = useCallback((value: string) => setValue('reality.sni', value), [setValue]);
+  const setRealityDest = useCallback((value: string) => setValue('reality.dest', value), [setValue]);
+  const setRealityPrivateKey = useCallback((value: string) => setValue('reality.private_key', value), [setValue]);
+  const setRealityPublicKey = useCallback((value: string) => setValue('reality.public_key', value), [setValue]);
+  const setRealityShortID = useCallback((value: string) => setValue('reality.short_ids', [value]), [setValue]);
+  const generateRealityShortID = useCallback(() => setValue('reality.short_ids', [randomHex(8)]), [setValue]);
+  const setHy2Domain = useCallback((value: string) => setValue('hy2.domain', value), [setValue]);
+  const setHy2Port = useCallback((value: number) => setValue('hy2.port', value), [setValue]);
+  const setHy2BandwidthUp = useCallback((value: string) => setValue('hy2.bandwidth_up', value), [setValue]);
+  const setHy2BandwidthDown = useCallback((value: string) => setValue('hy2.bandwidth_down', value), [setValue]);
+  const setHy2ObfsEnabled = useCallback((value: boolean) => setValue('hy2.obfs_enabled', value), [setValue]);
+  const setHy2ObfsPassword = useCallback((value: string) => setValue('hy2.obfs_password', value), [setValue]);
+  const generateHy2ObfsPassword = useCallback(() => setValue('hy2.obfs_password', randomSecret(24)), [setValue]);
+  const setHy2MasqueradeURL = useCallback((value: string) => setValue('hy2.masquerade_url', value), [setValue]);
+  const setHy2MasqueradePreset = useCallback((value: string) => {
+    if (value !== 'Custom') setValue('hy2.masquerade_url', value);
+  }, [setValue]);
+  const setHy2TrafficSecret = useCallback((value: string) => setValue('hy2.traffic_secret', value), [setValue]);
+  const generateHy2TrafficSecret = useCallback(() => setValue('hy2.traffic_secret', randomSecret(32)), [setValue]);
+  const generateRealityKeyPair = useCallback(() => generateReality.mutate(), [generateReality.mutate]);
+  const retrySettings = useCallback(() => {
+    void settings.refetch();
+  }, [settings.refetch]);
+  const toggleSecrets = useCallback(() => setShowSecrets((value) => !value), []);
 
   async function handleBackupUpload(event: ChangeEvent<HTMLInputElement>) {
     const file = event.currentTarget.files?.[0];
@@ -292,11 +354,13 @@ export function SettingsPage() {
     if (!window.confirm(t('settings.restoreConfirm'))) return;
 
     try {
-      const payload = JSON.parse(await file.text()) as H2VBackup;
-      importBackup.mutate(payload);
+      JSON.parse(await file.text());
     } catch {
       toast.error(t('settings.backupInvalidJson'));
+      return;
     }
+
+    importBackup.mutate(file);
   }
 
   return (
@@ -308,7 +372,7 @@ export function SettingsPage() {
             <Button
               aria-label={showSecrets ? t('settings.hideSecrets') : t('settings.showSecrets')}
               className="size-10"
-              onClick={() => setShowSecrets((value) => !value)}
+              onClick={toggleSecrets}
               size="icon"
               type="button"
             >
@@ -385,7 +449,7 @@ export function SettingsPage() {
         {settings.isLoading ? (
           <SettingsSkeleton />
         ) : settings.isError ? (
-          <SettingsError error={settings.error} onRetry={() => settings.refetch()} />
+          <SettingsError error={settings.error} onRetry={retrySettings} />
         ) : (
           <>
             {hasIssues ? <SettingsIssues issues={allIssues} /> : null}
@@ -401,53 +465,50 @@ export function SettingsPage() {
                     label={t('settings.vlessPort')}
                     max={65535}
                     min={1}
-                    onChange={(value) => setValue('vless.port', value)}
+                    onChange={setVlessPort}
                     presets={vlessPortPresets}
                     protocol="tcp"
-                    unavailablePorts={unavailablePresetPorts('vless.port', originalValues, portAvailability.data)}
+                    unavailablePorts={vlessUnavailablePorts}
                     value={values.number('vless.port')}
                   />
                   <SelectControl
                     label={t('settings.realityTarget')}
-                    onChange={(value) => setRealityPreset(value)}
-                    options={[
-                      ...realityPresets.map((item) => ({ label: item.label, value: item.label })),
-                      { label: t('common.custom'), value: 'Custom' },
-                    ]}
+                    onChange={setRealityPreset}
+                    options={realityTargetOptions}
                     value={currentRealityPreset?.label ?? 'Custom'}
                   />
                   <TextControl
                     label="SNI"
-                    onChange={(value) => setValue('reality.sni', value)}
+                    onChange={setRealitySNI}
                     placeholder="www.google.com"
                     value={values.string('reality.sni')}
                   />
                   <TextControl
                     label={t('settings.destination')}
-                    onChange={(value) => setValue('reality.dest', value)}
+                    onChange={setRealityDest}
                     placeholder="www.google.com:443"
                     value={values.string('reality.dest')}
                   />
                   <SecretControl
                     label={t('settings.privateKey')}
                     generating={generateReality.isPending}
-                    onChange={(value) => setValue('reality.private_key', value)}
-                    onGenerate={() => generateReality.mutate()}
+                    onChange={setRealityPrivateKey}
+                    onGenerate={generateRealityKeyPair}
                     reveal={showSecrets}
                     value={values.string('reality.private_key')}
                   />
                   <SecretControl
                     label={t('settings.publicKey')}
                     generating={generateReality.isPending}
-                    onChange={(value) => setValue('reality.public_key', value)}
-                    onGenerate={() => generateReality.mutate()}
+                    onChange={setRealityPublicKey}
+                    onGenerate={generateRealityKeyPair}
                     reveal={showSecrets}
                     value={values.string('reality.public_key')}
                   />
                   <SecretControl
                     label={t('settings.shortId')}
-                    onChange={(value) => setValue('reality.short_ids', [value])}
-                    onGenerate={() => setValue('reality.short_ids', [randomHex(8)])}
+                    onChange={setRealityShortID}
+                    onGenerate={generateRealityShortID}
                     reveal={showSecrets}
                     value={firstNonEmpty(values.stringArray('reality.short_ids'))}
                   />
@@ -462,7 +523,7 @@ export function SettingsPage() {
                 >
                   <TextControl
                     label={t('settings.hysteriaDomain')}
-                    onChange={(value) => setValue('hy2.domain', value)}
+                    onChange={setHy2Domain}
                     placeholder="h2v.example.com"
                     value={values.string('hy2.domain')}
                   />
@@ -470,36 +531,36 @@ export function SettingsPage() {
                     label={t('settings.hysteriaPort')}
                     max={65535}
                     min={1}
-                    onChange={(value) => setValue('hy2.port', value)}
+                    onChange={setHy2Port}
                     presets={hy2PortPresets}
                     protocol="udp"
-                    unavailablePorts={unavailablePresetPorts('hy2.port', originalValues, portAvailability.data)}
+                    unavailablePorts={hy2UnavailablePorts}
                     value={values.number('hy2.port')}
                   />
                   <BandwidthControl
                     label={t('settings.uploadBandwidth')}
-                    onChange={(value) => setValue('hy2.bandwidth_up', value)}
+                    onChange={setHy2BandwidthUp}
                     presets={bandwidthPresets}
                     value={values.string('hy2.bandwidth_up')}
                   />
                   <BandwidthControl
                     label={t('settings.downloadBandwidth')}
-                    onChange={(value) => setValue('hy2.bandwidth_down', value)}
+                    onChange={setHy2BandwidthDown}
                     presets={bandwidthPresets}
                     value={values.string('hy2.bandwidth_down')}
                   />
                   <ToggleControl
                     label={t('settings.hysteriaMode')}
                     offLabel={t('settings.masquerade')}
-                    onChange={(value) => setValue('hy2.obfs_enabled', value)}
+                    onChange={setHy2ObfsEnabled}
                     onLabel={t('settings.obfs')}
                     value={values.bool('hy2.obfs_enabled')}
                   />
                   {values.bool('hy2.obfs_enabled') ? (
                     <SecretControl
                       label={t('settings.obfsPassword')}
-                      onChange={(value) => setValue('hy2.obfs_password', value)}
-                      onGenerate={() => setValue('hy2.obfs_password', randomSecret(24))}
+                      onChange={setHy2ObfsPassword}
+                      onGenerate={generateHy2ObfsPassword}
                       reveal={showSecrets}
                       value={values.string('hy2.obfs_password')}
                     />
@@ -507,18 +568,13 @@ export function SettingsPage() {
                     <>
                       <SelectControl
                         label={t('settings.masquerade')}
-                        onChange={(value) => {
-                          if (value !== 'Custom') setValue('hy2.masquerade_url', value);
-                        }}
-                        options={[
-                          ...masqueradePresets.map((item) => ({ label: item.label, value: item.value })),
-                          { label: t('common.custom'), value: 'Custom' },
-                        ]}
+                        onChange={setHy2MasqueradePreset}
+                        options={masqueradeTargetOptions}
                         value={currentMasqueradePreset?.value ?? 'Custom'}
                       />
                       <TextControl
                         label={t('settings.masqueradeUrl')}
-                        onChange={(value) => setValue('hy2.masquerade_url', value)}
+                        onChange={setHy2MasqueradeURL}
                         placeholder="https://www.google.com"
                         value={values.string('hy2.masquerade_url')}
                       />
@@ -526,8 +582,8 @@ export function SettingsPage() {
                   )}
                   <SecretControl
                     label={t('settings.trafficStatsSecret')}
-                    onChange={(value) => setValue('hy2.traffic_secret', value)}
-                    onGenerate={() => setValue('hy2.traffic_secret', randomSecret(32))}
+                    onChange={setHy2TrafficSecret}
+                    onGenerate={generateHy2TrafficSecret}
                     reveal={showSecrets}
                     value={values.string('hy2.traffic_secret')}
                   />
@@ -541,20 +597,22 @@ export function SettingsPage() {
   );
 }
 
-function downloadBackupFile(backup: H2VBackup) {
-  const json = JSON.stringify(backup, null, 2);
-  const blob = new Blob([json], { type: 'application/json' });
+function backupFilename(): string {
+  return `h2v-backup-${new Date().toISOString().replace(/[:.]/g, '-')}.json`;
+}
+
+function downloadBackupFile(blob: Blob, filename: string) {
   const url = URL.createObjectURL(blob);
   const link = document.createElement('a');
   link.href = url;
-  link.download = `h2v-backup-${new Date().toISOString().replace(/[:.]/g, '-')}.json`;
+  link.download = filename;
   document.body.appendChild(link);
   link.click();
   link.remove();
   URL.revokeObjectURL(url);
 }
 
-function SettingsSection({
+const SettingsSection = memo(function SettingsSection({
   children,
   icon: Icon,
   kicker,
@@ -595,9 +653,9 @@ function SettingsSection({
       </CardContent>
     </Card>
   );
-}
+});
 
-function TextControl({
+const TextControl = memo(function TextControl({
   label,
   onChange,
   placeholder,
@@ -619,9 +677,9 @@ function TextControl({
       />
     </div>
   );
-}
+});
 
-function SecretControl({
+const SecretControl = memo(function SecretControl({
   generating,
   label,
   onChange,
@@ -663,9 +721,9 @@ function SecretControl({
       </div>
     </div>
   );
-}
+});
 
-function PortControl({
+const PortControl = memo(function PortControl({
   label,
   max,
   min,
@@ -725,9 +783,9 @@ function PortControl({
       </div>
     </div>
   );
-}
+});
 
-function BandwidthControl({
+const BandwidthControl = memo(function BandwidthControl({
   label,
   onChange,
   presets,
@@ -765,9 +823,9 @@ function BandwidthControl({
       </div>
     </div>
   );
-}
+});
 
-function ToggleControl({
+const ToggleControl = memo(function ToggleControl({
   label,
   offLabel,
   onChange,
@@ -805,9 +863,9 @@ function ToggleControl({
       </div>
     </div>
   );
-}
+});
 
-function SelectControl({
+const SelectControl = memo(function SelectControl({
   label,
   onChange,
   options,
@@ -839,9 +897,9 @@ function SelectControl({
       </Select>
     </div>
   );
-}
+});
 
-function SettingsIssues({ issues }: { issues: string[] }) {
+const SettingsIssues = memo(function SettingsIssues({ issues }: { issues: string[] }) {
   const { t } = useI18n();
 
   return (
@@ -857,9 +915,9 @@ function SettingsIssues({ issues }: { issues: string[] }) {
       </ul>
     </div>
   );
-}
+});
 
-function SettingsSkeleton() {
+const SettingsSkeleton = memo(function SettingsSkeleton() {
   return (
     <section className="grid gap-4 xl:grid-cols-2">
       {Array.from({ length: 2 }).map((_, index) => (
@@ -874,9 +932,9 @@ function SettingsSkeleton() {
       ))}
     </section>
   );
-}
+});
 
-function SettingsError({ error, onRetry }: { error: unknown; onRetry: () => void }) {
+const SettingsError = memo(function SettingsError({ error, onRetry }: { error: unknown; onRetry: () => void }) {
   const { t } = useI18n();
 
   return (
@@ -891,7 +949,7 @@ function SettingsError({ error, onRetry }: { error: unknown; onRetry: () => void
       </CardContent>
     </Card>
   );
-}
+});
 
 function createSettingsValues(items: Setting[], draft: SettingsDraft) {
   const map = new Map(items.map((item) => [item.key, item.value]));

@@ -433,6 +433,63 @@ func (r *Repository) ListActiveUsers(ctx context.Context) ([]domain.User, error)
 	return users, rows.Err()
 }
 
+func (r *Repository) ListActiveClientEntries(ctx context.Context) ([]domain.ActiveClientEntry, error) {
+	rows, err := r.pool.Query(ctx, `
+		SELECT username, vless_uuid
+		FROM users
+		WHERE status = 'active'
+		  AND (expires_at IS NULL OR expires_at >= now())
+		  AND (traffic_limit <= 0 OR traffic_used < traffic_limit)
+		ORDER BY username ASC
+	`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	entries := make([]domain.ActiveClientEntry, 0, 64)
+	for rows.Next() {
+		var entry domain.ActiveClientEntry
+		if err := rows.Scan(&entry.Username, &entry.VlessUUID); err != nil {
+			return nil, err
+		}
+		entries = append(entries, entry)
+	}
+	return entries, rows.Err()
+}
+
+func (r *Repository) ListActiveAuthUsers(ctx context.Context) ([]domain.User, error) {
+	rows, err := r.pool.Query(ctx, `
+		SELECT username, hy2_password, traffic_limit, traffic_used, expires_at, status
+		FROM users
+		WHERE status = 'active'
+		  AND (expires_at IS NULL OR expires_at >= now())
+		  AND (traffic_limit <= 0 OR traffic_used < traffic_limit)
+		ORDER BY username ASC
+	`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	users := make([]domain.User, 0, 64)
+	for rows.Next() {
+		var user domain.User
+		if err := rows.Scan(
+			&user.Username,
+			&user.Hy2Password,
+			&user.TrafficLimit,
+			&user.TrafficUsed,
+			&user.ExpiresAt,
+			&user.Status,
+		); err != nil {
+			return nil, err
+		}
+		users = append(users, user)
+	}
+	return users, rows.Err()
+}
+
 func (r *Repository) FindOffenders(ctx context.Context) ([]domain.User, error) {
 	rows, err := r.pool.Query(ctx, `
 		SELECT id, username, vless_uuid, hy2_password, sub_token, traffic_limit, traffic_used,
