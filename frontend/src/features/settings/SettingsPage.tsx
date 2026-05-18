@@ -369,8 +369,9 @@ export function SettingsPage() {
   return (
     <div className="pb-10">
       <PageHeader
+        actionClassName="sm:ml-0 sm:w-full sm:shrink sm:justify-start"
         action={
-          <div className="flex w-full min-w-0 flex-col gap-3 sm:w-auto sm:flex-row sm:items-center sm:justify-end">
+          <div className="flex w-full min-w-0 flex-col gap-3 sm:w-auto sm:flex-row sm:items-center sm:justify-start">
             <div className="min-w-0 sm:shrink-0">
               <ServiceStatusIsland />
             </div>

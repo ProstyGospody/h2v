@@ -5,10 +5,11 @@ interface PageHeaderProps {
   titleClassName?: string;
   description?: React.ReactNode;
   action?: React.ReactNode;
+  actionClassName?: string;
   className?: string;
 }
 
-export function PageHeader({ action, className, description, title, titleClassName }: PageHeaderProps) {
+export function PageHeader({ action, actionClassName, className, description, title, titleClassName }: PageHeaderProps) {
   const hasHeading = Boolean(title || description);
   if (!hasHeading && !action) return null;
 
@@ -40,7 +41,7 @@ export function PageHeader({ action, className, description, title, titleClassNa
           </div>
         ) : null}
         {action ? (
-          <div className="flex w-full min-w-0 flex-wrap items-center gap-2 sm:ml-auto sm:w-auto sm:shrink-0 sm:justify-end">
+          <div className={cn('flex w-full min-w-0 flex-wrap items-center gap-2 sm:ml-auto sm:w-auto sm:shrink-0 sm:justify-end', actionClassName)}>
             {action}
           </div>
         ) : null}
