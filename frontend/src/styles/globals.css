@@ -76,8 +76,8 @@
   :root {
     color-scheme: dark;
 
-    --font-app-sans: "Montserrat Alternates", "Segoe UI Variable", "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-    --font-app-display: "Montserrat Alternates", "Segoe UI Variable", "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    --font-app-sans: "Geologica", "Segoe UI Variable", "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    --font-app-display: "Geologica", "Segoe UI Variable", "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
     --font-app-mono: "JetBrains Mono", "Cascadia Mono", "SFMono-Regular", Consolas, monospace;
 
     --radius: 0.625rem;
