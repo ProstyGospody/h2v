@@ -65,7 +65,7 @@ const ConfigEditor = lazy(() =>
 export function ConfigsPage() {
   return (
     <div className="pb-10 lg:flex lg:h-dvh lg:flex-col lg:overflow-hidden lg:pb-6">
-      <div className="grid gap-4 overflow-y-auto px-page pt-5 lg:min-h-0 lg:flex-1 xl:grid-cols-2 xl:overflow-visible">
+      <div className="grid gap-4 overflow-y-auto px-page pt-5 lg:min-h-0 lg:flex-1 lg:pt-6 xl:grid-cols-2 xl:overflow-visible">
         {cores.map((core) => (
           <ConfigSection core={core} key={core} />
         ))}
