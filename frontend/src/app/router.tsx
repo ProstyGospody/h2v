@@ -164,7 +164,7 @@ function SidebarBody({
   const profileIcon = profileIconMeta(admin.icon);
 
   return (
-    <div className="flex h-dvh flex-col lg:h-full lg:p-5">
+    <div className="flex h-dvh w-full min-w-0 flex-col lg:h-full lg:p-5">
       <SidebarHeader
         className={cn(
           'relative flex h-[72px] items-center justify-center lg:h-24',

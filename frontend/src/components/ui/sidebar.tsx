@@ -156,15 +156,15 @@ function SidebarHeader({ className, ...props }: React.ComponentProps<'div'>) {
 }
 
 function SidebarContent({ className, ...props }: React.ComponentProps<'div'>) {
-  return <div data-slot="sidebar-content" className={cn('flex min-h-0 flex-1 flex-col overflow-y-auto', className)} {...props} />;
+  return <div data-slot="sidebar-content" className={cn('flex min-h-0 w-full flex-1 flex-col overflow-y-auto', className)} {...props} />;
 }
 
 function SidebarFooter({ className, ...props }: React.ComponentProps<'div'>) {
-  return <div data-slot="sidebar-footer" className={cn('flex shrink-0 flex-col', className)} {...props} />;
+  return <div data-slot="sidebar-footer" className={cn('flex w-full shrink-0 flex-col', className)} {...props} />;
 }
 
 function SidebarGroup({ className, ...props }: React.ComponentProps<'div'>) {
-  return <div data-slot="sidebar-group" className={cn('flex flex-col', className)} {...props} />;
+  return <div data-slot="sidebar-group" className={cn('flex w-full flex-col', className)} {...props} />;
 }
 
 function SidebarGroupLabel({ className, ...props }: React.ComponentProps<'div'>) {
@@ -178,11 +178,11 @@ function SidebarGroupLabel({ className, ...props }: React.ComponentProps<'div'>)
 }
 
 function SidebarMenu({ className, ...props }: React.ComponentProps<'nav'>) {
-  return <nav data-slot="sidebar-menu" className={cn('flex flex-col gap-2', className)} {...props} />;
+  return <nav data-slot="sidebar-menu" className={cn('flex w-full flex-col gap-2', className)} {...props} />;
 }
 
 function SidebarMenuItem({ className, ...props }: React.ComponentProps<'div'>) {
-  return <div data-slot="sidebar-menu-item" className={cn('min-w-0', className)} {...props} />;
+  return <div data-slot="sidebar-menu-item" className={cn('w-full min-w-0', className)} {...props} />;
 }
 
 function SidebarMenuButton({
