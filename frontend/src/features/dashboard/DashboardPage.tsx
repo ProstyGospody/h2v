@@ -7,7 +7,7 @@ import {
   Cpu,
   MemoryStick,
   Network,
-  UserRoundX,
+  Timer,
   Wifi,
   type LucideIcon,
 } from 'lucide-react';
@@ -23,6 +23,7 @@ import { useI18n } from '@/shared/i18n/i18n';
 import {
   formatBytes,
   formatBytesPerSecond,
+  formatDurationCompact,
   formatMonthDay,
   formatNumber,
   formatPercent,
@@ -115,10 +116,10 @@ export function DashboardPage() {
           value={formatNumber(data?.online_users?.length ?? 0, locale)}
         />
         <MetricCard
-          icon={UserRoundX}
-          label={t('dashboard.disabled')}
+          icon={Timer}
+          label={t('shell.uptime')}
           loading={overview.isLoading}
-          value={formatNumber(data?.disabled_users ?? 0, locale)}
+          value={formatDurationCompact(data?.uptime_seconds, locale)}
         />
       </div>
 

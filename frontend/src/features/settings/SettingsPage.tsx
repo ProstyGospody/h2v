@@ -374,7 +374,7 @@ export function SettingsPage() {
             <div className="min-w-0 sm:shrink-0">
               <ServiceStatusIsland />
             </div>
-            <div className="grid w-full grid-cols-2 gap-2 sm:flex sm:w-auto sm:flex-wrap sm:justify-end">
+            <div className="grid w-full grid-cols-3 gap-2 sm:flex sm:w-auto sm:flex-wrap sm:justify-end">
               <Button
                 className="h-10 w-full justify-center sm:w-auto"
                 disabled={exportBackup.isPending}
@@ -405,7 +405,7 @@ export function SettingsPage() {
                 type="file"
               />
               <Button
-                className="col-span-2 h-10 w-full justify-center sm:col-span-1 sm:w-auto"
+                className="h-10 w-full justify-center sm:w-auto"
                 disabled={updateGeodata.isPending}
                 onClick={() => updateGeodata.mutate()}
                 size="sm"
@@ -494,7 +494,7 @@ export function SettingsPage() {
                 <SettingsSection
                   kicker="Hysteria 2"
                   logo="hysteria"
-                  title={t('settings.transport')}
+                  title={values.bool('hy2.obfs_enabled') ? t('settings.obfs') : t('settings.masquerade')}
                 >
                   <PortControl
                     label={t('settings.hysteriaPort')}
