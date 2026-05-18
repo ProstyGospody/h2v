@@ -335,7 +335,10 @@ export function SettingsPage() {
   const setHy2ObfsEnabled = useCallback((value: boolean) => setValue('hy2.obfs_enabled', value), [setValue]);
   const setHy2ObfsPassword = useCallback((value: string) => setValue('hy2.obfs_password', value), [setValue]);
   const generateHy2ObfsPassword = useCallback(() => setValue('hy2.obfs_password', randomSecret(24)), [setValue]);
-  const setHy2MasqueradeURL = useCallback((value: string) => setValue('hy2.masquerade_url', value), [setValue]);
+  const setHy2MasqueradeURL = useCallback(
+    (value: string) => setValue('hy2.masquerade_url', normalizeMasqueradeURLForSave(value)),
+    [setValue],
+  );
   const setHy2MasqueradePreset = useCallback((value: string) => {
     if (value !== 'Custom') setValue('hy2.masquerade_url', value);
   }, [setValue]);
@@ -547,8 +550,8 @@ export function SettingsPage() {
                       <TextControl
                         label={t('settings.masqueradeUrl')}
                         onChange={setHy2MasqueradeURL}
-                        placeholder="https://www.google.com"
-                        value={values.string('hy2.masquerade_url')}
+                        placeholder="www.google.com"
+                        value={stripHTTPURLScheme(values.string('hy2.masquerade_url'))}
                       />
                     </>
                   )}
@@ -1075,7 +1078,7 @@ function validateDraft(draft: SettingsDraft, values: ReturnType<typeof createSet
     if ((key.includes('domain') || key === 'reality.sni') && values.string(key).trim() === '') {
       issues.push(t('settings.validation.domainRequired', { label: settingLabel(key, t) }));
     }
-    if (key === 'hy2.masquerade_url' && !validURL(values.string(key))) {
+    if (key === 'hy2.masquerade_url' && !validURL(normalizeMasqueradeURLForSave(values.string(key)))) {
       issues.push(t('settings.validation.url', { label: settingLabel(key, t) }));
     }
     if (key === 'reality.dest' && !validHostPort(values.string(key))) {
@@ -1108,6 +1111,8 @@ function normalizeDraftForSave(draft: SettingsDraft): SettingsDraft {
       const trimmed = value.trim();
       if (key === 'hy2.domain' || key === 'reality.sni') {
         normalized[key] = normalizeHostnameForSave(trimmed);
+      } else if (key === 'hy2.masquerade_url') {
+        normalized[key] = normalizeMasqueradeURLForSave(trimmed);
       } else {
         normalized[key] = trimmed;
       }
@@ -1144,6 +1149,16 @@ function findRealityPreset(sni: string, dest: string): RealityPreset | undefined
 
 function findURLPreset(value: string, presets: URLPreset[]): URLPreset | undefined {
   return presets.find((preset) => preset.value === value);
+}
+
+function normalizeMasqueradeURLForSave(value: string): string {
+  const trimmed = value.trim();
+  if (trimmed === '') return '';
+  return /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
+}
+
+function stripHTTPURLScheme(value: string): string {
+  return value.replace(/^https?:\/\//i, '');
 }
 
 function normalizeHostnameForSave(value: string): string {
