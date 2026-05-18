@@ -574,7 +574,7 @@ export function SettingsPage() {
           <>
             <Button
               aria-label={t('common.discard')}
-              className="size-16 rounded-full p-0"
+              className="size-[52px] rounded-[22px] p-0"
               disabled={save.isPending}
               onClick={() => setDraft({})}
               size="icon"
@@ -585,7 +585,7 @@ export function SettingsPage() {
             </Button>
             <Button
               aria-label={t('common.save')}
-              className="size-16 rounded-full p-0"
+              className="size-[52px] rounded-[22px] p-0"
               disabled={save.isPending || hasIssues || isCheckingPorts}
               onClick={() => save.mutate()}
               size="icon"
@@ -597,7 +597,7 @@ export function SettingsPage() {
         ) : null}
         <Button
           aria-label={showSecrets ? t('settings.hideSecrets') : t('settings.showSecrets')}
-          className="size-16 rounded-full p-0"
+          className="size-[52px] rounded-[22px] p-0"
           onClick={toggleSecrets}
           size="icon"
           type="button"

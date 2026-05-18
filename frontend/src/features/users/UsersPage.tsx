@@ -513,7 +513,7 @@ export function UsersPage() {
 
       <Button
         aria-label={t('users.createUser')}
-        className="fixed bottom-[calc(env(safe-area-inset-bottom)_+_1.25rem)] right-5 z-40 size-16 rounded-full p-0 sm:bottom-7 sm:right-7"
+        className="fixed bottom-[calc(env(safe-area-inset-bottom)_+_1.25rem)] right-5 z-40 size-[52px] rounded-[22px] p-0 sm:bottom-7 sm:right-7"
         onClick={() => setCreateOpen(true)}
         size="icon"
         type="button"
@@ -749,7 +749,7 @@ export function UsersPage() {
             <div className="space-y-2">
               <Label htmlFor="note">{t('users.note')}</Label>
               <Textarea
-                className={createUserFieldClassName}
+                className={cn(createUserFieldClassName, 'rounded-lg')}
                 id="note"
                 onChange={(e) => setNote(e.target.value)}
                 placeholder={t('users.friendPlaceholder')}
