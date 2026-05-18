@@ -131,7 +131,7 @@ function ProtectedShell() {
       </SidebarInset>
 
       <Sheet onOpenChange={setNavOpen} open={navOpen}>
-        <SheetContent className="w-70 bg-sidebar p-0 text-sidebar-foreground" side="left">
+        <SheetContent className="w-[20.5rem] max-w-[92vw] bg-sidebar p-0 text-sidebar-foreground" side="left">
           <SidebarProvider open>
             <SidebarBody
               admin={admin}

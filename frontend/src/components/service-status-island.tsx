@@ -56,7 +56,7 @@ export function ServiceStatusIsland() {
   ];
 
   return (
-    <section aria-label={t('nav.services')} className="flex max-w-full justify-center">
+    <section aria-label={t('nav.services')} className="flex w-full min-w-0 max-w-full justify-center sm:w-auto">
       <div className="flex w-fit max-w-full flex-wrap items-center justify-center gap-2 rounded-[22px] bg-accent-gradient-soft px-3 py-1.5 shadow-sm">
         <svg aria-hidden="true" className="pointer-events-none absolute size-0 overflow-hidden">
           <defs>
