@@ -260,6 +260,7 @@ function ConfigSection({ core }: { core: Core }) {
               }
             >
               <ConfigEditor
+                autoFold={core === 'xray' ? 'xray-clients' : undefined}
                 className="h-[68vh] min-h-[520px] xl:h-full xl:min-h-0"
                 label={t('configs.configurationEditor', { name: meta.label })}
                 onChange={updateDraft}
