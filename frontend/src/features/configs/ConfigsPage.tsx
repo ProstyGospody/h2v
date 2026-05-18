@@ -350,7 +350,7 @@ function ConfigSection({ core }: { core: Core }) {
       </section>
 
       <Dialog onOpenChange={setDiffOpen} open={diffOpen}>
-        <DialogContent className="grid max-h-[92vh] w-[calc(100vw-32px)] max-w-none grid-rows-[auto_auto_minmax(0,1fr)_auto] gap-0 overflow-hidden p-0 sm:w-[min(calc(100vw-48px),1180px)] sm:max-w-none">
+        <DialogContent className="grid max-h-[92vh] w-[calc(100vw_-_32px)] max-w-none grid-rows-[auto_auto_minmax(0,1fr)_auto] gap-0 overflow-hidden p-0 sm:w-[min(calc(100vw_-_48px),1180px)] sm:max-w-none">
           <DialogHeader className="border-b border-border/55 bg-surface px-5 py-4 pr-12">
             <div className="flex min-w-0 items-center gap-3">
               <span className="flex size-9 shrink-0 items-center justify-center">

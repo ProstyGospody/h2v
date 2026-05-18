@@ -204,6 +204,7 @@ export function UsersPage() {
   }, []);
 
   const showUserQR = useCallback((id: string) => {
+    setDrawerUserId(null);
     setQrUserId(id);
   }, []);
 
@@ -568,7 +569,7 @@ export function UsersPage() {
                 </div>
 
                 <div className="flex flex-wrap gap-2">
-                  <Button onClick={() => setQrUserId(drawerUser.id)} size="sm" variant="secondary">
+                  <Button onClick={() => showUserQR(drawerUser.id)} size="sm" variant="secondary">
                     <QrCode />
                     {t('users.showQR')}
                   </Button>
@@ -649,7 +650,7 @@ export function UsersPage() {
         }}
         open={qrOpen}
       >
-        <DialogContent className="max-h-[calc(100vh-32px)] min-w-0 w-[calc(100vw-32px)] overflow-hidden p-0 sm:max-w-2xl">
+        <DialogContent className="max-h-[calc(100dvh_-_2rem)] min-w-0 w-[calc(100vw_-_32px)] overflow-hidden border-0 p-0 sm:max-w-2xl">
           <QRDialogContent
             isLoading={qrLinks.isLoading}
             links={qrLinks.data ?? null}
@@ -659,7 +660,7 @@ export function UsersPage() {
       </Dialog>
 
       <Dialog onOpenChange={setCreateOpen} open={createOpen}>
-        <DialogContent className="sm:max-w-xl">
+        <DialogContent className="max-h-[calc(100dvh_-_2rem)] overflow-y-auto border-0 sm:max-w-xl">
           <DialogHeader>
             <DialogTitle>{t('users.createUser')}</DialogTitle>
           </DialogHeader>
@@ -890,6 +891,11 @@ const UserTableRow = memo(function UserTableRow({
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
+            <DropdownMenuItem className="sm:hidden" onSelect={() => onShowQR(user.id)}>
+              <QrCode />
+              {t('users.showQR')}
+            </DropdownMenuItem>
+            <DropdownMenuSeparator className="sm:hidden" />
             <DropdownMenuItem
               disabled={rowBusy === 'status'}
               onSelect={() =>
@@ -1036,7 +1042,7 @@ function QRDialogContent({
     : [];
 
   return (
-    <div className="min-w-0 space-y-5 overflow-y-auto p-6">
+    <div className="max-h-[calc(100dvh_-_2rem)] min-w-0 space-y-5 overflow-y-auto overscroll-contain p-4 sm:p-6">
       <DialogHeader className="pr-8">
         <DialogTitle>{t('users.qrTitle', { username: username || t('common.user') })}</DialogTitle>
       </DialogHeader>
