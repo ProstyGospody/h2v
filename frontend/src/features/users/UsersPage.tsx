@@ -361,10 +361,6 @@ export function UsersPage() {
                 </TabsList>
               </Tabs>
             </div>
-            <Button onClick={() => setCreateOpen(true)}>
-              <Plus />
-              {t('users.createUser')}
-            </Button>
           </>
         }
       />
@@ -474,10 +470,6 @@ export function UsersPage() {
               <div className="space-y-1">
                 <div className="text-base font-semibold text-foreground">{t('users.noUsers')}</div>
               </div>
-              <Button onClick={() => setCreateOpen(true)}>
-                <Plus />
-                {t('users.createUser')}
-              </Button>
             </CardContent>
           )}
         </Card>
@@ -516,6 +508,16 @@ export function UsersPage() {
           </div>
         ) : null}
       </div>
+
+      <Button
+        aria-label={t('users.createUser')}
+        className="fixed bottom-[calc(env(safe-area-inset-bottom)_+_1.25rem)] right-5 z-40 size-16 rounded-full p-0 shadow-[0_18px_42px_rgba(80,129,255,0.32)] sm:bottom-7 sm:right-7"
+        onClick={() => setCreateOpen(true)}
+        size="icon"
+        type="button"
+      >
+        <Plus className="size-8" />
+      </Button>
 
       <Sheet onOpenChange={(next) => (next ? null : setDrawerUserId(null))} open={drawerOpen}>
         <SheetContent className="overflow-y-auto" side="right">
