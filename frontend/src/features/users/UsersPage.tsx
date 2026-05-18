@@ -316,8 +316,8 @@ export function UsersPage() {
     <div className="pb-10">
       <PageHeader
         action={
-          <>
-            <div className="flex h-9 w-full min-w-0 items-center gap-2 rounded-[22px] bg-accent-gradient-soft px-3 shadow-sm transition-colors focus-within:bg-accent-gradient-soft sm:w-72 lg:w-80 xl:w-96">
+          <div className="flex w-full min-w-0 flex-col gap-2 sm:w-auto sm:flex-row sm:items-center sm:justify-end">
+            <div className="flex h-10 w-full min-w-0 items-center gap-2 rounded-[22px] bg-accent-gradient-soft px-3 shadow-sm transition-colors focus-within:bg-accent-gradient-soft sm:w-72 lg:w-80 xl:w-96">
               <Search className="size-4 shrink-0 text-muted-foreground" />
               <Input
                 className="h-8 border-0 bg-transparent px-0 shadow-none hover:bg-transparent focus-visible:bg-transparent focus-visible:ring-0"
@@ -338,8 +338,9 @@ export function UsersPage() {
                 </Button>
               ) : null}
             </div>
-            <div className="min-w-0 max-w-full overflow-x-auto">
+            <div className="w-full min-w-0 overflow-x-auto sm:w-auto">
               <Tabs
+                className="w-full min-w-max sm:w-auto sm:min-w-0"
                 onValueChange={(v) => {
                   const next = v as UserFilter;
                   if (next === 'near_expiry') {
@@ -352,7 +353,7 @@ export function UsersPage() {
                 }}
                 value={activeFilter}
               >
-                <TabsList className="bg-accent-gradient-soft">
+                <TabsList className="w-full min-w-max justify-start bg-accent-gradient-soft sm:w-fit sm:min-w-0">
                   {statusOptions.map((o) => (
                     <TabsTrigger key={o.value} value={o.value}>
                       {t(o.labelKey)}
@@ -361,7 +362,7 @@ export function UsersPage() {
                 </TabsList>
               </Tabs>
             </div>
-          </>
+          </div>
         }
       />
 

@@ -246,16 +246,29 @@ function ConfigSection({ core }: { core: Core }) {
         </div>
 
         <div className="border-b border-border/55 bg-card/35 px-3 py-3 sm:px-4">
-          <div className="flex flex-wrap items-center gap-2">
-            <Button disabled={config.isFetching} onClick={reloadConfig} size="sm" variant="outline">
+          <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-center">
+            <Button
+              className="h-10 w-full justify-center sm:h-8 sm:w-auto"
+              disabled={config.isFetching}
+              onClick={reloadConfig}
+              size="sm"
+              variant="outline"
+            >
               <RefreshCw className={cn(config.isFetching && 'animate-spin')} />
               {t('configs.reload')}
             </Button>
-            <Button disabled={!dirty} onClick={resetDraft} size="sm" variant="outline">
+            <Button
+              className="h-10 w-full justify-center sm:h-8 sm:w-auto"
+              disabled={!dirty}
+              onClick={resetDraft}
+              size="sm"
+              variant="outline"
+            >
               <RotateCcw />
               {t('common.reset')}
             </Button>
             <Button
+              className="h-10 w-full justify-center sm:h-8 sm:w-auto"
               disabled={!config.data || managedConfig.isFetching || (generated !== null && !generatedDirty)}
               onClick={() => void resetToGenerated()}
               size="sm"
@@ -264,16 +277,33 @@ function ConfigSection({ core }: { core: Core }) {
               <RotateCcw className={cn(managedConfig.isFetching && 'animate-spin')} />
               {t('configs.generated')}
             </Button>
-            <Button disabled={!config.data || jsonPending || !jsonState.valid} onClick={formatDraft} size="sm" variant="outline">
+            <Button
+              className="h-10 w-full justify-center sm:h-8 sm:w-auto"
+              disabled={!config.data || jsonPending || !jsonState.valid}
+              onClick={formatDraft}
+              size="sm"
+              variant="outline"
+            >
               <Wand2 />
               {t('common.format')}
             </Button>
-            <div className="flex w-full items-center gap-2 sm:ml-auto sm:w-auto">
-              <Button disabled={!canValidate} onClick={() => validate.mutate()} size="sm" variant="secondary">
+            <div className="contents sm:ml-auto sm:flex sm:w-auto sm:items-center sm:gap-2">
+              <Button
+                className="h-10 w-full justify-center sm:h-8 sm:w-auto"
+                disabled={!canValidate}
+                onClick={() => validate.mutate()}
+                size="sm"
+                variant="secondary"
+              >
                 <CheckCircle2 />
                 {t('common.validate')}
               </Button>
-              <Button disabled={!canApply} onClick={() => setDiffOpen(true)} size="sm">
+              <Button
+                className="h-10 w-full justify-center sm:h-8 sm:w-auto"
+                disabled={!canApply}
+                onClick={() => setDiffOpen(true)}
+                size="sm"
+              >
                 <PlayCircle />
                 {t('common.apply')}
               </Button>

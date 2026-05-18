@@ -367,72 +367,76 @@ export function SettingsPage() {
     <div className="pb-10">
       <PageHeader
         action={
-          <>
-            <ServiceStatusIsland />
-            <Button
-              className="h-10"
-              disabled={exportBackup.isPending}
-              onClick={() => exportBackup.mutate()}
-              size="sm"
-              type="button"
-              variant="secondary"
-            >
-              <Download />
-              {t('settings.saveBackup')}
-            </Button>
-            <Button
-              className="h-10"
-              disabled={importBackup.isPending}
-              onClick={() => backupInputRef.current?.click()}
-              size="sm"
-              type="button"
-              variant="secondary"
-            >
-              <Upload />
-              {t('settings.restoreBackup')}
-            </Button>
-            <input
-              ref={backupInputRef}
-              accept="application/json,.json"
-              className="hidden"
-              onChange={handleBackupUpload}
-              type="file"
-            />
-            <Button
-              className="h-10"
-              disabled={updateGeodata.isPending}
-              onClick={() => updateGeodata.mutate()}
-              size="sm"
-              type="button"
-              variant="secondary"
-            >
-              <RefreshCw className={cn(updateGeodata.isPending && 'animate-spin')} />
-              {t('settings.updateGeo')}
-            </Button>
-            {hasDraft ? (
-              <>
-                <Button
-                  className="h-10"
-                  disabled={save.isPending}
-                  onClick={() => setDraft({})}
-                  size="sm"
-                  variant="ghost"
-                >
-                  <RotateCcw />
-                  {t('common.discard')}
-                </Button>
-                <Button
-                  className="h-10"
-                  disabled={save.isPending || hasIssues || isCheckingPorts}
-                  onClick={() => save.mutate()}
-                  size="sm"
-                >
-                  <Save />
-                  {t('common.save')}
-                </Button>
-              </>
-            ) : null}
-          </>
+          <div className="flex w-full min-w-0 flex-col gap-3 sm:w-auto sm:flex-row sm:items-center sm:justify-end">
+            <div className="min-w-0 sm:shrink-0">
+              <ServiceStatusIsland />
+            </div>
+            <div className="grid w-full grid-cols-2 gap-2 sm:flex sm:w-auto sm:flex-wrap sm:justify-end">
+              <Button
+                className="h-10 w-full justify-center sm:w-auto"
+                disabled={exportBackup.isPending}
+                onClick={() => exportBackup.mutate()}
+                size="sm"
+                type="button"
+                variant="secondary"
+              >
+                <Download />
+                {t('settings.saveBackup')}
+              </Button>
+              <Button
+                className="h-10 w-full justify-center sm:w-auto"
+                disabled={importBackup.isPending}
+                onClick={() => backupInputRef.current?.click()}
+                size="sm"
+                type="button"
+                variant="secondary"
+              >
+                <Upload />
+                {t('settings.restoreBackup')}
+              </Button>
+              <input
+                ref={backupInputRef}
+                accept="application/json,.json"
+                className="hidden"
+                onChange={handleBackupUpload}
+                type="file"
+              />
+              <Button
+                className="col-span-2 h-10 w-full justify-center sm:col-span-1 sm:w-auto"
+                disabled={updateGeodata.isPending}
+                onClick={() => updateGeodata.mutate()}
+                size="sm"
+                type="button"
+                variant="secondary"
+              >
+                <RefreshCw className={cn(updateGeodata.isPending && 'animate-spin')} />
+                {t('settings.updateGeo')}
+              </Button>
+              {hasDraft ? (
+                <>
+                  <Button
+                    className="h-10 w-full justify-center sm:w-auto"
+                    disabled={save.isPending}
+                    onClick={() => setDraft({})}
+                    size="sm"
+                    variant="ghost"
+                  >
+                    <RotateCcw />
+                    {t('common.discard')}
+                  </Button>
+                  <Button
+                    className="h-10 w-full justify-center sm:w-auto"
+                    disabled={save.isPending || hasIssues || isCheckingPorts}
+                    onClick={() => save.mutate()}
+                    size="sm"
+                  >
+                    <Save />
+                    {t('common.save')}
+                  </Button>
+                </>
+              ) : null}
+            </div>
+          </div>
         }
       />
 
