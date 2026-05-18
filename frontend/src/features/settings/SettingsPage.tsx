@@ -587,7 +587,7 @@ export function SettingsPage() {
 
       <Button
         aria-label={showSecrets ? t('settings.hideSecrets') : t('settings.showSecrets')}
-        className="fixed bottom-[calc(env(safe-area-inset-bottom)_+_1.25rem)] right-5 z-40 size-16 rounded-full p-0 shadow-[0_18px_42px_rgba(80,129,255,0.32)] sm:bottom-7 sm:right-7"
+        className="fixed bottom-[calc(env(safe-area-inset-bottom)_+_1.25rem)] right-5 z-40 size-16 rounded-full p-0 sm:bottom-7 sm:right-7"
         onClick={toggleSecrets}
         size="icon"
         type="button"

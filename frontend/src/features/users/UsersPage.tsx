@@ -511,7 +511,7 @@ export function UsersPage() {
 
       <Button
         aria-label={t('users.createUser')}
-        className="fixed bottom-[calc(env(safe-area-inset-bottom)_+_1.25rem)] right-5 z-40 size-16 rounded-full p-0 shadow-[0_18px_42px_rgba(80,129,255,0.32)] sm:bottom-7 sm:right-7"
+        className="fixed bottom-[calc(env(safe-area-inset-bottom)_+_1.25rem)] right-5 z-40 size-16 rounded-full p-0 sm:bottom-7 sm:right-7"
         onClick={() => setCreateOpen(true)}
         size="icon"
         type="button"
