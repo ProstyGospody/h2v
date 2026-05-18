@@ -493,12 +493,6 @@ export function SettingsPage() {
                   logo="hysteria"
                   title={t('settings.transport')}
                 >
-                  <TextControl
-                    label={t('settings.hysteriaDomain')}
-                    onChange={setHy2Domain}
-                    placeholder="h2v.example.com"
-                    value={values.string('hy2.domain')}
-                  />
                   <PortControl
                     label={t('settings.hysteriaPort')}
                     max={65535}
@@ -508,6 +502,12 @@ export function SettingsPage() {
                     protocol="udp"
                     unavailablePorts={hy2UnavailablePorts}
                     value={values.number('hy2.port')}
+                  />
+                  <TextControl
+                    label={t('settings.hysteriaDomain')}
+                    onChange={setHy2Domain}
+                    placeholder="h2v.example.com"
+                    value={values.string('hy2.domain')}
                   />
                   <BandwidthControl
                     label={t('settings.uploadBandwidth')}
