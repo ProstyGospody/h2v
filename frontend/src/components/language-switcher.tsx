@@ -15,7 +15,7 @@ type LanguageSwitcherProps = {
   compact?: boolean;
 };
 
-export function LanguageSwitcher({ align = 'end', className, compact = false }: LanguageSwitcherProps) {
+export function LanguageSwitcher({ align = 'end', className }: LanguageSwitcherProps) {
   const { locale, setLocale, t } = useI18n();
 
   return (
@@ -23,13 +23,12 @@ export function LanguageSwitcher({ align = 'end', className, compact = false }: 
       <DropdownMenuTrigger asChild>
         <Button
           aria-label={t('language.switch')}
-          className={cn(compact ? 'size-10' : 'h-8 px-2.5 text-xs', className)}
-          size={compact ? 'icon-sm' : 'sm'}
+          className={cn('size-10', className)}
+          size="icon"
           type="button"
           variant="ghost"
         >
-          <Globe className={compact ? 'size-6' : 'size-4'} />
-          {compact ? null : <span className="font-mono uppercase">{locale}</span>}
+          <Globe className="size-6" />
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align={align}>
