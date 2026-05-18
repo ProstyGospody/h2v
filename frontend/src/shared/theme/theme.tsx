@@ -1,4 +1,13 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState, type PropsWithChildren } from 'react';
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useState,
+  type PropsWithChildren,
+} from 'react';
 
 type Theme = 'dark' | 'light';
 
@@ -9,8 +18,10 @@ type ThemeContextValue = {
 };
 
 const THEME_STORAGE_KEY = 'h2v-theme';
+const THEME_SWITCHING_CLASS = 'theme-switching';
 
 const ThemeContext = createContext<ThemeContextValue | null>(null);
+const useIsomorphicLayoutEffect = typeof window === 'undefined' ? useEffect : useLayoutEffect;
 
 function getInitialTheme(): Theme {
   if (typeof window === 'undefined') return 'dark';
@@ -24,31 +35,50 @@ function getInitialTheme(): Theme {
   return window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
 }
 
-function applyTheme(theme: Theme) {
+function applyTheme(theme: Theme, disableTransitions = false) {
   if (typeof document === 'undefined') return;
 
-  document.documentElement.dataset.theme = theme;
-  document.documentElement.classList.toggle('dark', theme === 'dark');
-  document.documentElement.style.colorScheme = theme;
+  const root = document.documentElement;
+  if (disableTransitions) {
+    root.classList.add(THEME_SWITCHING_CLASS);
+  }
+
+  root.dataset.theme = theme;
+  root.classList.toggle('dark', theme === 'dark');
+  root.style.colorScheme = theme;
+
+  if (disableTransitions && typeof window !== 'undefined') {
+    window.requestAnimationFrame(() => {
+      window.requestAnimationFrame(() => {
+        root.classList.remove(THEME_SWITCHING_CLASS);
+      });
+    });
+  }
+}
+
+function persistTheme(theme: Theme) {
+  if (typeof window === 'undefined') return;
+
+  try {
+    window.localStorage.setItem(THEME_STORAGE_KEY, theme);
+  } catch {
+  }
 }
 
 function ThemeProvider({ children }: PropsWithChildren) {
   const [theme, setThemeState] = useState<Theme>(() => getInitialTheme());
 
   const setTheme = useCallback((nextTheme: Theme) => {
-    setThemeState(nextTheme);
+    setThemeState((current) => (current === nextTheme ? current : nextTheme));
   }, []);
 
   const toggleTheme = useCallback(() => {
     setThemeState((current) => (current === 'dark' ? 'light' : 'dark'));
   }, []);
 
-  useEffect(() => {
-    applyTheme(theme);
-    try {
-      window.localStorage.setItem(THEME_STORAGE_KEY, theme);
-    } catch {
-    }
+  useIsomorphicLayoutEffect(() => {
+    applyTheme(theme, true);
+    persistTheme(theme);
   }, [theme]);
 
   const value = useMemo<ThemeContextValue>(

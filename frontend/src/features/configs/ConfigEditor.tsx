@@ -88,7 +88,10 @@ export function ConfigEditor({
     const editor = editorRef.current;
     if (!editor) return;
 
-    editor.setTheme(theme === 'dark' ? ACE_DARK_THEME : ACE_LIGHT_THEME);
+    const frame = window.requestAnimationFrame(() => {
+      editor.setTheme(theme === 'dark' ? ACE_DARK_THEME : ACE_LIGHT_THEME);
+    });
+    return () => window.cancelAnimationFrame(frame);
   }, [theme]);
 
   useEffect(() => {

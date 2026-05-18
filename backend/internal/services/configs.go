@@ -62,23 +62,19 @@ func NewConfigService(cfg config.Config, settings *SettingsService, systemctl Sy
 }
 
 func (s *ConfigService) Get(ctx context.Context, core string) ([]byte, error) {
-	snapshot, err := s.GetSnapshot(ctx, core)
+	snapshot, err := s.GetSnapshot(ctx, core, false)
 	if err != nil {
 		return nil, err
 	}
 	return snapshot.Content, nil
 }
 
-func (s *ConfigService) GetSnapshot(ctx context.Context, core string) (*ConfigSnapshot, error) {
+func (s *ConfigService) GetSnapshot(ctx context.Context, core string, includeManaged bool) (*ConfigSnapshot, error) {
 	path, err := s.pathForCore(core)
 	if err != nil {
 		return nil, err
 	}
 
-	managed, err := s.RenderManaged(ctx, core)
-	if err != nil {
-		return nil, err
-	}
 	_, hasOverride, err := s.configOverride(ctx, core)
 	if err != nil {
 		return nil, err
@@ -86,6 +82,13 @@ func (s *ConfigService) GetSnapshot(ctx context.Context, core string) (*ConfigSn
 
 	content, err := os.ReadFile(path)
 	if err == nil {
+		if !includeManaged {
+			return &ConfigSnapshot{Content: content, HasOverride: hasOverride}, nil
+		}
+		managed, err := s.RenderManaged(ctx, core)
+		if err != nil {
+			return nil, err
+		}
 		return &ConfigSnapshot{Content: content, ManagedContent: managed, HasOverride: hasOverride || !bytes.Equal(content, managed)}, nil
 	}
 	if !errors.Is(err, os.ErrNotExist) {
@@ -97,6 +100,13 @@ func (s *ConfigService) GetSnapshot(ctx context.Context, core string) (*ConfigSn
 		return nil, err
 	}
 	if err := writeFileAtomic(path, rendered, 0o640); err != nil {
+		return nil, err
+	}
+	if !includeManaged {
+		return &ConfigSnapshot{Content: rendered, HasOverride: hasOverride}, nil
+	}
+	managed, err := s.RenderManaged(ctx, core)
+	if err != nil {
 		return nil, err
 	}
 	return &ConfigSnapshot{Content: rendered, ManagedContent: managed, HasOverride: hasOverride}, nil

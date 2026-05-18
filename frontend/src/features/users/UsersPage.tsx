@@ -1,11 +1,13 @@
-import { useEffect, useMemo, useState } from 'react';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { memo, useCallback, useEffect, useMemo, useState } from 'react';
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { addDays } from 'date-fns';
 import { QRCodeSVG } from 'qrcode.react';
 import { Bar, BarChart, XAxis } from 'recharts';
 import {
   ArrowRight,
   Ban,
+  ChevronLeft,
+  ChevronRight,
   Copy,
   MoreHorizontal,
   Power,
@@ -60,7 +62,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
 import { apiClient, ApiError } from '@/shared/api/client';
 import { ListMeta, TrafficPoint, User, UserLinks, UserStatus } from '@/shared/api/types';
-import { useI18n } from '@/shared/i18n/i18n';
+import { useI18n, type Locale, type Translate } from '@/shared/i18n/i18n';
 import type { TranslationKey } from '@/shared/i18n/translations';
 import { daysUntil, formatBytes, formatDate, formatDateTime, formatMonthDay, usagePercent } from '@/shared/lib/format';
 
@@ -78,6 +80,11 @@ const createUserFieldClassName =
   'bg-accent-gradient-soft hover:bg-[image:var(--gradient-accent-soft)] focus-visible:bg-[image:var(--gradient-accent-soft)]';
 const createUserChoiceClassName =
   'bg-accent-gradient-soft shadow-none hover:bg-[image:var(--gradient-accent-soft)]';
+const trafficPresets = [10, 50, 100, 500];
+const expiryPresets = [7, 30, 90, 365];
+const usersPerPage = 100;
+const userSearchDebounceMs = 250;
+const usersRefetchIntervalMs = 30_000;
 
 export function UsersPage() {
   const { locale, t } = useI18n();
@@ -90,41 +97,41 @@ export function UsersPage() {
   const [qrUserId, setQrUserId] = useState<string | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
   const [busyAction, setBusyAction] = useState<string | null>(null);
-  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
   const [rowAction, setRowAction] = useState<{ key: string; userId: string } | null>(null);
   const [drawerBusy, setDrawerBusy] = useState<string | null>(null);
   const [username, setUsername] = useState(generateUsername());
   const [trafficGb, setTrafficGb] = useState<number | null>(50);
   const [expiryDays, setExpiryDays] = useState<number | null>(30);
   const [note, setNote] = useState('');
-  const trafficPresets = [10, 50, 100, 500];
-  const expiryPresets = [7, 30, 90, 365];
-  const perPage = 100;
+  const debouncedSearch = useDebouncedValue(search.trim(), userSearchDebounceMs);
 
   useEffect(() => {
     setPage(1);
-    setSelectedIds([]);
-  }, [search, status, nearExpiry]);
+    setSelectedIds(new Set<string>());
+  }, [debouncedSearch, status, nearExpiry]);
 
   useEffect(() => {
-    setSelectedIds([]);
+    setSelectedIds(new Set<string>());
   }, [page]);
 
   const users = useQuery({
-    queryKey: ['users', search, status, nearExpiry, page, perPage],
+    placeholderData: keepPreviousData,
+    queryKey: ['users', debouncedSearch, status, nearExpiry, page, usersPerPage],
     queryFn: async () => {
       const params = new URLSearchParams();
-      if (search) params.set('search', search);
+      if (debouncedSearch) params.set('search', debouncedSearch);
       if (status !== 'all') params.set('status', status);
       if (nearExpiry) params.set('near_expiry', '14');
       params.set('page', String(page));
-      params.set('per_page', String(perPage));
+      params.set('per_page', String(usersPerPage));
       const q = params.toString();
       return apiClient.requestEnvelope<User[], ListMeta>(`/users${q ? `?${q}` : ''}`);
     },
-    refetchInterval: 10_000,
+    refetchInterval: createOpen || Boolean(qrUserId) ? false : usersRefetchIntervalMs,
   });
   const userItems = users.data?.data ?? [];
+  const userMeta = users.data?.meta;
   const activeFilter: UserFilter = nearExpiry ? 'near_expiry' : status;
 
   const drawerUser = useMemo(
@@ -171,7 +178,13 @@ export function UsersPage() {
     [t],
   );
 
-  const allSelected = Boolean(userItems.length) && selectedIds.length === userItems.length;
+  const selectedCount = selectedIds.size;
+  const allSelected = Boolean(userItems.length) && userItems.every((user) => selectedIds.has(user.id));
+  const totalUsers = userMeta?.total ?? userItems.length;
+  const totalPages = Math.max(1, Math.ceil(totalUsers / usersPerPage));
+  const paginationFirst = totalUsers ? (page - 1) * usersPerPage + 1 : 0;
+  const paginationLast = Math.min(totalUsers, (page - 1) * usersPerPage + userItems.length);
+  const showPagination = Boolean(userMeta && totalUsers > usersPerPage);
   const drawerTrafficPercent = drawerUser
     ? usagePercent(drawerUser.traffic_used, drawerUser.traffic_limit)
     : 0;
@@ -182,16 +195,45 @@ export function UsersPage() {
         ? 'bg-warning'
         : 'bg-accent-gradient';
 
-  async function refreshUsers() {
+  const openUser = useCallback((id: string) => {
+    setDrawerUserId(id);
+  }, []);
+
+  const showUserQR = useCallback((id: string) => {
+    setQrUserId(id);
+  }, []);
+
+  const toggleUserSelection = useCallback((id: string) => {
+    setSelectedIds((curr) => {
+      const next = new Set(curr);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  }, []);
+
+  const toggleAllUsers = useCallback(() => {
+    setSelectedIds((curr) => {
+      if (userItems.length && userItems.every((user) => curr.has(user.id))) {
+        return new Set<string>();
+      }
+      return new Set(userItems.map((user) => user.id));
+    });
+  }, [userItems]);
+
+  const refreshUsers = useCallback(async () => {
     await Promise.all([
       queryClient.invalidateQueries({ queryKey: ['users'] }),
       queryClient.invalidateQueries({ queryKey: ['stats', 'overview'] }),
     ]);
-  }
+  }, [queryClient]);
 
-  async function runBulk(key: string, label: string, body: Record<string, unknown>) {
-    if (!selectedIds.length) return;
-    const ids = [...selectedIds];
+  const runBulk = useCallback(async (key: string, label: string, body: Record<string, unknown>) => {
+    if (!selectedIds.size) return;
+    const ids = Array.from(selectedIds);
     setBusyAction(key);
     try {
       await apiClient.request('/users/bulk', {
@@ -199,21 +241,21 @@ export function UsersPage() {
         method: 'POST',
       });
       toast.success(t('users.bulkComplete', { action: label }));
-      setSelectedIds([]);
+      setSelectedIds(new Set<string>());
       await refreshUsers();
     } catch (error) {
       toast.error(error instanceof ApiError ? error.message : t('users.bulkFailed', { action: label }));
     } finally {
       setBusyAction(null);
     }
-  }
+  }, [refreshUsers, selectedIds, t]);
 
-  async function runRowUserAction(
+  const runRowUserAction = useCallback(async (
     user: User,
     key: string,
     action: () => Promise<unknown>,
     message: string,
-  ) {
+  ) => {
     setRowAction({ key, userId: user.id });
     try {
       await action();
@@ -224,9 +266,9 @@ export function UsersPage() {
     } finally {
       setRowAction(null);
     }
-  }
+  }, [refreshUsers, t]);
 
-  async function resetDrawerSubscription() {
+  const resetDrawerSubscription = useCallback(async () => {
     if (!drawerUser) return;
     setDrawerBusy('reset-sub');
     try {
@@ -241,7 +283,7 @@ export function UsersPage() {
     } finally {
       setDrawerBusy(null);
     }
-  }
+  }, [drawerUser, queryClient, t]);
 
   const createMutation = useMutation({
     mutationFn: () =>
@@ -324,10 +366,10 @@ export function UsersPage() {
       />
 
       <div className="space-y-4 px-page pt-5">
-        {selectedIds.length ? (
+        {selectedCount ? (
           <div className="flex flex-col items-start justify-between gap-3 rounded-[22px] bg-accent-gradient-soft px-4 py-3 shadow-sm md:flex-row md:items-center">
             <div className="flex items-center gap-2 text-sm">
-              <Badge>{selectedIds.length}</Badge>
+              <Badge>{selectedCount}</Badge>
               <span className="text-muted-foreground">{t('users.selected')}</span>
             </div>
             <div className="flex flex-wrap items-center gap-2">
@@ -393,10 +435,7 @@ export function UsersPage() {
                     <input
                       aria-label={t('users.selectAll')}
                       checked={allSelected}
-                      onChange={() => {
-                        if (allSelected) setSelectedIds([]);
-                        else setSelectedIds(userItems.map((u) => u.id));
-                      }}
+                      onChange={toggleAllUsers}
                       type="checkbox"
                     />
                   </TableHead>
@@ -410,175 +449,20 @@ export function UsersPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {userItems.map((user) => {
-                  const checked = selectedIds.includes(user.id);
-                  const trafficPercent = usagePercent(user.traffic_used, user.traffic_limit);
-                  const trafficFillClass =
-                    trafficPercent >= 90
-                      ? 'bg-destructive'
-                      : trafficPercent >= 70
-                        ? 'bg-warning'
-                        : 'bg-accent-gradient';
-                  const expiresInDays = daysUntil(user.expires_at);
-                  const rowBusy = rowAction?.userId === user.id ? rowAction.key : null;
-                  return (
-                    <TableRow
-                      className="cursor-pointer"
-                      key={user.id}
-                      onClick={() => setDrawerUserId(user.id)}
-                    >
-                      <TableCell className="pl-4" onClick={(e) => e.stopPropagation()}>
-                        <input
-                          aria-label={t('users.selectUser', { username: user.username })}
-                          checked={checked}
-                          onChange={() =>
-                            setSelectedIds((curr) =>
-                              checked ? curr.filter((id) => id !== user.id) : [...curr, user.id],
-                            )
-                          }
-                          type="checkbox"
-                        />
-                      </TableCell>
-                      <TableCell className="min-w-0">
-                        <div className="min-w-0">
-                          <div className="truncate font-medium text-foreground">{user.username}</div>
-                          {user.note ? (
-                            <div className="mt-0.5 truncate text-xs text-muted-foreground">{user.note}</div>
-                          ) : null}
-                          <div className="mt-2 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 sm:hidden">
-                            <UserStatusBadge status={user.status} />
-                            <span className="min-w-0 truncate font-mono text-[11px] text-muted-foreground">
-                              {formatBytes(user.traffic_used)} /{' '}
-                              {user.traffic_limit > 0 ? formatBytes(user.traffic_limit) : t('common.unlimited')}
-                            </span>
-                          </div>
-                        </div>
-                      </TableCell>
-                      <TableCell className="hidden sm:table-cell">
-                        <UserStatusBadge status={user.status} />
-                      </TableCell>
-                      <TableCell className="hidden min-w-44 sm:table-cell">
-                        <div className="space-y-1.5">
-                          <div className="h-1.5 overflow-hidden rounded-full bg-muted">
-                            <div
-                              className={`h-full rounded-full ${trafficFillClass}`}
-                              style={{ width: `${trafficPercent}%` }}
-                            />
-                          </div>
-                          <div className="flex items-center justify-between text-xs text-muted-foreground">
-                            <span className="font-mono">{formatBytes(user.traffic_used)}</span>
-                            <span className="font-mono">
-                              {user.traffic_limit > 0 ? formatBytes(user.traffic_limit) : t('common.unlimited')}
-                            </span>
-                          </div>
-                        </div>
-                      </TableCell>
-                      <TableCell className="hidden md:table-cell">
-                        {expiresInDays === null ? (
-                          <Badge variant="secondary">{t('common.never')}</Badge>
-                        ) : expiresInDays < 0 ? (
-                          <Badge variant="warning">{t('common.expired')}</Badge>
-                        ) : expiresInDays < 3 ? (
-                          <Badge variant="warning">{t('users.daysLeft', { days: expiresInDays })}</Badge>
-                        ) : (
-                          <Badge variant="secondary">{t('users.daysLeft', { days: expiresInDays })}</Badge>
-                        )}
-                      </TableCell>
-                      <TableCell className="hidden text-xs text-muted-foreground lg:table-cell">
-                        {formatMonthDay(user.created_at, locale)}
-                      </TableCell>
-                      <TableCell className="hidden sm:table-cell" onClick={(e) => e.stopPropagation()}>
-                        <Button
-                          onClick={() => setQrUserId(user.id)}
-                          size="sm"
-                          type="button"
-                          variant="secondary"
-                        >
-                          <QrCode />
-                          {t('users.qr')}
-                        </Button>
-                      </TableCell>
-                      <TableCell onClick={(e) => e.stopPropagation()}>
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button aria-label={t('users.tableMenu')} size="icon" variant="ghost">
-                              <MoreHorizontal />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem
-                              disabled={rowBusy === 'status'}
-                              onSelect={() =>
-                                void runRowUserAction(
-                                  user,
-                                  'status',
-                                  () =>
-                                    apiClient.request(`/users/${user.id}`, {
-                                      body: JSON.stringify({
-                                        status: user.status === 'disabled' ? 'active' : 'disabled',
-                                      }),
-                                      method: 'PATCH',
-                                    }),
-                                  user.status === 'disabled' ? t('users.userEnabled') : t('users.userDisabled'),
-                                )
-                              }
-                            >
-                              {user.status === 'disabled' ? <Power /> : <Ban />}
-                              {user.status === 'disabled' ? t('common.enable') : t('common.disable')}
-                            </DropdownMenuItem>
-                            <DropdownMenuItem
-                              disabled={rowBusy === 'reset-traffic'}
-                              onSelect={() =>
-                                void runRowUserAction(
-                                  user,
-                                  'reset-traffic',
-                                  () =>
-                                    apiClient.request(`/users/${user.id}/reset-traffic`, {
-                                      method: 'POST',
-                                    }),
-                                  t('users.trafficReset'),
-                                )
-                              }
-                            >
-                              <RotateCcw />
-                              {t('users.resetTraffic')}
-                            </DropdownMenuItem>
-                            <DropdownMenuItem
-                              disabled={rowBusy === 'reset-sub'}
-                              onSelect={() =>
-                                void runRowUserAction(
-                                  user,
-                                  'reset-sub',
-                                  () => apiClient.request(`/users/${user.id}/reset-sub`, { method: 'POST' }),
-                                  t('users.subscriptionRotated'),
-                                )
-                              }
-                            >
-                              <RefreshCw />
-                              {t('users.resetLink')}
-                            </DropdownMenuItem>
-                            <DropdownMenuSeparator />
-                            <DropdownMenuItem
-                              disabled={rowBusy === 'delete'}
-                              onSelect={() =>
-                                void runRowUserAction(
-                                  user,
-                                  'delete',
-                                  () => apiClient.request(`/users/${user.id}`, { method: 'DELETE' }),
-                                  t('users.userDeleted'),
-                                )
-                              }
-                              variant="destructive"
-                            >
-                              <Trash2 />
-                              {t('common.delete')}
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </TableCell>
-                    </TableRow>
-                  );
-                })}
+                {userItems.map((user) => (
+                  <UserTableRow
+                    checked={selectedIds.has(user.id)}
+                    key={user.id}
+                    locale={locale}
+                    onOpen={openUser}
+                    onRunAction={runRowUserAction}
+                    onShowQR={showUserQR}
+                    onToggleSelected={toggleUserSelection}
+                    rowBusy={rowAction?.userId === user.id ? rowAction.key : null}
+                    t={t}
+                    user={user}
+                  />
+                ))}
               </TableBody>
             </Table>
           ) : (
@@ -593,6 +477,40 @@ export function UsersPage() {
             </CardContent>
           )}
         </Card>
+
+        {showPagination ? (
+          <div className="flex flex-col items-start justify-between gap-3 rounded-lg bg-surface px-3 py-3 text-sm shadow-sm sm:flex-row sm:items-center">
+            <div className="font-mono text-xs text-muted-foreground">
+              {t('users.paginationRange', {
+                first: paginationFirst,
+                last: paginationLast,
+                total: totalUsers,
+              })}
+            </div>
+            <div className="flex items-center gap-2">
+              <Button
+                disabled={page <= 1 || users.isFetching}
+                onClick={() => setPage((current) => Math.max(1, current - 1))}
+                size="sm"
+                type="button"
+                variant="secondary"
+              >
+                <ChevronLeft />
+                {t('users.previous')}
+              </Button>
+              <Button
+                disabled={page >= totalPages || users.isFetching}
+                onClick={() => setPage((current) => Math.min(totalPages, current + 1))}
+                size="sm"
+                type="button"
+                variant="secondary"
+              >
+                {t('users.next')}
+                <ChevronRight />
+              </Button>
+            </div>
+          </div>
+        ) : null}
       </div>
 
       <Sheet onOpenChange={(next) => (next ? null : setDrawerUserId(null))} open={drawerOpen}>
@@ -848,8 +766,210 @@ export function UsersPage() {
   );
 }
 
+type UserTableRowProps = {
+  checked: boolean;
+  locale: Locale;
+  onOpen: (id: string) => void;
+  onRunAction: (
+    user: User,
+    key: string,
+    action: () => Promise<unknown>,
+    message: string,
+  ) => Promise<void>;
+  onShowQR: (id: string) => void;
+  onToggleSelected: (id: string) => void;
+  rowBusy: string | null;
+  t: Translate;
+  user: User;
+};
+
+const UserTableRow = memo(function UserTableRow({
+  checked,
+  locale,
+  onOpen,
+  onRunAction,
+  onShowQR,
+  onToggleSelected,
+  rowBusy,
+  t,
+  user,
+}: UserTableRowProps) {
+  const trafficPercent = usagePercent(user.traffic_used, user.traffic_limit);
+  const trafficFillClass =
+    trafficPercent >= 90
+      ? 'bg-destructive'
+      : trafficPercent >= 70
+        ? 'bg-warning'
+        : 'bg-accent-gradient';
+  const expiresInDays = daysUntil(user.expires_at);
+
+  return (
+    <TableRow
+      className="cursor-pointer"
+      onClick={() => onOpen(user.id)}
+    >
+      <TableCell className="pl-4" onClick={(e) => e.stopPropagation()}>
+        <input
+          aria-label={t('users.selectUser', { username: user.username })}
+          checked={checked}
+          onChange={() => onToggleSelected(user.id)}
+          type="checkbox"
+        />
+      </TableCell>
+      <TableCell className="min-w-0">
+        <div className="min-w-0">
+          <div className="truncate font-medium text-foreground">{user.username}</div>
+          {user.note ? (
+            <div className="mt-0.5 truncate text-xs text-muted-foreground">{user.note}</div>
+          ) : null}
+          <div className="mt-2 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 sm:hidden">
+            <UserStatusBadge status={user.status} />
+            <span className="min-w-0 truncate font-mono text-[11px] text-muted-foreground">
+              {formatBytes(user.traffic_used)} /{' '}
+              {user.traffic_limit > 0 ? formatBytes(user.traffic_limit) : t('common.unlimited')}
+            </span>
+          </div>
+        </div>
+      </TableCell>
+      <TableCell className="hidden sm:table-cell">
+        <UserStatusBadge status={user.status} />
+      </TableCell>
+      <TableCell className="hidden min-w-44 sm:table-cell">
+        <div className="space-y-1.5">
+          <div className="h-1.5 overflow-hidden rounded-full bg-muted">
+            <div
+              className={`h-full rounded-full ${trafficFillClass}`}
+              style={{ width: `${trafficPercent}%` }}
+            />
+          </div>
+          <div className="flex items-center justify-between text-xs text-muted-foreground">
+            <span className="font-mono">{formatBytes(user.traffic_used)}</span>
+            <span className="font-mono">
+              {user.traffic_limit > 0 ? formatBytes(user.traffic_limit) : t('common.unlimited')}
+            </span>
+          </div>
+        </div>
+      </TableCell>
+      <TableCell className="hidden md:table-cell">
+        {expiresInDays === null ? (
+          <Badge variant="secondary">{t('common.never')}</Badge>
+        ) : expiresInDays < 0 ? (
+          <Badge variant="warning">{t('common.expired')}</Badge>
+        ) : expiresInDays < 3 ? (
+          <Badge variant="warning">{t('users.daysLeft', { days: expiresInDays })}</Badge>
+        ) : (
+          <Badge variant="secondary">{t('users.daysLeft', { days: expiresInDays })}</Badge>
+        )}
+      </TableCell>
+      <TableCell className="hidden text-xs text-muted-foreground lg:table-cell">
+        {formatMonthDay(user.created_at, locale)}
+      </TableCell>
+      <TableCell className="hidden sm:table-cell" onClick={(e) => e.stopPropagation()}>
+        <Button
+          onClick={() => onShowQR(user.id)}
+          size="sm"
+          type="button"
+          variant="secondary"
+        >
+          <QrCode />
+          {t('users.qr')}
+        </Button>
+      </TableCell>
+      <TableCell onClick={(e) => e.stopPropagation()}>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button aria-label={t('users.tableMenu')} size="icon" variant="ghost">
+              <MoreHorizontal />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem
+              disabled={rowBusy === 'status'}
+              onSelect={() =>
+                void onRunAction(
+                  user,
+                  'status',
+                  () =>
+                    apiClient.request(`/users/${user.id}`, {
+                      body: JSON.stringify({
+                        status: user.status === 'disabled' ? 'active' : 'disabled',
+                      }),
+                      method: 'PATCH',
+                    }),
+                  user.status === 'disabled' ? t('users.userEnabled') : t('users.userDisabled'),
+                )
+              }
+            >
+              {user.status === 'disabled' ? <Power /> : <Ban />}
+              {user.status === 'disabled' ? t('common.enable') : t('common.disable')}
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              disabled={rowBusy === 'reset-traffic'}
+              onSelect={() =>
+                void onRunAction(
+                  user,
+                  'reset-traffic',
+                  () =>
+                    apiClient.request(`/users/${user.id}/reset-traffic`, {
+                      method: 'POST',
+                    }),
+                  t('users.trafficReset'),
+                )
+              }
+            >
+              <RotateCcw />
+              {t('users.resetTraffic')}
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              disabled={rowBusy === 'reset-sub'}
+              onSelect={() =>
+                void onRunAction(
+                  user,
+                  'reset-sub',
+                  () => apiClient.request(`/users/${user.id}/reset-sub`, { method: 'POST' }),
+                  t('users.subscriptionRotated'),
+                )
+              }
+            >
+              <RefreshCw />
+              {t('users.resetLink')}
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem
+              disabled={rowBusy === 'delete'}
+              onSelect={() =>
+                void onRunAction(
+                  user,
+                  'delete',
+                  () => apiClient.request(`/users/${user.id}`, { method: 'DELETE' }),
+                  t('users.userDeleted'),
+                )
+              }
+              variant="destructive"
+            >
+              <Trash2 />
+              {t('common.delete')}
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </TableCell>
+    </TableRow>
+  );
+});
+
 function generateUsername() {
   return `user_${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function useDebouncedValue<T>(value: T, delayMs: number): T {
+  const [debounced, setDebounced] = useState(value);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => setDebounced(value), delayMs);
+    return () => window.clearTimeout(timer);
+  }, [delayMs, value]);
+
+  return debounced;
 }
 
 function UserStatusBadge({ status }: { status: UserStatus }) {

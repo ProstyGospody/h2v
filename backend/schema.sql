@@ -1,4 +1,5 @@
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
+CREATE EXTENSION IF NOT EXISTS pg_trgm;
 
 CREATE TABLE IF NOT EXISTS users (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -24,6 +25,10 @@ DROP INDEX IF EXISTS idx_users_vless_uuid;
 DROP INDEX IF EXISTS idx_users_hy2_password;
 
 CREATE INDEX IF NOT EXISTS idx_users_status_expires ON users(status, expires_at);
+CREATE INDEX IF NOT EXISTS idx_users_created_at_desc ON users(created_at DESC, id DESC);
+CREATE INDEX IF NOT EXISTS idx_users_status_created_at_desc ON users(status, created_at DESC, id DESC);
+CREATE INDEX IF NOT EXISTS idx_users_expires_at ON users(expires_at) WHERE expires_at IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_users_username_trgm ON users USING gin (username gin_trgm_ops);
 
 CREATE TABLE IF NOT EXISTS traffic_log (
     id BIGSERIAL PRIMARY KEY,

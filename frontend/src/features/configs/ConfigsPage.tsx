@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useMemo, useState } from 'react';
+import { lazy, Suspense, useDeferredValue, useEffect, useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   AlertTriangle,
@@ -52,6 +52,8 @@ type JsonState =
     };
 
 const cores: Core[] = ['xray', 'hysteria'];
+const jsonInspectDebounceMs = 300;
+const emptyDiffStats = { changed: 0, currentLines: 0, nextLines: 0 };
 
 const coreMeta: Record<Core, CoreMeta> = {
   hysteria: { label: 'Hysteria 2', logo: 'hysteria', service: 'hysteria' },
@@ -81,28 +83,47 @@ function ConfigSection({ core }: { core: Core }) {
 
   const [draft, setDraft] = useState<string | null>(null);
   const [diffOpen, setDiffOpen] = useState(false);
+  const [managedVersion, setManagedVersion] = useState(0);
   const [validation, setValidation] = useState<ValidationState>('idle');
 
   const config = useQuery({
     queryKey: ['configs', core],
     queryFn: () => apiClient.request<ConfigResponse>(`/configs/${core}`),
   });
+  const managedConfig = useQuery({
+    enabled: false,
+    queryKey: ['configs', core, 'managed', managedVersion],
+    queryFn: () => apiClient.request<ConfigResponse>(`/configs/${core}?include_managed=1`),
+  });
 
   useEffect(() => {
     if (config.data?.content === undefined) return;
     setDraft(normalizeConfigText(config.data.content));
+    setManagedVersion((current) => current + 1);
     setValidation('idle');
   }, [config.data?.content]);
 
-  const original = normalizeConfigText(config.data?.content ?? '');
-  const generated = normalizeConfigText(config.data?.managed_content ?? '');
+  const original = useMemo(() => normalizeConfigText(config.data?.content ?? ''), [config.data?.content]);
+  const generated = useMemo(
+    () =>
+      managedConfig.data?.managed_content === undefined
+        ? null
+        : normalizeConfigText(managedConfig.data.managed_content),
+    [managedConfig.data?.managed_content],
+  );
   const content = draft ?? original;
+  const deferredContent = useDeferredValue(content);
+  const debouncedContent = useDebouncedValue(content, jsonInspectDebounceMs);
+  const jsonPending = content !== debouncedContent;
   const dirty = Boolean(config.data && content !== original);
-  const generatedDirty = Boolean(config.data && content !== generated);
-  const hasOverride = Boolean(config.data?.has_override);
-  const jsonState = useMemo(() => inspectJson(content, t), [content, t]);
-  const stats = useMemo(() => contentStats(content), [content]);
-  const diffStats = useMemo(() => summarizeDiff(original, content), [original, content]);
+  const generatedDirty = Boolean(config.data && generated !== null && content !== generated);
+  const hasOverride = Boolean(config.data?.has_override || managedConfig.data?.has_override);
+  const jsonState = useMemo(() => inspectJson(debouncedContent, t), [debouncedContent, t]);
+  const stats = useMemo(() => contentStats(deferredContent), [deferredContent]);
+  const diffStats = useMemo(
+    () => (diffOpen ? summarizeDiff(original, content) : emptyDiffStats),
+    [content, diffOpen, original],
+  );
 
   const validate = useMutation({
     mutationFn: () =>
@@ -133,16 +154,18 @@ function ConfigSection({ core }: { core: Core }) {
       toast.success(t('configs.configurationApplied', { name: meta.label }));
       setDiffOpen(false);
       setValidation('idle');
+      setManagedVersion((current) => current + 1);
       await queryClient.invalidateQueries({ queryKey: ['configs', core] });
     },
   });
 
-  const canValidate = Boolean(config.data && dirty && jsonState.valid && !validate.isPending);
-  const canApply = dirty && validation === 'valid' && jsonState.valid && !apply.isPending;
+  const canValidate = Boolean(config.data && dirty && !jsonPending && jsonState.valid && !validate.isPending);
+  const canApply = dirty && validation === 'valid' && !jsonPending && jsonState.valid && !apply.isPending;
 
   async function reloadConfig() {
     const result = await config.refetch();
     if (result.data?.content === undefined) return;
+    setManagedVersion((current) => current + 1);
     setDraft(normalizeConfigText(result.data.content));
     setValidation('idle');
   }
@@ -157,8 +180,10 @@ function ConfigSection({ core }: { core: Core }) {
     setValidation('idle');
   }
 
-  function resetToGenerated() {
-    setDraft(generated);
+  async function resetToGenerated() {
+    const nextGenerated = await ensureGeneratedConfig();
+    if (nextGenerated === null) return;
+    setDraft(nextGenerated);
     setValidation('idle');
   }
 
@@ -169,6 +194,22 @@ function ConfigSection({ core }: { core: Core }) {
       toast.success(t('configs.formatJson', { name: meta.label }));
     } catch {
       toast.error(t('configs.jsonSyntaxError', { name: meta.label }));
+    }
+  }
+
+  async function ensureGeneratedConfig(): Promise<string | null> {
+    if (generated !== null) return generated;
+    try {
+      const result = await managedConfig.refetch();
+      if (result.error) {
+        throw result.error;
+      }
+      const managed = result.data?.managed_content;
+      if (managed === undefined) return null;
+      return normalizeConfigText(managed);
+    } catch (error) {
+      toast.error(error instanceof ApiError ? error.message : t('configs.unableLoad', { name: meta.label }));
+      return null;
     }
   }
 
@@ -194,6 +235,7 @@ function ConfigSection({ core }: { core: Core }) {
               dirty={dirty}
               hasOverride={hasOverride}
               isChecking={validate.isPending}
+              isJsonPending={jsonPending}
               isLoading={config.isLoading}
               jsonState={jsonState}
               validation={validation}
@@ -211,11 +253,16 @@ function ConfigSection({ core }: { core: Core }) {
               <RotateCcw />
               {t('common.reset')}
             </Button>
-            <Button disabled={!generatedDirty} onClick={resetToGenerated} size="sm" variant="outline">
-              <RotateCcw />
+            <Button
+              disabled={!config.data || managedConfig.isFetching || (generated !== null && !generatedDirty)}
+              onClick={() => void resetToGenerated()}
+              size="sm"
+              variant="outline"
+            >
+              <RotateCcw className={cn(managedConfig.isFetching && 'animate-spin')} />
               {t('configs.generated')}
             </Button>
-            <Button disabled={!config.data || !jsonState.valid} onClick={formatDraft} size="sm" variant="outline">
+            <Button disabled={!config.data || jsonPending || !jsonState.valid} onClick={formatDraft} size="sm" variant="outline">
               <Wand2 />
               {t('common.format')}
             </Button>
@@ -232,7 +279,7 @@ function ConfigSection({ core }: { core: Core }) {
           </div>
         </div>
 
-        {!jsonState.valid && !config.isLoading ? (
+        {!jsonPending && !jsonState.valid && !config.isLoading ? (
           <div className="border-b border-destructive/20 bg-destructive/10 px-4 py-2.5 text-xs text-destructive">
             {jsonState.message}
           </div>
@@ -317,6 +364,7 @@ function ConfigStatus({
   dirty,
   hasOverride,
   isChecking,
+  isJsonPending,
   isLoading,
   jsonState,
   validation,
@@ -324,6 +372,7 @@ function ConfigStatus({
   dirty: boolean;
   hasOverride: boolean;
   isChecking: boolean;
+  isJsonPending: boolean;
   isLoading: boolean;
   jsonState: JsonState;
   validation: ValidationState;
@@ -339,6 +388,7 @@ function ConfigStatus({
       </Badge>
     );
   }
+  if (isJsonPending && dirty) return <Badge variant="warning">{t('configs.modified')}</Badge>;
   if (!jsonState.valid) {
     return (
       <Badge variant="destructive">
@@ -379,7 +429,7 @@ function DiffMetric({ label, value }: { label: string; value: string }) {
 
 function DiffView({ label, value }: { label: string; value: string }) {
   const { t } = useI18n();
-  const stats = contentStats(value);
+  const stats = useMemo(() => contentStats(value), [value]);
 
   return (
     <div className="flex min-h-0 flex-col overflow-hidden rounded-md border border-border/60 bg-card">
@@ -390,15 +440,12 @@ function DiffView({ label, value }: { label: string; value: string }) {
         </div>
       </div>
       <div className="min-h-0 flex-1">
-        <Suspense fallback={<Skeleton className="h-full min-h-[360px] w-full rounded-none" />}>
-          <ConfigEditor
-            className="h-[42vh] min-h-[320px] rounded-none border-0 md:h-[50vh] md:min-h-[360px]"
-            label={t('configs.previewEditor', { label })}
-            onChange={() => undefined}
-            readOnly
-            value={value}
-          />
-        </Suspense>
+        <pre
+          aria-label={t('configs.previewEditor', { label })}
+          className="h-[42vh] min-h-[320px] overflow-auto bg-background/45 p-3 font-mono text-[11px] leading-5 text-foreground md:h-[50vh] md:min-h-[360px]"
+        >
+          {value}
+        </pre>
       </div>
     </div>
   );
@@ -432,6 +479,17 @@ function describeJsonError(message: string, value: string, t?: Translate): strin
 
 function normalizeConfigText(value: string): string {
   return value.replace(/^(?:[ \t]*\r?\n)+/, '');
+}
+
+function useDebouncedValue<T>(value: T, delayMs: number): T {
+  const [debounced, setDebounced] = useState(value);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => setDebounced(value), delayMs);
+    return () => window.clearTimeout(timer);
+  }, [delayMs, value]);
+
+  return debounced;
 }
 
 function contentStats(value: string) {

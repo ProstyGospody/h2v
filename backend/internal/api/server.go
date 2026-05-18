@@ -501,16 +501,20 @@ func (s *Server) handleUsersLinks(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleConfigGet(w http.ResponseWriter, r *http.Request) {
-	snapshot, err := s.services.Configs.GetSnapshot(r.Context(), chi.URLParam(r, "core"))
+	includeManaged := boolQuery(r, "include_managed")
+	snapshot, err := s.services.Configs.GetSnapshot(r.Context(), chi.URLParam(r, "core"), includeManaged)
 	if err != nil {
 		jsonError(w, err)
 		return
 	}
-	jsonData(w, http.StatusOK, map[string]any{
-		"content":         string(snapshot.Content),
-		"managed_content": string(snapshot.ManagedContent),
-		"has_override":    snapshot.HasOverride,
-	}, nil)
+	payload := map[string]any{
+		"content":      string(snapshot.Content),
+		"has_override": snapshot.HasOverride,
+	}
+	if includeManaged {
+		payload["managed_content"] = string(snapshot.ManagedContent)
+	}
+	jsonData(w, http.StatusOK, payload, nil)
 }
 
 func (s *Server) handleConfigValidate(w http.ResponseWriter, r *http.Request) {
