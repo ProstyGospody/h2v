@@ -28,6 +28,7 @@ import {
 import { Skeleton } from '@/components/ui/skeleton';
 import { CoreLogo, type CoreLogoName } from '@/components/core-logo';
 import { PageHeader } from '@/components/page-header';
+import { ServiceStatusIsland } from '@/components/service-status-island';
 import { cn } from '@/lib/utils';
 import { apiClient, ApiError } from '@/shared/api/client';
 import { useI18n, type Translate } from '@/shared/i18n/i18n';
@@ -303,6 +304,7 @@ export function SettingsPage() {
       <PageHeader
         action={
           <>
+            <ServiceStatusIsland />
             <Button
               aria-label={showSecrets ? t('settings.hideSecrets') : t('settings.showSecrets')}
               className="size-10"
