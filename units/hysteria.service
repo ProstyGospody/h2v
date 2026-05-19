@@ -6,6 +6,7 @@ Wants=network-online.target
 [Service]
 User=hysteria
 SupplementaryGroups=h2v
+Environment=HY2_CONFIG_PATH=/opt/h2v/configs/hysteria/config.json
 EnvironmentFile=-/opt/h2v/.env
 CapabilityBoundingSet=CAP_NET_BIND_SERVICE
 AmbientCapabilities=CAP_NET_BIND_SERVICE

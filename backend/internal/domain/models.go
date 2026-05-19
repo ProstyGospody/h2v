@@ -90,8 +90,8 @@ type TrafficPoint struct {
 }
 
 type TrafficDelta struct {
-	Uplink   int64
-	Downlink int64
+	Uplink   int64 `json:"uplink"`
+	Downlink int64 `json:"downlink"`
 }
 
 type OnlineUser struct {

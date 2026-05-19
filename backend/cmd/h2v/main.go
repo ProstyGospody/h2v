@@ -143,7 +143,8 @@ func buildApp(ctx context.Context, cfg config.Config, logger *slog.Logger) (*pgx
 	coreReconciler := tasks.NewCoreReconciler(reconcileXray, reconcileHysteria, logger)
 
 	scheduler := tasks.NewScheduler(logger)
-	scheduler.Every("collector", cfg.Tasks.CollectorInterval, tasks.NewCollector(repository, xrayClient, hysteriaClient, logger).Run)
+	trafficSpoolDir := filepath.Join(cfg.H2V.RootDir, "data", "traffic-pending")
+	scheduler.Every("collector", cfg.Tasks.CollectorInterval, tasks.NewCollector(repository, xrayClient, hysteriaClient, trafficSpoolDir, logger).Run)
 	scheduler.Every("enforcer", cfg.Tasks.EnforcerInterval, tasks.NewEnforcer(repository, xrayClient, hysteriaClient, userCache, reconcileXray, logger).Run)
 	scheduler.Every("core_reconciler", cfg.Tasks.CoreReconcileInterval, coreReconciler.Run)
 	scheduler.Every("cache_refresh", cfg.Tasks.CacheRefreshInterval, userCache.Refresh)

@@ -105,42 +105,80 @@ type Collector struct {
 		QueryAndResetStats(context.Context) (map[string]domain.TrafficDelta, error)
 	}
 	hysteria interface{ GetTraffic(context.Context, bool) (map[string]domain.TrafficDelta, error) }
+	spool    *trafficSpool
 	logger   *slog.Logger
 }
 
 func NewCollector(repository *repo.Repository, xray interface {
 	QueryAndResetStats(context.Context) (map[string]domain.TrafficDelta, error)
-}, hysteria interface{ GetTraffic(context.Context, bool) (map[string]domain.TrafficDelta, error) }, logger *slog.Logger) *Collector {
-	return &Collector{repo: repository, xray: xray, hysteria: hysteria, logger: logger}
+}, hysteria interface{ GetTraffic(context.Context, bool) (map[string]domain.TrafficDelta, error) }, spoolDir string, logger *slog.Logger) *Collector {
+	return &Collector{repo: repository, xray: xray, hysteria: hysteria, spool: newTrafficSpool(spoolDir), logger: logger}
 }
 
 func (t *Collector) Run(ctx context.Context) error {
+	if err := t.flushPending(ctx); err != nil {
+		return err
+	}
 	if xStats, err := t.xray.QueryAndResetStats(ctx); err != nil {
 		t.logger.Warn("xray stats failed", "err", err)
 	} else if len(xStats) > 0 {
-		matched, err := t.repo.AddTrafficBatch(ctx, "xray", xStats)
-		if err != nil {
-			return fmt.Errorf("save xray traffic: %w", err)
-		}
-		t.logger.Info("xray stats saved", "users_reported", len(xStats), "users_matched", matched)
-		if matched != int64(len(xStats)) {
-			t.logger.Warn("xray stats username mismatch — emails in xray config do not match users.username", "reported", keysOf(xStats))
+		if err := t.enqueueAndFlush(ctx, "xray", xStats); err != nil {
+			return err
 		}
 	}
 
 	if hStats, err := t.hysteria.GetTraffic(ctx, true); err != nil {
 		t.logger.Warn("hysteria traffic failed", "err", err)
 	} else if len(hStats) > 0 {
-		matched, err := t.repo.AddTrafficBatch(ctx, "hysteria", hStats)
-		if err != nil {
-			return fmt.Errorf("save hysteria traffic: %w", err)
-		}
-		t.logger.Info("hysteria stats saved", "users_reported", len(hStats), "users_matched", matched)
-		if matched != int64(len(hStats)) {
-			t.logger.Warn("hysteria stats username mismatch — auth callback ids do not match users.username", "reported", keysOf(hStats))
+		if err := t.enqueueAndFlush(ctx, "hysteria", hStats); err != nil {
+			return err
 		}
 	}
 	return nil
+}
+
+func (t *Collector) enqueueAndFlush(ctx context.Context, core string, stats map[string]domain.TrafficDelta) error {
+	if _, err := t.spool.Enqueue(core, stats); err != nil {
+		return fmt.Errorf("spool %s traffic: %w", core, err)
+	}
+	return t.flushPending(ctx)
+}
+
+func (t *Collector) flushPending(ctx context.Context) error {
+	batches, err := t.spool.List()
+	if err != nil {
+		return fmt.Errorf("list pending traffic: %w", err)
+	}
+	for _, batch := range batches {
+		matched, duplicate, err := t.repo.AddTrafficBatchOnce(ctx, batch.ID, batch.Core, batch.Stats)
+		if err != nil {
+			return fmt.Errorf("save pending %s traffic batch %s: %w", batch.Core, batch.ID, err)
+		}
+		if err := t.spool.Delete(batch); err != nil {
+			return fmt.Errorf("delete pending traffic batch %s: %w", batch.ID, err)
+		}
+		if duplicate {
+			t.logger.Info("pending traffic batch already applied", "core", batch.Core, "batch", batch.ID)
+			continue
+		}
+		t.logger.Info(batch.Core+" stats saved", "users_reported", len(batch.Stats), "users_matched", matched, "batch", batch.ID)
+		t.warnTrafficMismatch(batch.Core, batch.Stats, matched)
+	}
+	return nil
+}
+
+func (t *Collector) warnTrafficMismatch(core string, stats map[string]domain.TrafficDelta, matched int64) {
+	if matched == int64(len(stats)) {
+		return
+	}
+	switch core {
+	case "xray":
+		t.logger.Warn("xray stats username mismatch - emails in xray config do not match users.username", "reported", keysOf(stats))
+	case "hysteria":
+		t.logger.Warn("hysteria stats username mismatch - auth callback ids do not match users.username", "reported", keysOf(stats))
+	default:
+		t.logger.Warn("traffic stats username mismatch", "core", core, "reported", keysOf(stats))
+	}
 }
 
 func keysOf(m map[string]domain.TrafficDelta) []string {
@@ -292,6 +330,13 @@ func (t *TrafficRetention) Run(ctx context.Context) error {
 	}
 	if deleted > 0 {
 		t.logger.Info("traffic log retention applied", "deleted", deleted, "retention_days", t.retentionDays)
+	}
+	deletedBatches, err := t.repo.PurgeTrafficIngestBatchesBefore(ctx, cutoff)
+	if err != nil {
+		return fmt.Errorf("purge traffic ingest batches: %w", err)
+	}
+	if deletedBatches > 0 {
+		t.logger.Info("traffic ingest batch retention applied", "deleted", deletedBatches, "retention_days", t.retentionDays)
 	}
 	return nil
 }

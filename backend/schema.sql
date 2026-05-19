@@ -42,6 +42,14 @@ CREATE TABLE IF NOT EXISTS traffic_log (
 CREATE INDEX IF NOT EXISTS idx_traffic_user_time ON traffic_log(user_id, recorded_at);
 CREATE INDEX IF NOT EXISTS idx_traffic_recorded ON traffic_log(recorded_at);
 
+CREATE TABLE IF NOT EXISTS traffic_ingest_batches (
+    id TEXT PRIMARY KEY,
+    core TEXT NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_traffic_ingest_batches_created_at ON traffic_ingest_batches(created_at);
+
 CREATE TABLE IF NOT EXISTS admins (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     username TEXT NOT NULL CONSTRAINT admins_username_unique UNIQUE,

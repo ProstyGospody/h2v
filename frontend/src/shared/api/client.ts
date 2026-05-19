@@ -12,6 +12,7 @@ export class ApiError extends Error {
 
 class ApiClient {
   private accessToken: string | null = null;
+  private refreshPromise: Promise<{ access_token: string; admin: Admin } | null> | null = null;
   private unauthorizedHandler: (() => void) | null = null;
 
   setAccessToken(token: string | null) {
@@ -65,18 +66,32 @@ class ApiClient {
   }
 
   async refresh(): Promise<{ access_token: string; admin: Admin } | null> {
-    const response = await fetch('/api/auth/refresh', {
-      method: 'POST',
-      credentials: 'include',
-      headers: { Accept: 'application/json' },
-    });
-    if (!response.ok) {
+    if (!this.refreshPromise) {
+      this.refreshPromise = this.performRefresh().finally(() => {
+        this.refreshPromise = null;
+      });
+    }
+    return this.refreshPromise;
+  }
+
+  private async performRefresh(): Promise<{ access_token: string; admin: Admin } | null> {
+    try {
+      const response = await fetch('/api/auth/refresh', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { Accept: 'application/json' },
+      });
+      if (!response.ok) {
+        this.clearSession();
+        return null;
+      }
+      const payload = (await response.json()) as ApiEnvelope<{ access_token: string; admin: Admin }>;
+      this.accessToken = payload.data.access_token;
+      return payload.data;
+    } catch {
       this.clearSession();
       return null;
     }
-    const payload = (await response.json()) as ApiEnvelope<{ access_token: string; admin: Admin }>;
-    this.accessToken = payload.data.access_token;
-    return payload.data;
   }
 
   private clearSession() {

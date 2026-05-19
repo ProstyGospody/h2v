@@ -98,7 +98,7 @@ const fallbackValues: Record<SettingKey, SettingValue> = {
   'reality.dest': 'www.google.com:443',
   'reality.private_key': '',
   'reality.public_key': '',
-  'reality.short_ids': ['a1b2c3d4e5f60718'],
+  'reality.short_ids': [''],
   'reality.sni': 'www.google.com',
   'vless.port': 8444,
 };

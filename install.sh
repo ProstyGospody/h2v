@@ -1214,6 +1214,7 @@ ensure_dirs() {
     "${INSTALL_DIR}/frontend" \
     "${BUILD_STATE_DIR}" \
     "${INSTALL_DIR}/data/backups" \
+    "${INSTALL_DIR}/data/traffic-pending" \
     "${INSTALL_DIR}/logs"
   chown -R h2v:h2v "${INSTALL_DIR}"
   chmod 0755 "${INSTALL_DIR}" "${INSTALL_DIR}/configs"

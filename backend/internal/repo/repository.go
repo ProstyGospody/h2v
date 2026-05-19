@@ -518,14 +518,43 @@ func (r *Repository) FindOffenders(ctx context.Context) ([]domain.User, error) {
 }
 
 func (r *Repository) AddTrafficBatch(ctx context.Context, core string, stats map[string]domain.TrafficDelta) (int64, error) {
+	matched, _, err := r.addTrafficBatch(ctx, "", core, stats)
+	return matched, err
+}
+
+func (r *Repository) AddTrafficBatchOnce(ctx context.Context, batchID, core string, stats map[string]domain.TrafficDelta) (int64, bool, error) {
+	if strings.TrimSpace(batchID) == "" {
+		return 0, false, errors.New("traffic batch id is required")
+	}
+	return r.addTrafficBatch(ctx, batchID, core, stats)
+}
+
+func (r *Repository) addTrafficBatch(ctx context.Context, batchID, core string, stats map[string]domain.TrafficDelta) (int64, bool, error) {
 	if len(stats) == 0 {
-		return 0, nil
+		return 0, false, nil
 	}
 	tx, err := r.pool.Begin(ctx)
 	if err != nil {
-		return 0, err
+		return 0, false, err
 	}
 	defer tx.Rollback(ctx)
+
+	if batchID != "" {
+		tag, err := tx.Exec(ctx, `
+			INSERT INTO traffic_ingest_batches (id, core, created_at)
+			VALUES ($1, $2, now())
+			ON CONFLICT (id) DO NOTHING
+		`, batchID, core)
+		if err != nil {
+			return 0, false, err
+		}
+		if tag.RowsAffected() == 0 {
+			if err := tx.Commit(ctx); err != nil {
+				return 0, false, err
+			}
+			return 0, true, nil
+		}
+	}
 
 	updateValues := make([]string, 0, len(stats))
 	updateArgs := make([]any, 0, len(stats)*2)
@@ -544,7 +573,7 @@ func (r *Repository) AddTrafficBatch(ctx context.Context, core string, stats map
 	`, strings.Join(updateValues, ","))
 	tag, err := tx.Exec(ctx, updateQuery, updateArgs...)
 	if err != nil {
-		return 0, err
+		return 0, false, err
 	}
 	matched := tag.RowsAffected()
 
@@ -563,17 +592,25 @@ func (r *Repository) AddTrafficBatch(ctx context.Context, core string, stats map
 		JOIN users u ON u.username = t.username
 	`, strings.Join(insertValues, ","))
 	if _, err := tx.Exec(ctx, insertQuery, insertArgs...); err != nil {
-		return 0, err
+		return 0, false, err
 	}
 
 	if err := tx.Commit(ctx); err != nil {
-		return 0, err
+		return 0, false, err
 	}
-	return matched, nil
+	return matched, false, nil
 }
 
 func (r *Repository) PurgeTrafficBefore(ctx context.Context, cutoff time.Time) (int64, error) {
 	tag, err := r.pool.Exec(ctx, `DELETE FROM traffic_log WHERE recorded_at < $1`, cutoff)
+	if err != nil {
+		return 0, err
+	}
+	return tag.RowsAffected(), nil
+}
+
+func (r *Repository) PurgeTrafficIngestBatchesBefore(ctx context.Context, cutoff time.Time) (int64, error) {
+	tag, err := r.pool.Exec(ctx, `DELETE FROM traffic_ingest_batches WHERE created_at < $1`, cutoff)
 	if err != nil {
 		return 0, err
 	}
