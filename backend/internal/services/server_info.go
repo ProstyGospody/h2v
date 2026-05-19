@@ -17,7 +17,10 @@ import (
 	"github.com/prost/h2v/backend/internal/domain"
 )
 
-const serverInfoCacheTTL = 6 * time.Hour
+const (
+	serverInfoCacheTTL     = 6 * time.Hour
+	serverInfoCacheEntries = 8
+)
 
 type ServerInfoService struct {
 	cfg      config.Config
@@ -60,7 +63,7 @@ func (s *ServerInfoService) Info(ctx context.Context, hostHint string) (*domain.
 		runtime = DefaultRuntime(s.cfg)
 	}
 
-	lookupTarget := firstNonEmpty(runtime.PublicServerIP, hostHint, publicHostFromURL(runtime.SubURLPrefix), runtime.H2VDomain)
+	lookupTarget := publicServerLookupTarget(runtime, hostHint)
 	geo, err := s.location(ctx, lookupTarget)
 	if err != nil {
 		s.logger.Debug("server geo lookup failed", "target", lookupTarget, "err", err)
@@ -99,9 +102,35 @@ func (s *ServerInfoService) location(ctx context.Context, target string) (server
 	}
 
 	s.mu.Lock()
+	s.evictExpiredLocked(now)
+	if len(s.cache) >= serverInfoCacheEntries {
+		s.evictOldestLocked()
+	}
 	s.cache[cacheKey] = cachedServerGeo{expiresAt: now.Add(serverInfoCacheTTL), value: geo}
 	s.mu.Unlock()
 	return geo, nil
+}
+
+func (s *ServerInfoService) evictExpiredLocked(now time.Time) {
+	for key, cached := range s.cache {
+		if !now.Before(cached.expiresAt) {
+			delete(s.cache, key)
+		}
+	}
+}
+
+func (s *ServerInfoService) evictOldestLocked() {
+	oldestKey := ""
+	var oldest time.Time
+	for key, cached := range s.cache {
+		if oldestKey == "" || cached.expiresAt.Before(oldest) {
+			oldestKey = key
+			oldest = cached.expiresAt
+		}
+	}
+	if oldestKey != "" {
+		delete(s.cache, oldestKey)
+	}
 }
 
 func (s *ServerInfoService) lookupLocation(ctx context.Context, target string) (serverGeo, error) {
@@ -228,6 +257,39 @@ func publicHostFromURL(raw string) string {
 		return host
 	}
 	return parsed.Host
+}
+
+func publicServerLookupTarget(runtime RuntimeSettings, hostHint string) string {
+	configuredHost := firstNonEmpty(publicHostFromURL(runtime.SubURLPrefix), runtime.H2VDomain)
+	if runtime.PublicServerIP != "" {
+		return runtime.PublicServerIP
+	}
+	if configuredHost != "" && configuredHost != "h2v.example.com" {
+		return configuredHost
+	}
+	if allowedServerInfoHostHint(runtime, hostHint) {
+		return hostHint
+	}
+	return configuredHost
+}
+
+func allowedServerInfoHostHint(runtime RuntimeSettings, hostHint string) bool {
+	hostHint = strings.ToLower(publicHost(hostHint))
+	if hostHint == "" {
+		return false
+	}
+	allowed := []string{
+		publicHost(runtime.PublicServerIP),
+		publicHostFromURL(runtime.SubURLPrefix),
+		publicHost(runtime.H2VDomain),
+	}
+	for _, value := range allowed {
+		value = strings.ToLower(publicHost(value))
+		if value != "" && value != "h2v.example.com" && value == hostHint {
+			return true
+		}
+	}
+	return false
 }
 
 func publicIPString(value string) string {

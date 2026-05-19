@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"reflect"
 	"testing"
+
+	"github.com/prost/h2v/backend/internal/config"
 )
 
 func TestNormalizeSettingValueAcceptsVLESSAndXrayStabilitySettings(t *testing.T) {
@@ -13,6 +15,7 @@ func TestNormalizeSettingValueAcceptsVLESSAndXrayStabilitySettings(t *testing.T)
 		"xray.sniffing_enabled":         json.RawMessage(`true`),
 		"xray.sniffing_dest_override":   json.RawMessage(`"http,tls"`),
 		"reality.fingerprint":           json.RawMessage(`"Safari"`),
+		"hy2.traffic_secret":            json.RawMessage(`"traffic-secret"`),
 		"config.override.xray":          json.RawMessage(`{"routing":{"rules":[]}}`),
 	} {
 		if _, err := normalizeSettingValue(key, raw); err != nil {
@@ -43,11 +46,30 @@ func TestNormalizeSettingValueRejectsInvalidVLESSAndXrayStabilitySettings(t *tes
 		"xray.sniffing_enabled":       json.RawMessage(`1`),
 		"xray.sniffing_dest_override": json.RawMessage(`["http","ftp"]`),
 		"reality.fingerprint":         json.RawMessage(`"opera"`),
+		"hy2.traffic_secret":          json.RawMessage(`""`),
 		"config.override.xray":        json.RawMessage(`[]`),
 	} {
 		if _, err := normalizeSettingValue(key, raw); err == nil {
 			t.Fatalf("normalize %s should fail", key)
 		}
+	}
+}
+
+func TestValidateRealityKeyPairRejectsMismatchedPublicKey(t *testing.T) {
+	service := NewSettingsService(config.Config{}, nil, nil)
+	first, err := service.GenerateRealityKeyPair()
+	if err != nil {
+		t.Fatal(err)
+	}
+	second, err := service.GenerateRealityKeyPair()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := validateRealityKeyPair(first.PrivateKey, first.PublicKey); err != nil {
+		t.Fatalf("generated key pair should validate: %v", err)
+	}
+	if err := validateRealityKeyPair(first.PrivateKey, second.PublicKey); err == nil {
+		t.Fatal("mismatched public key should fail")
 	}
 }
 

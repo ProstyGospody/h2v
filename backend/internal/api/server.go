@@ -46,11 +46,13 @@ const maxJSONBodyBytes int64 = 8 << 20
 const limiterTTL = 10 * time.Minute
 const limiterSweepInterval = time.Minute
 const contentSecurityPolicy = "default-src 'self'; " +
+	"base-uri 'self'; " +
 	"script-src 'self'; " +
 	"style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; " +
 	"font-src 'self' https://fonts.gstatic.com data:; " +
 	"img-src 'self' data: https://flagcdn.com; " +
 	"connect-src 'self'; " +
+	"object-src 'none'; " +
 	"frame-ancestors 'none';"
 
 var (
@@ -219,7 +221,12 @@ func (s *Server) handleRefresh(w http.ResponseWriter, r *http.Request) {
 	}, nil)
 }
 
-func (s *Server) handleLogout(w http.ResponseWriter, _ *http.Request) {
+func (s *Server) handleLogout(w http.ResponseWriter, r *http.Request) {
+	if cookie, err := r.Cookie(refreshCookieName); err == nil && cookie.Value != "" {
+		if err := s.services.Auth.Logout(r.Context(), cookie.Value); err != nil {
+			s.logger.Warn("refresh session revoke failed", "err", err)
+		}
+	}
 	http.SetCookie(w, &http.Cookie{
 		Name:     refreshCookieName,
 		Value:    "",
@@ -827,7 +834,7 @@ func (s *Server) requireAuth(next http.Handler) http.Handler {
 			jsonError(w, domain.NewError(401, "unauthorized", "Authorization header is required", nil))
 			return
 		}
-		claims, err := s.services.Auth.ParseAccess(raw)
+		claims, err := s.services.Auth.ParseAccess(r.Context(), raw)
 		if err != nil {
 			jsonError(w, err)
 			return
@@ -861,7 +868,13 @@ func (s *Server) securityHeaders(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Referrer-Policy", "no-referrer")
 		w.Header().Set("X-Robots-Tag", "noindex")
+		w.Header().Set("X-Content-Type-Options", "nosniff")
+		w.Header().Set("Permissions-Policy", "camera=(), microphone=(), geolocation=()")
+		w.Header().Set("Cross-Origin-Opener-Policy", "same-origin")
 		w.Header().Set("Content-Security-Policy", contentSecurityPolicy)
+		if requestWasHTTPS(r) {
+			w.Header().Set("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
+		}
 		next.ServeHTTP(w, r)
 	})
 }
@@ -1105,6 +1118,13 @@ func firstForwardedValue(value string) string {
 func trustsForwardedHeaders(r *http.Request) bool {
 	remote := remoteIP(r)
 	return remote != nil && remote.IsLoopback()
+}
+
+func requestWasHTTPS(r *http.Request) bool {
+	if r.TLS != nil {
+		return true
+	}
+	return trustsForwardedHeaders(r) && strings.EqualFold(firstForwardedValue(r.Header.Get("X-Forwarded-Proto")), "https")
 }
 
 func isLocalDirectRequest(r *http.Request) bool {

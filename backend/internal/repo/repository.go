@@ -845,12 +845,27 @@ func (r *Repository) CreateAdmin(ctx context.Context, admin *domain.Admin) error
 }
 
 func (r *Repository) UpdateAdminPassword(ctx context.Context, id uuid.UUID, passwordHash string) error {
-	_, err := r.pool.Exec(ctx, `
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+	if _, err := tx.Exec(ctx, `
 		UPDATE admins
 		SET password_hash = $2
 		WHERE id = $1
-	`, id, passwordHash)
-	return err
+	`, id, passwordHash); err != nil {
+		return err
+	}
+	if _, err := tx.Exec(ctx, `
+		UPDATE admin_sessions
+		SET revoked_at = coalesce(revoked_at, now()), last_used_at = now()
+		WHERE admin_id = $1
+		  AND revoked_at IS NULL
+	`, id); err != nil {
+		return err
+	}
+	return tx.Commit(ctx)
 }
 
 func (r *Repository) UpdateAdminProfile(ctx context.Context, id uuid.UUID, username, icon string, passwordHash *string) (*domain.Admin, error) {
@@ -889,6 +904,79 @@ func (r *Repository) UpdateAdminProfile(ctx context.Context, id uuid.UUID, usern
 
 func (r *Repository) TouchAdminLogin(ctx context.Context, id uuid.UUID) error {
 	_, err := r.pool.Exec(ctx, `UPDATE admins SET last_login_at = now() WHERE id = $1`, id)
+	return err
+}
+
+func (r *Repository) CreateAdminSession(ctx context.Context, session *domain.AdminSession) error {
+	_, err := r.pool.Exec(ctx, `
+		INSERT INTO admin_sessions (id, admin_id, refresh_token_hash, created_at, last_used_at, expires_at, revoked_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7)
+	`, session.ID, session.AdminID, session.RefreshTokenHash, session.CreatedAt, session.LastUsedAt, session.ExpiresAt, session.RevokedAt)
+	return err
+}
+
+func (r *Repository) RotateAdminSession(ctx context.Context, previousID uuid.UUID, next *domain.AdminSession) error {
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+
+	tag, err := tx.Exec(ctx, `
+		UPDATE admin_sessions
+		SET revoked_at = now(), last_used_at = now()
+		WHERE id = $1
+		  AND revoked_at IS NULL
+		  AND expires_at > now()
+	`, previousID)
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return domain.NewError(401, "invalid_token", "Invalid token", nil)
+	}
+
+	if _, err := tx.Exec(ctx, `
+		INSERT INTO admin_sessions (id, admin_id, refresh_token_hash, created_at, last_used_at, expires_at, revoked_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7)
+	`, next.ID, next.AdminID, next.RefreshTokenHash, next.CreatedAt, next.LastUsedAt, next.ExpiresAt, next.RevokedAt); err != nil {
+		return err
+	}
+	return tx.Commit(ctx)
+}
+
+func (r *Repository) GetAdminSession(ctx context.Context, id uuid.UUID) (*domain.AdminSession, error) {
+	row := r.pool.QueryRow(ctx, `
+		SELECT id, admin_id, refresh_token_hash, created_at, last_used_at, expires_at, revoked_at
+		FROM admin_sessions
+		WHERE id = $1
+	`, id)
+	session, err := scanAdminSession(row)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, domain.NewError(401, "invalid_token", "Invalid token", err)
+		}
+		return nil, err
+	}
+	return session, nil
+}
+
+func (r *Repository) RevokeAdminSession(ctx context.Context, id uuid.UUID) error {
+	_, err := r.pool.Exec(ctx, `
+		UPDATE admin_sessions
+		SET revoked_at = coalesce(revoked_at, now()), last_used_at = now()
+		WHERE id = $1
+	`, id)
+	return err
+}
+
+func (r *Repository) RevokeAdminSessions(ctx context.Context, adminID uuid.UUID) error {
+	_, err := r.pool.Exec(ctx, `
+		UPDATE admin_sessions
+		SET revoked_at = coalesce(revoked_at, now()), last_used_at = now()
+		WHERE admin_id = $1
+		  AND revoked_at IS NULL
+	`, adminID)
 	return err
 }
 
@@ -955,6 +1043,24 @@ func scanAdmin(row interface {
 		return nil, err
 	}
 	return &admin, nil
+}
+
+func scanAdminSession(row interface {
+	Scan(dest ...any) error
+}) (*domain.AdminSession, error) {
+	var session domain.AdminSession
+	if err := row.Scan(
+		&session.ID,
+		&session.AdminID,
+		&session.RefreshTokenHash,
+		&session.CreatedAt,
+		&session.LastUsedAt,
+		&session.ExpiresAt,
+		&session.RevokedAt,
+	); err != nil {
+		return nil, err
+	}
+	return &session, nil
 }
 
 func isUniqueViolation(err error) bool {

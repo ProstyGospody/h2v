@@ -73,6 +73,19 @@ WHERE id NOT IN (SELECT id FROM kept);
 
 CREATE UNIQUE INDEX IF NOT EXISTS idx_admins_singleton ON admins ((true));
 
+CREATE TABLE IF NOT EXISTS admin_sessions (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    admin_id UUID NOT NULL REFERENCES admins(id) ON DELETE CASCADE,
+    refresh_token_hash TEXT NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    last_used_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    expires_at TIMESTAMPTZ NOT NULL,
+    revoked_at TIMESTAMPTZ
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_admin_sessions_refresh_token_hash ON admin_sessions(refresh_token_hash);
+CREATE INDEX IF NOT EXISTS idx_admin_sessions_admin_active ON admin_sessions(admin_id, expires_at) WHERE revoked_at IS NULL;
+
 CREATE TABLE IF NOT EXISTS settings (
     key TEXT PRIMARY KEY,
     value JSONB NOT NULL,

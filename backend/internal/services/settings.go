@@ -139,6 +139,51 @@ func (s *SettingsService) GenerateRealityKeyPair() (*RealityKeyPair, error) {
 	}, nil
 }
 
+func validateRealityKeyPair(privateKey, publicKey string) error {
+	privateBytes, err := decodeRealityKey(privateKey)
+	if err != nil {
+		return domain.NewError(400, "invalid_setting", "Reality private key must be a base64url-encoded X25519 key", err)
+	}
+	publicBytes, err := decodeRealityKey(publicKey)
+	if err != nil {
+		return domain.NewError(400, "invalid_setting", "Reality public key must be a base64url-encoded X25519 key", err)
+	}
+	private, err := ecdh.X25519().NewPrivateKey(privateBytes)
+	if err != nil {
+		return domain.NewError(400, "invalid_setting", "Reality private key is not a valid X25519 key", err)
+	}
+	if !bytesEqual(private.PublicKey().Bytes(), publicBytes) {
+		return domain.NewError(400, "invalid_setting", "Reality public key does not match private key", nil)
+	}
+	return nil
+}
+
+func decodeRealityKey(value string) ([]byte, error) {
+	value = strings.TrimSpace(value)
+	decoded, err := base64.RawURLEncoding.DecodeString(value)
+	if err != nil {
+		decoded, err = base64.URLEncoding.DecodeString(value)
+	}
+	if err != nil {
+		return nil, err
+	}
+	if len(decoded) != 32 {
+		return nil, fmt.Errorf("decoded key has %d bytes, want 32", len(decoded))
+	}
+	return decoded, nil
+}
+
+func bytesEqual(left, right []byte) bool {
+	if len(left) != len(right) {
+		return false
+	}
+	var diff byte
+	for i := range left {
+		diff |= left[i] ^ right[i]
+	}
+	return diff == 0
+}
+
 func (s *SettingsService) validateUpdate(ctx context.Context, values map[string]json.RawMessage) error {
 	runtime := DefaultRuntime(s.cfg)
 	current, err := s.GetAll(ctx)
@@ -175,6 +220,11 @@ func (s *SettingsService) validateUpdate(ctx context.Context, values map[string]
 	if touchesAny(values, "reality.private_key", "reality.public_key") && (runtime.RealityPrivateKey == "" || runtime.RealityPublicKey == "") {
 		return domain.NewError(400, "invalid_setting", "Reality private and public keys must be saved together", nil)
 	}
+	if touchesAny(values, "reality.private_key", "reality.public_key") {
+		if err := validateRealityKeyPair(runtime.RealityPrivateKey, runtime.RealityPublicKey); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
@@ -209,6 +259,7 @@ func (s *SettingsService) Runtime(ctx context.Context) (RuntimeSettings, error) 
 }
 
 func DefaultRuntime(cfg config.Config) RuntimeSettings {
+	xrayAPIListen, xrayAPIPort := splitListenHostPort(cfg.Xray.APIAddr, "127.0.0.1", 10085)
 	return RuntimeSettings{
 		H2VDomain:               cfg.H2V.Domain,
 		PublicServerIP:            cfg.H2V.PublicIP,
@@ -223,6 +274,8 @@ func DefaultRuntime(cfg config.Config) RuntimeSettings {
 		RealityServerNames:        []string{cfg.Xray.RealitySNI},
 		RealityShortIDs:           normalizeShortIDs(cfg.Xray.RealityShortIDs),
 		VlessPort:                 cfg.Xray.VlessPort,
+		XrayAPIListen:             xrayAPIListen,
+		XrayAPIPort:               xrayAPIPort,
 		VlessUDPEnabled:           cfg.Xray.VlessUDPEnabled,
 		VlessXUDPEnabled:          cfg.Xray.VlessXUDPEnabled,
 		XraySniffingEnabled:       cfg.Xray.SniffingEnabled,
@@ -235,6 +288,7 @@ func DefaultRuntime(cfg config.Config) RuntimeSettings {
 		Hy2BandwidthDown:          cfg.Hysteria.BandwidthDown,
 		Hy2MasqueradeURL:          cfg.Hysteria.MasqueradeURL,
 		Hy2TrafficSecret:          cfg.Hysteria.TrafficSecret,
+		Hy2TrafficListen:          trafficListenFromURL(cfg.Hysteria.TrafficURL, "127.0.0.1:7653"),
 		Hy2CertPath:               cfg.Hysteria.CertPath,
 		Hy2KeyPath:                cfg.Hysteria.KeyPath,
 		GeoIPPath:                 filepath.Join(cfg.Xray.GeodataDir, "geoip.dat"),
@@ -423,6 +477,10 @@ func normalizeStringSetting(key, value string) (string, error) {
 		if value == "" {
 			return "", invalidSetting(key, "cannot be empty")
 		}
+	case "hy2.traffic_secret":
+		if value == "" {
+			return "", invalidSetting(key, "cannot be empty")
+		}
 	case "reality.fingerprint":
 		fingerprint, ok := normalizeRealityFingerprint(value)
 		if !ok {
@@ -532,6 +590,34 @@ func validHostPort(value string) bool {
 	}
 	portNumber, err := strconv.Atoi(port)
 	return err == nil && validRuntimePort(portNumber)
+}
+
+func splitListenHostPort(value, fallbackHost string, fallbackPort int) (string, int) {
+	host, port, err := net.SplitHostPort(strings.TrimSpace(value))
+	if err != nil {
+		return fallbackHost, fallbackPort
+	}
+	portNumber, err := strconv.Atoi(port)
+	if err != nil || !validRuntimePort(portNumber) {
+		return fallbackHost, fallbackPort
+	}
+	host = strings.Trim(host, "[]")
+	if host == "" {
+		host = fallbackHost
+	}
+	return host, portNumber
+}
+
+func trafficListenFromURL(raw, fallback string) string {
+	parsed, err := url.Parse(strings.TrimSpace(raw))
+	if err != nil || parsed.Host == "" {
+		return fallback
+	}
+	host := parsed.Host
+	if _, _, err := net.SplitHostPort(host); err != nil {
+		return fallback
+	}
+	return host
 }
 
 func validRealityShortID(value string) bool {

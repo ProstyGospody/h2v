@@ -40,7 +40,7 @@
     }
   },
   "trafficStats": {
-    "listen": "127.0.0.1:7653",
+    "listen": {{ .Hy2TrafficListen | json }},
     "secret": {{ .Hy2TrafficSecret | json }}
   },
   "acl": {

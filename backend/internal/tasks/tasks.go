@@ -102,22 +102,20 @@ func (s *Scheduler) run(ctx context.Context, task *Task) {
 type Collector struct {
 	repo     *repo.Repository
 	xray     interface {
-		QueryStats(context.Context) (map[string]domain.TrafficDelta, error)
-		ResetStats(context.Context) error
+		QueryAndResetStats(context.Context) (map[string]domain.TrafficDelta, error)
 	}
 	hysteria interface{ GetTraffic(context.Context, bool) (map[string]domain.TrafficDelta, error) }
 	logger   *slog.Logger
 }
 
 func NewCollector(repository *repo.Repository, xray interface {
-	QueryStats(context.Context) (map[string]domain.TrafficDelta, error)
-	ResetStats(context.Context) error
+	QueryAndResetStats(context.Context) (map[string]domain.TrafficDelta, error)
 }, hysteria interface{ GetTraffic(context.Context, bool) (map[string]domain.TrafficDelta, error) }, logger *slog.Logger) *Collector {
 	return &Collector{repo: repository, xray: xray, hysteria: hysteria, logger: logger}
 }
 
 func (t *Collector) Run(ctx context.Context) error {
-	if xStats, err := t.xray.QueryStats(ctx); err != nil {
+	if xStats, err := t.xray.QueryAndResetStats(ctx); err != nil {
 		t.logger.Warn("xray stats failed", "err", err)
 	} else if len(xStats) > 0 {
 		matched, err := t.repo.AddTrafficBatch(ctx, "xray", xStats)
@@ -125,15 +123,12 @@ func (t *Collector) Run(ctx context.Context) error {
 			return fmt.Errorf("save xray traffic: %w", err)
 		}
 		t.logger.Info("xray stats saved", "users_reported", len(xStats), "users_matched", matched)
-		if matched == 0 {
+		if matched != int64(len(xStats)) {
 			t.logger.Warn("xray stats username mismatch — emails in xray config do not match users.username", "reported", keysOf(xStats))
-		}
-		if err := t.xray.ResetStats(ctx); err != nil {
-			t.logger.Warn("xray stats reset failed after save; next collection may double count", "err", err)
 		}
 	}
 
-	if hStats, err := t.hysteria.GetTraffic(ctx, false); err != nil {
+	if hStats, err := t.hysteria.GetTraffic(ctx, true); err != nil {
 		t.logger.Warn("hysteria traffic failed", "err", err)
 	} else if len(hStats) > 0 {
 		matched, err := t.repo.AddTrafficBatch(ctx, "hysteria", hStats)
@@ -141,11 +136,8 @@ func (t *Collector) Run(ctx context.Context) error {
 			return fmt.Errorf("save hysteria traffic: %w", err)
 		}
 		t.logger.Info("hysteria stats saved", "users_reported", len(hStats), "users_matched", matched)
-		if matched == 0 {
+		if matched != int64(len(hStats)) {
 			t.logger.Warn("hysteria stats username mismatch — auth callback ids do not match users.username", "reported", keysOf(hStats))
-		}
-		if _, err := t.hysteria.GetTraffic(ctx, true); err != nil {
-			t.logger.Warn("hysteria traffic reset failed after save; next collection may double count", "err", err)
 		}
 	}
 	return nil

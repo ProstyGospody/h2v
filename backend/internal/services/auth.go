@@ -2,6 +2,9 @@ package services
 
 import (
 	"context"
+	"crypto/sha256"
+	"crypto/subtle"
+	"encoding/base64"
 	"errors"
 	"log/slog"
 	"regexp"
@@ -66,7 +69,7 @@ func (s *AuthService) Login(ctx context.Context, username, password string) (*Au
 	if err := s.repo.TouchAdminLogin(ctx, admin.ID); err != nil {
 		s.logger.Warn("touch admin login failed", "admin", admin.ID, "err", err)
 	}
-	return s.issueTokens(*admin)
+	return s.issueTokens(ctx, *admin)
 }
 
 func (s *AuthService) Refresh(ctx context.Context, refreshToken string) (*AuthTokens, error) {
@@ -74,15 +77,26 @@ func (s *AuthService) Refresh(ctx context.Context, refreshToken string) (*AuthTo
 	if err != nil {
 		return nil, err
 	}
+	sessionID, err := uuid.Parse(claims.SessionID)
+	if err != nil {
+		return nil, domain.NewError(401, "invalid_token", "Invalid token", err)
+	}
 	adminID, err := uuid.Parse(claims.AdminID)
 	if err != nil {
 		return nil, domain.NewError(401, "invalid_token", "Invalid token", err)
+	}
+	session, err := s.repo.GetAdminSession(ctx, sessionID)
+	if err != nil {
+		return nil, err
+	}
+	if !validSession(session, adminID) || !sameTokenHash(session.RefreshTokenHash, refreshToken) {
+		return nil, domain.NewError(401, "invalid_token", "Invalid token", nil)
 	}
 	admin, err := s.repo.GetAdminByID(ctx, adminID)
 	if err != nil {
 		return nil, err
 	}
-	return s.issueTokens(*admin)
+	return s.rotateTokens(ctx, *admin, sessionID)
 }
 
 func (s *AuthService) CurrentAdmin(ctx context.Context, adminID uuid.UUID) (*domain.Admin, error) {
@@ -131,45 +145,109 @@ func (s *AuthService) UpdateProfile(ctx context.Context, adminID uuid.UUID, req 
 	if err != nil {
 		return nil, err
 	}
-	return s.issueTokens(*updated)
+	if err := s.repo.RevokeAdminSessions(ctx, adminID); err != nil {
+		return nil, err
+	}
+	return s.issueTokens(ctx, *updated)
 }
 
-func (s *AuthService) ParseAccess(token string) (*domain.Claims, error) {
+func (s *AuthService) Logout(ctx context.Context, refreshToken string) error {
+	claims, err := s.parse(refreshToken, "refresh")
+	if err != nil {
+		return nil
+	}
+	sessionID, err := uuid.Parse(claims.SessionID)
+	if err != nil {
+		return nil
+	}
+	return s.repo.RevokeAdminSession(ctx, sessionID)
+}
+
+func (s *AuthService) ParseAccess(ctx context.Context, token string) (*domain.Claims, error) {
 	claims, err := s.parse(token, "access")
 	if err != nil {
 		return nil, err
 	}
-	return &claims.Claims, nil
-}
-
-func (s *AuthService) issueTokens(admin domain.Admin) (*AuthTokens, error) {
-	accessToken, err := s.sign(admin, "access", s.cfg.H2V.JWTAccessTTL)
+	sessionID, err := uuid.Parse(claims.SessionID)
+	if err != nil {
+		return nil, domain.NewError(401, "invalid_token", "Invalid token", err)
+	}
+	adminID, err := uuid.Parse(claims.AdminID)
+	if err != nil {
+		return nil, domain.NewError(401, "invalid_token", "Invalid token", err)
+	}
+	session, err := s.repo.GetAdminSession(ctx, sessionID)
 	if err != nil {
 		return nil, err
 	}
-	refreshToken, err := s.sign(admin, "refresh", s.cfg.H2V.JWTRefreshTTL)
+	if !validSession(session, adminID) {
+		return nil, domain.NewError(401, "invalid_token", "Invalid token", nil)
+	}
+	return &claims.Claims, nil
+}
+
+func (s *AuthService) issueTokens(ctx context.Context, admin domain.Admin) (*AuthTokens, error) {
+	sessionID := uuid.New()
+	tokens, session, err := s.tokensForSession(admin, sessionID)
 	if err != nil {
 		return nil, err
+	}
+	if err := s.repo.CreateAdminSession(ctx, session); err != nil {
+		return nil, err
+	}
+	return tokens, nil
+}
+
+func (s *AuthService) rotateTokens(ctx context.Context, admin domain.Admin, previousSessionID uuid.UUID) (*AuthTokens, error) {
+	sessionID := uuid.New()
+	tokens, session, err := s.tokensForSession(admin, sessionID)
+	if err != nil {
+		return nil, err
+	}
+	if err := s.repo.RotateAdminSession(ctx, previousSessionID, session); err != nil {
+		return nil, err
+	}
+	return tokens, nil
+}
+
+func (s *AuthService) tokensForSession(admin domain.Admin, sessionID uuid.UUID) (*AuthTokens, *domain.AdminSession, error) {
+	now := time.Now()
+	accessToken, err := s.sign(admin, "access", sessionID, s.cfg.H2V.JWTAccessTTL, now)
+	if err != nil {
+		return nil, nil, err
+	}
+	refreshToken, err := s.sign(admin, "refresh", sessionID, s.cfg.H2V.JWTRefreshTTL, now)
+	if err != nil {
+		return nil, nil, err
+	}
+	session := &domain.AdminSession{
+		ID:               sessionID,
+		AdminID:          admin.ID,
+		RefreshTokenHash: tokenHash(refreshToken),
+		CreatedAt:        now,
+		LastUsedAt:       now,
+		ExpiresAt:        now.Add(s.cfg.H2V.JWTRefreshTTL),
 	}
 	return &AuthTokens{
 		AccessToken:  accessToken,
 		RefreshToken: refreshToken,
 		ExpiresIn:    s.cfg.H2V.JWTAccessTTL,
 		Admin:        admin,
-	}, nil
+	}, session, nil
 }
 
-func (s *AuthService) sign(admin domain.Admin, kind string, ttl time.Duration) (string, error) {
-	now := time.Now()
+func (s *AuthService) sign(admin domain.Admin, kind string, sessionID uuid.UUID, ttl time.Duration, now time.Time) (string, error) {
 	claims := tokenClaims{
 		Claims: domain.Claims{
-			AdminID:  admin.ID.String(),
-			Username: admin.Username,
-			Role:     admin.Role,
-			Kind:     kind,
+			AdminID:   admin.ID.String(),
+			SessionID: sessionID.String(),
+			Username:  admin.Username,
+			Role:      admin.Role,
+			Kind:      kind,
 		},
 		RegisteredClaims: jwt.RegisteredClaims{
 			Subject:   admin.ID.String(),
+			ID:        sessionID.String(),
 			IssuedAt:  jwt.NewNumericDate(now),
 			ExpiresAt: jwt.NewNumericDate(now.Add(ttl)),
 		},
@@ -181,7 +259,7 @@ func (s *AuthService) sign(admin domain.Admin, kind string, ttl time.Duration) (
 func (s *AuthService) parse(tokenString, expectedKind string) (*tokenClaims, error) {
 	token, err := jwt.ParseWithClaims(tokenString, &tokenClaims{}, func(token *jwt.Token) (any, error) {
 		return []byte(s.cfg.H2V.JWTSecret), nil
-	})
+	}, jwt.WithValidMethods([]string{jwt.SigningMethodHS256.Alg()}))
 	if err != nil {
 		return nil, domain.NewError(401, "invalid_token", "Invalid token", err)
 	}
@@ -192,5 +270,27 @@ func (s *AuthService) parse(tokenString, expectedKind string) (*tokenClaims, err
 	if claims.Kind != expectedKind {
 		return nil, domain.NewError(401, "invalid_token", "Invalid token type", nil)
 	}
+	if claims.SessionID == "" {
+		claims.SessionID = claims.ID
+	}
+	if claims.SessionID == "" {
+		return nil, domain.NewError(401, "invalid_token", "Invalid token", errors.New("missing session id"))
+	}
 	return claims, nil
+}
+
+func validSession(session *domain.AdminSession, adminID uuid.UUID) bool {
+	return session != nil &&
+		session.AdminID == adminID &&
+		session.RevokedAt == nil &&
+		session.ExpiresAt.After(time.Now())
+}
+
+func tokenHash(token string) string {
+	sum := sha256.Sum256([]byte(token))
+	return base64.RawURLEncoding.EncodeToString(sum[:])
+}
+
+func sameTokenHash(hash, token string) bool {
+	return subtle.ConstantTimeCompare([]byte(hash), []byte(tokenHash(token))) == 1
 }

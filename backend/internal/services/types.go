@@ -15,8 +15,7 @@ type XrayAdapter interface {
 	Health(ctx context.Context) error
 	AddUser(ctx context.Context, user *domain.User) error
 	RemoveUser(ctx context.Context, username string) error
-	QueryStats(ctx context.Context) (map[string]domain.TrafficDelta, error)
-	ResetStats(ctx context.Context) error
+	QueryAndResetStats(ctx context.Context) (map[string]domain.TrafficDelta, error)
 }
 
 type HysteriaAdapter interface {
@@ -27,7 +26,6 @@ type HysteriaAdapter interface {
 
 type SystemctlAdapter interface {
 	Restart(ctx context.Context, service string) error
-	Stop(ctx context.Context, service string) error
 }
 
 type Services struct {

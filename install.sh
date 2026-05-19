@@ -1269,7 +1269,6 @@ ensure_env() {
   env_set_default VLESS_XUDP_ENABLED false
   env_set_default REALITY_DEST "www.google.com:443"
   env_set_default REALITY_SNI "www.google.com"
-  env_set_default REALITY_SHORT_IDS "a1b2c3d4e5f60718"
   env_set_default REALITY_FINGERPRINT chrome
   env_set_default XRAY_SNIFFING_ENABLED true
   env_set_default XRAY_SNIFFING_DEST_OVERRIDE http,tls
@@ -1608,6 +1607,7 @@ ensure_secret_value() {
   case "${key}" in
     H2V_JWT_SECRET) value="$(openssl rand -hex 64)" ;;
     DB_PASSWORD) value="$(openssl rand -hex 24)" ;;
+    REALITY_SHORT_IDS) value="$(openssl rand -hex 8)" ;;
     HY2_TRAFFIC_SECRET) value="$(openssl rand -hex 32)" ;;
     HY2_OBFS_PASSWORD) value="$(openssl rand -base64 24 | tr -d '\n')" ;;
     *)
@@ -1621,6 +1621,7 @@ ensure_secret_value() {
 ensure_runtime_secrets() {
   ensure_secret_value H2V_JWT_SECRET
   ensure_secret_value DB_PASSWORD
+  ensure_secret_value REALITY_SHORT_IDS
   ensure_secret_value HY2_TRAFFIC_SECRET
   ensure_secret_value HY2_OBFS_PASSWORD
 }

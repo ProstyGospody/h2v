@@ -50,6 +50,11 @@ type ConfigSnapshot struct {
 
 var coreRestartTimeout = 15 * time.Second
 
+const (
+	arrayPatchOpKey    = "__h2v_array_patch"
+	arrayPatchAppendOp = "append"
+)
+
 func NewConfigService(cfg config.Config, settings *SettingsService, systemctl SystemctlAdapter, xray XrayAdapter, hysteria HysteriaAdapter, logger *slog.Logger) *ConfigService {
 	return &ConfigService{
 		cfg:       cfg,
@@ -308,13 +313,97 @@ func (s *ConfigService) Validate(ctx context.Context, core string, content []byt
 		if err := json.Unmarshal(content, &payload); err != nil {
 			return domain.NewError(400, "invalid_config", "Configuration contains JSON errors", err)
 		}
-		if _, ok := payload["listen"]; !ok {
-			return domain.NewError(400, "invalid_config", "listen is required", nil)
-		}
-		return nil
+		return validateHysteriaConfigPayload(payload)
 	default:
 		return domain.NewError(400, "invalid_core", "Core must be xray or hysteria", nil)
 	}
+}
+
+func validateHysteriaConfigPayload(payload map[string]any) error {
+	listen, _ := payload["listen"].(string)
+	if strings.TrimSpace(listen) == "" {
+		return domain.NewError(400, "invalid_config", "listen is required", nil)
+	}
+	if !validHysteriaListen(listen) {
+		return domain.NewError(400, "invalid_config", "listen must include a valid UDP port", nil)
+	}
+
+	tlsBlock, ok := payload["tls"].(map[string]any)
+	if !ok {
+		return domain.NewError(400, "invalid_config", "tls block is required", nil)
+	}
+	if strings.TrimSpace(stringMapValue(tlsBlock, "cert")) == "" || strings.TrimSpace(stringMapValue(tlsBlock, "key")) == "" {
+		return domain.NewError(400, "invalid_config", "tls cert and key are required", nil)
+	}
+
+	auth, ok := payload["auth"].(map[string]any)
+	if !ok || stringMapValue(auth, "type") != "http" {
+		return domain.NewError(400, "invalid_config", "auth.type must be http", nil)
+	}
+	authHTTP, ok := auth["http"].(map[string]any)
+	if !ok || !validHTTPURL(stringMapValue(authHTTP, "url")) {
+		return domain.NewError(400, "invalid_config", "auth.http.url must be a valid http or https URL", nil)
+	}
+
+	trafficStats, ok := payload["trafficStats"].(map[string]any)
+	if !ok {
+		return domain.NewError(400, "invalid_config", "trafficStats block is required", nil)
+	}
+	if !validHysteriaListen(stringMapValue(trafficStats, "listen")) {
+		return domain.NewError(400, "invalid_config", "trafficStats.listen must include a valid port", nil)
+	}
+	if strings.TrimSpace(stringMapValue(trafficStats, "secret")) == "" {
+		return domain.NewError(400, "invalid_config", "trafficStats.secret is required", nil)
+	}
+
+	bandwidth, ok := payload["bandwidth"].(map[string]any)
+	if !ok {
+		return domain.NewError(400, "invalid_config", "bandwidth block is required", nil)
+	}
+	if !bandwidthPattern.MatchString(stringMapValue(bandwidth, "up")) || !bandwidthPattern.MatchString(stringMapValue(bandwidth, "down")) {
+		return domain.NewError(400, "invalid_config", "bandwidth up and down must use bps, kbps, mbps, gbps, or tbps", nil)
+	}
+
+	acl, ok := payload["acl"].(map[string]any)
+	if !ok || strings.TrimSpace(stringMapValue(acl, "geoip")) == "" || strings.TrimSpace(stringMapValue(acl, "geosite")) == "" {
+		return domain.NewError(400, "invalid_config", "acl.geoip and acl.geosite are required", nil)
+	}
+
+	if obfs, ok := payload["obfs"].(map[string]any); ok {
+		if stringMapValue(obfs, "type") != "salamander" {
+			return domain.NewError(400, "invalid_config", "obfs.type must be salamander", nil)
+		}
+		salamander, ok := obfs["salamander"].(map[string]any)
+		if !ok || strings.TrimSpace(stringMapValue(salamander, "password")) == "" {
+			return domain.NewError(400, "invalid_config", "obfs.salamander.password is required", nil)
+		}
+	} else if _, ok := payload["masquerade"].(map[string]any); !ok {
+		return domain.NewError(400, "invalid_config", "masquerade is required when obfs is disabled", nil)
+	}
+
+	return nil
+}
+
+func validHysteriaListen(value string) bool {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return false
+	}
+	if strings.HasPrefix(value, ":") {
+		return validRuntimePortString(strings.TrimPrefix(value, ":"))
+	}
+	_, port, err := net.SplitHostPort(value)
+	return err == nil && validRuntimePortString(port)
+}
+
+func validRuntimePortString(value string) bool {
+	port, ok := jsonNumberAsPort(json.Number(value))
+	return ok && validRuntimePort(port)
+}
+
+func stringMapValue(values map[string]any, key string) string {
+	value, _ := values[key].(string)
+	return strings.TrimSpace(value)
 }
 
 func (s *ConfigService) validateXrayInboundPorts(content []byte) error {
@@ -382,6 +471,9 @@ func jsonNumberAsPort(value any) (int, bool) {
 		return port, float64(port) == v && validRuntimePort(port)
 	case int:
 		return v, validRuntimePort(v)
+	case json.Number:
+		port, err := v.Int64()
+		return int(port), err == nil && validRuntimePort(int(port))
 	default:
 		return 0, false
 	}
@@ -585,7 +677,10 @@ func configOverridePatch(managed, content []byte) (json.RawMessage, error) {
 	if err := json.Unmarshal(content, &next); err != nil {
 		return nil, domain.NewError(400, "invalid_config", "Configuration contains JSON errors", err)
 	}
-	patch := createJSONMergePatch(base, next)
+	patch, err := createConfigOverridePatch(base, next, nil)
+	if err != nil {
+		return nil, err
+	}
 	encoded, err := json.Marshal(patch)
 	if err != nil {
 		return nil, err
@@ -613,14 +708,24 @@ func applyConfigOverridePatch(managed, patch []byte) ([]byte, error) {
 	return append(encoded, '\n'), nil
 }
 
-func createJSONMergePatch(base, next any) any {
+func createConfigOverridePatch(base, next any, path []string) (any, error) {
 	if reflect.DeepEqual(base, next) {
-		return map[string]any{}
+		return map[string]any{}, nil
 	}
 	baseObject, baseOK := base.(map[string]any)
 	nextObject, nextOK := next.(map[string]any)
 	if !baseOK || !nextOK {
-		return next
+		if baseArray, ok := base.([]any); ok {
+			nextArray, ok := next.([]any)
+			if !ok {
+				return nil, configOverrideArrayError(path)
+			}
+			return createArrayOverridePatch(path, baseArray, nextArray)
+		}
+		if _, ok := next.([]any); ok {
+			return nil, configOverrideArrayError(path)
+		}
+		return next, nil
 	}
 
 	patch := map[string]any{}
@@ -635,18 +740,78 @@ func createJSONMergePatch(base, next any) any {
 			patch[key] = nextValue
 			continue
 		}
-		childPatch := createJSONMergePatch(baseValue, nextValue)
+		childPatch, err := createConfigOverridePatch(baseValue, nextValue, append(path, key))
+		if err != nil {
+			return nil, err
+		}
 		if !emptyMergePatch(childPatch) {
 			patch[key] = childPatch
 		}
 	}
-	return patch
+	return patch, nil
+}
+
+func createArrayOverridePatch(path []string, base, next []any) (any, error) {
+	if !allowAppendArrayOverride(path) {
+		return nil, configOverrideArrayError(path)
+	}
+	for _, baseItem := range base {
+		if !jsonArrayContains(next, baseItem) {
+			return nil, domain.NewError(400, "managed_config_array", "Managed configuration array items cannot be removed or changed at "+strings.Join(path, "."), nil)
+		}
+	}
+	additions := make([]any, 0)
+	for _, nextItem := range next {
+		if jsonArrayContains(base, nextItem) {
+			continue
+		}
+		additions = append(additions, cloneJSONValue(nextItem))
+	}
+	if len(additions) == 0 {
+		return map[string]any{}, nil
+	}
+	return map[string]any{
+		arrayPatchOpKey: arrayPatchAppendOp,
+		"items":         additions,
+	}, nil
+}
+
+func allowAppendArrayOverride(path []string) bool {
+	joined := strings.Join(path, ".")
+	return joined == "routing.rules"
+}
+
+func configOverrideArrayError(path []string) error {
+	location := strings.Join(path, ".")
+	if location == "" {
+		location = "<root>"
+	}
+	return domain.NewError(400, "managed_config_array", "Managed configuration arrays cannot be overridden at "+location, nil)
+}
+
+func jsonArrayContains(values []any, target any) bool {
+	for _, value := range values {
+		if reflect.DeepEqual(value, target) {
+			return true
+		}
+	}
+	return false
 }
 
 func applyJSONMergePatch(base, patch any) any {
+	return applyJSONMergePatchAt(base, patch, nil)
+}
+
+func applyJSONMergePatchAt(base, patch any, path []string) any {
 	patchObject, ok := patch.(map[string]any)
 	if !ok {
+		if patchArray, ok := patch.([]any); ok {
+			return applyLegacyArrayPatch(base, patchArray, path)
+		}
 		return cloneJSONValue(patch)
+	}
+	if op, ok := patchObject[arrayPatchOpKey].(string); ok && op == arrayPatchAppendOp {
+		return applyArrayAppendPatch(base, patchObject)
 	}
 	baseObject, _ := base.(map[string]any)
 	result := map[string]any{}
@@ -658,7 +823,44 @@ func applyJSONMergePatch(base, patch any) any {
 			delete(result, key)
 			continue
 		}
-		result[key] = applyJSONMergePatch(result[key], patchValue)
+		result[key] = applyJSONMergePatchAt(result[key], patchValue, append(path, key))
+	}
+	return result
+}
+
+func applyLegacyArrayPatch(base any, patch []any, path []string) any {
+	baseArray, ok := base.([]any)
+	if !ok {
+		return cloneJSONValue(patch)
+	}
+	if allowAppendArrayOverride(path) {
+		result := make([]any, 0, len(baseArray)+len(patch))
+		for _, item := range baseArray {
+			result = append(result, cloneJSONValue(item))
+		}
+		for _, item := range patch {
+			if jsonArrayContains(result, item) {
+				continue
+			}
+			result = append(result, cloneJSONValue(item))
+		}
+		return result
+	}
+	return cloneJSONValue(baseArray)
+}
+
+func applyArrayAppendPatch(base any, patch map[string]any) any {
+	baseArray, _ := base.([]any)
+	result := make([]any, 0, len(baseArray))
+	for _, item := range baseArray {
+		result = append(result, cloneJSONValue(item))
+	}
+	items, _ := patch["items"].([]any)
+	for _, item := range items {
+		if jsonArrayContains(result, item) {
+			continue
+		}
+		result = append(result, cloneJSONValue(item))
 	}
 	return result
 }

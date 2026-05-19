@@ -112,6 +112,55 @@ func TestConfigOverridePatchReappliesManualBlocksToFreshManagedConfig(t *testing
 	}
 }
 
+func TestConfigOverridePatchRejectsManagedArrayChanges(t *testing.T) {
+	managed := []byte(`{"inbounds":[{"tag":"vless-reality","settings":{"clients":["old"]}}]}`)
+	edited := []byte(`{"inbounds":[{"tag":"vless-reality","settings":{"clients":["stale"]}}]}`)
+	if _, err := configOverridePatch(managed, edited); err == nil {
+		t.Fatal("managed inbounds array change should fail")
+	}
+}
+
+func TestApplyLegacyArrayOverrideKeepsManagedArray(t *testing.T) {
+	freshManaged := []byte(`{"inbounds":[{"tag":"vless-reality","settings":{"clients":["new"]}}]}`)
+	legacyPatch := []byte(`{"inbounds":[{"tag":"vless-reality","settings":{"clients":["old"]}}]}`)
+	merged, err := applyConfigOverridePatch(freshManaged, legacyPatch)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var payload struct {
+		Inbounds []struct {
+			Settings struct {
+				Clients []string `json:"clients"`
+			} `json:"settings"`
+		} `json:"inbounds"`
+	}
+	if err := json.Unmarshal(merged, &payload); err != nil {
+		t.Fatal(err)
+	}
+	if got := payload.Inbounds[0].Settings.Clients[0]; got != "new" {
+		t.Fatalf("managed client = %q, want new", got)
+	}
+}
+
+func TestValidateHysteriaConfigRejectsMissingTrafficSecret(t *testing.T) {
+	content := renderHysteriaTemplateForTest(t, RuntimeSettings{
+		H2VPort:          8000,
+		Hy2Port:          8443,
+		Hy2Domain:        "vpn.example.com",
+		Hy2CertPath:      "/etc/letsencrypt/live/vpn.example.com/fullchain.pem",
+		Hy2KeyPath:       "/etc/letsencrypt/live/vpn.example.com/privkey.pem",
+		Hy2BandwidthUp:   "1 gbps",
+		Hy2BandwidthDown: "1 gbps",
+		Hy2TrafficListen: "127.0.0.1:7653",
+		GeoIPPath:        "/opt/h2v/data/geodata/geoip.dat",
+		GeositePath:      "/opt/h2v/data/geodata/geosite.dat",
+	})
+	service := NewConfigService(config.Config{}, nil, nil, nil, nil, slog.New(slog.NewTextHandler(io.Discard, nil)))
+	if err := service.Validate(context.Background(), "hysteria", content); err == nil {
+		t.Fatal("missing trafficStats.secret should fail")
+	}
+}
+
 func TestRestartCoreUsesBoundedTimeout(t *testing.T) {
 	previous := coreRestartTimeout
 	coreRestartTimeout = 20 * time.Millisecond
@@ -321,6 +370,7 @@ func TestRenderHysteriaConfigUsesRegionalStabilityDefaults(t *testing.T) {
 		Hy2BandwidthUp:   "1 gbps",
 		Hy2BandwidthDown: "1 gbps",
 		Hy2TrafficSecret: "traffic-secret",
+		Hy2TrafficListen: "127.0.0.1:7653",
 		Hy2ObfsEnabled:   true,
 		Hy2ObfsPassword:  "obfs-secret",
 		GeoIPPath:        "/opt/h2v/data/geodata/geoip.dat",
@@ -362,6 +412,8 @@ func baseXrayRuntimeForTest() RuntimeSettings {
 		RealityServerNames:        []string{"www.google.com"},
 		RealityShortIDs:           []string{"a1b2c3d4"},
 		VlessPort:                 8444,
+		XrayAPIListen:             "127.0.0.1",
+		XrayAPIPort:               10085,
 		XraySniffingEnabled:       true,
 		XraySniffingDestOverride:  []string{"http", "tls"},
 	}
@@ -438,8 +490,4 @@ type blockingSystemctl struct{}
 func (blockingSystemctl) Restart(ctx context.Context, _ string) error {
 	<-ctx.Done()
 	return ctx.Err()
-}
-
-func (blockingSystemctl) Stop(context.Context, string) error {
-	return nil
 }

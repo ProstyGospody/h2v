@@ -67,6 +67,16 @@ type Admin struct {
 	CreatedAt    time.Time  `json:"created_at"`
 }
 
+type AdminSession struct {
+	ID               uuid.UUID
+	AdminID          uuid.UUID
+	RefreshTokenHash string
+	CreatedAt        time.Time
+	LastUsedAt       time.Time
+	ExpiresAt        time.Time
+	RevokedAt        *time.Time
+}
+
 type Setting struct {
 	Key       string          `json:"key"`
 	Value     json.RawMessage `json:"value"`
@@ -155,6 +165,7 @@ type UserFilters struct {
 
 type Claims struct {
 	AdminID  string `json:"admin_id"`
+	SessionID string `json:"session_id"`
 	Username string `json:"username"`
 	Role     string `json:"role"`
 	Kind     string `json:"kind"`

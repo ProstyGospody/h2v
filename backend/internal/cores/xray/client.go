@@ -106,14 +106,14 @@ func (c *Client) RemoveUser(ctx context.Context, username string) error {
 	return apiCommandError("remove", username, out, err)
 }
 
-func (c *Client) QueryStats(ctx context.Context) (map[string]domain.TrafficDelta, error) {
+func (c *Client) QueryAndResetStats(ctx context.Context) (map[string]domain.TrafficDelta, error) {
 	if strings.TrimSpace(c.cfg.Binary) == "" {
 		return map[string]domain.TrafficDelta{}, nil
 	}
 	if err := c.ensureBinary(); err != nil {
 		return nil, err
 	}
-	out, err := c.runStatsQuery(ctx, false)
+	out, err := c.runStatsQuery(ctx, true)
 	if err != nil {
 		return nil, err
 	}
@@ -122,17 +122,6 @@ func (c *Client) QueryStats(ctx context.Context) (map[string]domain.TrafficDelta
 		return nil, err
 	}
 	return stats, nil
-}
-
-func (c *Client) ResetStats(ctx context.Context) error {
-	if strings.TrimSpace(c.cfg.Binary) == "" {
-		return nil
-	}
-	if err := c.ensureBinary(); err != nil {
-		return err
-	}
-	_, err := c.runStatsQuery(ctx, true)
-	return err
 }
 
 func (c *Client) ensureBinary() error {

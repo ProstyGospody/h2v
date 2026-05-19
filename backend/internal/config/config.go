@@ -147,7 +147,7 @@ func Load() Config {
 			RealitySNI:           getenv("REALITY_SNI", "www.google.com"),
 			RealityPrivKey:       getenv("REALITY_PRIVATE_KEY", ""),
 			RealityPubKey:        getenv("REALITY_PUBLIC_KEY", ""),
-			RealityShortIDs:      splitCSV(getenv("REALITY_SHORT_IDS", "a1b2c3d4e5f60718")),
+			RealityShortIDs:      splitCSV(getenv("REALITY_SHORT_IDS", "")),
 			RealityFingerprint:   getenv("REALITY_FINGERPRINT", "chrome"),
 			SniffingEnabled:      getenvBool("XRAY_SNIFFING_ENABLED", true),
 			SniffingDestOverride: splitCSV(getenv("XRAY_SNIFFING_DEST_OVERRIDE", "http,tls")),
