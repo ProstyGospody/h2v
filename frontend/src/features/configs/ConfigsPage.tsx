@@ -6,6 +6,7 @@ import {
   PlayCircle,
   RefreshCw,
   RotateCcw,
+  Sparkles,
   Wand2,
   XCircle,
 } from 'lucide-react';
@@ -54,6 +55,7 @@ type JsonState =
 const cores: Core[] = ['xray', 'hysteria'];
 const jsonInspectDebounceMs = 300;
 const emptyDiffStats = { changed: 0, currentLines: 0, nextLines: 0 };
+const configActionButtonClass = 'size-10 shrink-0 rounded-md p-0 sm:size-9';
 
 const coreMeta: Record<Core, CoreMeta> = {
   hysteria: { label: 'Hysteria 2', logo: 'hysteria', service: 'hysteria' },
@@ -246,66 +248,78 @@ function ConfigSection({ core }: { core: Core }) {
         </div>
 
         <div className="border-b border-border/55 bg-card/35 px-3 py-3 sm:px-4">
-          <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-center">
+          <div className="flex flex-wrap items-center gap-2">
             <Button
-              className="h-10 w-full justify-center sm:h-8 sm:w-auto"
+              aria-label={t('configs.reload')}
+              className={configActionButtonClass}
               disabled={config.isFetching}
               onClick={reloadConfig}
-              size="sm"
+              size="icon"
+              title={t('configs.reload')}
               variant="outline"
             >
               <RefreshCw className={cn(config.isFetching && 'animate-spin')} />
-              {t('configs.reload')}
+              <span className="sr-only">{t('configs.reload')}</span>
             </Button>
             <Button
-              className="h-10 w-full justify-center sm:h-8 sm:w-auto"
+              aria-label={t('common.reset')}
+              className={configActionButtonClass}
               disabled={!dirty}
               onClick={resetDraft}
-              size="sm"
+              size="icon"
+              title={t('common.reset')}
               variant="outline"
             >
               <RotateCcw />
-              {t('common.reset')}
+              <span className="sr-only">{t('common.reset')}</span>
             </Button>
             <Button
-              className="h-10 w-full justify-center sm:h-8 sm:w-auto"
+              aria-label={t('configs.generated')}
+              className={configActionButtonClass}
               disabled={!config.data || managedConfig.isFetching || (generated !== null && !generatedDirty)}
               onClick={() => void resetToGenerated()}
-              size="sm"
+              size="icon"
+              title={t('configs.generated')}
               variant="outline"
             >
-              <RotateCcw className={cn(managedConfig.isFetching && 'animate-spin')} />
-              {t('configs.generated')}
+              <Sparkles className={cn(managedConfig.isFetching && 'animate-spin')} />
+              <span className="sr-only">{t('configs.generated')}</span>
             </Button>
             <Button
-              className="h-10 w-full justify-center sm:h-8 sm:w-auto"
+              aria-label={t('common.format')}
+              className={configActionButtonClass}
               disabled={!config.data || jsonPending || !jsonState.valid}
               onClick={formatDraft}
-              size="sm"
+              size="icon"
+              title={t('common.format')}
               variant="outline"
             >
               <Wand2 />
-              {t('common.format')}
+              <span className="sr-only">{t('common.format')}</span>
             </Button>
-            <div className="contents sm:ml-auto sm:flex sm:w-auto sm:items-center sm:gap-2">
+            <div className="ml-auto flex items-center gap-2">
               <Button
-                className="h-10 w-full justify-center sm:h-8 sm:w-auto"
+                aria-label={t('common.validate')}
+                className={configActionButtonClass}
                 disabled={!canValidate}
                 onClick={() => validate.mutate()}
-                size="sm"
+                size="icon"
+                title={t('common.validate')}
                 variant="secondary"
               >
                 <CheckCircle2 />
-                {t('common.validate')}
+                <span className="sr-only">{t('common.validate')}</span>
               </Button>
               <Button
-                className="h-10 w-full justify-center sm:h-8 sm:w-auto"
+                aria-label={t('common.apply')}
+                className={configActionButtonClass}
                 disabled={!canApply}
                 onClick={() => setDiffOpen(true)}
-                size="sm"
+                size="icon"
+                title={t('common.apply')}
               >
                 <PlayCircle />
-                {t('common.apply')}
+                <span className="sr-only">{t('common.apply')}</span>
               </Button>
             </div>
           </div>
