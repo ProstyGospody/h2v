@@ -362,7 +362,7 @@ func TestRenderXrayConfigUsesStabilityRoutingAndSniffingDefaults(t *testing.T) {
 
 func TestRenderXrayConfigUsesConfiguredGeoRejectRules(t *testing.T) {
 	runtime := baseXrayRuntimeForTest()
-	runtime.GeoBlockedCountries = []string{"cn", "ir"}
+	runtime.GeoBlockedCountries = []string{"cn"}
 	runtime.GeoBlockedGeositeTags = nil
 	content := renderXrayTemplateForTest(t, runtime)
 
@@ -374,7 +374,7 @@ func TestRenderXrayConfigUsesConfiguredGeoRejectRules(t *testing.T) {
 	if err := json.Unmarshal(content, &payload); err != nil {
 		t.Fatal(err)
 	}
-	if !routingHasIPRule(payload.Routing.Rules, "geoip:cn") || !routingHasIPRule(payload.Routing.Rules, "geoip:ir") {
+	if !routingHasIPRule(payload.Routing.Rules, "geoip:cn") {
 		t.Fatalf("routing missing configured country blocks: %#v", payload.Routing.Rules)
 	}
 	if routingHasDomainRule(payload.Routing.Rules, "geosite:category-ru") {

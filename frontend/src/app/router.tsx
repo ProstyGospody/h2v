@@ -68,6 +68,12 @@ const profileIconOptions: Array<{ id: AdminIcon; label: string; src: string }> =
   { id: 'astronaut', label: 'Astronaut', src: '/profile-icons/astronaut.svg' },
   { id: 'rocket', label: 'Rocket', src: '/profile-icons/rocket.svg' },
   { id: 'crown', label: 'Crown', src: '/profile-icons/crown.svg' },
+  { id: 'shield', label: 'Shield', src: '/profile-icons/shield.svg' },
+  { id: 'bolt', label: 'Bolt', src: '/profile-icons/bolt.svg' },
+  { id: 'gem', label: 'Gem', src: '/profile-icons/gem.svg' },
+  { id: 'planet', label: 'Planet', src: '/profile-icons/planet.svg' },
+  { id: 'flame', label: 'Flame', src: '/profile-icons/flame.svg' },
+  { id: 'star', label: 'Star', src: '/profile-icons/star.svg' },
 ];
 
 const profileIconFallback = profileIconOptions[0]!;
@@ -349,7 +355,7 @@ function ProfileDialog({
 
           <div className="space-y-2">
             <Label>{t('profile.icon')}</Label>
-            <div className="grid grid-cols-5 gap-2">
+            <div className="grid grid-cols-5 gap-2 sm:grid-cols-6">
               {profileIconOptions.map((option) => {
                 const selected = icon === option.id;
 

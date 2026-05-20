@@ -1,0 +1,40 @@
+<svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+<path d="M8.8 4.7H23.2L29 11.6L16 29L3 11.6L8.8 4.7Z" fill="url(#gem_outer)"/>
+<path d="M8.8 4.7L11.8 11.6H3L8.8 4.7Z" fill="url(#gem_left)"/>
+<path d="M23.2 4.7L20.2 11.6H29L23.2 4.7Z" fill="url(#gem_right)"/>
+<path d="M11.8 11.6H20.2L16 29L11.8 11.6Z" fill="url(#gem_center)"/>
+<path d="M11.8 11.6L16 4.7L20.2 11.6H11.8Z" fill="url(#gem_top)"/>
+<path d="M3 11.6H11.8L16 29L3 11.6Z" fill="url(#gem_low_left)"/>
+<path d="M29 11.6H20.2L16 29L29 11.6Z" fill="url(#gem_low_right)"/>
+<defs>
+<linearGradient id="gem_outer" x1="5" y1="4" x2="27" y2="28" gradientUnits="userSpaceOnUse">
+<stop stop-color="#93F3FF"/>
+<stop offset="0.48" stop-color="#4DB7FF"/>
+<stop offset="1" stop-color="#8E5CFF"/>
+</linearGradient>
+<linearGradient id="gem_left" x1="3" y1="8" x2="12" y2="12" gradientUnits="userSpaceOnUse">
+<stop stop-color="#7BEEFF"/>
+<stop offset="1" stop-color="#2EA3EF"/>
+</linearGradient>
+<linearGradient id="gem_right" x1="29" y1="8" x2="20" y2="12" gradientUnits="userSpaceOnUse">
+<stop stop-color="#B597FF"/>
+<stop offset="1" stop-color="#58C6FF"/>
+</linearGradient>
+<linearGradient id="gem_center" x1="16" y1="12" x2="16" y2="29" gradientUnits="userSpaceOnUse">
+<stop stop-color="#E7FCFF"/>
+<stop offset="1" stop-color="#54AEFF"/>
+</linearGradient>
+<linearGradient id="gem_top" x1="12" y1="5" x2="20" y2="12" gradientUnits="userSpaceOnUse">
+<stop stop-color="#D9FBFF"/>
+<stop offset="1" stop-color="#71DFFF"/>
+</linearGradient>
+<linearGradient id="gem_low_left" x1="4" y1="12" x2="16" y2="29" gradientUnits="userSpaceOnUse">
+<stop stop-color="#40C2FF"/>
+<stop offset="1" stop-color="#3D7BFF"/>
+</linearGradient>
+<linearGradient id="gem_low_right" x1="28" y1="12" x2="16" y2="29" gradientUnits="userSpaceOnUse">
+<stop stop-color="#A98CFF"/>
+<stop offset="1" stop-color="#555CFF"/>
+</linearGradient>
+</defs>
+</svg>

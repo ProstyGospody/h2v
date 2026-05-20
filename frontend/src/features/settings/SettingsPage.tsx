@@ -791,7 +791,7 @@ const GeoMenu = memo(function GeoMenu({
   updating: boolean;
 }) {
   const { t } = useI18n();
-  const selectedCountries = new Set(blockedCountries);
+  const selectedCountries = new Set(blockedCountries.slice(0, 1));
 
   return (
     <DropdownMenu>
@@ -1229,6 +1229,9 @@ function validateDraft(draft: SettingsDraft, values: ReturnType<typeof createSet
     if (key === 'geo.blocked_countries' && !values.stringArray(key).every(validCountryCode)) {
       issues.push(t('settings.validation.countryCodes'));
     }
+    if (key === 'geo.blocked_countries' && values.stringArray(key).length > 1) {
+      issues.push(t('settings.validation.countryCodes'));
+    }
     if (key === 'geo.update_interval_hours') {
       const hours = values.number(key);
       if (!Number.isInteger(hours) || hours < 1 || hours > 720) {
@@ -1317,13 +1320,10 @@ function parseCSVList(value: string): string[] {
 }
 
 function toggleCountry(values: string[], code: string, enabled: boolean): string[] {
-  const selected = new Set(values.filter((value) => geoCountryCodes.has(value)));
   if (enabled) {
-    selected.add(code);
-  } else {
-    selected.delete(code);
+    return [code];
   }
-  return geoCountryOptions.map((option) => option.code).filter((value) => selected.has(value));
+  return values.includes(code) ? [] : values.slice(0, 1);
 }
 
 function formatCSVList(values: string[]): string {

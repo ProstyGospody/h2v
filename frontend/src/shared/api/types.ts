@@ -16,7 +16,18 @@ export type ApiErrorShape = {
   };
 };
 
-export type AdminIcon = 'astronaut' | 'crown' | 'dino' | 'robot' | 'rocket';
+export type AdminIcon =
+  | 'astronaut'
+  | 'bolt'
+  | 'crown'
+  | 'dino'
+  | 'flame'
+  | 'gem'
+  | 'planet'
+  | 'robot'
+  | 'rocket'
+  | 'shield'
+  | 'star';
 
 export type UserStatus = 'active' | 'disabled' | 'expired' | 'limited';
 

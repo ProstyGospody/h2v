@@ -24,10 +24,16 @@ var adminUsernamePattern = regexp.MustCompile(`^[a-zA-Z0-9_-]{3,32}$`)
 
 var adminIcons = map[string]struct{}{
 	"astronaut": {},
+	"bolt":      {},
 	"crown":     {},
 	"dino":      {},
+	"flame":     {},
+	"gem":       {},
+	"planet":    {},
 	"robot":     {},
 	"rocket":    {},
+	"shield":    {},
+	"star":      {},
 }
 
 type AuthService struct {

@@ -55,7 +55,7 @@ CREATE TABLE IF NOT EXISTS admins (
     username TEXT NOT NULL CONSTRAINT admins_username_unique UNIQUE,
     password_hash TEXT NOT NULL,
     role TEXT NOT NULL DEFAULT 'admin',
-    icon TEXT NOT NULL DEFAULT 'robot' CONSTRAINT admins_icon_check CHECK (icon IN ('dino', 'robot', 'astronaut', 'rocket', 'crown')),
+    icon TEXT NOT NULL DEFAULT 'robot' CONSTRAINT admins_icon_check CHECK (icon IN ('dino', 'robot', 'astronaut', 'rocket', 'crown', 'shield', 'bolt', 'gem', 'planet', 'flame', 'star')),
     last_login_at TIMESTAMPTZ,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
@@ -64,11 +64,11 @@ ALTER TABLE admins ADD COLUMN IF NOT EXISTS icon TEXT NOT NULL DEFAULT 'robot';
 ALTER TABLE admins ALTER COLUMN icon SET DEFAULT 'robot';
 UPDATE admins
 SET icon = 'robot'
-WHERE icon IS NULL OR icon NOT IN ('dino', 'robot', 'astronaut', 'rocket', 'crown');
+WHERE icon IS NULL OR icon NOT IN ('dino', 'robot', 'astronaut', 'rocket', 'crown', 'shield', 'bolt', 'gem', 'planet', 'flame', 'star');
 ALTER TABLE admins ALTER COLUMN icon SET NOT NULL;
 ALTER TABLE admins DROP CONSTRAINT IF EXISTS admins_icon_check;
 
-ALTER TABLE admins ADD CONSTRAINT admins_icon_check CHECK (icon IN ('dino', 'robot', 'astronaut', 'rocket', 'crown'));
+ALTER TABLE admins ADD CONSTRAINT admins_icon_check CHECK (icon IN ('dino', 'robot', 'astronaut', 'rocket', 'crown', 'shield', 'bolt', 'gem', 'planet', 'flame', 'star'));
 
 WITH kept AS (
     SELECT id

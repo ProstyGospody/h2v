@@ -785,15 +785,33 @@ func normalizeCountryCodes(values []string) ([]string, error) {
 			out = append(out, value)
 		}
 	}
+	if len(out) > 1 {
+		return nil, fmt.Errorf("must contain at most one of ru, cn, or ir")
+	}
 	return out, nil
 }
 
 func normalizeCountryCodesOrDefault(values []string) []string {
 	normalized, err := normalizeCountryCodes(values)
-	if err != nil {
-		return nil
+	if err == nil {
+		return normalized
 	}
-	return normalized
+	if first := firstAllowedCountryCode(values); first != "" {
+		return []string{first}
+	}
+	return nil
+}
+
+func firstAllowedCountryCode(values []string) string {
+	for _, raw := range values {
+		for _, part := range strings.Split(raw, ",") {
+			value := strings.ToLower(strings.TrimSpace(part))
+			if _, ok := allowedGeoCountryCodes[value]; ok {
+				return value
+			}
+		}
+	}
+	return ""
 }
 
 func normalizeGeositeTags(values []string) ([]string, error) {
