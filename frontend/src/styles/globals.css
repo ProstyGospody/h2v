@@ -133,7 +133,6 @@
     --gradient-accent-text: linear-gradient(135deg, var(--accent-primary) 0%, var(--accent-secondary) 100%);
     --sidebar-action-hover: var(--gradient-accent-soft);
     --sidebar-action-active: var(--gradient-accent);
-    --sidebar-action-shadow: 0 10px 24px -18px rgb(var(--accent-secondary-rgb) / 0.9);
 
     --secondary: 230 13% 12.2%;
     --secondary-foreground: 222 12% 95%;
@@ -209,7 +208,6 @@
     --gradient-accent-text: linear-gradient(135deg, var(--accent-primary) 0%, var(--accent-secondary) 100%);
     --sidebar-action-hover: var(--gradient-accent-soft);
     --sidebar-action-active: var(--gradient-accent);
-    --sidebar-action-shadow: 0 10px 24px -18px rgb(var(--accent-secondary-rgb) / 0.42);
     --secondary: 222 34% 93.5%;
     --secondary-foreground: 224 24% 16%;
     --muted: 222 32% 94.5%;
