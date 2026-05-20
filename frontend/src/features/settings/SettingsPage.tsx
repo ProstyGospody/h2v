@@ -11,13 +11,17 @@ import {
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   AlertTriangle,
+  Ban,
+  ChevronDown,
   Download,
   Eye,
   EyeOff,
+  Globe2,
   KeyRound,
   RefreshCw,
   RotateCcw,
   Save,
+  Timer,
   Upload,
 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -26,6 +30,13 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import {
   Select,
   SelectContent,
@@ -45,6 +56,8 @@ import type { TranslationKey } from '@/shared/i18n/translations';
 import type { Setting } from '@/shared/api/types';
 
 type SettingKey =
+  | 'geo.blocked_countries'
+  | 'geo.update_interval_hours'
   | 'hy2.bandwidth_down'
   | 'hy2.bandwidth_up'
   | 'hy2.domain'
@@ -87,6 +100,8 @@ type BackupImportSummary = {
 };
 
 const fallbackValues: Record<SettingKey, SettingValue> = {
+  'geo.blocked_countries': ['ru'],
+  'geo.update_interval_hours': 24,
   'hy2.bandwidth_down': '1 gbps',
   'hy2.bandwidth_up': '1 gbps',
   'hy2.domain': 'h2v.example.com',
@@ -104,6 +119,8 @@ const fallbackValues: Record<SettingKey, SettingValue> = {
 };
 
 const settingLabelKeys: Record<SettingKey, TranslationKey> = {
+  'geo.blocked_countries': 'setting.geo.blocked_countries',
+  'geo.update_interval_hours': 'setting.geo.update_interval_hours',
   'hy2.bandwidth_down': 'setting.hy2.bandwidth_down',
   'hy2.bandwidth_up': 'setting.hy2.bandwidth_up',
   'hy2.domain': 'setting.hy2.domain',
@@ -135,6 +152,12 @@ const masqueradePresets: URLPreset[] = [
 const vlessPortPresets = [443, 8443, 8444, 2053, 2083];
 const hy2PortPresets = [443, 8443, 8444, 2083, 9443];
 const bandwidthPresets = ['100 mbps', '500 mbps', '1 gbps', '10 gbps'];
+const geoCountryOptions: Array<{ code: string; labelKey: TranslationKey }> = [
+  { code: 'ru', labelKey: 'settings.geoCountryRussia' },
+  { code: 'cn', labelKey: 'settings.geoCountryChina' },
+  { code: 'ir', labelKey: 'settings.geoCountryIran' },
+];
+const geoCountryCodes = new Set(geoCountryOptions.map((option) => option.code));
 const portDefinitions: Array<{ key: PortKey; presets: number[]; protocol: 'tcp' | 'udp' }> = [
   { key: 'vless.port', presets: vlessPortPresets, protocol: 'tcp' },
   { key: 'hy2.port', presets: hy2PortPresets, protocol: 'udp' },
@@ -305,7 +328,7 @@ export function SettingsPage() {
   const setValue = useCallback((key: SettingKey, value: SettingValue) => {
     setDraft((current) => {
       const next = { ...current };
-      if (sameSettingValue(value, originalValues.value(key))) {
+      if (sameComparableSettingValue(key, value, originalValues.value(key))) {
         delete next[key];
       } else {
         next[key] = value;
@@ -343,6 +366,25 @@ export function SettingsPage() {
     if (value !== 'Custom') setValue('hy2.masquerade_url', value);
   }, [setValue]);
   const setHy2TrafficSecret = useCallback((value: string) => setValue('hy2.traffic_secret', value), [setValue]);
+  const setGeoCountryEnabled = useCallback((code: string, enabled: boolean) => {
+    setDraft((current) => {
+      const currentCountries = current['geo.blocked_countries'] ?? originalValues.value('geo.blocked_countries');
+      const nextCountries = toggleCountry(asComparableCSVList(currentCountries), code, enabled);
+      const next = { ...current };
+
+      if (sameComparableSettingValue('geo.blocked_countries', nextCountries, originalValues.value('geo.blocked_countries'))) {
+        delete next['geo.blocked_countries'];
+      } else {
+        next['geo.blocked_countries'] = nextCountries;
+      }
+
+      return next;
+    });
+  }, [originalValues]);
+  const setGeoUpdateIntervalHours = useCallback(
+    (value: number) => setValue('geo.update_interval_hours', value),
+    [setValue],
+  );
   const generateHy2TrafficSecret = useCallback(() => setValue('hy2.traffic_secret', randomSecret(32)), [setValue]);
   const generateRealityKeyPair = useCallback(() => generateReality.mutate(), [generateReality.mutate]);
   const retrySettings = useCallback(() => {
@@ -405,17 +447,14 @@ export function SettingsPage() {
                 onChange={handleBackupUpload}
                 type="file"
               />
-              <Button
-                className="h-10 w-full justify-center sm:w-auto"
-                disabled={updateGeodata.isPending}
-                onClick={() => updateGeodata.mutate()}
-                size="sm"
-                type="button"
-                variant="secondary"
-              >
-                <RefreshCw className={cn(updateGeodata.isPending && 'animate-spin')} />
-                {t('settings.updateGeo')}
-              </Button>
+              <GeoMenu
+                blockedCountries={values.stringArray('geo.blocked_countries')}
+                intervalHours={values.number('geo.update_interval_hours')}
+                onCountryChange={setGeoCountryEnabled}
+                onIntervalHoursChange={setGeoUpdateIntervalHours}
+                onUpdateNow={() => updateGeodata.mutate()}
+                updating={updateGeodata.isPending}
+              />
             </div>
           </div>
         }
@@ -736,6 +775,100 @@ const SecretControl = memo(function SecretControl({
   );
 });
 
+const GeoMenu = memo(function GeoMenu({
+  blockedCountries,
+  intervalHours,
+  onCountryChange,
+  onIntervalHoursChange,
+  onUpdateNow,
+  updating,
+}: {
+  blockedCountries: string[];
+  intervalHours: number;
+  onCountryChange: (code: string, enabled: boolean) => void;
+  onIntervalHoursChange: (value: number) => void;
+  onUpdateNow: () => void;
+  updating: boolean;
+}) {
+  const { t } = useI18n();
+  const selectedCountries = new Set(blockedCountries);
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button
+          className="h-10 w-full justify-center sm:w-auto"
+          size="sm"
+          type="button"
+          variant="secondary"
+        >
+          <RefreshCw className={cn(updating && 'animate-spin')} />
+          {t('settings.updateGeo')}
+          <ChevronDown className="size-4" />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-80 p-2">
+        <DropdownMenuItem
+          disabled={updating}
+          onSelect={(event) => {
+            event.preventDefault();
+            onUpdateNow();
+          }}
+        >
+          <RefreshCw className={cn(updating && 'animate-spin')} />
+          {t('settings.updateGeoNow')}
+        </DropdownMenuItem>
+        <DropdownMenuSeparator />
+        <div className="space-y-3 px-1.5 py-2" onKeyDown={(event) => event.stopPropagation()}>
+          <div className="space-y-2">
+            <Label className="flex items-center gap-2 text-xs">
+              <Globe2 className="size-3.5" />
+              {t('settings.geoBlockedCountries')}
+            </Label>
+            <div className="grid gap-1.5">
+              {geoCountryOptions.map((option) => (
+                <label
+                  className="flex h-9 cursor-pointer items-center justify-between gap-3 rounded-[18px] px-2 text-sm transition-colors hover:bg-[image:var(--gradient-accent-soft)]"
+                  key={option.code}
+                >
+                  <span className="flex min-w-0 items-center gap-2">
+                    <input
+                      checked={selectedCountries.has(option.code)}
+                      onChange={(event) => onCountryChange(option.code, event.target.checked)}
+                      type="checkbox"
+                    />
+                    <span className="truncate">{t(option.labelKey)}</span>
+                  </span>
+                  <span className="flex shrink-0 items-center gap-1 font-mono text-[11px] font-semibold uppercase text-muted-foreground">
+                    <Ban className="size-3" />
+                    {option.code}
+                  </span>
+                </label>
+              ))}
+            </div>
+          </div>
+          <div className="space-y-2">
+            <Label className="flex items-center gap-2 text-xs">
+              <Timer className="size-3.5" />
+              {t('settings.geoUpdateInterval')}
+            </Label>
+            <Input
+              className={cn(settingFieldClassName, 'h-9 w-28 font-mono text-xs')}
+              inputMode="numeric"
+              max={720}
+              min={1}
+              onChange={(event) => onIntervalHoursChange(event.target.value === '' ? 0 : Number(event.target.value))}
+              step={1}
+              type="number"
+              value={Number.isFinite(intervalHours) ? String(intervalHours) : ''}
+            />
+          </div>
+        </div>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+});
+
 const PortControl = memo(function PortControl({
   label,
   max,
@@ -986,7 +1119,9 @@ function createSettingsValues(items: Setting[], draft: SettingsDraft) {
     },
     stringArray: (key: SettingKey) => {
       const raw = value(key);
-      return Array.isArray(raw) ? raw.map(String) : asStringArray(fallbackValues[key]);
+      if (Array.isArray(raw)) return raw.map(String);
+      if (isGeoListSetting(key)) return parseCSVList(String(raw));
+      return asStringArray(fallbackValues[key]);
     },
     value,
   };
@@ -1091,6 +1226,15 @@ function validateDraft(draft: SettingsDraft, values: ReturnType<typeof createSet
     if ((key === 'hy2.bandwidth_up' || key === 'hy2.bandwidth_down') && !validBandwidth(values.string(key))) {
       issues.push(t('settings.validation.bandwidth', { label: settingLabel(key, t) }));
     }
+    if (key === 'geo.blocked_countries' && !values.stringArray(key).every(validCountryCode)) {
+      issues.push(t('settings.validation.countryCodes'));
+    }
+    if (key === 'geo.update_interval_hours') {
+      const hours = values.number(key);
+      if (!Number.isInteger(hours) || hours < 1 || hours > 720) {
+        issues.push(t('settings.validation.geoUpdateInterval'));
+      }
+    }
   }
   if (draft['hy2.obfs_enabled'] === true || draft['hy2.obfs_password'] !== undefined) {
     if (values.bool('hy2.obfs_enabled') && values.string('hy2.obfs_password').trim() === '') {
@@ -1114,6 +1258,8 @@ function normalizeDraftForSave(draft: SettingsDraft): SettingsDraft {
         normalized[key] = normalizeHostnameForSave(trimmed);
       } else if (key === 'hy2.masquerade_url') {
         normalized[key] = normalizeMasqueradeURLForSave(trimmed);
+      } else if (isGeoListSetting(key)) {
+        normalized[key] = parseCSVList(trimmed);
       } else {
         normalized[key] = trimmed;
       }
@@ -1136,8 +1282,52 @@ function sameSettingValue(left: SettingValue, right: SettingValue): boolean {
   return JSON.stringify(left) === JSON.stringify(right);
 }
 
+function sameComparableSettingValue(key: SettingKey, left: SettingValue, right: SettingValue): boolean {
+  if (isGeoListSetting(key)) {
+    const rightCanonical = formatCSVList(asComparableCSVList(right));
+    if (typeof left === 'string') {
+      const raw = left.trim().toLowerCase();
+      const leftCanonical = formatCSVList(parseCSVList(raw));
+      return raw === leftCanonical && leftCanonical === rightCanonical;
+    }
+    return formatCSVList(asComparableCSVList(left)) === rightCanonical;
+  }
+  return sameSettingValue(left, right);
+}
+
+function asComparableCSVList(value: SettingValue): string[] {
+  if (Array.isArray(value)) return parseCSVList(value.join(','));
+  return parseCSVList(String(value));
+}
+
 function asStringArray(value: SettingValue): string[] {
   return Array.isArray(value) ? value.map(String) : [String(value)];
+}
+
+function parseCSVList(value: string): string[] {
+  const seen = new Set<string>();
+  const result: string[] = [];
+  for (const item of value.split(',')) {
+    const normalized = item.trim().toLowerCase();
+    if (normalized === '' || seen.has(normalized)) continue;
+    seen.add(normalized);
+    result.push(normalized);
+  }
+  return result;
+}
+
+function toggleCountry(values: string[], code: string, enabled: boolean): string[] {
+  const selected = new Set(values.filter((value) => geoCountryCodes.has(value)));
+  if (enabled) {
+    selected.add(code);
+  } else {
+    selected.delete(code);
+  }
+  return geoCountryOptions.map((option) => option.code).filter((value) => selected.has(value));
+}
+
+function formatCSVList(values: string[]): string {
+  return values.join(', ');
 }
 
 function firstNonEmpty(values: string[]): string {
@@ -1183,6 +1373,10 @@ function isPortSetting(key: SettingKey): boolean {
   return key.endsWith('.port') || key.endsWith('_port') || key === 'vless.port';
 }
 
+function isGeoListSetting(key: SettingKey): boolean {
+  return key === 'geo.blocked_countries';
+}
+
 function validURL(value: string): boolean {
   try {
     const parsed = new URL(value.trim());
@@ -1207,6 +1401,10 @@ function validRealityShortID(value: string): boolean {
 
 function validBandwidth(value: string): boolean {
   return /^\d+(?:\.\d+)?\s*(bps|kbps|mbps|gbps|tbps|k|m|g|t)$/i.test(value.trim());
+}
+
+function validCountryCode(value: string): boolean {
+  return geoCountryCodes.has(value.trim().toLowerCase());
 }
 
 function randomHex(bytes: number): string {

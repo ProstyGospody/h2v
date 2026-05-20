@@ -45,8 +45,10 @@
   },
   "acl": {
     "inline": [
-      "reject(geosite:category-ru)",
-      "reject(geoip:ru)"
+      {{- range $i, $rule := .HysteriaRejectRules }}
+      {{- if $i }},{{ end }}
+      {{ $rule | json }}
+      {{- end }}
     ],
     "geoip": {{ .GeoIPPath | json }},
     "geosite": {{ .GeositePath | json }}

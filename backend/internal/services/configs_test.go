@@ -360,9 +360,103 @@ func TestRenderXrayConfigUsesStabilityRoutingAndSniffingDefaults(t *testing.T) {
 	}
 }
 
+func TestRenderXrayConfigUsesConfiguredGeoRejectRules(t *testing.T) {
+	runtime := baseXrayRuntimeForTest()
+	runtime.GeoBlockedCountries = []string{"cn", "ir"}
+	runtime.GeoBlockedGeositeTags = nil
+	content := renderXrayTemplateForTest(t, runtime)
+
+	var payload struct {
+		Routing struct {
+			Rules []xrayRouteRuleForTest `json:"rules"`
+		} `json:"routing"`
+	}
+	if err := json.Unmarshal(content, &payload); err != nil {
+		t.Fatal(err)
+	}
+	if !routingHasIPRule(payload.Routing.Rules, "geoip:cn") || !routingHasIPRule(payload.Routing.Rules, "geoip:ir") {
+		t.Fatalf("routing missing configured country blocks: %#v", payload.Routing.Rules)
+	}
+	if routingHasDomainRule(payload.Routing.Rules, "geosite:category-ru") {
+		t.Fatalf("routing should not include Russian geosite block when Russia is disabled: %#v", payload.Routing.Rules)
+	}
+}
+
+func TestRenderXrayConfigOmitsGeoRejectRulesWhenCountriesDisabled(t *testing.T) {
+	runtime := baseXrayRuntimeForTest()
+	runtime.GeoBlockedCountries = nil
+	runtime.GeoBlockedGeositeTags = nil
+	content := renderXrayTemplateForTest(t, runtime)
+
+	var payload struct {
+		Routing struct {
+			Rules []xrayRouteRuleForTest `json:"rules"`
+		} `json:"routing"`
+	}
+	if err := json.Unmarshal(content, &payload); err != nil {
+		t.Fatal(err)
+	}
+	if routingHasIPRule(payload.Routing.Rules, "geoip:ru") || routingHasDomainRule(payload.Routing.Rules, "geosite:category-ru") {
+		t.Fatalf("routing should not include country rejects when countries are disabled: %#v", payload.Routing.Rules)
+	}
+}
+
 func TestRenderHysteriaConfigUsesRegionalStabilityDefaults(t *testing.T) {
 	runtime := RuntimeSettings{
 		H2VPort:        8000,
+		Hy2Port:          8443,
+		Hy2Domain:        "vpn.example.com",
+		Hy2CertPath:      "/etc/letsencrypt/live/vpn.example.com/fullchain.pem",
+		Hy2KeyPath:       "/etc/letsencrypt/live/vpn.example.com/privkey.pem",
+		Hy2BandwidthUp:   "1 gbps",
+		Hy2BandwidthDown: "1 gbps",
+		Hy2TrafficSecret: "traffic-secret",
+		Hy2TrafficListen: "127.0.0.1:7653",
+		Hy2ObfsEnabled:   true,
+		Hy2ObfsPassword:  "obfs-secret",
+		GeoIPPath:        "/opt/h2v/data/geodata/geoip.dat",
+		GeositePath:      "/opt/h2v/data/geodata/geosite.dat",
+		GeoBlockedCountries:   []string{"ru"},
+		GeoBlockedGeositeTags: []string{"category-ru"},
+	}
+	content := renderHysteriaTemplateForTest(t, runtime)
+
+	var payload struct {
+		Congestion struct {
+			Type       string `json:"type"`
+			BBRProfile string `json:"bbrProfile"`
+		} `json:"congestion"`
+		Sniff struct {
+			Enable        bool   `json:"enable"`
+			Timeout       string `json:"timeout"`
+			RewriteDomain bool   `json:"rewriteDomain"`
+			TCPPorts      string `json:"tcpPorts"`
+			UDPPorts      string `json:"udpPorts"`
+		} `json:"sniff"`
+		ACL struct {
+			Inline []string `json:"inline"`
+		} `json:"acl"`
+	}
+	if err := json.Unmarshal(content, &payload); err != nil {
+		t.Fatal(err)
+	}
+	if payload.Congestion.Type != "bbr" || payload.Congestion.BBRProfile != "conservative" {
+		t.Fatalf("congestion = %#v, want bbr/conservative", payload.Congestion)
+	}
+	if !payload.Sniff.Enable || payload.Sniff.Timeout != "2s" || payload.Sniff.RewriteDomain {
+		t.Fatalf("sniff = %#v, want enabled 2s without rewrite", payload.Sniff)
+	}
+	if payload.Sniff.TCPPorts != "80,443" || payload.Sniff.UDPPorts != "443" {
+		t.Fatalf("sniff ports = %#v, want tcp 80,443 and udp 443", payload.Sniff)
+	}
+	if got, want := payload.ACL.Inline, []string{"reject(geosite:category-ru)", "reject(geoip:ru)"}; !stringSlicesEqual(got, want) {
+		t.Fatalf("acl inline = %#v, want %#v", got, want)
+	}
+}
+
+func TestRenderHysteriaConfigOmitsGeoRejectRulesWhenCountriesDisabled(t *testing.T) {
+	runtime := RuntimeSettings{
+		H2VPort:          8000,
 		Hy2Port:          8443,
 		Hy2Domain:        "vpn.example.com",
 		Hy2CertPath:      "/etc/letsencrypt/live/vpn.example.com/fullchain.pem",
@@ -379,29 +473,15 @@ func TestRenderHysteriaConfigUsesRegionalStabilityDefaults(t *testing.T) {
 	content := renderHysteriaTemplateForTest(t, runtime)
 
 	var payload struct {
-		Congestion struct {
-			Type       string `json:"type"`
-			BBRProfile string `json:"bbrProfile"`
-		} `json:"congestion"`
-		Sniff struct {
-			Enable        bool   `json:"enable"`
-			Timeout       string `json:"timeout"`
-			RewriteDomain bool   `json:"rewriteDomain"`
-			TCPPorts      string `json:"tcpPorts"`
-			UDPPorts      string `json:"udpPorts"`
-		} `json:"sniff"`
+		ACL struct {
+			Inline []string `json:"inline"`
+		} `json:"acl"`
 	}
 	if err := json.Unmarshal(content, &payload); err != nil {
 		t.Fatal(err)
 	}
-	if payload.Congestion.Type != "bbr" || payload.Congestion.BBRProfile != "conservative" {
-		t.Fatalf("congestion = %#v, want bbr/conservative", payload.Congestion)
-	}
-	if !payload.Sniff.Enable || payload.Sniff.Timeout != "2s" || payload.Sniff.RewriteDomain {
-		t.Fatalf("sniff = %#v, want enabled 2s without rewrite", payload.Sniff)
-	}
-	if payload.Sniff.TCPPorts != "80,443" || payload.Sniff.UDPPorts != "443" {
-		t.Fatalf("sniff ports = %#v, want tcp 80,443 and udp 443", payload.Sniff)
+	if len(payload.ACL.Inline) != 0 {
+		t.Fatalf("acl inline = %#v, want no country rejects", payload.ACL.Inline)
 	}
 }
 
@@ -416,6 +496,9 @@ func baseXrayRuntimeForTest() RuntimeSettings {
 		XrayAPIPort:               10085,
 		XraySniffingEnabled:       true,
 		XraySniffingDestOverride:  []string{"http", "tls"},
+		GeoBlockedCountries:       []string{"ru"},
+		GeoBlockedGeositeTags:     []string{"category-ru"},
+		GeoUpdateIntervalHours:    24,
 	}
 }
 

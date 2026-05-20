@@ -133,40 +133,71 @@ type ClientEntry struct {
 }
 
 type RuntimeSettings struct {
-	H2VDomain        string
-	PublicServerIP     string
-	H2VPort          int
-	H2VPublicPort    int
-	SubURLPrefix       string
-	RealitySNI         string
-	RealityDest        string
-	RealityPublicKey   string
-	RealityPrivateKey  string
-	RealityFingerprint string
-	RealityServerNames []string
-	RealityShortIDs    []string
-	VlessPort          int
-	XrayAPIListen      string
-	XrayAPIPort        int
-	VlessUDPEnabled    bool
-	VlessXUDPEnabled   bool
+	H2VDomain                 string
+	PublicServerIP            string
+	H2VPort                   int
+	H2VPublicPort             int
+	SubURLPrefix              string
+	RealitySNI                string
+	RealityDest               string
+	RealityPublicKey          string
+	RealityPrivateKey         string
+	RealityFingerprint        string
+	RealityServerNames        []string
+	RealityShortIDs           []string
+	VlessPort                 int
+	XrayAPIListen             string
+	XrayAPIPort               int
+	VlessUDPEnabled           bool
+	VlessXUDPEnabled          bool
 	XraySniffingEnabled      bool
 	XraySniffingDestOverride []string
-	Hy2Domain          string
-	Hy2Port            int
-	Hy2ObfsEnabled     bool
-	Hy2ObfsPassword    string
-	Hy2BandwidthUp     string
-	Hy2BandwidthDown   string
-	Hy2MasqueradeURL   string
-	Hy2TrafficSecret   string
-	Hy2TrafficListen   string
-	Hy2CertPath        string
-	Hy2KeyPath         string
-	GeoIPPath          string
-	GeositePath        string
-	Clients            []ClientEntry
-	FallbackClient     ClientEntry
+	Hy2Domain                 string
+	Hy2Port                   int
+	Hy2ObfsEnabled            bool
+	Hy2ObfsPassword           string
+	Hy2BandwidthUp            string
+	Hy2BandwidthDown          string
+	Hy2MasqueradeURL          string
+	Hy2TrafficSecret          string
+	Hy2TrafficListen          string
+	Hy2CertPath               string
+	Hy2KeyPath                string
+	GeoIPPath                 string
+	GeositePath               string
+	GeoBlockedCountries       []string
+	GeoBlockedGeositeTags     []string
+	GeoUpdateIntervalHours    int
+	Clients                   []ClientEntry
+	FallbackClient            ClientEntry
+}
+
+func (r RuntimeSettings) XrayGeoIPRejectRules() []string {
+	return prefixedGeoRules("geoip:", r.GeoBlockedCountries)
+}
+
+func (r RuntimeSettings) XrayGeositeRejectRules() []string {
+	return prefixedGeoRules("geosite:", r.GeoBlockedGeositeTags)
+}
+
+func (r RuntimeSettings) HysteriaRejectRules() []string {
+	capacity := len(r.GeoBlockedGeositeTags) + len(r.GeoBlockedCountries)
+	rules := make([]string, 0, capacity)
+	for _, tag := range r.GeoBlockedGeositeTags {
+		rules = append(rules, "reject(geosite:"+tag+")")
+	}
+	for _, country := range r.GeoBlockedCountries {
+		rules = append(rules, "reject(geoip:"+country+")")
+	}
+	return rules
+}
+
+func prefixedGeoRules(prefix string, values []string) []string {
+	rules := make([]string, 0, len(values))
+	for _, value := range values {
+		rules = append(rules, prefix+value)
+	}
+	return rules
 }
 
 func (r RuntimeSettings) XrayClients() []ClientEntry {

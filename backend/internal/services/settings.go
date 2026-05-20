@@ -34,8 +34,10 @@ type RealityKeyPair struct {
 }
 
 var (
-	bandwidthPattern = regexp.MustCompile(`(?i)^\d+(?:\.\d+)?\s*(bps|kbps|mbps|gbps|tbps|k|m|g|t)$`)
-	shortIDPattern   = regexp.MustCompile(`^[0-9a-fA-F]{0,16}$`)
+	bandwidthPattern  = regexp.MustCompile(`(?i)^\d+(?:\.\d+)?\s*(bps|kbps|mbps|gbps|tbps|k|m|g|t)$`)
+	shortIDPattern    = regexp.MustCompile(`^[0-9a-fA-F]{0,16}$`)
+	countryCodePattern = regexp.MustCompile(`^[a-z]{2}$`)
+	geositeTagPattern  = regexp.MustCompile(`^[a-z0-9][a-z0-9_@.!-]{0,63}$`)
 
 	defaultXraySniffingDestOverride = []string{"http", "tls"}
 	allowedXraySniffingDestOverride = map[string]struct{}{
@@ -52,6 +54,11 @@ var (
 		"edge":       {},
 		"random":     {},
 		"randomized": {},
+	}
+	allowedGeoCountryCodes = map[string]struct{}{
+		"ru": {},
+		"cn": {},
+		"ir": {},
 	}
 )
 
@@ -293,6 +300,9 @@ func DefaultRuntime(cfg config.Config) RuntimeSettings {
 		Hy2KeyPath:                cfg.Hysteria.KeyPath,
 		GeoIPPath:                 filepath.Join(cfg.Xray.GeodataDir, "geoip.dat"),
 		GeositePath:               filepath.Join(cfg.Xray.GeodataDir, "geosite.dat"),
+		GeoBlockedCountries:       normalizeCountryCodesOrDefault(cfg.Geo.BlockedCountries),
+		GeoBlockedGeositeTags:     normalizeGeositeTagsOrDefault(cfg.Geo.BlockedGeositeTags),
+		GeoUpdateIntervalHours:    normalizeGeoUpdateIntervalHours(cfg.Geo.UpdateIntervalHours),
 		Clients:                   nil,
 		FallbackClient: ClientEntry{
 			UUID:  inactiveXrayClientUUID(cfg),
@@ -306,6 +316,9 @@ func normalizeRuntimeDerivedValues(runtime *RuntimeSettings) {
 	runtime.RealityShortIDs = normalizeShortIDs(runtime.RealityShortIDs)
 	runtime.RealityFingerprint = normalizeRealityFingerprintOrDefault(runtime.RealityFingerprint)
 	runtime.XraySniffingDestOverride = normalizeSniffingDestOverrideOrDefault(runtime.XraySniffingDestOverride)
+	runtime.GeoBlockedCountries = normalizeCountryCodesOrDefault(runtime.GeoBlockedCountries)
+	runtime.GeoBlockedGeositeTags = geositeTagsForCountryCodes(runtime.GeoBlockedCountries)
+	runtime.GeoUpdateIntervalHours = normalizeGeoUpdateIntervalHours(runtime.GeoUpdateIntervalHours)
 }
 
 func inactiveXrayClientUUID(cfg config.Config) string {
@@ -340,8 +353,14 @@ func applyRuntimeValues(runtime *RuntimeSettings, values map[string]json.RawMess
 	runtime.Hy2BandwidthDown = stringOr(values, "hy2.bandwidth_down", runtime.Hy2BandwidthDown)
 	runtime.Hy2MasqueradeURL = stringOr(values, "hy2.masquerade_url", runtime.Hy2MasqueradeURL)
 	runtime.Hy2TrafficSecret = stringOr(values, "hy2.traffic_secret", runtime.Hy2TrafficSecret)
+	runtime.GeoBlockedCountries = stringListAllowEmptyOr(values, "geo.blocked_countries", runtime.GeoBlockedCountries)
+	runtime.GeoBlockedGeositeTags = stringListAllowEmptyOr(values, "geo.blocked_geosite_tags", runtime.GeoBlockedGeositeTags)
+	runtime.GeoUpdateIntervalHours = intOr(values, "geo.update_interval_hours", runtime.GeoUpdateIntervalHours)
 	runtime.RealityFingerprint = normalizeRealityFingerprintOrDefault(runtime.RealityFingerprint)
 	runtime.XraySniffingDestOverride = normalizeSniffingDestOverrideOrDefault(runtime.XraySniffingDestOverride)
+	runtime.GeoBlockedCountries = normalizeCountryCodesOrDefault(runtime.GeoBlockedCountries)
+	runtime.GeoBlockedGeositeTags = geositeTagsForCountryCodes(runtime.GeoBlockedCountries)
+	runtime.GeoUpdateIntervalHours = normalizeGeoUpdateIntervalHours(runtime.GeoUpdateIntervalHours)
 }
 
 func applyStoredRuntimeValues(runtime *RuntimeSettings, values map[string]json.RawMessage) {
@@ -407,6 +426,12 @@ func normalizeSettingValue(key string, raw json.RawMessage) (any, error) {
 			return nil, invalidSetting(key, "must be an integer between 1 and 65535")
 		}
 		return value, nil
+	case "geo.update_interval_hours":
+		var value int
+		if err := json.Unmarshal(raw, &value); err != nil || value < 1 || value > 720 {
+			return nil, invalidSetting(key, "must be an integer between 1 and 720 hours")
+		}
+		return value, nil
 	case "hy2.obfs_enabled", "vless.udp_enabled", "vless.xudp_enabled", "xray.sniffing_enabled":
 		var value bool
 		if err := json.Unmarshal(raw, &value); err != nil {
@@ -431,6 +456,26 @@ func normalizeSettingValue(key string, raw json.RawMessage) (any, error) {
 			return nil, invalidSetting(key, "must be a string array or comma-separated string")
 		}
 		values, err = normalizeSniffingDestOverride(values)
+		if err != nil {
+			return nil, invalidSetting(key, err.Error())
+		}
+		return values, nil
+	case "geo.blocked_countries":
+		values, err := decodeStringList(raw)
+		if err != nil {
+			return nil, invalidSetting(key, "must be a string array or comma-separated string")
+		}
+		values, err = normalizeCountryCodes(values)
+		if err != nil {
+			return nil, invalidSetting(key, err.Error())
+		}
+		return values, nil
+	case "geo.blocked_geosite_tags":
+		values, err := decodeStringList(raw)
+		if err != nil {
+			return nil, invalidSetting(key, "must be a string array or comma-separated string")
+		}
+		values, err = normalizeGeositeTags(values)
 		if err != nil {
 			return nil, invalidSetting(key, err.Error())
 		}
@@ -693,6 +738,18 @@ func stringListOr(values map[string]json.RawMessage, key string, fallback []stri
 	return result
 }
 
+func stringListAllowEmptyOr(values map[string]json.RawMessage, key string, fallback []string) []string {
+	raw, ok := values[key]
+	if !ok {
+		return fallback
+	}
+	result, err := decodeStringList(raw)
+	if err != nil {
+		return fallback
+	}
+	return result
+}
+
 func decodeStringList(raw json.RawMessage) ([]string, error) {
 	var values []string
 	if err := json.Unmarshal(raw, &values); err == nil {
@@ -704,6 +761,85 @@ func decodeStringList(raw json.RawMessage) ([]string, error) {
 		return nil, err
 	}
 	return strings.Split(value, ","), nil
+}
+
+func normalizeCountryCodes(values []string) ([]string, error) {
+	seen := make(map[string]struct{}, len(values))
+	out := make([]string, 0, len(values))
+	for _, raw := range values {
+		for _, part := range strings.Split(raw, ",") {
+			value := strings.ToLower(strings.TrimSpace(part))
+			if value == "" {
+				continue
+			}
+			if !countryCodePattern.MatchString(value) {
+				return nil, fmt.Errorf("must contain ISO 3166-1 alpha-2 country codes")
+			}
+			if _, ok := allowedGeoCountryCodes[value]; !ok {
+				return nil, fmt.Errorf("must contain only ru, cn, or ir")
+			}
+			if _, ok := seen[value]; ok {
+				continue
+			}
+			seen[value] = struct{}{}
+			out = append(out, value)
+		}
+	}
+	return out, nil
+}
+
+func normalizeCountryCodesOrDefault(values []string) []string {
+	normalized, err := normalizeCountryCodes(values)
+	if err != nil {
+		return nil
+	}
+	return normalized
+}
+
+func normalizeGeositeTags(values []string) ([]string, error) {
+	seen := make(map[string]struct{}, len(values))
+	out := make([]string, 0, len(values))
+	for _, raw := range values {
+		for _, part := range strings.Split(raw, ",") {
+			value := strings.ToLower(strings.TrimSpace(part))
+			if value == "" {
+				continue
+			}
+			if !geositeTagPattern.MatchString(value) {
+				return nil, fmt.Errorf("must contain valid geosite tags")
+			}
+			if _, ok := seen[value]; ok {
+				continue
+			}
+			seen[value] = struct{}{}
+			out = append(out, value)
+		}
+	}
+	return out, nil
+}
+
+func normalizeGeositeTagsOrDefault(values []string) []string {
+	normalized, err := normalizeGeositeTags(values)
+	if err != nil {
+		return nil
+	}
+	return normalized
+}
+
+func geositeTagsForCountryCodes(countries []string) []string {
+	for _, country := range countries {
+		if country == "ru" {
+			return []string{"category-ru"}
+		}
+	}
+	return nil
+}
+
+func normalizeGeoUpdateIntervalHours(value int) int {
+	if value < 1 || value > 720 {
+		return 24
+	}
+	return value
 }
 
 func normalizeRealityFingerprint(value string) (string, bool) {

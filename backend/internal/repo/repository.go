@@ -50,6 +50,8 @@ func (r *Repository) BootstrapSettings(ctx context.Context, cfg config.Config) e
 		"hy2.bandwidth_down":          rawJSONString(cfg.Hysteria.BandwidthDown),
 		"hy2.masquerade_url":          rawJSONString(cfg.Hysteria.MasqueradeURL),
 		"hy2.traffic_secret":          rawJSONString(cfg.Hysteria.TrafficSecret),
+		"geo.blocked_countries":       rawJSONArray(cfg.Geo.BlockedCountries),
+		"geo.update_interval_hours":   rawJSONInt(cfg.Geo.UpdateIntervalHours),
 	}
 	if err := r.InsertMissingSettings(ctx, settings); err != nil {
 		return err

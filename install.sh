@@ -1288,6 +1288,8 @@ ensure_env() {
   env_set XRAY_LOCATION_ASSET "${geodata_dir}"
   env_set_default XRAY_GEOIP_URL "${XRAY_GEOIP_URL_DEFAULT}"
   env_set_default XRAY_GEOSITE_URL "${XRAY_GEOSITE_URL_DEFAULT}"
+  env_set_default GEO_BLOCKED_COUNTRIES ru
+  env_set_default GEO_UPDATE_INTERVAL_HOURS 24
   ensure_public_server_ip
   auto_tune_low_memory_runtime_defaults
 }

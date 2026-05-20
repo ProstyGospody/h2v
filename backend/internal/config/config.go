@@ -15,6 +15,7 @@ type Config struct {
 	DB           DBConfig
 	Xray         XrayConfig
 	Hysteria     HysteriaConfig
+	Geo          GeoConfig
 	Subscription SubscriptionConfig
 	Backup       BackupConfig
 	Traffic      TrafficConfig
@@ -79,6 +80,12 @@ type HysteriaConfig struct {
 	MasqueradeURL  string
 	CertPath       string
 	KeyPath        string
+}
+
+type GeoConfig struct {
+	BlockedCountries     []string
+	BlockedGeositeTags   []string
+	UpdateIntervalHours  int
 }
 
 type SubscriptionConfig struct {
@@ -165,6 +172,11 @@ func Load() Config {
 			MasqueradeURL: getenv("HY2_MASQUERADE_URL", "https://www.google.com"),
 			CertPath:      getenv("HY2_CERT_PATH", ""),
 			KeyPath:       getenv("HY2_KEY_PATH", ""),
+		},
+		Geo: GeoConfig{
+			BlockedCountries:    splitCSV(getenv("GEO_BLOCKED_COUNTRIES", "ru")),
+			BlockedGeositeTags:  splitCSV(getenv("GEO_BLOCKED_GEOSITE_TAGS", "")),
+			UpdateIntervalHours: getenvInt("GEO_UPDATE_INTERVAL_HOURS", 24),
 		},
 		Subscription: SubscriptionConfig{
 			URLPrefix:           getenv("SUB_URL_PREFIX", "https://h2v.example.com"),

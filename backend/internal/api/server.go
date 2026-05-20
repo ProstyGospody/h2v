@@ -1184,7 +1184,7 @@ func subscriptionTokenFromURL(raw string) string {
 
 func shouldReconcileXray(values map[string]json.RawMessage) bool {
 	for key := range values {
-		if strings.HasPrefix(key, "vless.") || strings.HasPrefix(key, "reality.") || strings.HasPrefix(key, "xray.") || key == "config.override.xray" {
+		if strings.HasPrefix(key, "vless.") || strings.HasPrefix(key, "reality.") || strings.HasPrefix(key, "xray.") || isGeoRoutingSetting(key) || key == "config.override.xray" {
 			return true
 		}
 	}
@@ -1193,11 +1193,15 @@ func shouldReconcileXray(values map[string]json.RawMessage) bool {
 
 func shouldReconcileHysteria(values map[string]json.RawMessage) bool {
 	for key := range values {
-		if strings.HasPrefix(key, "hy2.") || key == "config.override.hysteria" {
+		if strings.HasPrefix(key, "hy2.") || isGeoRoutingSetting(key) || key == "config.override.hysteria" {
 			return true
 		}
 	}
 	return false
+}
+
+func isGeoRoutingSetting(key string) bool {
+	return key == "geo.blocked_countries" || key == "geo.blocked_geosite_tags"
 }
 
 func (s *Server) settingsRollbackValues(ctx context.Context, values map[string]json.RawMessage) (map[string]json.RawMessage, error) {

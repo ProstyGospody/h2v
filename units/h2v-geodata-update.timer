@@ -1,10 +1,10 @@
 [Unit]
-Description=Daily VPN core GeoIP and Geosite data update
+Description=Periodic VPN core GeoIP and Geosite data update check
 
 [Timer]
 OnBootSec=10min
-OnUnitActiveSec=24h
-RandomizedDelaySec=1h
+OnUnitActiveSec=1h
+RandomizedDelaySec=5min
 Persistent=true
 Unit=h2v-geodata-update.service
 

@@ -14,6 +14,7 @@ import (
 )
 
 const minGeodataBytes = 1024
+const geodataCheckFallbackInterval = 24 * time.Hour
 
 type GeodataService struct {
 	cfg       config.XrayConfig
@@ -81,6 +82,60 @@ func (s *GeodataService) UpdateAndRestart(ctx context.Context) error {
 		}
 	}
 	return nil
+}
+
+func (s *GeodataService) UpdateAndRestartIfDue(ctx context.Context, settings interface {
+	Runtime(context.Context) (RuntimeSettings, error)
+}) (bool, error) {
+	interval := geodataCheckFallbackInterval
+	if settings != nil {
+		runtime, err := settings.Runtime(ctx)
+		if err != nil {
+			return false, err
+		}
+		interval = time.Duration(runtime.GeoUpdateIntervalHours) * time.Hour
+	}
+	due, err := s.updateDue(interval)
+	if err != nil {
+		return false, err
+	}
+	if !due {
+		return false, nil
+	}
+	if err := s.UpdateAndRestart(ctx); err != nil {
+		return false, err
+	}
+	return true, nil
+}
+
+func (s *GeodataService) updateDue(interval time.Duration) (bool, error) {
+	if s.cfg.GeodataDir == "" {
+		return false, fmt.Errorf("XRAY_GEODATA_DIR is empty")
+	}
+	if interval <= 0 {
+		interval = geodataCheckFallbackInterval
+	}
+	files := []string{
+		filepath.Join(s.cfg.GeodataDir, "geoip.dat"),
+		filepath.Join(s.cfg.GeodataDir, "geosite.dat"),
+	}
+	var oldest time.Time
+	for _, path := range files {
+		info, err := os.Stat(path)
+		if os.IsNotExist(err) {
+			return true, nil
+		}
+		if err != nil {
+			return false, err
+		}
+		if info.Size() < minGeodataBytes {
+			return true, nil
+		}
+		if oldest.IsZero() || info.ModTime().Before(oldest) {
+			oldest = info.ModTime()
+		}
+	}
+	return time.Since(oldest) >= interval, nil
 }
 
 func (s *GeodataService) download(ctx context.Context, sourceURL, target string) error {

@@ -42,7 +42,7 @@ func main() {
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{}))
 
 	if len(os.Args) < 2 {
-		fatal(logger, errors.New("expected subcommand: serve | db init | admin create | admin set-password | config render | geodata update"))
+		fatal(logger, errors.New("expected subcommand: serve | db init | admin create | admin set-password | config render | geodata update|auto"))
 	}
 
 	switch os.Args[1] {
@@ -332,14 +332,35 @@ func runConfig(cfg config.Config, logger *slog.Logger, args []string) {
 }
 
 func runGeodata(cfg config.Config, logger *slog.Logger, args []string) {
-	if len(args) == 0 || args[0] != "update" {
-		fatal(logger, errors.New("usage: h2v geodata update"))
+	if len(args) != 1 || (args[0] != "update" && args[0] != "auto") {
+		fatal(logger, errors.New("usage: h2v geodata update|auto"))
 	}
 	ctx := context.Background()
-	if err := services.NewGeodataService(cfg.Xray, logger).Update(ctx); err != nil {
+	if args[0] == "update" {
+		if err := services.NewGeodataService(cfg.Xray, logger).Update(ctx); err != nil {
+			fatal(logger, err)
+		}
+		logger.Info("core geodata update complete", "dir", cfg.Xray.GeodataDir)
+		return
+	}
+
+	pool, err := db.Connect(ctx, cfg.DB)
+	if err != nil {
 		fatal(logger, err)
 	}
-	logger.Info("core geodata update complete", "dir", cfg.Xray.GeodataDir)
+	defer pool.Close()
+
+	settings := services.NewSettingsService(cfg, repo.New(pool), logger)
+	geodata := services.NewGeodataService(cfg.Xray, logger, systemctl.New(cfg.H2V.DisableSystemctl))
+	updated, err := geodata.UpdateAndRestartIfDue(ctx, settings)
+	if err != nil {
+		fatal(logger, err)
+	}
+	if updated {
+		logger.Info("core geodata auto update complete", "dir", cfg.Xray.GeodataDir)
+	} else {
+		logger.Info("core geodata auto update skipped; data is fresh", "dir", cfg.Xray.GeodataDir)
+	}
 }
 
 func fatal(logger *slog.Logger, err error) {

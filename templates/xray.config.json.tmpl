@@ -69,17 +69,17 @@
     "domainStrategy": "AsIs",
     "rules": [
       { "type": "field", "inboundTag": ["api"], "outboundTag": "api" },
-      { "type": "field", "protocol": ["bittorrent"], "outboundTag": "block" },
+      { "type": "field", "protocol": ["bittorrent"], "outboundTag": "block" }{{ $geositeRules := .XrayGeositeRejectRules }}{{ if $geositeRules }},
       {
         "type": "field",
-        "domain": ["geosite:category-ru"],
+        "domain": {{ $geositeRules | json }},
         "outboundTag": "block"
-      },
+      }{{ end }}{{ $geoipRules := .XrayGeoIPRejectRules }}{{ if $geoipRules }},
       {
         "type": "field",
-        "ip": ["geoip:ru"],
+        "ip": {{ $geoipRules | json }},
         "outboundTag": "block"
-      }
+      }{{ end }}
     ]
   }
 }
