@@ -173,20 +173,12 @@ func (t *Collector) warnTrafficMismatch(core string, stats map[string]domain.Tra
 	}
 	switch core {
 	case "xray":
-		t.logger.Warn("xray stats username mismatch - emails in xray config do not match users.username", "reported", keysOf(stats))
+		t.logger.Warn("xray stats identity mismatch - stats keys do not match users.username or users.vless_uuid", "reported", len(stats), "matched", matched)
 	case "hysteria":
-		t.logger.Warn("hysteria stats username mismatch - auth callback ids do not match users.username", "reported", keysOf(stats))
+		t.logger.Warn("hysteria stats identity mismatch - stats keys do not match users.username or users.hy2_password", "reported", len(stats), "matched", matched)
 	default:
-		t.logger.Warn("traffic stats username mismatch", "core", core, "reported", keysOf(stats))
+		t.logger.Warn("traffic stats identity mismatch", "core", core, "reported", len(stats), "matched", matched)
 	}
-}
-
-func keysOf(m map[string]domain.TrafficDelta) []string {
-	out := make([]string, 0, len(m))
-	for k := range m {
-		out = append(out, k)
-	}
-	return out
 }
 
 type Enforcer struct {

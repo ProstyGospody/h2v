@@ -556,42 +556,67 @@ func (r *Repository) addTrafficBatch(ctx context.Context, batchID, core string, 
 		}
 	}
 
-	updateValues := make([]string, 0, len(stats))
-	updateArgs := make([]any, 0, len(stats)*2)
-	index := 1
-	for username, delta := range stats {
-		updateValues = append(updateValues, fmt.Sprintf("($%d, $%d::bigint)", index, index+1))
-		updateArgs = append(updateArgs, username, delta.Uplink+delta.Downlink)
-		index += 2
+	values := make([]string, 0, len(stats))
+	args := make([]any, 0, 1+len(stats)*3)
+	args = append(args, core)
+	index := 2
+	for identity, delta := range stats {
+		values = append(values, fmt.Sprintf("($%d, $%d::bigint, $%d::bigint)", index, index+1, index+2))
+		args = append(args, identity, delta.Uplink, delta.Downlink)
+		index += 3
 	}
-	updateQuery := fmt.Sprintf(`
-		UPDATE users AS u
-		SET traffic_used = u.traffic_used + t.bytes,
-		    updated_at = now()
-		FROM (VALUES %s) AS t(username, bytes)
-		WHERE u.username = t.username
-	`, strings.Join(updateValues, ","))
-	tag, err := tx.Exec(ctx, updateQuery, updateArgs...)
-	if err != nil {
-		return 0, false, err
-	}
-	matched := tag.RowsAffected()
-
-	insertValues := make([]string, 0, len(stats))
-	insertArgs := make([]any, 0, len(stats)*4)
-	index = 1
-	for username, delta := range stats {
-		insertValues = append(insertValues, fmt.Sprintf("($%d, $%d, $%d::bigint, $%d::bigint)", index, index+1, index+2, index+3))
-		insertArgs = append(insertArgs, username, core, delta.Uplink, delta.Downlink)
-		index += 4
-	}
-	insertQuery := fmt.Sprintf(`
-		INSERT INTO traffic_log (user_id, core, uplink, downlink, recorded_at)
-		SELECT u.id, t.core, t.uplink, t.downlink, now()
-		FROM (VALUES %s) AS t(username, core, uplink, downlink)
-		JOIN users u ON u.username = t.username
-	`, strings.Join(insertValues, ","))
-	if _, err := tx.Exec(ctx, insertQuery, insertArgs...); err != nil {
+	query := fmt.Sprintf(`
+		WITH input(identity, uplink, downlink) AS (
+			VALUES %s
+		),
+		resolved AS (
+			SELECT
+				i.identity,
+				u.id,
+				i.uplink,
+				i.downlink,
+				row_number() OVER (
+					PARTITION BY i.identity
+					ORDER BY CASE
+						WHEN u.username = i.identity THEN 0
+						WHEN $1 = 'xray' AND u.vless_uuid::text = i.identity THEN 1
+						WHEN $1 = 'hysteria' AND u.hy2_password = i.identity THEN 1
+						ELSE 2
+					END
+				) AS match_rank
+			FROM input AS i
+			JOIN users AS u
+			  ON u.username = i.identity
+			  OR ($1 = 'xray' AND u.vless_uuid::text = i.identity)
+			  OR ($1 = 'hysteria' AND u.hy2_password = i.identity)
+		),
+		matched AS (
+			SELECT id, sum(uplink)::bigint AS uplink, sum(downlink)::bigint AS downlink
+			FROM resolved
+			WHERE match_rank = 1
+			GROUP BY id
+		),
+		updated AS (
+			UPDATE users AS u
+			SET traffic_used = u.traffic_used + matched.uplink + matched.downlink,
+			    updated_at = now()
+			FROM matched
+			WHERE u.id = matched.id
+			RETURNING u.id
+		),
+		inserted AS (
+			INSERT INTO traffic_log (user_id, core, uplink, downlink, recorded_at)
+			SELECT matched.id, $1, matched.uplink, matched.downlink, now()
+			FROM matched
+			RETURNING user_id
+		)
+		SELECT
+			(SELECT count(*) FROM updated),
+			(SELECT count(*) FROM inserted)
+	`, strings.Join(values, ","))
+	var matched int64
+	var inserted int64
+	if err := tx.QueryRow(ctx, query, args...).Scan(&matched, &inserted); err != nil {
 		return 0, false, err
 	}
 
