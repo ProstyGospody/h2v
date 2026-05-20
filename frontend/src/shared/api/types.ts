@@ -17,17 +17,24 @@ export type ApiErrorShape = {
 };
 
 export type AdminIcon =
+  | 'alien'
+  | 'artist'
   | 'astronaut'
-  | 'bolt'
   | 'crown'
+  | 'detective'
   | 'dino'
-  | 'flame'
-  | 'gem'
-  | 'planet'
+  | 'guard'
+  | 'mechanic'
+  | 'ninja'
+  | 'pilot'
+  | 'prince'
+  | 'princess'
   | 'robot'
   | 'rocket'
-  | 'shield'
-  | 'star';
+  | 'scientist'
+  | 'singer'
+  | 'technologist'
+  | 'tuxedo';
 
 export type UserStatus = 'active' | 'disabled' | 'expired' | 'limited';
 
