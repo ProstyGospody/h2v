@@ -52,9 +52,26 @@ type JsonState =
       valid: false;
     };
 
+type DiffRowState = 'added' | 'changed' | 'removed' | 'unchanged';
+
+type DiffRow = {
+  currentLine: string;
+  currentLineNumber: number | null;
+  nextLine: string;
+  nextLineNumber: number | null;
+  state: DiffRowState;
+};
+
+type DiffSummary = {
+  changed: number;
+  currentLines: number;
+  nextLines: number;
+  rows: DiffRow[];
+};
+
 const cores: Core[] = ['xray', 'hysteria'];
 const jsonInspectDebounceMs = 300;
-const emptyDiffStats = { changed: 0, currentLines: 0, nextLines: 0 };
+const emptyDiffSummary: DiffSummary = { changed: 0, currentLines: 0, nextLines: 0, rows: [] };
 const configActionButtonClass = 'size-10 shrink-0 rounded-md p-0 sm:size-9';
 
 const coreMeta: Record<Core, CoreMeta> = {
@@ -124,8 +141,8 @@ function ConfigSection({ core }: { core: Core }) {
   const hasOverride = Boolean(config.data?.has_override || managedConfig.data?.has_override);
   const jsonState = useMemo(() => inspectJson(debouncedContent, t), [debouncedContent, t]);
   const stats = useMemo(() => contentStats(deferredContent), [deferredContent]);
-  const diffStats = useMemo(
-    () => (diffOpen ? summarizeDiff(original, content) : emptyDiffStats),
+  const diff = useMemo(
+    () => (diffOpen ? buildDiffSummary(original, content) : emptyDiffSummary),
     [content, diffOpen, original],
   );
 
@@ -377,14 +394,14 @@ function ConfigSection({ core }: { core: Core }) {
           </DialogHeader>
 
           <div className="grid gap-2 border-b border-border/55 bg-card/35 px-4 py-3 sm:grid-cols-3">
-            <DiffMetric label={t('configs.current')} value={t('common.lines', { count: diffStats.currentLines })} />
-            <DiffMetric label={t('configs.new')} value={t('common.lines', { count: diffStats.nextLines })} />
-            <DiffMetric label={t('configs.changed')} value={t('common.lines', { count: diffStats.changed })} />
+            <DiffMetric label={t('configs.current')} value={t('common.lines', { count: diff.currentLines })} />
+            <DiffMetric label={t('configs.new')} value={t('common.lines', { count: diff.nextLines })} />
+            <DiffMetric label={t('configs.changed')} value={t('common.lines', { count: diff.changed })} />
           </div>
 
           <div className="grid min-h-0 gap-3 overflow-auto bg-card p-3 md:grid-cols-2">
-            <DiffView label={t('configs.current')} value={original} />
-            <DiffView label={t('configs.new')} value={content} />
+            <DiffView label={t('configs.current')} rows={diff.rows} side="current" value={original} />
+            <DiffView label={t('configs.new')} rows={diff.rows} side="next" value={content} />
           </div>
 
           <DialogFooter className="items-stretch border-t border-border/55 bg-card/35 px-4 py-3 sm:items-center">
@@ -473,7 +490,17 @@ function DiffMetric({ label, value }: { label: string; value: string }) {
   );
 }
 
-function DiffView({ label, value }: { label: string; value: string }) {
+function DiffView({
+  label,
+  rows,
+  side,
+  value,
+}: {
+  label: string;
+  rows: DiffRow[];
+  side: 'current' | 'next';
+  value: string;
+}) {
   const { t } = useI18n();
   const stats = useMemo(() => contentStats(value), [value]);
 
@@ -486,15 +513,56 @@ function DiffView({ label, value }: { label: string; value: string }) {
         </div>
       </div>
       <div className="min-h-0 flex-1">
-        <pre
+        <div
           aria-label={t('configs.previewEditor', { label })}
-          className="h-[42vh] min-h-[320px] overflow-auto bg-background/45 p-3 font-mono text-[11px] leading-5 text-foreground md:h-[50vh] md:min-h-[360px]"
+          className="h-[42vh] min-h-[320px] overflow-auto bg-background/45 p-2 font-mono text-[11px] leading-5 text-foreground md:h-[50vh] md:min-h-[360px]"
         >
-          {value}
-        </pre>
+          <code className="block min-w-max">
+            {rows.map((row, index) => {
+              const lineNumber = side === 'current' ? row.currentLineNumber : row.nextLineNumber;
+              const line = side === 'current' ? row.currentLine : row.nextLine;
+
+              return (
+                <span
+                  className={cn(
+                    'grid grid-cols-[3rem_1rem_minmax(42rem,1fr)] rounded-sm px-2',
+                    diffRowClass(row.state, side),
+                  )}
+                  key={`${side}-${index}`}
+                >
+                  <span className="select-none pr-2 text-right text-muted-foreground/55">
+                    {lineNumber ?? ''}
+                  </span>
+                  <span className="select-none text-muted-foreground/65">{diffMarker(row.state, side)}</span>
+                  <span className={cn('whitespace-pre', line === '' && 'text-muted-foreground/35')}>
+                    {line === '' ? ' ' : line}
+                  </span>
+                </span>
+              );
+            })}
+          </code>
+        </div>
       </div>
     </div>
   );
+}
+
+function diffRowClass(state: DiffRowState, side: 'current' | 'next') {
+  if (state === 'unchanged') return '';
+  if (side === 'current') {
+    return state === 'added'
+      ? 'bg-success/5 text-muted-foreground/45'
+      : 'bg-destructive/12 text-foreground';
+  }
+  return state === 'removed'
+    ? 'bg-destructive/5 text-muted-foreground/45'
+    : 'bg-success/12 text-foreground';
+}
+
+function diffMarker(state: DiffRowState, side: 'current' | 'next') {
+  if (state === 'unchanged') return '';
+  if (side === 'current') return state === 'added' ? '' : '-';
+  return state === 'removed' ? '' : '+';
 }
 
 function inspectJson(value: string, t: Translate): JsonState {
@@ -545,20 +613,46 @@ function contentStats(value: string) {
   };
 }
 
-function summarizeDiff(current: string, next: string) {
+function buildDiffSummary(current: string, next: string): DiffSummary {
   const currentLines = current ? current.split('\n') : [];
   const nextLines = next ? next.split('\n') : [];
   const length = Math.max(currentLines.length, nextLines.length);
   let changed = 0;
+  const rows: DiffRow[] = [];
+
   for (let index = 0; index < length; index += 1) {
-    if (currentLines[index] !== nextLines[index]) {
+    const hasCurrentLine = index < currentLines.length;
+    const hasNextLine = index < nextLines.length;
+    const currentLine = currentLines[index] ?? '';
+    const nextLine = nextLines[index] ?? '';
+    let state: DiffRowState = 'unchanged';
+
+    if (!hasCurrentLine) {
+      state = 'added';
+    } else if (!hasNextLine) {
+      state = 'removed';
+    } else if (currentLine !== nextLine) {
+      state = 'changed';
+    }
+
+    if (state !== 'unchanged') {
       changed += 1;
     }
+
+    rows.push({
+      currentLine,
+      currentLineNumber: hasCurrentLine ? index + 1 : null,
+      nextLine,
+      nextLineNumber: hasNextLine ? index + 1 : null,
+      state,
+    });
   }
+
   return {
     changed,
     currentLines: currentLines.length,
     nextLines: nextLines.length,
+    rows,
   };
 }
 
