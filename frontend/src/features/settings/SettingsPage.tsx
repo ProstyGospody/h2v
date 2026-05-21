@@ -34,7 +34,6 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import {
@@ -819,7 +818,6 @@ const GeoMenu = memo(function GeoMenu({
           <RefreshCw className={cn(updating && 'animate-spin')} />
           {t('settings.updateGeoNow')}
         </DropdownMenuItem>
-        <DropdownMenuSeparator />
         <div className="space-y-1.5 px-0.5 py-1" onKeyDown={(event) => event.stopPropagation()}>
           <div className="space-y-1">
             <Label className="flex items-center gap-1.5 text-[10px]">
