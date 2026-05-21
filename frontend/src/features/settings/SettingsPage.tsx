@@ -791,8 +791,6 @@ const GeoMenu = memo(function GeoMenu({
 }) {
   const { t } = useI18n();
   const selectedCode = blockedCountries.find((code) => geoCountryCodes.has(code.toLowerCase()))?.toLowerCase() ?? '';
-  const selectedCountry = geoCountryOptions.find((option) => option.code === selectedCode);
-  const selectedLabel = selectedCountry ? t(selectedCountry.labelKey) : t('common.disabled');
   const countryOptions = [
     { code: '', label: t('common.disabled') },
     ...geoCountryOptions.map((option) => ({ code: option.code, label: t(option.labelKey) })),
@@ -822,19 +820,12 @@ const GeoMenu = memo(function GeoMenu({
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-64 p-1">
-        <div className="space-y-2 px-0.5 py-1" onKeyDown={(event) => event.stopPropagation()}>
+        <div className="space-y-2 px-1.5 py-1.5" onKeyDown={(event) => event.stopPropagation()}>
           <div className="space-y-1">
             <Label className="flex items-center gap-1.5 text-[10px]">
               <Globe2 className="size-3" />
               {t('settings.geoBlockedCountries')}
             </Label>
-            <div className="flex h-8 items-center justify-between gap-2 rounded-[18px] bg-accent-gradient-soft px-3 text-xs font-semibold text-foreground">
-              <span className="min-w-0 truncate">{selectedLabel}</span>
-              <span className="flex shrink-0 items-center gap-1 font-mono text-[10px] uppercase text-muted-foreground">
-                {selectedCode || t('common.disabled')}
-                <ChevronDown className="size-3" />
-              </span>
-            </div>
             <div className="grid gap-0.5">
               {countryOptions.map((option) => {
                 const selected = option.code === selectedCode;
@@ -842,7 +833,7 @@ const GeoMenu = memo(function GeoMenu({
                 return (
                   <button
                     className={cn(
-                      'flex h-7 items-center justify-between gap-2 rounded-[14px] px-2 text-left text-xs font-semibold transition-colors hover:bg-[image:var(--gradient-accent-soft)]',
+                      'flex h-7 items-center justify-between gap-2 rounded-md px-2 text-left text-xs font-semibold transition-colors hover:bg-[image:var(--gradient-accent-soft)]',
                       selected && 'bg-accent-gradient-soft',
                     )}
                     key={option.code || 'disabled'}
@@ -859,14 +850,14 @@ const GeoMenu = memo(function GeoMenu({
               })}
             </div>
           </div>
-          <div className="flex items-end gap-2">
+          <div className="grid grid-cols-[7rem_minmax(0,1fr)] items-end gap-2">
             <div className="min-w-0 space-y-1">
               <Label className="flex items-center gap-1.5 text-[10px]">
                 <Timer className="size-3" />
                 {t('settings.geoUpdateInterval')}
               </Label>
               <Input
-                className={cn(settingFieldClassName, 'h-9 w-28 font-mono text-xs')}
+                className={cn(settingFieldClassName, 'h-9 w-full font-mono text-xs')}
                 inputMode="numeric"
                 max={720}
                 min={1}
@@ -877,7 +868,7 @@ const GeoMenu = memo(function GeoMenu({
               />
             </div>
             <Button
-              className="h-9 shrink-0 px-3 text-xs"
+              className="h-9 w-full px-3 text-xs"
               disabled={updating}
               onClick={onUpdateNow}
               title={t('settings.updateGeoNow')}
