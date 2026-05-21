@@ -11,7 +11,7 @@ import {
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   AlertTriangle,
-  Ban,
+  Check,
   ChevronDown,
   Download,
   Eye,
@@ -790,7 +790,22 @@ const GeoMenu = memo(function GeoMenu({
   updating: boolean;
 }) {
   const { t } = useI18n();
-  const selectedCountries = new Set(blockedCountries.slice(0, 1));
+  const selectedCode = blockedCountries.find((code) => geoCountryCodes.has(code.toLowerCase()))?.toLowerCase() ?? '';
+  const selectedCountry = geoCountryOptions.find((option) => option.code === selectedCode);
+  const selectedLabel = selectedCountry ? t(selectedCountry.labelKey) : t('common.disabled');
+  const countryOptions = [
+    { code: '', label: t('common.disabled') },
+    ...geoCountryOptions.map((option) => ({ code: option.code, label: t(option.labelKey) })),
+  ];
+
+  function selectCountry(code: string) {
+    if (code === selectedCode) return;
+    if (code === '') {
+      if (selectedCode !== '') onCountryChange(selectedCode, false);
+      return;
+    }
+    onCountryChange(code, true);
+  }
 
   return (
     <DropdownMenu>
@@ -807,60 +822,71 @@ const GeoMenu = memo(function GeoMenu({
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-64 p-1">
-        <DropdownMenuItem
-          className="rounded-[16px] px-2 py-1 text-xs font-semibold"
-          disabled={updating}
-          onSelect={(event) => {
-            event.preventDefault();
-            onUpdateNow();
-          }}
-        >
-          <RefreshCw className={cn(updating && 'animate-spin')} />
-          {t('settings.updateGeoNow')}
-        </DropdownMenuItem>
-        <div className="space-y-1.5 px-0.5 py-1" onKeyDown={(event) => event.stopPropagation()}>
+        <div className="space-y-2 px-0.5 py-1" onKeyDown={(event) => event.stopPropagation()}>
           <div className="space-y-1">
             <Label className="flex items-center gap-1.5 text-[10px]">
               <Globe2 className="size-3" />
               {t('settings.geoBlockedCountries')}
             </Label>
+            <div className="flex h-8 items-center justify-between gap-2 rounded-[18px] bg-accent-gradient-soft px-3 text-xs font-semibold text-foreground">
+              <span className="min-w-0 truncate">{selectedLabel}</span>
+              <span className="flex shrink-0 items-center gap-1 font-mono text-[10px] uppercase text-muted-foreground">
+                {selectedCode || t('common.disabled')}
+                <ChevronDown className="size-3" />
+              </span>
+            </div>
             <div className="grid gap-0.5">
-              {geoCountryOptions.map((option) => (
-                <label
-                  className="flex h-7 cursor-pointer items-center justify-between gap-2 rounded-[14px] px-2 text-xs transition-colors hover:bg-[image:var(--gradient-accent-soft)]"
-                  key={option.code}
-                >
-                  <span className="flex min-w-0 items-center gap-2">
-                    <input
-                      checked={selectedCountries.has(option.code)}
-                      onChange={(event) => onCountryChange(option.code, event.target.checked)}
-                      type="checkbox"
-                    />
-                    <span className="truncate">{t(option.labelKey)}</span>
-                  </span>
-                  <span className="flex shrink-0 items-center gap-1 font-mono text-[9px] font-semibold uppercase text-muted-foreground">
-                    <Ban className="size-2.5" />
-                    {option.code}
-                  </span>
-                </label>
-              ))}
+              {countryOptions.map((option) => {
+                const selected = option.code === selectedCode;
+
+                return (
+                  <button
+                    className={cn(
+                      'flex h-7 items-center justify-between gap-2 rounded-[14px] px-2 text-left text-xs font-semibold transition-colors hover:bg-[image:var(--gradient-accent-soft)]',
+                      selected && 'bg-accent-gradient-soft',
+                    )}
+                    key={option.code || 'disabled'}
+                    onClick={() => selectCountry(option.code)}
+                    type="button"
+                  >
+                    <span className="min-w-0 truncate">{option.label}</span>
+                    <span className="flex shrink-0 items-center gap-1 font-mono text-[10px] uppercase text-muted-foreground">
+                      {option.code || ''}
+                      {selected ? <Check className="size-3" /> : null}
+                    </span>
+                  </button>
+                );
+              })}
             </div>
           </div>
-          <div className="space-y-1">
-            <Label className="flex items-center gap-1.5 text-[10px]">
-              <Timer className="size-3" />
-              {t('settings.geoUpdateInterval')}
-            </Label>
-            <Input
-              className={cn(settingFieldClassName, 'h-9 w-28 font-mono text-xs')}
-              inputMode="numeric"
-              max={720}
-              min={1}
-              onChange={(event) => onIntervalHoursChange(event.target.value === '' ? 0 : Number(event.target.value))}
-              step={1}
-              type="number"
-              value={Number.isFinite(intervalHours) ? String(intervalHours) : ''}
-            />
+          <div className="flex items-end gap-2">
+            <div className="min-w-0 space-y-1">
+              <Label className="flex items-center gap-1.5 text-[10px]">
+                <Timer className="size-3" />
+                {t('settings.geoUpdateInterval')}
+              </Label>
+              <Input
+                className={cn(settingFieldClassName, 'h-9 w-28 font-mono text-xs')}
+                inputMode="numeric"
+                max={720}
+                min={1}
+                onChange={(event) => onIntervalHoursChange(event.target.value === '' ? 0 : Number(event.target.value))}
+                step={1}
+                type="number"
+                value={Number.isFinite(intervalHours) ? String(intervalHours) : ''}
+              />
+            </div>
+            <Button
+              className="h-9 shrink-0 px-3 text-xs"
+              disabled={updating}
+              onClick={onUpdateNow}
+              title={t('settings.updateGeoNow')}
+              type="button"
+              variant="secondary"
+            >
+              <RefreshCw className={cn('size-3.5', updating && 'animate-spin')} />
+              {t('settings.updateGeoNowShort')}
+            </Button>
           </div>
         </div>
       </DropdownMenuContent>
