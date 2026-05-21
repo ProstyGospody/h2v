@@ -18,23 +18,23 @@ export type ApiErrorShape = {
 
 export type AdminIcon =
   | 'alien'
-  | 'artist'
   | 'astronaut'
+  | 'clown'
   | 'crown'
-  | 'detective'
   | 'dino'
-  | 'guard'
-  | 'mechanic'
+  | 'elf'
+  | 'fairy'
+  | 'genie'
+  | 'ghost'
+  | 'mage'
+  | 'monster'
   | 'ninja'
-  | 'pilot'
-  | 'prince'
-  | 'princess'
   | 'robot'
   | 'rocket'
-  | 'scientist'
-  | 'singer'
-  | 'technologist'
-  | 'tuxedo';
+  | 'superhero'
+  | 'supervillain'
+  | 'vampire'
+  | 'zombie';
 
 export type UserStatus = 'active' | 'disabled' | 'expired' | 'limited';
 
