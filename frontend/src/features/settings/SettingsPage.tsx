@@ -854,7 +854,7 @@ const GeoMenu = memo(function GeoMenu({
               {t('settings.geoUpdateInterval')}
             </Label>
             <Input
-              className={cn(settingFieldClassName, 'h-7 w-16 px-2.5 font-mono text-xs')}
+              className={cn(settingFieldClassName, 'h-9 w-28 font-mono text-xs')}
               inputMode="numeric"
               max={720}
               min={1}
