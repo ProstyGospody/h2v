@@ -807,8 +807,9 @@ const GeoMenu = memo(function GeoMenu({
           <ChevronDown className="size-4" />
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-80 p-2">
+      <DropdownMenuContent align="end" className="w-72 p-1.5">
         <DropdownMenuItem
+          className="py-1.5 text-[13px] font-semibold"
           disabled={updating}
           onSelect={(event) => {
             event.preventDefault();
@@ -819,16 +820,16 @@ const GeoMenu = memo(function GeoMenu({
           {t('settings.updateGeoNow')}
         </DropdownMenuItem>
         <DropdownMenuSeparator />
-        <div className="space-y-3 px-1.5 py-2" onKeyDown={(event) => event.stopPropagation()}>
-          <div className="space-y-2">
-            <Label className="flex items-center gap-2 text-xs">
-              <Globe2 className="size-3.5" />
+        <div className="space-y-2 px-1 py-1.5" onKeyDown={(event) => event.stopPropagation()}>
+          <div className="space-y-1.5">
+            <Label className="flex items-center gap-1.5 text-[11px]">
+              <Globe2 className="size-3" />
               {t('settings.geoBlockedCountries')}
             </Label>
-            <div className="grid gap-1.5">
+            <div className="grid gap-1">
               {geoCountryOptions.map((option) => (
                 <label
-                  className="flex h-9 cursor-pointer items-center justify-between gap-3 rounded-[18px] px-2 text-sm transition-colors hover:bg-[image:var(--gradient-accent-soft)]"
+                  className="flex h-8 cursor-pointer items-center justify-between gap-2 rounded-[16px] px-2 text-[13px] transition-colors hover:bg-[image:var(--gradient-accent-soft)]"
                   key={option.code}
                 >
                   <span className="flex min-w-0 items-center gap-2">
@@ -839,21 +840,21 @@ const GeoMenu = memo(function GeoMenu({
                     />
                     <span className="truncate">{t(option.labelKey)}</span>
                   </span>
-                  <span className="flex shrink-0 items-center gap-1 font-mono text-[11px] font-semibold uppercase text-muted-foreground">
-                    <Ban className="size-3" />
+                  <span className="flex shrink-0 items-center gap-1 font-mono text-[10px] font-semibold uppercase text-muted-foreground">
+                    <Ban className="size-2.5" />
                     {option.code}
                   </span>
                 </label>
               ))}
             </div>
           </div>
-          <div className="space-y-2">
-            <Label className="flex items-center gap-2 text-xs">
-              <Timer className="size-3.5" />
+          <div className="space-y-1.5">
+            <Label className="flex items-center gap-1.5 text-[11px]">
+              <Timer className="size-3" />
               {t('settings.geoUpdateInterval')}
             </Label>
             <Input
-              className={cn(settingFieldClassName, 'h-9 w-28 font-mono text-xs')}
+              className={cn(settingFieldClassName, 'h-8 w-20 px-3 font-mono text-xs')}
               inputMode="numeric"
               max={720}
               min={1}
