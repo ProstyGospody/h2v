@@ -42,6 +42,14 @@ func TestNormalizeSettingValueAcceptsVLESSAndXrayStabilitySettings(t *testing.T)
 		t.Fatalf("fingerprint = %q, want safari", got)
 	}
 
+	value, err = normalizeSettingValue("reality.fingerprint", json.RawMessage(`"QQ"`))
+	if err != nil {
+		t.Fatalf("normalize qq fingerprint: %v", err)
+	}
+	if got := value.(string); got != "qq" {
+		t.Fatalf("fingerprint = %q, want qq", got)
+	}
+
 	value, err = normalizeSettingValue("geo.blocked_countries", json.RawMessage(`"RU"`))
 	if err != nil {
 		t.Fatalf("normalize countries: %v", err)

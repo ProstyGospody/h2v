@@ -66,6 +66,7 @@ type SettingKey =
   | 'hy2.port'
   | 'hy2.traffic_secret'
   | 'reality.dest'
+  | 'reality.fingerprint'
   | 'reality.private_key'
   | 'reality.public_key'
   | 'reality.short_ids'
@@ -110,6 +111,7 @@ const fallbackValues: Record<SettingKey, SettingValue> = {
   'hy2.port': 8443,
   'hy2.traffic_secret': '',
   'reality.dest': 'www.google.com:443',
+  'reality.fingerprint': 'chrome',
   'reality.private_key': '',
   'reality.public_key': '',
   'reality.short_ids': [''],
@@ -129,6 +131,7 @@ const settingLabelKeys: Record<SettingKey, TranslationKey> = {
   'hy2.port': 'setting.hy2.port',
   'hy2.traffic_secret': 'setting.hy2.traffic_secret',
   'reality.dest': 'setting.reality.dest',
+  'reality.fingerprint': 'setting.reality.fingerprint',
   'reality.private_key': 'setting.reality.private_key',
   'reality.public_key': 'setting.reality.public_key',
   'reality.short_ids': 'setting.reality.short_ids',
@@ -151,6 +154,18 @@ const masqueradePresets: URLPreset[] = [
 const vlessPortPresets = [443, 8443, 8444, 2053, 2083];
 const hy2PortPresets = [443, 8443, 8444, 2083, 9443];
 const bandwidthPresets = ['100 mbps', '500 mbps', '1 gbps', '10 gbps'];
+const realityFingerprintOptions = [
+  { label: 'Chrome', value: 'chrome' },
+  { label: 'Firefox', value: 'firefox' },
+  { label: 'Safari', value: 'safari' },
+  { label: 'iOS', value: 'ios' },
+  { label: 'Android', value: 'android' },
+  { label: 'Edge', value: 'edge' },
+  { label: '360', value: '360' },
+  { label: 'QQ', value: 'qq' },
+  { label: 'Random browser', value: 'random' },
+  { label: 'Randomized', value: 'randomized' },
+];
 const geoCountryOptions: Array<{ code: string; labelKey: TranslationKey }> = [
   { code: 'ru', labelKey: 'settings.geoCountryRussia' },
   { code: 'cn', labelKey: 'settings.geoCountryChina' },
@@ -346,6 +361,7 @@ export function SettingsPage() {
   const setVlessPort = useCallback((value: number) => setValue('vless.port', value), [setValue]);
   const setRealitySNI = useCallback((value: string) => setValue('reality.sni', value), [setValue]);
   const setRealityDest = useCallback((value: string) => setValue('reality.dest', value), [setValue]);
+  const setRealityFingerprint = useCallback((value: string) => setValue('reality.fingerprint', value), [setValue]);
   const setRealityPrivateKey = useCallback((value: string) => setValue('reality.private_key', value), [setValue]);
   const setRealityPublicKey = useCallback((value: string) => setValue('reality.public_key', value), [setValue]);
   const setRealityShortID = useCallback((value: string) => setValue('reality.short_ids', [value]), [setValue]);
@@ -502,6 +518,12 @@ export function SettingsPage() {
                     onChange={setRealityDest}
                     placeholder="www.google.com:443"
                     value={values.string('reality.dest')}
+                  />
+                  <SelectControl
+                    label={t('settings.realityFingerprint')}
+                    onChange={setRealityFingerprint}
+                    options={realityFingerprintOptions}
+                    value={values.string('reality.fingerprint')}
                   />
                   <SecretControl
                     label={t('settings.privateKey')}

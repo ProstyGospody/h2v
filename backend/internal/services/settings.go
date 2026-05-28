@@ -52,6 +52,8 @@ var (
 		"ios":        {},
 		"android":    {},
 		"edge":       {},
+		"360":        {},
+		"qq":         {},
 		"random":     {},
 		"randomized": {},
 	}
@@ -529,7 +531,7 @@ func normalizeStringSetting(key, value string) (string, error) {
 	case "reality.fingerprint":
 		fingerprint, ok := normalizeRealityFingerprint(value)
 		if !ok {
-			return "", invalidSetting(key, "must be one of chrome, firefox, safari, ios, android, edge, random, randomized")
+			return "", invalidSetting(key, "must be one of chrome, firefox, safari, ios, android, edge, 360, qq, random, randomized")
 		}
 		value = fingerprint
 	}
